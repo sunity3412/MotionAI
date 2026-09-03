@@ -227,22 +227,45 @@ def test_claim_question_elbow_arm_hint_is_symmetric():
 
 
 def test_claim_question_hint_particles_all_kinds():
-    """6종 전부 — 분절 마지막 글자 받침에 따라 조사 가/이 가 맞게 붙는다.
+    """힌트 종류(사지 중간 관절 4종) 전부 — 분절 받침에 따라 조사 가/이 가 맞게 붙는다.
 
     측정본(무릎 '정강이가') 과 같은 규칙이 다른 종류에도 일관 적용되는지 —
-    조사가 틀리면 눈에 주는 문장이 비문이 된다.
+    조사가 틀리면 눈에 주는 문장이 비문이 된다. 힌트는 1문장("참고:" 1회)이고
+    vlu 변형 뒤에 공백 1 로 이어진다 (quick-260903-jxn Task 1 (b)).
     """
     expect = {
-        "무릎": ("leg", "허벅지와 정강이가"), "엉덩이": ("leg", "몸통과 허벅지가"),
-        "발목": ("leg", "정강이와 발이"), "팔꿈치": ("arm", "위팔과 아래팔이"),
-        "어깨": ("arm", "몸통과 위팔이"), "손목": ("arm", "아래팔과 손이"),
+        "무릎": ("leg", "허벅지와 정강이가"), "발목": ("leg", "정강이와 발이"),
+        "팔꿈치": ("arm", "위팔과 아래팔이"), "손목": ("arm", "아래팔과 손이"),
     }
-    assert set(expect) == set(cg._KIND_SEGMENTS)
+    assert set(expect) == set(cg._HINT_KINDS)
+    assert cg._HINT_KINDS <= set(cg._KIND_SEGMENTS)
     for kind, (limb, seg_with_particle) in expect.items():
+        base = cg._claim_question("bent", limb)
         q = cg._claim_question("bent", limb, kind)
+        assert q.startswith(base + " 참고: ")
+        assert q.count("참고:") == 1
         assert f"이 원은 {kind} 관절 표시이며" in q
         assert f"뒤로 {seg_with_particle} 이어지면" in q
         _assert_occlusion_question(q, "다리" if limb == "leg" else "팔")
+
+
+def test_claim_question_torso_kinds_no_hint_byte_identical():
+    """엉덩이·어깨(몸통 관절)는 힌트 0 — jka 이전(vlu) 질문과 byte-동일.
+
+    09-03 측정: pdshape 엉덩이(기대 True) 힌트 없음 3/5 → 힌트 부착 1/5 로
+    악화 (눈이 엉덩이 굽힘을 허벅지 방향으로 오독). 어깨는 5/5 였지만 같은
+    몸통 관절이라 보수적으로 제외 (quick-260903-jxn Task 1 (a)).
+    joint_kind_ko 는 여전히 엉덩이/어깨를 반환 — 호출측 무변경.
+    """
+    for claim in ("bent", "extended"):
+        assert cg._claim_question(claim, "leg", "엉덩이") == cg._claim_question(claim, "leg")
+        assert cg._claim_question(claim, "arm", "어깨") == cg._claim_question(claim, "arm")
+        assert "참고:" not in cg._claim_question(claim, "leg", "엉덩이")
+        assert "참고:" not in cg._claim_question(claim, "arm", "어깨")
+    assert cg._joint_kind_hint("leg", "엉덩이") == ""
+    assert cg._joint_kind_hint("arm", "어깨") == ""
+    assert cg.joint_kind_ko("left_hip") == "엉덩이"
+    assert cg.joint_kind_ko("right_shoulder") == "어깨"
 
 
 def test_claim_question_hint_limb_mismatch_falls_back():
@@ -275,6 +298,105 @@ def test_machine_eye_unknown_claim():
     frame = np.zeros((64, 64, 3), dtype=np.uint8)
     with pytest.raises(ValueError):
         cg.machine_eye(frame, (32.0, 32.0), "nonsense", api_key="unused")
+
+
+# --- 다수결 (quick-260903-jxn Task 1 (c)(d)) — eye_judge 를 대본으로 대체,
+# 네트워크 호출 0. 각 대본 항목: True/False = match, "error" = 호출 실패 판정.
+def _scripted_eye_judge(monkeypatch, script):
+    calls: list[dict] = []
+
+    def fake(crop, claim, *, api_key, expected_limb=None, joint_kind=None,
+             model=cg.DEFAULT_C_MODEL, timeout_s=60.0):
+        i = len(calls)
+        calls.append({"crop": crop, "claim": claim, "api_key": api_key,
+                      "expected_limb": expected_limb, "joint_kind": joint_kind,
+                      "model": model, "timeout_s": timeout_s})
+        v = script[i]
+        if v == "error":
+            return {"observed": "error", "limb": None, "match": False,
+                    "confidence": 0.0, "reason": f"r{i}:URLError"}
+        return {"observed": "bent" if v else "extended", "limb": "leg",
+                "match": bool(v), "confidence": 0.9, "reason": f"r{i}"}
+
+    monkeypatch.setattr(cg, "eye_judge", fake)
+    return calls
+
+
+def test_eye_majority_first_match_no_extra_calls(monkeypatch):
+    """첫 판정 일치 → 추가 호출 0, rounds=1, 형상 = eye_judge + rounds/votes."""
+    calls = _scripted_eye_judge(monkeypatch, [True])
+    res = cg.eye_judge_majority("crop", "bent", api_key="k", expected_limb="leg",
+                                joint_kind="무릎")
+    assert len(calls) == 1
+    assert res["match"] is True and res["rounds"] == 1
+    assert (res["votesTrue"], res["votesFalse"]) == (1, 0)
+    assert res["reason"] == "r0"
+    assert {"observed", "limb", "match", "confidence", "reason"} <= set(res)
+    # kwarg 통과 — 운영 경로와 같은 질문(joint_kind)·사지·모델·타임아웃
+    assert calls[0]["joint_kind"] == "무릎" and calls[0]["expected_limb"] == "leg"
+    assert calls[0]["api_key"] == "k" and calls[0]["model"] == cg.DEFAULT_C_MODEL
+
+
+def test_eye_majority_false_then_true_true_flips_to_true(monkeypatch):
+    """[False, True, True] → 3회 다수결 True — 반환은 True 쪽 첫 결과(r1)."""
+    calls = _scripted_eye_judge(monkeypatch, [False, True, True])
+    res = cg.eye_judge_majority("crop", "bent", api_key="k", expected_limb="leg")
+    assert len(calls) == 3
+    assert res["match"] is True and res["rounds"] == 3
+    assert (res["votesTrue"], res["votesFalse"]) == (2, 1)
+    assert res["reason"] == "r1" and res["observed"] == "bent"
+    # 같은 크롭·claim 을 세 번 모두 묻는다
+    assert all(c["crop"] == "crop" and c["claim"] == "bent" for c in calls)
+
+
+def test_eye_majority_false_false_true_stays_false(monkeypatch):
+    """[False, False, True] → False 유지 — 반환은 False 쪽 첫 결과(r0)."""
+    calls = _scripted_eye_judge(monkeypatch, [False, False, True])
+    res = cg.eye_judge_majority("crop", "bent", api_key="k", expected_limb="leg")
+    assert len(calls) == 3
+    assert res["match"] is False and res["rounds"] == 3
+    assert (res["votesTrue"], res["votesFalse"]) == (1, 2)
+    assert res["reason"] == "r0"
+
+
+def test_eye_majority_error_counts_as_false_vote(monkeypatch):
+    """[False, error, True] → error 는 False 표 (fail-closed) → False."""
+    calls = _scripted_eye_judge(monkeypatch, [False, "error", True])
+    res = cg.eye_judge_majority("crop", "bent", api_key="k", expected_limb="leg")
+    assert len(calls) == 3
+    assert res["match"] is False and res["rounds"] == 3
+    assert (res["votesTrue"], res["votesFalse"]) == (1, 2)
+    assert res["reason"] == "r0"
+
+
+def test_eye_majority_even_max_rounds_rejected(monkeypatch):
+    """max_rounds 는 홀수만 — 짝수(동률 가능)·0 은 ValueError, 호출 0."""
+    calls = _scripted_eye_judge(monkeypatch, [True, True, True, True])
+    for n in (0, 2, 4):
+        with pytest.raises(ValueError):
+            cg.eye_judge_majority("crop", "bent", api_key="k", max_rounds=n)
+    assert calls == []
+    # 홀수 5 는 허용 — 첫 판정 일치면 여전히 1회
+    res = cg.eye_judge_majority("crop", "bent", api_key="k", max_rounds=5)
+    assert res["rounds"] == 1 and len(calls) == 1
+
+
+def test_machine_eye_majority_kwarg(monkeypatch):
+    """machine_eye(majority=False) 기본 = 종전 단발(추가 키 0); True 면 다수결 + rounds."""
+    frame = np.zeros((64, 64, 3), dtype=np.uint8)
+    calls = _scripted_eye_judge(monkeypatch, [False, False, True, True])
+    single = cg.machine_eye(frame, (32.0, 32.0), "bent", api_key="k",
+                            expected_limb="leg", joint_kind="무릎")
+    assert len(calls) == 1 and single["match"] is False
+    assert "rounds" not in single and "votesTrue" not in single
+    assert "crop" in single
+    maj = cg.machine_eye(frame, (32.0, 32.0), "bent", api_key="k",
+                         expected_limb="leg", joint_kind="무릎", majority=True)
+    assert len(calls) == 4
+    assert maj["match"] is True and maj["rounds"] == 3
+    assert (maj["votesTrue"], maj["votesFalse"]) == (2, 1)
+    assert "crop" in maj
+    assert calls[-1]["joint_kind"] == "무릎"
 
 
 def test_claim_and_limb_helpers():

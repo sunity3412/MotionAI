@@ -477,6 +477,15 @@ _KIND_SEGMENTS = {
     "팔꿈치": "위팔과 아래팔", "어깨": "몸통과 위팔", "손목": "아래팔과 손",
 }
 
+# 힌트를 붙이는 관절 종류 = 사지 중간 관절만 (quick-260903-jxn). 09-03 측정
+# (jka 운영 질문, temperature 0, 5회): 무릎·팔꿈치는 힌트로 5/5 안정이지만
+# 엉덩이(pdshape 09-02 확정 카드, 기대 True)는 힌트 없이 3/5 → 힌트 부착 1/5 로
+# 더 나빠진다 — 눈이 "엉덩이 굽힘"을 허벅지 방향(아래로 뻗음=extended)으로
+# 오독. 어깨는 5/5 였으나 같은 몸통 관절이라 보수적으로 제외 (측정 전 상태 =
+# jka 이전 질문 그대로). joint_kind_ko 는 여전히 엉덩이/어깨를 반환한다 —
+# 호출측 무변경, 게이트는 이 집합 한 곳.
+_HINT_KINDS = frozenset({"무릎", "팔꿈치", "발목", "손목"})
+
 
 def _ga_i(word: str) -> str:
     """주격 조사 가/이 — 마지막 글자 받침 유무 (한글 음절 외는 '가')."""
@@ -492,8 +501,12 @@ def _joint_kind_hint(expected_limb: str, joint_kind: str | None) -> str:
     미등록 종류(None 포함)와 expected_limb 와 사지가 어긋나는 종류(예: leg 에
     '팔꿈치')는 빈 문자열 — 질문은 vlu 오클루전 변형 그대로. 무릎/leg 문장은
     09-03 측정본(5/5)과 문자 동일해야 한다 — 문형·조사 변경 금지.
+
+    _HINT_KINDS 밖(엉덩이·어깨)도 빈 문자열 (quick-260903-jxn) — 엉덩이는
+    힌트가 3/5 → 1/5 로 판정을 해쳤다. 그 경우 질문은 jka 이전(vlu) 질문과
+    byte-동일.
     """
-    if joint_kind not in _KIND_SEGMENTS or _KIND_LIMB.get(joint_kind) != expected_limb:
+    if joint_kind not in _HINT_KINDS or _KIND_LIMB.get(joint_kind) != expected_limb:
         return ""
     seg = _KIND_SEGMENTS[joint_kind]
     other, mine = ("팔", "다리") if expected_limb == "leg" else ("다리", "팔")
@@ -649,11 +662,53 @@ def eye_judge(crop, claim: str, *, api_key: str,
                 "confidence": 0.0, "reason": f"{type(e).__name__}: {e}"}
 
 
+def eye_judge_majority(crop, claim: str, *, api_key: str,
+                       expected_limb: str | None = None,
+                       joint_kind: str | None = None,
+                       model: str = DEFAULT_C_MODEL, timeout_s: float = 60.0,
+                       max_rounds: int = 3) -> dict:
+    """불일치일 때만 재질문하는 다수결 판정 (quick-260903-jxn).
+
+    1회 eye_judge → match=True 면 그대로 반환 (추가 호출 0 — 비용·시간 무변화).
+    False 면 같은 크롭에 (max_rounds-1)회 더 물어 match 다수결(True 표 > 절반)
+    로 확정한다. 09-03 측정(jka 운영 질문 5회): 클라임 오클루전 무릎 4/5,
+    엉덩이 3/5 처럼 남은 비결정을 줄이는 용도 — p=0.8 → 0.93, p=0.6 → 0.74,
+    kneepath 마크-전위(p=0) → 0 (위양성 증가 없음).
+
+    반환 = 다수 쪽 판정 중 **첫 번째** 결과 dict(observed/limb/match/
+    confidence/reason — eye_judge 와 동일 형상) + rounds(총 호출 수) +
+    votesTrue/votesFalse. observed="error"(호출 실패)는 match=False 이므로
+    False 표 — fail-closed 유지. max_rounds 는 홀수만 (동률 방지) — 짝수면
+    ValueError. _eye_verdict·질문·스키마 무접촉: 판정 1회의 의미는 eye_judge
+    그대로이고 이 함수는 표만 센다.
+    """
+    if max_rounds < 1 or max_rounds % 2 == 0:
+        raise ValueError(f"max_rounds must be a positive odd int, got {max_rounds}")
+    results = [eye_judge(crop, claim, api_key=api_key, expected_limb=expected_limb,
+                         joint_kind=joint_kind, model=model, timeout_s=timeout_s)]
+    if bool(results[0].get("match")):
+        out = dict(results[0])
+        out.update({"rounds": 1, "votesTrue": 1, "votesFalse": 0})
+        return out
+    for _ in range(max_rounds - 1):
+        results.append(eye_judge(crop, claim, api_key=api_key,
+                                 expected_limb=expected_limb, joint_kind=joint_kind,
+                                 model=model, timeout_s=timeout_s))
+    votes_true = sum(1 for r in results if bool(r.get("match")))
+    votes_false = len(results) - votes_true
+    winner = votes_true > len(results) / 2
+    first = next(r for r in results if bool(r.get("match")) == winner)
+    out = dict(first)
+    out.update({"rounds": len(results), "votesTrue": votes_true,
+                "votesFalse": votes_false})
+    return out
+
+
 def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
                 claim: str, *, api_key: str, expected_limb: str | None = None,
                 joint_kind: str | None = None,
                 crop_px: int = 360, model: str = DEFAULT_C_MODEL,
-                timeout_s: float = 60.0) -> dict:
+                timeout_s: float = 60.0, majority: bool = False) -> dict:
     """A3 기계 눈 — 마킹 크롭을 Gemini 가 판정, 감점 주장과 일치 여부 반환.
 
     claim ∈ {bent, extended, off_pole}. expected_limb ∈ {arm, leg, None} —
@@ -664,11 +719,15 @@ def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
     None 이면 종전 질문. 반환 {observed, limb, match, confidence, reason,
     crop(PIL)} — 공개 시그니처(kwarg 추가만)·반환 형상·원장 필드는 추출 전과
     동일. 실패 의미론은 eye_judge 와 동일 (fail-closed).
+    majority (quick-260903-jxn): True 면 eye_judge_majority(불일치 시만 최대
+    3회 다수결) — 반환에 rounds/votesTrue/votesFalse 가 추가된다. 기본 False
+    = 종전 단발 판정 그대로 (하위호환·하네스), 추가 키 없음.
     """
     if claim not in _CLAIM_QUESTION:
         raise ValueError(f"unknown claim: {claim}")
     crop, _ = mark_crop(frame_rgb, joint_xy_px, crop_px=crop_px)
-    out = eye_judge(crop, claim, api_key=api_key, expected_limb=expected_limb,
-                    joint_kind=joint_kind, model=model, timeout_s=timeout_s)
+    judge = eye_judge_majority if majority else eye_judge
+    out = judge(crop, claim, api_key=api_key, expected_limb=expected_limb,
+                joint_kind=joint_kind, model=model, timeout_s=timeout_s)
     out["crop"] = crop
     return out

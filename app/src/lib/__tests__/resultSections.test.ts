@@ -16,6 +16,8 @@
 //   4) mode3 — missionOutcome → growth outcome, escalation coach_card → coachCard 승격
 //   5) buildRecordMaps — recordId 조인 맵 + 'idx:N' 폴백 + 질문 조인, 충돌 0
 //   6) pickExpandAnchorY — F-7 펼침/접기 앵커 선택 (33-G, quick-260731-cum)
+//   7) selectEstimatedZoomEntries — IN-01 저신뢰 경로 예상 부위 사진 카드 선택
+//      (quick-260903-ftg: primary 맨 앞 / 숨김 제외 / 같은 키 dedupe / 빈 입력)
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,6 +26,7 @@ import {
   deriveResultSections,
   buildRecordMaps,
   pickExpandAnchorY,
+  selectEstimatedZoomEntries,
   RESULT_SECTION_ORDER,
   type ResultSectionsInput,
 } from '../resultSections.ts';
@@ -243,4 +246,103 @@ test('Test 6 (F-7 앵커): 첫 키 우선 / 두 번째 폴백 / 전무 → null 
   // 6-4. pad 가 y 보다 크면 0 으로 클램프 (음수 스크롤 금지).
   const top = new Map<string, number>([['anchor:summaryCard', 4]]);
   assert.equal(pickExpandAnchorY(top, KEYS, 12), 0);
+});
+
+// ── Test 7: IN-01 예상 부위 사진 카드 선택 (quick-260903-ftg) ──────────────────
+// 09-03 실측: belle pdshape 60점 doc(unreliable=true)은 확정 카드 2장인데 종전
+// 링크 1개는 |points| 최대 record 1건의 시트만 열어 두 번째가 도달 불가였다.
+// 이 함수가 "확정 카드 전부, primary 먼저, 숨김·미매칭·중복 제외" 를 고정한다.
+// 제네릭이라 record 내용(관절명·수치)에는 접근하지 않는다 — IN-01 락 유지.
+type ZoomRec = { recordId: string; joint: string };
+type ZoomCard = { key: string; imageUrl: string };
+const ZOOM_RECS: ZoomRec[] = [
+  { recordId: 'r0', joint: 'left_hip' },
+  { recordId: 'r1', joint: 'left_elbow' },
+  { recordId: 'r2', joint: 'left_knee' },
+];
+const zoomPerJoint = (r: ZoomRec): ZoomCard | null => ({
+  key: `conf:${r.joint}`,
+  imageUrl: `https://x/${r.joint}.png`,
+});
+const keyOf = (z: ZoomCard) => z.key;
+const nobodyHidden = () => false;
+
+test('Test 7-1 (primary 맨 앞): primaryIndex 가 records 순서와 무관하게 첫 엔트리, 나머지는 원 순서', () => {
+  const out = selectEstimatedZoomEntries(ZOOM_RECS, zoomPerJoint, keyOf, nobodyHidden, 1);
+  assert.deepEqual(
+    out.map((e) => e.recordIndex),
+    [1, 0, 2],
+  );
+  assert.equal(out[0].zoom.key, 'conf:left_elbow');
+  assert.equal(out[0].zoom.imageUrl, 'https://x/left_elbow.png');
+  // primary 없음(null) → 원 배열 순서 그대로, 전부 포함.
+  const noPrimary = selectEstimatedZoomEntries(ZOOM_RECS, zoomPerJoint, keyOf, nobodyHidden, null);
+  assert.deepEqual(
+    noPrimary.map((e) => e.recordIndex),
+    [0, 1, 2],
+  );
+  // 범위 밖 primary(폴백 경로 등) 는 무시 — 원 순서.
+  const outOfRange = selectEstimatedZoomEntries(ZOOM_RECS, zoomPerJoint, keyOf, nobodyHidden, 9);
+  assert.deepEqual(
+    outOfRange.map((e) => e.recordIndex),
+    [0, 1, 2],
+  );
+});
+
+test('Test 7-2 (숨김 제외): 스팟체크 숨김 record 는 사진이 있어도 카드에서 빠진다 — primary 여도', () => {
+  const hideR0 = (r: ZoomRec) => r.recordId === 'r0';
+  const out = selectEstimatedZoomEntries(ZOOM_RECS, zoomPerJoint, keyOf, hideR0, null);
+  assert.deepEqual(
+    out.map((e) => e.recordIndex),
+    [1, 2],
+  );
+  // primary 가 숨김이면 그것도 빠지고 다음 record 가 첫 엔트리.
+  const primaryHidden = selectEstimatedZoomEntries(ZOOM_RECS, zoomPerJoint, keyOf, hideR0, 0);
+  assert.deepEqual(
+    primaryHidden.map((e) => e.recordIndex),
+    [1, 2],
+  );
+});
+
+test('Test 7-3 (같은 키 dedupe): 좌+우 묶음 카드가 두 record 에 매칭돼도 첫 등장만', () => {
+  // r0(left_hip)·r1(right_hip) 이 같은 묶음 카드(conf:hip_pair)로 매칭, r2 는 별개.
+  const pairRecs: ZoomRec[] = [
+    { recordId: 'r0', joint: 'left_hip' },
+    { recordId: 'r1', joint: 'right_hip' },
+    { recordId: 'r2', joint: 'left_elbow' },
+  ];
+  const pairZoom = (r: ZoomRec): ZoomCard | null =>
+    r.joint.endsWith('_hip')
+      ? { key: 'conf:hip_pair', imageUrl: 'https://x/hip_pair.png' }
+      : { key: `conf:${r.joint}`, imageUrl: `https://x/${r.joint}.png` };
+  const out = selectEstimatedZoomEntries(pairRecs, pairZoom, keyOf, nobodyHidden, null);
+  assert.deepEqual(
+    out.map((e) => e.recordIndex),
+    [0, 2],
+  );
+  assert.deepEqual(
+    out.map((e) => e.zoom.key),
+    ['conf:hip_pair', 'conf:left_elbow'],
+  );
+  // primary 가 r1 이면 묶음 카드는 r1 에 붙고 r0 은 dedupe — 카드 수는 그대로 2.
+  const primaryR1 = selectEstimatedZoomEntries(pairRecs, pairZoom, keyOf, nobodyHidden, 1);
+  assert.deepEqual(
+    primaryR1.map((e) => e.recordIndex),
+    [1, 2],
+  );
+});
+
+test('Test 7-4 (빈 입력): 매칭 0 = 빈 배열, records null/undefined/빈 배열 = 빈 배열(matchZoom 미호출)', () => {
+  const noMatch = selectEstimatedZoomEntries(ZOOM_RECS, () => null, keyOf, nobodyHidden, 0);
+  assert.deepEqual(noMatch, []);
+
+  let calls = 0;
+  const counting = (r: ZoomRec): ZoomCard | null => {
+    calls += 1;
+    return zoomPerJoint(r);
+  };
+  assert.deepEqual(selectEstimatedZoomEntries(null, counting, keyOf, nobodyHidden, 0), []);
+  assert.deepEqual(selectEstimatedZoomEntries(undefined, counting, keyOf, nobodyHidden, 0), []);
+  assert.deepEqual(selectEstimatedZoomEntries([], counting, keyOf, nobodyHidden, 0), []);
+  assert.equal(calls, 0);
 });

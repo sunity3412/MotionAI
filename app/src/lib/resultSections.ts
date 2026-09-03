@@ -272,3 +272,68 @@ export function recordKeyForIndex(
       : null;
   return rid ?? `idx:${index}`;
 }
+
+// ── IN-01 저신뢰 경로 예상 부위 사진 카드 선택 (quick-260903-ftg) ────────────────
+
+export interface EstimatedZoomEntry<Z> {
+  recordIndex: number; // 원 배열 index — 탭 시 setDetailRecordIndex 조인(종전 링크와 동일)
+  zoom: Z; // 매칭된 확정 확대비교 카드 (result.tsx 가 resolveZoomImageUrl 로 URL 조회)
+}
+
+/**
+ * 역립 저신뢰(IN-01, quick-260724-q6b) 경로에서 확정 확대비교 카드 **전부**를
+ * "예상 부위 (참고)" 카드로 내는 선택 규칙의 단일 지점.
+ *
+ * 왜: 그 경로는 topFix 카드·'다른 감점 항목' 목록이 억제돼 확대비교 진입점이
+ * "예상 부위 확대 비교 보기" 링크 1개(|points| 최대 record 1건의 시트)뿐이었다 —
+ * 확정 카드가 2장(왼팔꿈치·왼엉덩이)이어도 두 번째는 도달 불가 (09-03 시뮬 실측,
+ * belle 09-02 "왜 확대비교 사진이 하나밖에 없어"). belle 07-24 결정("예상 부위라도
+ * 보여줘야")의 연장: 같은 hedge 라벨로 사진을 링크 뒤가 아니라 인라인에, 그리고
+ * 전부. 관절명·statusLine·수치는 여기서 내지 않는다 — 제네릭이라 record 내용에
+ * 접근할 수 없고 순서·포함 여부만 결정한다 (IN-01 per-joint 단정 강등 락 유지).
+ *
+ * 규칙:
+ * - records 순서로 훑되 `primaryIndex`(estimatedAreaRecordIndex — |points| 최대,
+ *   오버레이 주황 점과 같은 record)가 유효하면 **맨 앞**.
+ * - 숨김 record(스팟체크 `isHidden`) 제외 — 카드 표면 규칙(D-23)과 동일.
+ * - 매칭 zoom 없음 제외 (빈 시트 열지 않음 — 종전 링크와 동일).
+ * - 같은 카드(`zoomKey` 동일 — 좌+우 region 묶음 카드가 두 record 에 매칭되는
+ *   경우)는 첫 등장만.
+ * - records null/undefined/빈 배열 = 빈 배열 (matchZoom 미호출).
+ */
+export function selectEstimatedZoomEntries<R, Z>(
+  records: readonly R[] | null | undefined,
+  matchZoom: (record: R, index: number) => Z | null,
+  zoomKey: (zoom: Z) => string,
+  isHidden: (record: R) => boolean,
+  primaryIndex: number | null,
+): EstimatedZoomEntry<Z>[] {
+  const recs = Array.isArray(records) ? records : [];
+  if (recs.length === 0) return [];
+
+  // 순회 순서 — 유효한 primary 먼저, 나머지는 원 배열 순서.
+  const hasPrimary =
+    primaryIndex != null &&
+    Number.isInteger(primaryIndex) &&
+    primaryIndex >= 0 &&
+    primaryIndex < recs.length;
+  const order: number[] = hasPrimary ? [primaryIndex as number] : [];
+  for (let i = 0; i < recs.length; i += 1) {
+    if (hasPrimary && i === primaryIndex) continue;
+    order.push(i);
+  }
+
+  const seen = new Set<string>();
+  const out: EstimatedZoomEntry<Z>[] = [];
+  for (const i of order) {
+    const rec = recs[i];
+    if (isHidden(rec)) continue;
+    const zoom = matchZoom(rec, i);
+    if (zoom == null) continue;
+    const key = zoomKey(zoom);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ recordIndex: i, zoom });
+  }
+  return out;
+}

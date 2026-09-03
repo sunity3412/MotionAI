@@ -1,0 +1,468 @@
+{
+  "ts": "2026-09-03T05:30:03.189495+00:00",
+  "model": "gemini-3.7-flash",
+  "n": 5,
+  "majority": true,
+  "fixtures": {
+    "climb_occl_0902": {
+      "claim": "bent",
+      "joint": "right_knee",
+      "expect": true,
+      "true": 5,
+      "false": 0,
+      "calls": 5,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the knee joint of the leg, which is bent in a tucked position on the pole behind the crossing arm.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the knee joint of the leg, which is held in a deeply bent position against the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle is positioned over the knee joint area of the tucked leg (partially crossed by the forearm), where the leg is clearly in a bent position.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the knee area behind the forearm, and the leg is clearly bent with the thigh and calf forming an acute angle.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "원 위치 바로 뒤에 위치한 다리는 무릎이 깊게 굽혀진(접힌) 상태입니다.",
+          "rounds": 1
+        }
+      ]
+    },
+    "climb_occl_0901": {
+      "claim": "bent",
+      "joint": "right_knee",
+      "expect": true,
+      "true": 5,
+      "false": 0,
+      "calls": 5,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The circle is located over the knee of the leg behind the arm, and the leg is clearly bent in a tucked pole position.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the knee joint of the bent leg behind the crossed forearm.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle indicates the knee joint behind the crossed forearm. The leg is clearly bent in a tucked pole-sit position with the shin angled downwards from the knee.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "주황색 원은 가로지르는 팔 뒤에 위치한 무릎 관절 부위를 가리키고 있으며, 다리가 완전히 접혀 있는 상태입니다.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "주황색 원은 팔 뒤편에 위치한 무릎 관절 부위를 가리키고 있으며, 해당 다리는 무릎이 굽혀져 접혀 있는(bent) 상태입니다.",
+          "rounds": 1
+        }
+      ]
+    },
+    "kneepath_user_markdisp": {
+      "claim": "bent",
+      "joint": "left_knee",
+      "expect": false,
+      "true": 0,
+      "false": 5,
+      "calls": 15,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": false,
+          "confidence": 0.95,
+          "reason": "The orange circle is placed on the upper arm/shoulder area of the arm gripping the pole, with no leg present at this location. The arm holding the pole is visibly bent at the elbow.",
+          "rounds": 3
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": false,
+          "confidence": 0.9,
+          "reason": "The marked circle is located on the person's upper arm, with no leg present at or behind this location. The arm is bent at the elbow to hold onto the pole.",
+          "rounds": 3
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": false,
+          "confidence": 0.95,
+          "reason": "The marked circle is located on the arm holding the pole, which is bent. There is no leg present at or behind this location.",
+          "rounds": 3
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": false,
+          "confidence": 0.85,
+          "reason": "The orange circle is located on the shoulder/upper arm region rather than a leg. The arm extending from this point upwards to grip the pole is bent at the elbow.",
+          "rounds": 3
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": false,
+          "confidence": 0.9,
+          "reason": "The marked circle is located on the upper arm/shoulder area rather than a leg. The arm extends upwards to grip the pole with a bend at the elbow.",
+          "rounds": 3
+        }
+      ]
+    },
+    "fresh_r00_left_elbow": {
+      "claim": "bent",
+      "joint": "left_elbow",
+      "expect": true,
+      "true": 5,
+      "false": 0,
+      "calls": 5,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the elbow of the arm which is bent sharply as the hand/arm reaches across behind the head to grip near the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the elbow of the arm, which is sharply bent with the forearm extending across behind the head.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle is positioned on the elbow joint of the person's arm, which is clearly bent at an angle.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the elbow of the arm, which is clearly bent at an acute/right angle as the person grips the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle is positioned on the elbow of an arm that is clearly bent at an acute angle.",
+          "rounds": 1
+        }
+      ]
+    },
+    "fresh_r02_right_shoulder": {
+      "claim": "bent",
+      "joint": "right_shoulder",
+      "expect": true,
+      "true": 5,
+      "false": 0,
+      "calls": 5,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.92,
+          "reason": "The orange circle is positioned near the shoulder/arm region of the person inverted on the pole. The arm is flexed at the elbow as the hand grips the pole near head level.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.9,
+          "reason": "The orange circle is located on the person's upper arm/shoulder. The arm extends downwards alongside the head and bends at the elbow so the hand can grip the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.9,
+          "reason": "The orange circle is on the upper arm of the person hanging upside down. The arm extends downwards from the shoulder and bends at the elbow, with the forearm reaching horizontally to grip the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.9,
+          "reason": "The orange circle is positioned near the shoulder/upper arm of the person's arm, which bends at the elbow to reach and grasp the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.9,
+          "reason": "The orange circle marks the shoulder/upper arm region of the arm extending down to grip the pole. The arm is bent at the elbow to allow the hand to grasp the pole near the head.",
+          "rounds": 1
+        }
+      ]
+    },
+    "elbow_r03_right_knee_ext": {
+      "claim": "extended",
+      "joint": "right_knee",
+      "expect": true,
+      "true": 5,
+      "false": 0,
+      "calls": 5,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "extended",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle is placed on the knee of the downward-extending leg, which is fully straightened/extended.",
+          "rounds": 1
+        },
+        {
+          "observed": "extended",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The marked joint is the knee of the leg extending downwards along the pole, which is fully straightened.",
+          "rounds": 1
+        },
+        {
+          "observed": "extended",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the knee of the leg extending downwards, which is held straight/extended in this pole dance pose.",
+          "rounds": 1
+        },
+        {
+          "observed": "extended",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the knee of the leg extending downwards, which is fully extended in a straight line.",
+          "rounds": 1
+        },
+        {
+          "observed": "extended",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the knee of the leg extended straight downwards alongside the pole.",
+          "rounds": 1
+        }
+      ]
+    },
+    "pdshape_0902_left_elbow": {
+      "claim": "bent",
+      "joint": "left_elbow",
+      "expect": true,
+      "true": 5,
+      "false": 0,
+      "calls": 5,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the elbow of the arm which is bent at an acute angle to hold the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the elbow of the dancer's arm, which is acutely bent as the hand grips the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle clearly marks the elbow of the arm, which is bent sharply as the hand grasps the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle marks the elbow of the bent arm holding onto the pole horizontally.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "arm",
+          "match": true,
+          "confidence": 0.95,
+          "reason": "The orange circle is placed on the elbow of the arm, which is clearly bent.",
+          "rounds": 1
+        }
+      ]
+    },
+    "pdshape_0902_left_hip": {
+      "claim": "bent",
+      "joint": "left_hip",
+      "expect": null,
+      "true": 3,
+      "false": 2,
+      "calls": 9,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.85,
+          "reason": "The orange circle marks the hip/upper leg region of the left leg, which is flexed/bent upwards towards the torso.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.85,
+          "reason": "The circle is placed on the hip/upper thigh area of the leg, which is flexed/bent towards the torso while gripping the pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "bent",
+          "limb": "leg",
+          "match": true,
+          "confidence": 0.85,
+          "reason": "The orange circle marks the hip/upper thigh area of the leg, which is bent upwards along the body/pole.",
+          "rounds": 1
+        },
+        {
+          "observed": "extended",
+          "limb": "leg",
+          "match": false,
+          "confidence": 0.85,
+          "reason": "The circle is placed at the upper thigh/hip area of the leg extending downwards along the pole, which appears straight (extended).",
+          "rounds": 3
+        },
+        {
+          "observed": "extended",
+          "limb": "leg",
+          "match": false,
+          "confidence": 0.95,
+          "reason": "The circle is positioned on the hip/upper thigh of the leg, which extends straight downward in a fully extended position.",
+          "rounds": 3
+        }
+      ]
+    },
+    "fresh_r03_left_hip_transition": {
+      "claim": "bent",
+      "joint": "left_hip",
+      "expect": null,
+      "true": 0,
+      "false": 5,
+      "calls": 15,
+      "pass": true,
+      "rounds": [
+        {
+          "observed": "unclear",
+          "limb": "other",
+          "match": false,
+          "confidence": 0.9,
+          "reason": "The orange circle is positioned on the subject's torso/chest area (covered by the white top) rather than on a limb (arm or leg).",
+          "rounds": 3
+        },
+        {
+          "observed": "unclear",
+          "limb": "other",
+          "match": false,
+          "confidence": 0.9,
+          "reason": "The orange circle is placed on the torso (chest area covered by the white top) rather than on a leg or arm.",
+          "rounds": 3
+        },
+        {
+          "observed": "unclear",
+          "limb": "other",
+          "match": false,
+          "confidence": 0.9,
+          "reason": "The orange circle is located on the person's torso (white top/chest area) rather than a leg or arm, so the target limb cannot be evaluated.",
+          "rounds": 3
+        },
+        {
+          "observed": "unclear",
+          "limb": "other",
+          "match": false,
+          "confidence": 0.95,
+          "reason": "The orange circle is placed on the torso (white top area), not on a leg or arm.",
+          "rounds": 3
+        },
+        {
+          "observed": "unclear",
+          "limb": "other",
+          "match": false,
+          "confidence": 0.95,
+          "reason": "The orange circle is located on the torso/chest area (wearing a white top), which is not a limb.",
+          "rounds": 3
+        }
+      ]
+    }
+  },
+  "all_pass": true
+}

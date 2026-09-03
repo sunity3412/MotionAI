@@ -15,6 +15,11 @@
 // 지금은 doc 모양 그대로 `zoom {imageUrl}` 1장을 받고, 접힘 행에는 사진 유무를
 // 표시한다 (표 3 행 1 — "5개 틀렸는데 사진 1장" 의 출구).
 //
+// quick-260903-ftg — 합성 PNG 렌더(프레임·태그·로딩·실패·재발급·pending)는
+// ZoomCompositeImage 로 이동. IN-01 저신뢰 경로의 "예상 부위 (참고)" 카드(result.tsx)
+// 와 같은 컴포넌트를 소비한다 (렌더 규칙 사본 0). 이 카드는 zoom/zoomPending 을
+// 그 컴포넌트에 넘기기만 한다.
+//
 // props 는 로컬 타입(계약 DeductionRecord 직접 의존 금지) — result.tsx 배선(32-11)이
 // doc 필드를 이 모양으로 매핑한다. 이 플랜은 컴포넌트만(interface-first). 카드 상호작용
 // (물어보기·점프)은 안정 recordId 로 조인한다(배열 index 금지 — 리뷰 반영).
@@ -26,20 +31,14 @@
 // 토큰만 사용 (CLAUDE.md §4). 이모지 0. 라이트 전용. E2 강조 토큰(32-07) 소비.
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { computeGaugeGeometry } from '../lib/gaugeGeometry';
 import { colors, layout, radius, spacing, typography } from '../theme';
 import { GoalGaugeBar, formatGoalBadge } from './GoalGaugeBar';
 import { MissionBadge } from './MissionBadge';
+import { ZoomCompositeImage } from './ZoomCompositeImage';
 
 // 카드가 소비하는 record 로컬 모양 (계약의 부분집합 매핑 — 32-11 배선이 채운다).
 export interface DeductionCardRecord {
@@ -92,16 +91,8 @@ interface DeductionCardProps {
 const ASK_COACH_LABEL = '강사님께 물어보기';
 // cueLine 부재(fail-closed) 시 행동문 대체 — 일반론 조언 대신 강사 확인 유도.
 const FAIL_CLOSED_NOTE = '이 부분은 강사님과 함께 확인하면 더 정확해요';
-const IMG_FAILED_CAPTION = '이미지를 불러오지 못했어요';
-const ZOOM_PENDING_CAPTION = '확대 비교 이미지를 준비하고 있어요';
 const HAS_ZOOM_PILL_LABEL = '확대 사진';
 const GAUGE_FALLBACK_NOTE = '정확한 수치는 아래 자세한 내역에서 볼 수 있어요';
-
-// 합성 PNG 종횡비 — 백엔드 fault_zoom._compose lockstep: `_OUT=360` 정사각 crop 2장
-// + `gap=6` 흰 구분선 → 캔버스 (726, 360). 카드는 이 정확 비율로 컨테이너를 잡아
-// contain 레터박스 0 (시트는 imgW/2 근사를 쓴다 — 정확값은 여기서만). 백엔드
-// 상수가 바뀌면 같이 바꾼다.
-const ZOOM_COMPOSITE_ASPECT = (360 * 2 + 6) / 360;
 
 export function DeductionCard({
   record,
@@ -115,18 +106,6 @@ export function DeductionCard({
   onToggle,
   onAskCoach,
 }: DeductionCardProps) {
-  // 줌 이미지 상태 — 합성 1장 로딩/실패 추적 (만료 presigned URL 방어). 훅은 조기
-  // 반환 전 항상 호출(Rules of Hooks).
-  const [zoomImgLoading, setZoomImgLoading] = useState(true);
-  const [zoomImgFailed, setZoomImgFailed] = useState(false);
-  // 재발급으로 imageUrl 이 바뀌면(onZoomImageError → fresh 맵 갱신) 실패 캡션이
-  // 남지 않게 리셋 — 새 URL 로 다시 시도한다.
-  const zoomImageUrl = zoom?.imageUrl;
-  useEffect(() => {
-    setZoomImgLoading(true);
-    setZoomImgFailed(false);
-  }, [zoomImageUrl]);
-
   // 헤드라인 — statusLine 우선, 부재(legacy doc) 시 라벨 폴백. 어느 경로든 수치 삽입
   // 0 (수치는 게이지 배지/폴백 배지 1곳만 — D-09). label=criterionLabelKo 라 수치 없음.
   const hasStatus =
@@ -189,50 +168,17 @@ export function DeductionCard({
       {/* 3) 인라인 확대비교 — 합성 PNG 1장 [내 영상 | 비교 대상] (D-20 카드 완결).
           zoom 있으면 이미지(정확 종횡비, 레터박스 0), 없고 pending 이면 같은 모양의
           placeholder 1개(onSnapshot 으로 done 도착 시 이미지로 교체), 둘 다 아니면
-          생략. 로딩 skeleton + onError 폴백 캡션 + 재발급 트리거(시트와 동일). */}
+          생략. 로딩 skeleton + onError 폴백 캡션 + 재발급 트리거는 ZoomCompositeImage
+          소유 (quick-260903-ftg — IN-01 카드와 공유). */}
       {zoom ? (
-        <View style={styles.zoomFrame}>
-          {zoomImgFailed ? (
-            <View style={styles.zoomFallback}>
-              <Text style={styles.zoomFallbackText}>{IMG_FAILED_CAPTION}</Text>
-            </View>
-          ) : (
-            <>
-              <Image
-                source={{ uri: zoom.imageUrl }}
-                style={styles.zoomImage}
-                resizeMode="contain"
-                onLoadEnd={() => setZoomImgLoading(false)}
-                onError={() => {
-                  setZoomImgFailed(true);
-                  setZoomImgLoading(false);
-                  onZoomImageError?.();
-                }}
-                accessibilityLabel={`내 영상과 ${rightLabel} 확대 비교 이미지`}
-              />
-              {zoomImgLoading ? (
-                <View style={styles.zoomSkeleton}>
-                  <ActivityIndicator color={colors.brand} />
-                </View>
-              ) : null}
-              <View style={[styles.zoomTag, styles.zoomTagLeft]}>
-                <Text style={styles.zoomTagText}>내 영상</Text>
-              </View>
-              <View style={[styles.zoomTag, styles.zoomTagRight]}>
-                <Text style={styles.zoomTagText}>{rightLabel}</Text>
-              </View>
-            </>
-          )}
-        </View>
+        <ZoomCompositeImage
+          imageUrl={zoom.imageUrl}
+          rightLabel={rightLabel}
+          onError={onZoomImageError}
+          accessibilityLabel={`내 영상과 ${rightLabel} 확대 비교 이미지`}
+        />
       ) : zoomPending ? (
-        <View
-          style={[styles.zoomFrame, styles.zoomPending]}
-          accessibilityRole="progressbar"
-          accessibilityLabel={ZOOM_PENDING_CAPTION}
-        >
-          <ActivityIndicator color={colors.brand} />
-          <Text style={styles.zoomPendingText}>{ZOOM_PENDING_CAPTION}</Text>
-        </View>
+        <ZoomCompositeImage pending rightLabel={rightLabel} />
       ) : null}
 
       {/* 4) 목표 게이지 — 소형 수치 배지가 이 카드의 유일한 수치 노출점(D-09).
@@ -329,64 +275,6 @@ const styles = StyleSheet.create({
   zoomPillText: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  // 인라인 확대비교 컨테이너 — 합성 PNG 정확 종횡비 (fault_zoom._compose lockstep).
-  zoomFrame: {
-    width: '100%',
-    aspectRatio: ZOOM_COMPOSITE_ASPECT,
-    borderRadius: radius.listItem,
-    overflow: 'hidden',
-    backgroundColor: colors.softBg,
-    position: 'relative',
-  },
-  zoomImage: { width: '100%', height: '100%' },
-  // 로딩 중 skeleton 오버레이 (토큰 배경).
-  zoomSkeleton: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.softBg,
-  },
-  // onError 폴백 — 이미지 숨김 + 소형 캡션(빈 깨짐 0).
-  zoomFallback: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    backgroundColor: colors.softBg,
-  },
-  zoomFallbackText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  // 사후 도착 대기 placeholder — 이미지와 같은 컨테이너(zoomFrame) 위에 스피너 +
-  // 캡션 (시트 imagePending 미러).
-  zoomPending: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  zoomPendingText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  // 좌/우 반쪽 태그 — 시트 halfLabel 미러.
-  zoomTag: {
-    position: 'absolute',
-    top: 8,
-    backgroundColor: colors.brandOverlay,
-    borderRadius: radius.listItem,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  zoomTagLeft: { left: 8 },
-  zoomTagRight: { right: 8 },
-  zoomTagText: {
-    ...typography.caption,
-    color: colors.textWhite,
-    fontWeight: '700',
   },
   // 게이지 불가 폴백 — 수치 배지 + 안내(수치 노출은 이 배지 1곳).
   fallbackRow: {

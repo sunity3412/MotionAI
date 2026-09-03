@@ -401,8 +401,13 @@ def test_marker_circle_sits_at_panel_center():
 # ─────────── 3. 꼭짓점 미성립 = 인접 대체 금지 (L-6) ───────────
 
 
-def test_elbow_card_dropped_when_reference_lacks_joint_and_annotation():
-    """기준 8kp 에 elbow 부재 + 주석 없음 → 카드 미방출 (인접 관절 대체 0)."""
+def test_elbow_card_kept_unmarked_when_reference_lacks_joint_and_annotation():
+    """기준 8kp 에 elbow 부재 + 주석 없음 → 카드는 남고 기준 패널 표시 0 (인접 관절 대체 0).
+
+    quick-260903-upx (belle 09-03 "멈추는 구간은 다 보여줘야"): 종전 "미방출" assert 를
+    새 규칙으로 갱신. L-6(인접 관절 대체 금지)은 그대로 — 기준 패널에 아무 표시도 그리지
+    않는 것으로 지켜지고(refMarked=False), 사진 자체는 사라지지 않는다.
+    """
     frames = _frames(n=9)
     user_rep = _report(9, 9.0, {
         "left_elbow": (0.45, 0.30), "left_shoulder": (0.50, 0.40),
@@ -423,7 +428,8 @@ def test_elbow_card_dropped_when_reference_lacks_joint_and_annotation():
         }],
         motion_id="ref-not-annotated-260730",
     )
-    assert comps == [], "기준 관절 부재인데 카드가 방출됨 — 인접 대체 금지 위반(L-6)"
+    assert len(comps) == 1, "기준 관절 부재여도 카드는 남아야 한다 (quick-260903-upx)"
+    assert comps[0].get("refMarked") is False, "기준 패널에 표시가 그려짐 — 인접 대체 금지 위반(L-6)"
 
 
 def test_elbow_card_restored_with_anchor_annotation():

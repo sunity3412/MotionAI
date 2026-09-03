@@ -3659,6 +3659,16 @@ def _fault_zoom_upload_items(
         # TS lockstep: FaultZoomComparison.refMarked? + contract.md §11.9.
         if isinstance(c.get("refMarked"), bool):
             item["refMarked"] = c["refMarked"]
+        # quick-260903-upx — userMarked(bool, refMarked 미러: False 도 싣는다) +
+        # holdState/pairState/eyeState(str) pass-through. 이 매퍼는 화이트리스트.
+        # TS lockstep: FaultZoomComparison.userMarked?/holdState?/pairState?/
+        # eyeState? + contract.md §11.11.
+        if isinstance(c.get("userMarked"), bool):
+            item["userMarked"] = c["userMarked"]
+        for _st_key in ("holdState", "pairState", "eyeState"):
+            _st = c.get(_st_key)
+            if isinstance(_st, str) and _st:
+                item[_st_key] = _st
         # F-3 (quick-260730-l7t) — 두 패널 실영상 초 pass-through (region/
         # refMatch 선례와 동일 조건부 복사). float scalar 라
         # _validate_dict_only_scalars flat 제약 통과. 부재(legacy doc·기준
@@ -3769,8 +3779,11 @@ def _build_fault_zoom_comparisons(
     _records = (result.get("deductionBreakdown") or {}).get("records")
     criterion_units: list[dict] | None = None
     if isinstance(_records, list) and _records:
+        # quick-260903-upx (belle 09-03 "멈추는 구간은 다 보여줘야") — 상한 4 해제:
+        # 감점 record 수만큼 unit. 5번째 record 부터 사진이 없던 구조적 원인.
         criterion_units = _fz.criterion_units_from_records(
-            _records, fault_joints, _KISMAM_TO_KEYPOINT
+            _records, fault_joints, _KISMAM_TO_KEYPOINT,
+            max_units=max(4, len(_records)),
         )
     if not fault_joints and not criterion_units:
         return []
@@ -5089,7 +5102,10 @@ def _run_gated_card_inherit(
                 # 벌림이라 홀드가 원리적으로 성립하지 않는다 (ii0 발견 1).
                 # freeze 그대로 방출 (비구속 pass-through). 각도-주장 record 는
                 # pairSrc 무관 아래 방출 게이트 — freeze 그 순간에서 판정한다.
-                emitted.append((rec, u_sec, r_sec, None, "peak"))
+                emitted.append((
+                    rec, u_sec, r_sec, None, "peak",
+                    cg.decide_card("peak", None, None, ""),
+                ))
                 continue
             gate_joint = cg.crit_joint(
                 str(fzr.get("joint") or crit.split("__")[-1])
@@ -5098,21 +5114,20 @@ def _run_gated_card_inherit(
             r_idx = max(0, min(int(round(r_sec * afps)), int(rrep15["frames"]) - 1))
             hold = cg.hold_gate(urep15, u_idx, gate_joint)
             pair = _pair_at(u_idx, r_idx)
-            eye_why = ""
-            inherit_ok = hold.passed and pair.passed
-            if inherit_ok:
-                ok_e, eye_why, _called = _eye_check("user", urep15, u_idx, gate_joint)
-                inherit_ok = ok_e
-            if inherit_ok:
-                if eye_why and eye_why != "midrange":
-                    survivor_eye[rid] = eye_why
-                emitted.append((rec, u_sec, r_sec, pair, "inherit"))
-                continue
-            # FAIL freeze = 그 카드 미방출 (정직한 침묵 — 대체 순간 탐색 없음).
+            # quick-260903-upx (belle 09-03 "확대사진을 그 멈추는 구간은 다 보여줘야
+            # 하고, 그걸 모든 동작에서 통과시켜야 한다") — 게이트에 삭제 권한 없음.
+            # hold/pair 결과와 무관하게 눈을 묻고(표시 결정 재료), decide_card 가
+            # emit=True + 표시 정책(눈 실제 불일치 = 학생 패널 표시 생략)을 낸다.
+            # 종전 "FAIL freeze = 미방출" 폐기. 사유는 전부 verdict 로그에 남긴다.
+            ok_e, eye_why, _called = _eye_check("user", urep15, u_idx, gate_joint)
+            decision = cg.decide_card(hold.reason, pair.reason, ok_e, eye_why)
             why = f"hold={hold.reason} pair={pair.reason}"
             if eye_why and eye_why != "midrange":
                 why += f" eye={eye_why}"
-            dropped.append((rid, why))
+            if not decision.draw_user_marks:
+                why += " marks=none"
+            survivor_eye[rid] = why
+            emitted.append((rec, u_sec, r_sec, pair, "inherit", decision))
         for rid in by_rid:
             if rid not in freeze_rids:
                 # 영상에 정지가 없는 record — 상속 바닥이 없다 (excludedFreezes 등).
@@ -5167,7 +5182,8 @@ def _run_gated_card_inherit(
             ]
         sorted_records = [t[0] for t in emitted]
         units = _fz.criterion_units_from_records(
-            sorted_records, fault_joints, _KISMAM_TO_KEYPOINT
+            sorted_records, fault_joints, _KISMAM_TO_KEYPOINT,
+            max_units=max(4, len(sorted_records)),  # quick-260903-upx 상한 해제
         )
         kinds = {j: "deficit" for j in fault_joints}
         for cu in units:
@@ -5215,7 +5231,12 @@ def _run_gated_card_inherit(
                 ent = moment_by_crit.get(crit)
                 if ent is None:
                     continue
-                rec, u_sec, r_sec, pairv, path = ent
+                rec, u_sec, r_sec, pairv, path, decision = ent
+                # quick-260903-upx — 표시 생략 측 (눈 실제 불일치 = user; anchor
+                # 부재 측은 아래에서 추가). 카드는 어느 경우에도 남는다.
+                suppress: set[str] = set()
+                if not decision.draw_user_marks:
+                    suppress.add("user")
                 # 게이트 freeze 초 → align 인덱스 (게이트 루프 u_idx/r_idx 와
                 # 동일 공식 — display_anchor·align_bake 공용 단일 출처).
                 u_ai = max(0, min(
@@ -5280,17 +5301,21 @@ def _run_gated_card_inherit(
                     uxy = cg.kp(urep15, u_ai, aj, conf_min=_fz._KP_CONF_MIN)
                     rxy = cg.kp(rrep15, r_ai, aj, conf_min=_fz._KP_CONF_MIN)
                     if uxy is None or rxy is None:
-                        # fail-closed — 엉뚱한 rep12 좌표 폴백 금지: 그 unit
-                        # 카드 미방출 (refine_round docstring 근거).
+                        # quick-260903-upx — 종전 "카드 미방출" 폐기. anchor 없는
+                        # 측은 표시만 생략한다(엉뚱한 rep12 좌표로 그리지 않는다는
+                        # 원칙은 유지 — 그 측에 아예 안 그린다). 카드는 남는다.
+                        for _sd, _xy in (("user", uxy), ("ref", rxy)):
+                            if _xy is None:
+                                suppress.add(_sd)
                         log.info(
-                            "display_anchor drop rid=%s joint=%s side=%s "
-                            "(align conf 게이트 미달 — 카드 미방출)",
+                            "display_anchor missing rid=%s joint=%s side=%s "
+                            "(align conf 게이트 미달 — 표시 생략, 카드 유지)",
                             str(rec.get("recordId") or "").split(":")[0],
                             aj,
-                            "user" if uxy is None else "ref",
+                            ",".join(x for x in ("user", "ref") if x in suppress),
                         )
-                        continue
-                    display_anchor = {"user": uxy, "ref": rxy}
+                    else:
+                        display_anchor = {"user": uxy, "ref": rxy}
                     # 배선 실행 로그 증거 (wiring-claims-need-log-evidence).
                     log.info(
                         "display_anchor rid=%s joint=%s u_ai=%d r_ai=%d "
@@ -5332,6 +5357,8 @@ def _run_gated_card_inherit(
                     native_frame_at=native_at,
                     # 비-angle unit(peak pass-through)은 None — 종전 그대로.
                     display_anchor=display_anchor,
+                    # quick-260903-upx — 표시 생략 측 (게이트는 표시만 정한다).
+                    suppress_marks=frozenset(suppress),
                     # B 스펙 (quick-260813-nh4) — rep12 미성립 측만 align
                     # 폴백 (fault_zoom docstring align_bake — seam 1/2).
                     align_bake=align_bake,
@@ -5345,6 +5372,11 @@ def _run_gated_card_inherit(
                     label_fps=(eff["user"], eff["ref"]),
                 )
                 for c in comps:
+                    # quick-260903-upx — 게이트 결과를 카드에 싣는다 (표시 전용,
+                    # 채점 무관). 앱 계약 holdState/pairState/eyeState (optional).
+                    c["holdState"] = decision.hold_state
+                    c["pairState"] = decision.pair_state
+                    c["eyeState"] = decision.eye_state
                     # (g) 귀속 표현 (additive) — 각도 편차 축 + 폴거리 차 성립
                     # (user 몸중심이 ref 보다 POLE_MARGIN 이상 폴에서 멀다) →
                     # 폴 이탈 계열 (r03 문법 재사용 재료 — 문구는 표현 레이어).
@@ -5360,18 +5392,41 @@ def _run_gated_card_inherit(
         items = _fault_zoom_upload_items(
             gated_raw, "confirmed", uid, analysis_id, bucket
         )
+        # quick-260903-upx — 게이트가 못 낸 record(freeze 없음·초 무효)의 1단계
+        # 카드는 보존한다 (종전엔 전부 대체돼 사라졌다). criterion 기준 병합,
+        # criterion 없는 legacy 카드는 joint 기준. 중복 0.
+        gated_keys = {str(it.get("criterion") or it.get("joint")) for it in items}
+        stage1_keep = [
+            it for it in (existing_comparisons or [])
+            if isinstance(it, dict) and it.get("tier") != "advisory"
+            and str(it.get("criterion") or it.get("joint")) not in gated_keys
+        ]
         advisory_keep = [
             it for it in (existing_comparisons or [])
             if isinstance(it, dict) and it.get("tier") == "advisory"
         ]
-        final = items + advisory_keep
+        final = items + stage1_keep + advisory_keep
         firestore_admin.update_analysis_fault_zoom(
             uid, analysis_id, final, status=models.FAULT_ZOOM_STATUS_DONE,
         )
+        # 불변식 로그 (belle 09-03 "모든 동작에서 통과" — 기계가 센다):
+        # expected_units = 상한 없는 criterion unit 수, emitted = 확정 카드 수.
+        expected_units = len(_fz.criterion_units_from_records(
+            records, fault_joints, _KISMAM_TO_KEYPOINT,
+            max_units=max(4, len(records)),
+        ))
+        emitted_n = len(items) + len(stage1_keep)
         log.info(
-            "card_gates 대체 부착 완료 analysis_id=%s confirmed=%d advisory=%d",
-            analysis_id, len(items), len(advisory_keep),
+            "card_gates 대체 부착 완료 analysis_id=%s expected_units=%d emitted=%d "
+            "confirmed=%d stage1_keep=%d advisory=%d",
+            analysis_id, expected_units, emitted_n, len(items),
+            len(stage1_keep), len(advisory_keep),
         )
+        if emitted_n < expected_units:
+            log.warning(
+                "card_gates 사진 부족 analysis_id=%s expected_units=%d emitted=%d",
+                analysis_id, expected_units, emitted_n,
+            )
         # 기계 눈 원장 보존 (belle 08-11 추가 지시 — Phase 22 플라이휠 씨앗).
         # 기존 키 규칙 하위 additive (results/{uid}/{aid}/eye/) — 카드 부착 이후
         # 별도 try 라 실패해도 카드/doc 무영향 (T-kpo-02 보존).

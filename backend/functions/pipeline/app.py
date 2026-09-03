@@ -4987,6 +4987,10 @@ def _run_gated_card_inherit(
             if key in _eye_cache:
                 ok, why, _ = _eye_cache[key]
                 return ok, why, False
+            # 몸통 관절(엉덩이·어깨)은 눈 제외 — belle 09-03 "비교 사진이 있어야 뭘 보지" (quick-260903-lpl)
+            if not cg.eye_applicable(gate_joint):
+                _eye_cache[key] = (True, "skip:torso_joint", False)
+                return True, "skip:torso_joint", False
             ang = cg.joint_angle(rep, idx, gate_joint, conf_min=0.0)
             claim = cg.track_claim(ang)
             xy = cg.kp(rep, idx, gate_joint, conf_min=0.0)
@@ -5063,6 +5067,7 @@ def _run_gated_card_inherit(
 
         emitted: list[tuple] = []       # (rec, u_sec, r_sec, pair|None, path)
         dropped: list[tuple] = []       # (rid, reason)
+        survivor_eye: dict[str, str] = {}  # rid -> eye 사유 (verdict 로그용, quick-260903-lpl)
         freeze_rids: set[str] = set()
         for fzr in freezes:
             rid = str(fzr.get("rid") or "")
@@ -5099,6 +5104,8 @@ def _run_gated_card_inherit(
                 ok_e, eye_why, _called = _eye_check("user", urep15, u_idx, gate_joint)
                 inherit_ok = ok_e
             if inherit_ok:
+                if eye_why and eye_why != "midrange":
+                    survivor_eye[rid] = eye_why
                 emitted.append((rec, u_sec, r_sec, pair, "inherit"))
                 continue
             # FAIL freeze = 그 카드 미방출 (정직한 침묵 — 대체 순간 탐색 없음).
@@ -5114,15 +5121,19 @@ def _run_gated_card_inherit(
         # 실행 로그 = 배선·불변식 증거 (wiring-claims-need-log-evidence) —
         # survivors 의 @u/r 방출 순간이 같은 분석의 freeze 값 그대로임을 로그가
         # 증언한다. 재정박 필드는 경로가 없으므로 필드도 없다 (ufb).
+        # survivors 에도 눈 사유 동반 (dropped 와 같은 규칙 — midrange 침묵 제외):
+        # 눈을 건너뛴 몸통 카드는 eye=skip:torso_joint 로 생존이 보인다 (quick-260903-lpl).
+        def _survivor_str(t: tuple) -> str:
+            rid_s = str(t[0].get("recordId", "")).split(":")[0]
+            s = f"{rid_s}:{t[4]}@u{t[1]:.3f}/r{t[2]:.2f}"
+            why = survivor_eye.get(rid_s)
+            return f"{s} eye={why}" if why else s
+
         log.info(
             "card_gates verdict analysis_id=%s total=%d survivors=%s dropped=%s "
             "eye_calls=%d",
             analysis_id, len(freezes),
-            [
-                f"{str(t[0].get('recordId', '')).split(':')[0]}:{t[4]}"
-                f"@u{t[1]:.3f}/r{t[2]:.2f}"
-                for t in emitted
-            ],
+            [_survivor_str(t) for t in emitted],
             [f"{rid}:{why}" for rid, why in dropped],
             eye_calls,
         )

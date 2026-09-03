@@ -72,6 +72,9 @@ interface Props {
   // quick-260802-tie — 기준(우측) 패널에 표시가 하나도 그려지지 않았을 때 true
   // (백엔드 `refMarked === false`). 크롭은 그대로 두고 한 줄만 덧붙인다.
   refUnmarked?: boolean;
+  // quick-260903-upx — 학생(왼쪽) 패널에 표시가 하나도 안 그려진 카드 (userMarked===false).
+  // 게이트가 카드를 지우는 대신 표시만 뺀 결과 — 사진은 그대로, 한 줄로 사실만 말한다.
+  userUnmarked?: boolean;
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 true. 크롭은 유지하되 "예상 부위"
   // 배지를 얹어 확정 결함이 아니라 추정 부위임을 표시 (크롭·수치·비교 삭제 0).
   estimatedArea?: boolean;
@@ -118,6 +121,8 @@ const SHEET_TITLE_SUFFIX = ' 부위 상세';
 // 문형은 `refMatchNote`(같은 동작 순간을 찾지 못해 전신 화면으로 보여드려요) 선례 —
 // [이유] + [그래서 이렇게 했다] + `-요`. 카드·수치·비교는 그대로 둔다(정보 보존).
 const REF_UNMARKED_NOTE = '오른쪽 사진에는 관절 위치를 확인하지 못해 표시를 넣지 않았어요';
+// quick-260903-upx — 학생 패널판. 승인 문장(REF_UNMARKED_NOTE)에서 "오른쪽"→"왼쪽"만 (신규 문형 0).
+const USER_UNMARKED_NOTE = '왼쪽 사진에는 관절 위치를 확인하지 못해 표시를 넣지 않았어요';
 // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 카피 (시트가
 // 실제 라벨 소유). 확정 결함 아님 — advisoryOrange 톤(표시 전용).
 const ESTIMATED_AREA_LABEL = '예상 부위';
@@ -133,6 +138,7 @@ export function DeductionDetailSheet({
   zoomPending = false,
   refMatchFailed = false,
   refUnmarked = false,
+  userUnmarked = false,
   estimatedArea = false,
   rightLabel,
   freshZoomUrls,
@@ -278,6 +284,10 @@ export function DeductionDetailSheet({
                     비교 대상 쪽이 빈 채로 침묵하지 않는다. 사진은 그대로 둔다. */}
                 {refUnmarked ? (
                   <Text style={styles.refMatchNote}>{REF_UNMARKED_NOTE}</Text>
+                ) : null}
+                {/* quick-260903-upx — 학생 패널 표시 생략(눈 불일치·좌표 부재). 사진은 그대로. */}
+                {userUnmarked ? (
+                  <Text style={styles.refMatchNote}>{USER_UNMARKED_NOTE}</Text>
                 ) : null}
               </View>
             ) : zoomPending ? (

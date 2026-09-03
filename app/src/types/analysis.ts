@@ -559,6 +559,20 @@ export interface FaultZoomComparison {
    * docs/contract.md §11.9.
    */
   refMarked?: boolean;
+  /**
+   * quick-260903-upx (belle 09-03 "확대사진을 그 멈추는 구간은 다 보여줘야") — 게이트는
+   * 카드를 삭제하지 않고 **표시만** 정한다. 학생 패널 표시 인증 `userMarked`(refMarked
+   * 미러 — false 면 시트가 "왼쪽 사진에는 관절 위치를 확인하지 못해 표시를 넣지 않았어요"
+   * 한 줄), 게이트 결과 `holdState`(멈춤: hold|moving|unmeasurable|peak|unmeasured) ·
+   * `pairState`(짝 프레임: match|pose_far|pole_mismatch|unmeasured) · `eyeState`(기계 눈:
+   * match|mismatch|skip|none). 전부 표시 전용·채점 무관. 부재(legacy doc)=종전 렌더.
+   * Python lockstep: fault_zoom 방출부(userMarked) + pipeline _run_gated_card_inherit
+   * (holdState/pairState/eyeState) + _fault_zoom_upload_items 매퍼 + contract.md §11.11.
+   */
+  userMarked?: boolean;
+  holdState?: 'hold' | 'moving' | 'unmeasurable' | 'peak' | 'unmeasured';
+  pairState?: 'match' | 'pose_far' | 'pole_mismatch' | 'unmeasured';
+  eyeState?: 'match' | 'mismatch' | 'skip' | 'none';
 }
 
 // Phase 28 (ALGN-01 동작 기반 비교 정렬) — 학생(left)=master 시계 불변, 정은지(right)만

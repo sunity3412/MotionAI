@@ -3769,6 +3769,8 @@ function AnalysisResultContent({
         // 말한다(카드는 그대로 둔다 — 사진은 여전히 정보다). 백엔드 인증값만 본다:
         // `=== false` 로 좁혀 **부재(legacy/advisory)는 종전대로 무문구**.
         refUnmarked={sheetPrimaryZoom?.refMarked === false}
+        // quick-260903-upx — 학생 패널 표시 생략 카드 (userMarked===false). 부재=종전.
+        userUnmarked={sheetPrimaryZoom?.userMarked === false}
         // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 (확정
         // 결함 아님). 크롭·수치·비교는 유지 (시트가 라벨 소유).
         estimatedArea={attributionUnreliable}

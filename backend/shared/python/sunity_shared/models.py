@@ -636,6 +636,8 @@ PIPELINE_SEQUENCE = (
 #   criterion id — 앱 join 키 일치 재료)을 조건부 방출한다. item 필드 lockstep 은
 #   analysis.ts FaultZoomComparison + fault_zoom/pipeline 방출부 주석 +
 #   contract.md §11.7 (본 모듈은 status enum 만 소유 — §11.6 refMatch 선례).
+#   quick-260903-upx: item 에 userMarked(bool)·holdState/pairState/eyeState(str) 조건부
+#   추가 — 게이트는 표시만 정한다(카드 삭제 0). lockstep = analysis.ts + contract.md §11.11.
 FAULT_ZOOM_STATUS_PENDING = "pending"
 FAULT_ZOOM_STATUS_DONE = "done"
 FAULT_ZOOM_STATUS_FAILED = "failed"

@@ -573,6 +573,10 @@ refFrameIdx   number   optional  ← 기준(정은지) 측 대응 프레임 인�
 refMatched    boolean  optional  ← 기준 측 대응 성공 여부
 atMatched     boolean  optional  ← 표시 프레임 == 그 record 의 측정 프레임
 refMarked     boolean  optional  ← 기준 패널에 표시가 그려졌는가 (§11.9)
+userMarked    boolean  optional  ← 학생 패널에 표시가 그려졌는가 (§11.11)
+holdState     string   optional  ← 멈춤 게이트 결과 (§11.11)
+pairState     string   optional  ← 짝 프레임 게이트 결과 (§11.11)
+eyeState      string   optional  ← 기계 눈 결과 (§11.11)
 ```
   - DTW 대응 프레임 쌍이며 **`keypointReport` 프레임 공간(9fps angles 도메인)**의 정수
     인덱스다 (18fps 업샘플 공간 아님 — §11 fps 도메인 주의 동일).
@@ -1975,6 +1979,23 @@ refMarked  boolean  optional  ← 기준 패널에 마킹(원/사이각/각도)�
 - **부재(legacy doc·advisory·criterion 부재) = 앱 종전대로**(문구 없음). optional, migration 없음 (`tier?`/`refMatch?`/`criterion?`/`atMatched?` 선례).
 - **`false` 일 때 앱 동작:** 카드를 숨기지 않고 짧은 한 줄을 덧붙인다(정보 보존). `refMatch='failed'` 캡션과 **자리를 나눠 쓴다** — 그쪽은 "같은 순간을 못 찾음"(프레임 대응 실패), 이쪽은 "순간은 맞췄는데 표시를 못 그림"(좌표 신뢰도)이다.
 - 3-way lockstep: `analysis.ts FaultZoomComparison.refMarked?` ↔ `fault_zoom.py` 방출부 + `pipeline _render_fault_zoom` 매퍼 ↔ 본 절.
+
+### §11.11 FaultZoomComparison.userMarked / holdState / pairState / eyeState (quick-260903-upx)
+
+belle 2026-09-03: "확대사진을 그 멈추는 구간은 다 보여줘야 하고, 그걸 모든 동작에서 통과시켜야 한다." 감점 record 마다
+(criterion unit 이 있는 것 전부) 확정 카드 1장이 **반드시** 있다 — 카드 상한·기준 대응 실패·좌표 부재·게이트(멈춤·짝·눈)·표시
+좌표 부재 어느 것도 사진을 없애지 않는다. 게이트는 **표시만** 정한다.
+
+```
+userMarked  boolean  optional  ← 학생(왼쪽) 패널에 마킹이 그려졌는가 (refMarked §11.9 미러). false = 눈 실제 불일치·좌표 부재·전신 폴백
+holdState   string   optional  ← 'hold' | 'moving' | 'unmeasurable' | 'peak' | 'unmeasured'  (게이트-상속 카드만)
+pairState   string   optional  ← 'match' | 'pose_far' | 'pole_mismatch' | 'unmeasured'      (게이트-상속 카드만)
+eyeState    string   optional  ← 'match' | 'mismatch' | 'skip' | 'none'                    (게이트-상속 카드만)
+```
+
+- **앱 동작:** `userMarked === false` 면 시트에 "왼쪽 사진에는 관절 위치를 확인하지 못해 표시를 넣지 않았어요" 한 줄(§11.9 문장의 좌측판). 나머지 3개는 표시 전용 진단 재료 — 렌더 분기 없음(부재 = 종전).
+- 불변식(서버 로그): `card_gates 대체 부착 완료 … expected_units=N emitted=N` — expected = 상한 없는 criterion unit 수. 부족 시 WARNING.
+- 3-way lockstep: `analysis.ts FaultZoomComparison.userMarked?/holdState?/pairState?/eyeState?` ↔ `fault_zoom.py` 방출부(userMarked) + `pipeline _run_gated_card_inherit`(상태 3종) + `_fault_zoom_upload_items` 매퍼 ↔ 본 절.
 
 ### §11.10 FaultZoomComparison.imageKey (quick-260824-q6p)
 

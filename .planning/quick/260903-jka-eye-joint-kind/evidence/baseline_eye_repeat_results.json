@@ -1,0 +1,125 @@
+{
+  "A_0902_prod_crop": {
+    "rounds": [
+      {
+        "observed": "bent",
+        "limb": "leg",
+        "match": true,
+        "confidence": 0.95,
+        "reason": "원 위치 뒤쪽으로 몸통 쪽으로 끌어올려진 다리의 무릎 관절이 확인되며, 다리가 강하게 접혀 있는(bent) 상태입니다."
+      },
+      {
+        "observed": "bent",
+        "limb": "leg",
+        "match": true,
+        "confidence": 0.95,
+        "reason": "원 위치 뒤쪽으로 무릎을 굽히고 있는 다리(무릎 관절 부근)가 위치해 있으며, 다리가 접혀 있는 상태(bent)입니다."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.85,
+        "reason": "The orange circle is positioned over the arm extending across the front of the body and pole, with no leg located directly behind it. The arm is bent at the elbow across the torso."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.85,
+        "reason": "The orange circle is positioned over the person's left arm, which is bent across the front of the body. There is no leg directly at or behind the circled location."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.95,
+        "reason": "원 위치에는 다리가 존재하지 않으며, 오른쪽 팔(전완 및 팔꿈치 부근) 위에 위치해 있습니다. 해당 팔은 팔꿈치가 굽혀진 상태(bent)입니다."
+      }
+    ],
+    "true": 2,
+    "false": 3
+  },
+  "A_0901_harness_crop": {
+    "rounds": [
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.95,
+        "reason": "The orange circle is placed over the forearm of the left arm, which is bent at the elbow across the body and pole. No leg is present at this specific location."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.95,
+        "reason": "The orange circle is positioned on the arm (forearm) which is folded across the body (bent at the elbow). There is no leg directly at or behind the circle's location."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.9,
+        "reason": "원 위치와 그 뒤편에 다리가 보이지 않고, 원은 가슴 앞으로 뻗은 팔(전완 부위)에 위치해 있습니다. 해당 팔은 팔꿈치가 굽혀져 있어 bent로 판정됩니다."
+      },
+      {
+        "observed": "bent",
+        "limb": "leg",
+        "match": true,
+        "confidence": 0.95,
+        "reason": "원 위치 뒤편에 위치한 다리는 무릎이 굽혀져 접혀 있는(bent) 상태입니다."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.95,
+        "reason": "원 위치에는 가로로 뻗은 팔(전완부)이 위치하며, 해당 팔의 팔꿈치는 접혀 있습니다. 원 위치 바로 뒤에 다리는 위치하지 않으므로 팔을 기준으로 판정하였습니다."
+      }
+    ],
+    "true": 1,
+    "false": 4
+  },
+  "B_kneepath_regress": {
+    "rounds": [
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.9,
+        "reason": "The orange circle is located on the right arm near the shoulder/armpit, as no leg is present at this location. The arm is bent at the elbow while gripping the pole."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.85,
+        "reason": "The orange circle is positioned on the right upper arm/shoulder area, not a leg. The right arm reaches up to grasp the pole with a bent elbow."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.95,
+        "reason": "원 위치에는 다리가 없으며, 봉을 잡고 있는 오른팔의 상완 및 어깨 부위에 원이 위치해 있습니다. 해당 팔은 팔꿈치가 접혀(bent) 봉을 잡고 있습니다."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.95,
+        "reason": "The circle is located on the right arm holding the pole, which is bent at the elbow. No leg is present at this location."
+      },
+      {
+        "observed": "bent",
+        "limb": "arm",
+        "match": false,
+        "confidence": 0.95,
+        "reason": "원 위치에 다리가 존재하지 않으며, 원은 봉을 잡고 있는 팔(오른팔/어깨 부근)에 위치해 있습니다. 해당 팔의 팔꿈치는 접혀 있으므로 bent로 판정합니다."
+      }
+    ],
+    "true": 0,
+    "false": 5
+  }
+}

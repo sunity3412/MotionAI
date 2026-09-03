@@ -5003,11 +5003,25 @@ def _run_gated_card_inherit(
             eye_calls += 1
             # joint_kind: 질문에 관절 종류 힌트 1문장 (quick-260903-jka — 클라임
             # 오클루전 크롭 2/5→5/5, kneepath 마크-전위 0/5 유지). 판정·원장 무변경.
+            # 힌트는 card_gates._HINT_KINDS(무릎·팔꿈치·발목·손목)에만 붙고
+            # 엉덩이·어깨는 jka 이전 질문 그대로 (quick-260903-jxn — 엉덩이 힌트
+            # 3/5→1/5 악화). majority=True → cg.eye_judge_majority: 첫 판정
+            # 불일치 시만 같은 크롭에 최대 2회 더 물어 3회 다수결 — 일치 시
+            # 추가 호출 0 (비용·시간 무변화).
+            # 09-03 측정 남은 비결정(클라임 4/5·엉덩이 3/5) 축소용: p=0.8→0.93,
+            # p=0.6→0.74, kneepath p=0→0 (위양성 증가 없음).
             res = cg.machine_eye(
                 frame, (xy[0] * W, xy[1] * H), claim,
                 api_key=api_key, expected_limb=cg.joint_limb(gate_joint),
                 joint_kind=cg.joint_kind_ko(gate_joint),
                 crop_px=max(320, W // 2),
+                majority=True,
+            )
+            log.info(
+                "card_gates eye side=%s joint=%s idx=%d claim=%s observed=%s "
+                "limb=%s match=%s rounds=%d",
+                side, gate_joint, int(idx), claim, res.get("observed"),
+                res.get("limb"), bool(res["match"]), int(res.get("rounds", 1)),
             )
             try:
                 buf = io.BytesIO()
@@ -5022,6 +5036,9 @@ def _run_gated_card_inherit(
                     "match": bool(res["match"]),
                     "confidence": res.get("confidence"),
                     "reason": res.get("reason"),
+                    # rounds (quick-260903-jxn): 다수결 총 호출 수 — 추가 필드,
+                    # 기존 필드 이름·순서·의미 무변경. 단발 판정이면 1.
+                    "rounds": int(res.get("rounds", 1)),
                     "png": buf.getvalue(),
                 })
             except Exception:  # noqa: BLE001 - 원장 적재 실패는 판정 비차단

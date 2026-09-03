@@ -20,6 +20,8 @@
 // 와 같은 컴포넌트를 소비한다 (렌더 규칙 사본 0). 이 카드는 zoom/zoomPending 을
 // 그 컴포넌트에 넘기기만 한다.
 //
+// quick-260903-lr6 belle "통과한거 다 넣고" — 접힌 행도 zoom 이 오면 사진 인라인(pill 대신).
+//
 // props 는 로컬 타입(계약 DeductionRecord 직접 의존 금지) — result.tsx 배선(32-11)이
 // doc 필드를 이 모양으로 매핑한다. 이 플랜은 컴포넌트만(interface-first). 카드 상호작용
 // (물어보기·점프)은 안정 recordId 로 조인한다(배열 index 금지 — 리뷰 반영).
@@ -69,7 +71,8 @@ export interface DeductionCardMission {
 
 interface DeductionCardProps {
   record: DeductionCardRecord;
-  // 확정 확대비교 합성 PNG (펼침 모드 인라인). 부재 + zoomPending 이면 placeholder.
+  // 확정 확대비교 합성 PNG (펼침·접힘 모드 인라인). 부재 + zoomPending 이면 placeholder
+  // (펼침 모드만).
   zoom?: DeductionCardZoom;
   // 이미지 로드 실패 시 재발급 트리거 — useFreshFaultZoomUrls.onZoomImageError
   // (시트 renderCrop 과 동일 규칙, 훅이 single-flight 로 무한 루프를 막는다).
@@ -112,23 +115,29 @@ export function DeductionCard({
     typeof record.statusLine === 'string' && record.statusLine.trim().length > 0;
   const headline = hasStatus ? (record.statusLine as string) : record.label;
 
-  // 접힘 모드 — 상태문 1줄 + 펼침 유도 + (있으면) 확대 사진 유무 pill.
+  // 접힘 모드 — 상태문 1줄 + 펼침 유도 + 확대 사진.
   // quick-260903-f2w 표 3 행 1: 접힌 행에 사진 유무가 안 보여 "사진이 하나뿐" 으로
   // 체감됐다 — 사진 있는 행을 행에서 보이게 한다.
+  // quick-260903-lr6: zoom 이 오면 헤드라인 행 아래 사진 자체를 인라인(pill 미렌더 —
+  // 사진이 있으니 중복). zoom 없이 hasZoom 만 오면 종전 pill(하위호환). Pressable
+  // 전체가 탭 대상 그대로(시트 진입). 사진 간격은 styles.card 의 gap.
   if (expanded === false) {
+    const collapsedZoom = zoom ?? null;
+    const showZoomPill = hasZoom && collapsedZoom == null;
+    const announceZoom = hasZoom || collapsedZoom != null;
     return (
       <Pressable
         style={styles.card}
         onPress={onToggle}
         accessibilityRole="button"
-        accessibilityLabel={`${headline} — 펼쳐 보기${hasZoom ? ' — 확대 사진 있음' : ''}`}
+        accessibilityLabel={`${headline} — 펼쳐 보기${announceZoom ? ' — 확대 사진 있음' : ''}`}
         hitSlop={4}
       >
         <View style={styles.collapsedRow}>
           <Text style={styles.headlineCollapsed} numberOfLines={2}>
             {headline}
           </Text>
-          {hasZoom ? (
+          {showZoomPill ? (
             <View style={styles.zoomPill}>
               <Ionicons name="image-outline" size={14} color={colors.textSecondary} />
               <Text style={styles.zoomPillText}>{HAS_ZOOM_PILL_LABEL}</Text>
@@ -136,6 +145,14 @@ export function DeductionCard({
           ) : null}
           <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
         </View>
+        {collapsedZoom ? (
+          <ZoomCompositeImage
+            imageUrl={collapsedZoom.imageUrl}
+            rightLabel={rightLabel}
+            onError={onZoomImageError}
+            accessibilityLabel={`내 영상과 ${rightLabel} 확대 비교 이미지`}
+          />
+        ) : null}
       </Pressable>
     );
   }

@@ -85,7 +85,10 @@ import {
 } from '../../lib/referenceMotions';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
-import { useFreshFaultZoomUrls } from '../../lib/faultZoomUrls';
+import {
+  resolveZoomImageUrl,
+  useFreshFaultZoomUrls,
+} from '../../lib/faultZoomUrls';
 import {
   fetchVisualAssetUrl,
   requestPlaybackUrl,
@@ -2006,6 +2009,11 @@ function AnalysisResultContent({
       result.faultZoomComparisons ?? [],
     );
 
+  // quick-260903-f2w (표 3 행 4) — topFix 카드의 확정 확대비교. 카드 인라인 이미지와
+  // "확대 비교 자세히 보기" 링크가 같은 매칭 결과를 쓴다 (렌더마다 계산 — 다른
+  // 호출부와 동일, 비용 미미). 매칭 규칙 자체(advisory 제외 등)는 무접촉.
+  const topFixZoom = topFixRecord ? matchZoomForRecord(topFixRecord) : null;
+
   // 33-13 (A-6, D-13 대표 UX) — 음성 큐 recordId → 강조 부위 투영. cue 는
   // records 에서 태어나므로(cueWindows 조립) 항상 짝이 있다 — 못 찾으면 빈 배열
   // = 강조 0 (D-18 고아 가드). 투영 규칙 = projectDeductionRecordKeypoints 단일
@@ -2617,6 +2625,16 @@ function AnalysisResultContent({
           >
             <DeductionCard
               record={toCardRecord(topFixRecord)}
+              // quick-260903-f2w (표 3 행 4 결함) — 히스토리 전체에서 무배선이던
+              // 인라인 확대비교 사진을 여기서 처음 연결. 합성 PNG 1장을 fresh 재발급
+              // 맵 우선(7일 넘은 doc)·저장 imageUrl 폴백으로 조회 — 시트와 같은
+              // resolveZoomImageUrl 단일 출처. 로드 실패 = onZoomImageError 재발급.
+              zoom={
+                topFixZoom
+                  ? { imageUrl: resolveZoomImageUrl(topFixZoom, freshZoomUrls) }
+                  : undefined
+              }
+              onZoomImageError={onZoomImageError}
               zoomPending={zoomPending}
               mission={
                 result.mission
@@ -2629,7 +2647,7 @@ function AnalysisResultContent({
               expanded
               onAskCoach={(rid) => addUserQuestion(rid)}
             />
-            {matchZoomForRecord(topFixRecord) || zoomPending ? (
+            {topFixZoom || zoomPending ? (
               <Pressable
                 onPress={() => setDetailRecordIndex(topFixIndex)}
                 accessibilityRole="button"
@@ -3094,6 +3112,10 @@ function AnalysisResultContent({
                 >
                   <DeductionCard
                     record={toCardRecord(rec)}
+                    // quick-260903-f2w (표 3 행 1) — "5개 틀렸는데 사진 1장" 의
+                    // 출구: 사진 있는 행을 행에서 보이게 (접힘 pill). 매칭 규칙은
+                    // topFix·시트와 같은 matchZoomForRecord (advisory 제외 그대로).
+                    hasZoom={matchZoomForRecord(rec) != null}
                     rightLabel={
                       cmp.mode === 'mode1'
                         ? `${cmp.athleteName} 선수`

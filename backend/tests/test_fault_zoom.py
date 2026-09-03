@@ -1663,3 +1663,113 @@ def test_build_skips_ref_stamp_on_full_body_fallback():
     assert img.getpixel((fz._OUT + 6 + 12, fz._OUT - 12)) != (40, 40, 40), (
         "전신 폴백 기준 패널은 미표기"
     )
+
+
+# ─────────── quick-260903-upx — 멈춤 구간마다 사진 1장: 게이트는 표시만 정한다 ────────
+#
+# belle 09-03 "확대사진을 그 멈추는 구간은 다 보여줘야하고, 그걸 모든 동작에서
+# 통과시켜야한다". criterion(감점 record) 카드는 기준 대응 실패·양측 좌표 부재·한 측
+# 전신 폴백 어느 것도 사진을 없애지 않는다 — 표시(원·선·호·화살표)만 생략하고
+# userMarked/refMarked 가 그 사실을 말한다. legacy/advisory 경로는 byte-보존
+# (위 test_both_sides_low_confidence_skipped / test_unmapped_joint_skipped 그대로).
+
+
+def _crit_unit(criterion: str, joints):
+    return {"criterion": criterion, "joints": tuple(joints), "region": None,
+            "at_frame_idx": None}
+
+
+def _nan_report(n: int, fps: float, joints=("left_knee", "right_knee", "left_hip")):
+    """좌표 전부 NaN(conf 0.9) — _member_pts 양측 빈 리스트 → _side_crop 전신 폴백."""
+    nj = len(joints)
+    data = [float("nan")] * (n * nj * 2)
+    return {"joints": list(joints), "frames": n, "fps": fps, "data": data,
+            "confidence": [0.9] * (n * nj)}
+
+
+def _brand_px_left_panel(png: bytes) -> int:
+    """합성 PNG 왼쪽(학생) 패널의 브랜드색 픽셀 수 — 표시가 그려졌는지의 픽셀 증거."""
+    import io as _io
+
+    from PIL import Image as _Img
+
+    arr = np.asarray(_Img.open(_io.BytesIO(png)).convert("RGB"))[:, : fz._OUT, :]
+    return int(np.all(arr == np.asarray(fz._BRAND, dtype=np.uint8), axis=-1).sum())
+
+
+def _build_crit(user_rep, ref_rep, **kw):
+    return fz.build_fault_zoom_comparisons(
+        _frames(9), _frames(9), user_rep, ref_rep,
+        worst_seconds=0.5, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+        joint_kinds={"left_knee": "deficit"},
+        criterion_units=[_crit_unit("angle_vs_reference__left_knee", ["left_knee"])],
+        **kw,
+    )
+
+
+def test_criterion_card_emitted_on_ref_match_failure():
+    """(a) 기준 대응 실패 criterion 카드도 방출 — 종전 D-12 ① 미방출 폐기.
+
+    legacy 와 같은 D-04 정직 폴백: ref 전신 + refMatch='failed' + refMatched False.
+    """
+    good = _report(9, 9.0, confidence=0.9)
+    comps = _build_crit(good, good, dtw_match=None)
+    assert len(comps) == 1, "기준 대응 실패라고 사진을 없애지 않는다"
+    c = comps[0]
+    assert c["criterion"] == "angle_vs_reference__left_knee"
+    assert c["refMatch"] == "failed" and c["refMatched"] is False
+    assert c["refMarked"] is False, "전신 폴백 기준 패널은 표시 0"
+    assert c["userMarked"] is True, "학생 측은 그대로"
+    assert "refVideoSec" not in c
+    assert c["png"][:4] == b"\x89PNG"
+
+
+def test_criterion_card_emitted_when_both_sides_lack_coords():
+    """(b) 양측 좌표 부재(NaN → full/full)도 방출 — 표시 0, 인증 둘 다 False."""
+    comps = _build_crit(_nan_report(9, 9.0), _nan_report(9, 9.0), ref_frame_idx=4)
+    assert len(comps) == 1, "양측 좌표 부재라고 사진을 없애지 않는다"
+    c = comps[0]
+    assert c["userMarked"] is False and c["refMarked"] is False
+    assert c["refMatch"] == "dtw"
+    assert _brand_px_left_panel(c["png"]) == 0
+
+
+def test_criterion_card_emitted_when_both_sides_low_confidence():
+    """(b') 양측 저신뢰(relaxed/relaxed)도 방출 — 원 생략, 인증 False."""
+    low = _report(9, 9.0, confidence=0.1)
+    comps = _build_crit(low, low, ref_frame_idx=4)
+    assert len(comps) == 1
+    assert comps[0]["userMarked"] is False and comps[0]["refMarked"] is False
+
+
+def test_suppress_marks_user_keeps_ref_marks():
+    """(c) suppress_marks={'user'} → 학생 패널 표시 0(userMarked False), 기준 그대로."""
+    good = _report(9, 9.0, confidence=0.9)
+    comps = _build_crit(good, good, ref_frame_idx=4, suppress_marks={"user"})
+    assert len(comps) == 1
+    c = comps[0]
+    assert c["userMarked"] is False
+    assert c["refMarked"] is True, "반대측 표시는 그대로"
+    assert _brand_px_left_panel(c["png"]) == 0, "학생 패널 브랜드색 표시 픽셀 0"
+
+
+def test_normal_path_user_marked_true():
+    """(d) 정상 경로 — 학생 패널 원 마커 → userMarked True + 브랜드색 픽셀 존재."""
+    good = _report(9, 9.0, confidence=0.9)
+    comps = _build_crit(good, good, ref_frame_idx=4)
+    assert len(comps) == 1
+    c = comps[0]
+    assert c["userMarked"] is True and c["refMarked"] is True
+    assert _brand_px_left_panel(c["png"]) > 0
+
+
+def test_user_marked_absent_on_legacy_cards():
+    """legacy/advisory(criterion 부재) 카드에는 userMarked 키 자체가 없다 (refMarked 선례)."""
+    good = _report(9, 9.0, confidence=0.9)
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(9), _frames(9), good, good, worst_seconds=0.5,
+        fault_joints=["left_knee"], joint_deltas={"left_knee": 20.0},
+        frames_fps=9.0, ref_frame_idx=4,
+    )
+    assert comps and "userMarked" not in comps[0] and "refMarked" not in comps[0]

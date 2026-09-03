@@ -2841,6 +2841,7 @@ def build_fault_zoom_comparisons(
     display_anchor: dict | None = None,
     align_bake: dict | None = None,
     label_fps: tuple[float | None, float | None] | None = None,
+    suppress_marks: set[str] | frozenset[str] = frozenset(),
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -2895,9 +2896,12 @@ def build_fault_zoom_comparisons(
       산출({"criterion","joints","region"} 리스트). 주어지면 fault_joints fan-out
       (_group_fault_joints) 대신 record-파생 unit 으로 카드를 만들고 item 에
       `criterion` scalar 를 방출한다 — 항목↔크롭이 출생부터 정합 (defect #5 근본).
-      이 경로에만 D-12 카드 불변식이 강제된다: ① 같은 순간 불가(ref 대응 실패) ·
+      이 경로에만 D-12 카드 불변식이 강제됐다: ① 같은 순간 불가(ref 대응 실패) ·
       ② 같은 배율 불가(한 측 full 폴백) → 카드 미방출(drop) · ③ 같은 표시 —
       기준(정은지) 측도 마킹(원, legs 사이각은 양측 모두 가능할 때만 둘 다).
+      quick-260903-upx (belle 09-03 "확대사진을 그 멈추는 구간은 다 보여줘야"):
+      ①② 의 **미방출은 폐기** — 카드는 남기고 refMatch/refMarked/userMarked 가
+      사실을 말한다. ③ 은 유지. 양측 좌표 0 도 criterion 카드는 방출(표시 0).
       None(default) = legacy 경로 byte-보존 (D-04 정직 폴백 refMatch='failed' 유지 —
       mode1 record 부재 doc·advisory 배치·기존 테스트 하위호환).
       quick-260802-tie: 이 경로만 `refMarked` scalar 를 방출한다 — ③ 이 실제로
@@ -2953,6 +2957,14 @@ def build_fault_zoom_comparisons(
       (fail-open — 라벨 때문에 카드를 죽이지 않는다. 좌표 게이트
       display_anchor 만 fail-closed 인 층위 유지). None(default) = 전 경로
       byte-동일 (하위호환).
+    suppress_marks (quick-260903-upx — "게이트는 표시만 정한다"): {"user","ref"}
+      부분집합. 지정 측 패널에 원·선·호·화살표를 **그리지 않는다** — 크롭은
+      그대로(전신 폴백 아님), 표시만 생략. 구현은 드로잉 로직 무접촉: `_side_crop`
+      직후 무표시 원본을 떠 두고 스탬프 직전에 그 원본으로 되돌린다 (angle_bake
+      `omitted:*` 침묵 선례 — 반대측 표시는 그대로). 호출측(pipeline
+      `_run_gated_card_inherit`)이 기계 눈 실제 불일치(학생 측)·display_anchor
+      부재 측을 넣는다. 그 측 인증(userMarked/refMarked)은 False. 기본
+      frozenset() = 전 경로 byte-동일.
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -2966,7 +2978,8 @@ def build_fault_zoom_comparisons(
     멤버 keypoint bounding box 기반. 방출 dict 에 scalar "region" 추가 (grouped 만).
     측별 crop 은 3단 강하 (Phase 25-03): 신뢰 좌표=기존 crop → 저신뢰-유한
     좌표=부위-중심 완화(relaxed) crop (카드별 차별화, 앵커 생략) → 좌표 결측=
-    전신 폴백. 양측 다 신뢰 좌표 0 이면 기존처럼 skip.
+    전신 폴백. 양측 다 신뢰 좌표 0 이면 legacy/advisory 는 기존처럼 skip
+    (criterion 카드는 방출·표시 0 — quick-260903-upx).
 
     각 항목 png 는 호출측이 S3 업로드 후 presigned URL 로 doc 에 박는다.
     실패 항목은 조용히 skip (graceful).
@@ -3306,12 +3319,12 @@ def build_fault_zoom_comparisons(
                         r_kp_idx_unit = _to_rep_idx(
                             r_idx_unit, frames_fps, r_rep_fps, r_rep_frames
                         )
-        if unit.criterion is not None and ref_match_failed_unit:
-            # D-12 ① 같은 순간 불가 (33-12 A-5) — criterion 카드는 기준 프레임
-            # 대응이 성립하지 않으면 방출하지 않는다 (불일치 쌍 미노출). legacy
-            # 경로는 D-04 정직 폴백(전신+refMatch='failed') byte-보존 — 구 doc·
-            # advisory·기존 테스트 하위호환 (test_fault_zoom_ref_match 박제).
-            continue
+        # quick-260903-upx — D-12 ① "같은 순간 불가 = criterion 카드 미방출" 폐기.
+        # belle 09-03 "확대사진을 그 멈추는 구간은 다 보여줘야" — 기준 대응 실패도
+        # 사진을 없애지 않는다. criterion 카드도 legacy 와 같은 D-04 정직 폴백
+        # (ref 전신 + refMatch='failed' + refMatched=False)으로 진행한다 — 학생
+        # 측은 그대로, 앱은 refMatch 캡션으로 사실을 말한다. 종전 미방출 assert
+        # 는 새 규칙으로 갱신됨 (test_zoom_join_joint_exact / test_fault_zoom).
         u_valid, u_relaxed = _member_pts(user_report, u_kp_idx_unit, unit.members)
         if ref_match_failed_unit:
             # 대응 실패 = ref 측 전신 폴백 강제 (D-04). 좌표 계산을 건너뛰고 빈
@@ -3334,11 +3347,15 @@ def build_fault_zoom_comparisons(
                 (m, (float(_ab_ref[m][0]), float(_ab_ref[m][1])))
                 for m in unit.members if _ab_ref.get(m) is not None
             ]
-        if not u_valid and not r_valid:
-            # 양측 다 신뢰 좌표 0 — 최소 한 측 valid 일 때만 카드 (기존 skip
-            # 규칙 보존). relaxed 는 반대측이 valid 인 카드에서 전신 폴백을
-            # 대체하는 강하 단계이지, 단독으로 카드를 만들지 않는다 (양측
-            # 불확실 crop = 오인 위험, 260702-sic 요구 3 정신).
+        if not u_valid and not r_valid and unit.criterion is None:
+            # 양측 다 신뢰 좌표 0 — legacy/advisory 경로는 최소 한 측 valid 일
+            # 때만 카드 (기존 skip 규칙 보존). relaxed 는 반대측이 valid 인
+            # 카드에서 전신 폴백을 대체하는 강하 단계이지, 단독으로 카드를
+            # 만들지 않는다 (양측 불확실 crop = 오인 위험, 260702-sic 요구 3).
+            # quick-260903-upx — criterion(감점 record) 카드는 예외: 사진은
+            # 남기고 표시만 생략한다 (_side_crop 3단 강하의 relaxed/전신 단계로
+            # 진행 — relaxed/full 은 anchor_px None 이라 원·선·호·화살표 0,
+            # userMarked/refMarked=False 로 앱이 사실을 말한다).
             continue
         member_deltas = [
             float(deltas[m]) for m in unit.members if deltas.get(m) is not None
@@ -3475,14 +3492,24 @@ def build_fault_zoom_comparisons(
                 center=r_vertex,
                 side_override=shared_side_ref,
             )
+            # quick-260903-upx — 표시 생략 측의 무표시 원본 (크롭은 그대로, 표시만
+            # 생략 — "게이트는 표시만 정한다"). 아래 드로잉 로직은 무접촉으로
+            # 돌고, 스탬프 직전에 이 원본으로 되돌린다 (반대측 표시는 그대로).
+            _u_plain = u_img.copy() if "user" in suppress_marks else None
+            _r_plain = r_img.copy() if "ref" in suppress_marks else None
             if unit.criterion is not None and (
                 u_kind == "full" or r_kind == "full"
             ):
                 # D-12 ② 같은 배율 불가 (33-12 A-5) — 한 측이 전신 폴백이면 두
-                # 사진의 배율이 다르다 (contain-fit vs 부위 zoom). criterion 카드는
-                # 미방출. valid/relaxed 는 프레이밍 배율이 통일돼(32-01 D-20) 배율
-                # parity 성립 — drop 대상 아님.
-                continue
+                # 사진의 배율이 다르다 (contain-fit vs 부위 zoom). 종전엔 criterion
+                # 카드 미방출. quick-260903-upx (belle 09-03 "멈추는 구간은 다
+                # 보여줘야"): 미방출 폐기 — 카드는 남기고 로그로만 남긴다. 전신
+                # 측은 kind != valid 라 표시 0 이고 userMarked/refMarked 가 말한다.
+                log.info(
+                    "fault_zoom_scale_parity_lost analysis_id=%s criterion=%s "
+                    "user_kind=%s ref_kind=%s (카드 유지 — quick-260903-upx)",
+                    analysis_id, unit.criterion, u_kind, r_kind,
+                )
             # D-20 (32-CONTEXT): crop side px 구조 로그 (관측 전용, 채점/방출 무접촉).
             # 32-03 전수 스윕이 육안 비교에 더해 user/ref side 비(0.8~1.25)로 프레이밍
             # 수치 parity 를 판정하는 재료. box 는 (left, top, side) — full 폴백은 None
@@ -3700,11 +3727,15 @@ def build_fault_zoom_comparisons(
             # user 측: 사이각/각도를 그렸으면 원 생략(선/호와 시각 언어 충돌 방지),
             # 아니면 기존 규칙 그대로. 각도 배지 없음(belle 2026-07-28) —
             # deficit 은 payload deficitDeg 로만 방출.
+            u_drew_circle = False
             if u_drew_legs or u_drew_angle:
                 u_crop = _mark(u_img, circle=False, anchor_px=None)
             else:
+                # quick-260903-upx — userMarked 인증 (refMarked 의 r_drew_circle
+                # 미러): `_mark` 의 circle 인자를 그대로 인증값으로 쓴다.
+                u_drew_circle = u_kind == "valid"
                 u_crop = _mark(
-                    u_img, circle=u_kind == "valid", anchor_px=u_anchor
+                    u_img, circle=u_drew_circle, anchor_px=u_anchor
                 )
             # D-11 목표 각도 화살표 (Phase 31-03) — 학생측 crop 에만, ARROW_JOINT_MAP
             # 에 선언된 멤버 관절만. 사이각을 그린 카드는 건너뛴다(시각 언어 충돌).
@@ -3762,6 +3793,20 @@ def build_fault_zoom_comparisons(
             # 사슬 소멸). u/r_label_fps 는 함수 서두에서 fail-open 산출.
             u_video_sec = u_idx_unit / u_label_fps if u_label_fps > 0 else None
             r_video_sec = r_display_idx / r_label_fps if r_label_fps > 0 else None
+            # quick-260903-upx — suppress_marks 적용: 그 측 패널을 무표시 원본으로
+            # 되돌리고 인증 플래그를 내린다 (드로잉 코드 무접촉, 반대측 그대로).
+            if _u_plain is not None:
+                u_crop = _u_plain
+                u_drew_legs = u_drew_angle = u_drew_circle = False
+            if _r_plain is not None:
+                r_img = _r_plain
+                r_drew_legs = r_drew_angle = r_drew_circle = False
+            if _u_plain is not None or _r_plain is not None:
+                log.info(
+                    "fault_zoom_marks_suppressed analysis_id=%s criterion=%s sides=%s",
+                    analysis_id, unit.criterion or "none",
+                    ",".join(s for s in ("user", "ref") if s in suppress_marks),
+                )
             u_crop = _stamp_time(u_crop, u_video_sec)
             if stamp_ref:
                 r_img = _stamp_time(r_img, r_video_sec)
@@ -3806,6 +3851,14 @@ def build_fault_zoom_comparisons(
         # 없는 이유를 말하게 된다. 판정 대상이 아닌 카드는 필드 부재 = 앱 종전대로.
         if unit.criterion is not None:
             item["refMarked"] = bool(r_drew_legs or r_drew_angle or r_drew_circle)
+            # quick-260903-upx — 학생 패널 미러 (refMarked 와 동형·동의미): 원·
+            # 사이각·각도 중 하나라도 그렸으면 True. 눈 불일치(suppress_marks
+            # 'user')·relaxed/전신 폴백·display_anchor 부재 측이 False 를 낸다 —
+            # 앱은 이 값만 보고 "왼쪽 사진에는 표시를 넣지 않았어요" 한 줄.
+            # criterion 카드만 (legacy/advisory 는 키 부재 — refMarked 선례).
+            # 3-way lockstep: analysis.ts FaultZoomComparison.userMarked? +
+            # pipeline _fault_zoom_upload_items 매퍼 + contract.md §11.11.
+            item["userMarked"] = bool(u_drew_legs or u_drew_angle or u_drew_circle)
         # F-3 실영상 초 (quick-260730-l7t) — paircap 초 표기(S6) + 참고코너 페어
         # 정합. **rep 인덱스(userFrameIdx/refFrameIdx)로 초를 재계산 금지** — 두
         # 값은 별개 축이다(rep 공간 vs 비디오 9fps 공간). 3-way lockstep:

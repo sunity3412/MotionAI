@@ -198,8 +198,13 @@ def test_dtw_failure_drops_synthetic_candidates_and_keeps_working():
     broken = _Match(0, [])  # path 없음 → _matched_ref_frame None
     units = [_unit("angle_vs_reference__left_knee", ["left_knee"], at=4)]
     comps = _build(units, dtw_match=broken)
-    # criterion 카드는 기준 대응 실패 시 D-12 로 미방출 — 크래시 0 이 요점.
+    # 종전 주석은 "criterion 카드는 기준 대응 실패 시 D-12 로 미방출"이었으나 이
+    # 하네스는 ref_frame_candidates 창이 기준 순간을 살려 대응이 성립한다(refMatch
+    # 'dtw'). quick-260903-upx 이후엔 대응이 정말 실패해도 카드가 남는다
+    # (test_fault_zoom test_criterion_card_emitted_on_ref_match_failure) — 여기서는
+    # 크래시 0 + 카드 1장(사진이 사라지지 않음)을 잠근다.
     assert isinstance(comps, list)
+    assert len(comps) == 1
 
 
 # ── override 경로 (W3 — UnboundLocalError 회귀 가드) ─────────────────────────

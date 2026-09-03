@@ -10,8 +10,9 @@ D-18 — 자동화 불가분 명시 (앱 측 반쪽):
   앱 join(result.tsx selectedZoom / deductionLabels.ts)은 JS 테스트 러너가 없어
   (프로젝트 정적 게이트 = `tsc --noEmit` 단독) 여기서 자동 검증 불가. 대체 증명 =
   app `npm run typecheck` + 33-16 페이즈 게이트의 D-19 재분석분 PNG/실기기 전수
-  열람. 백엔드 측 반쪽(item 이 올바른 관절·criterion 을 나른다 + 불일치 카드
-  미방출)은 본 파일이 assert 한다.
+  열람. 백엔드 측 반쪽(item 이 올바른 관절·criterion 을 나른다 + 불일치 카드는
+  표시만 생략하고 남는다 — quick-260903-upx 로 종전 "미방출"에서 갱신)은 본
+  파일이 assert 한다.
 
 defect #6 (각도 숫자 베이크) — RED 아님, 회귀 핀 (T-33-47):
   `_mark` 각도 배지·`_draw_leg_angle` 수치 라벨은 faultzoom debug 에서 이미 제거됨
@@ -185,12 +186,15 @@ def test_build_emits_criterion_keyed_item():
         )
 
 
-# ─────────── Test 3 — 같은 순간·같은 배율 불가 카드는 미방출 (D-12) ───────────
+# ─────────── Test 3 — 같은 순간·같은 배율 불가 카드도 남는다 (D-12 ①② 폐기) ───────
 
 
 def test_mismatched_pair_dropped_criterion_path():
-    """criterion 경로: ref 좌표 결측(full 폴백)·DTW 대응 실패 → 카드 drop (D-12).
+    """criterion 경로: ref 좌표 결측(full 폴백)·DTW 대응 실패 → 종전 D-12 drop.
 
+    quick-260903-upx (belle 09-03 "확대사진을 그 멈추는 구간은 다 보여줘야하고,
+    그걸 모든 동작에서 통과시켜야한다"): 미방출 폐기 — 카드는 남고 표시만 생략,
+    refMatch/refMarked/userMarked 가 사실을 말한다. 기대값만 갱신(테스트 삭제 0).
     legacy(criterion 미지정) 경로는 D-04 정직 폴백(refMatch='failed'/전신)을
     byte-보존한다 — 기존 doc·advisory 렌더 무회귀 (test_fault_zoom_ref_match 박제).
     """
@@ -210,20 +214,26 @@ def test_mismatched_pair_dropped_criterion_path():
         joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
     )
 
-    # (a) ref full 폴백 = 같은 배율 불가 → drop.
-    dropped_scale = fz.build_fault_zoom_comparisons(
+    # (a) ref full 폴백 = 같은 배율 불가 — 종전 drop. quick-260903-upx: 카드는
+    # 남고 기준 패널 표시만 0 (refMarked False), 학생 측 표시는 그대로.
+    kept_scale = fz.build_fault_zoom_comparisons(
         frames, frames, user_rep, ref_nan,
         dtw_match=_IDENTITY9, criterion_units=unit, **common,
     )
-    assert dropped_scale == [], "ref full 폴백 카드가 방출됨 — D-12 같은 배율 위반"
+    assert len(kept_scale) == 1, "ref full 폴백이라고 사진을 없애면 안 된다 (quick-260903-upx)"
+    assert kept_scale[0]["refMarked"] is False and kept_scale[0]["userMarked"] is True
+    assert kept_scale[0]["refMatch"] == "dtw"
 
-    # (b) DTW 대응 실패 = 같은 순간 불가 → drop.
+    # (b) DTW 대응 실패 = 같은 순간 불가 — 종전 drop. quick-260903-upx: legacy 와
+    # 같은 D-04 정직 폴백(전신 + refMatch='failed')으로 방출, 학생 측 표시는 그대로.
     ref_ok = _report(9, 9.0, {"left_knee": (0.625, 0.5)}, {"left_knee": 0.9})
-    dropped_moment = fz.build_fault_zoom_comparisons(
+    kept_moment = fz.build_fault_zoom_comparisons(
         frames, frames, user_rep, ref_ok,
         dtw_match=None, criterion_units=unit, **common,
     )
-    assert dropped_moment == [], "ref 대응 실패 카드가 방출됨 — D-12 같은 순간 위반"
+    assert len(kept_moment) == 1, "ref 대응 실패라고 사진을 없애면 안 된다 (quick-260903-upx)"
+    assert kept_moment[0]["refMatch"] == "failed" and kept_moment[0]["refMatched"] is False
+    assert kept_moment[0]["refMarked"] is False and kept_moment[0]["userMarked"] is True
 
     # (c) legacy 경로 무회귀 — 동일 입력에서 정직 폴백 유지 (refMatch='failed').
     legacy = fz.build_fault_zoom_comparisons(

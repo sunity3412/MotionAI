@@ -1,0 +1,137 @@
+{
+  "model": "gemini-3.8-flash",
+  "rounds": 3,
+  "cards": [
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "f5e8e134a5bf4fca8b0cfc3c1847004f",
+      "reference": "ref-power-spin",
+      "index": 0,
+      "tier": "confirmed",
+      "joint": "left_hip",
+      "criterion": "leg_extension",
+      "userVideoSec": 1.9031719532554259,
+      "refVideoSec": 2.4,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "hip",
+        "knee",
+        "thigh"
+      ],
+      "user": {
+        "claim": "part",
+        "observed": "hip",
+        "limb": "other",
+        "confidence": 0.98,
+        "reason": "The circled region clearly corresponds to the hip/buttock area covered by white shorts.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "ref": {
+        "claim": "part",
+        "observed": "hip",
+        "limb": "other",
+        "confidence": 0.98,
+        "reason": "The red circle directly encloses the buttocks/hip region of the person practicing pole dancing.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "userMark": null,
+      "refMark": null,
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "userAdj": {
+        "ok": true,
+        "by": "center",
+        "reason": "center_in_expected"
+      },
+      "refAdj": {
+        "ok": true,
+        "by": "center",
+        "reason": "center_in_expected"
+      },
+      "verdict": "ok",
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "f5e8e134a5bf4fca8b0cfc3c1847004f",
+      "reference": "ref-power-spin",
+      "index": 1,
+      "tier": "confirmed",
+      "joint": "left_shoulder",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "userVideoSec": 6.711185308848081,
+      "refVideoSec": 9.6,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "claim": "part",
+        "observed": "knee",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "The red angle marking is centered on the knee joint of the leg hooked onto the pole, measuring the angle between the thigh and the calf.",
+        "rounds": 3,
+        "votes": {
+          "knee": 3
+        }
+      },
+      "ref": {
+        "claim": "part",
+        "observed": "armpit",
+        "limb": "arm",
+        "confidence": 0.95,
+        "reason": "표시된 각도의 꼭짓점은 겨드랑이에 위치하며, 몸통과 팔(상완) 사이의 각도를 나타내므로 겨드랑이 부위 및 팔에 해당합니다.",
+        "rounds": 3,
+        "votes": {
+          "armpit": 3
+        }
+      },
+      "userMark": {
+        "claim": "mark_part",
+        "observed": "knee",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "두 빨간색 선이 꺾이고 만나는 꼭짓점(각도 표시 지점)은 곧게 뻗은 다리의 무릎 관절 위에 위치해 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "knee": 3
+        }
+      },
+      "refMark": null,
+      "audit": {
+        "userOk": false,
+        "refOk": true,
+        "flags": [
+          "user:mark_mismatch"
+        ]
+      },
+      "userAdj": {
+        "ok": false,
+        "by": "mark",
+        "reason": "mark_elsewhere"
+      },
+      "refAdj": {
+        "ok": true,
+        "by": "center",
+        "reason": "center_in_expected"
+      },
+      "verdict": "mismatch",
+      "mismatch": true
+    }
+  ]
+}

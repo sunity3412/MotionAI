@@ -1,0 +1,135 @@
+quick-260905-ota — run1 vs run2 (raw script, identical version 07225636) and replay (e50a8ac5 marked_flags)
+
+[raw] card verdicts same 21/21   run1={'ok': 14, 'mismatch': 6, 'unresolved': 1}  run2={'ok': 14, 'mismatch': 6, 'unresolved': 1}
+
+[_replay] card verdicts same 21/21   run1={'ok': 14, 'mismatch': 7, 'unresolved': 0}  run2={'ok': 14, 'mismatch': 7, 'unresolved': 0}
+
+center tokens same 37/42
+
+per card (run1 | run2):  side center{votes} -> mark{votes} => ok/by:reason
+
+ref-pdshape [0] confirmed right_elbow angle_vs_reference__right_elbow userMarked=False refMarked(raw doc, advisory=absent)=False
+   run1 user back_waist{'back_waist': 3} -> - => False/none:no_mark_and_center_elsewhere
+   run2 user back_waist{'back_waist': 3} -> - => False/none:no_mark_and_center_elsewhere
+   run1 ref  hand{'hand': 3} -> - => True/center:center_in_expected
+   run2 ref  hand{'hand': 3} -> - => True/center:center_in_expected
+
+ref-pdshape [1] confirmed left_elbow angle_vs_reference__left_elbow userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user elbow{'elbow': 3} -> - => True/center:center_in_expected
+   run2 user elbow{'elbow': 3} -> - => True/center:center_in_expected
+   run1 ref  elbow{'elbow': 3} -> - => True/center:center_in_expected
+   run2 ref  elbow{'elbow': 3} -> - => True/center:center_in_expected
+
+ref-pdshape [2] confirmed left_knee angle_vs_reference__left_knee userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user knee{'knee': 3} -> - => True/center:center_in_expected
+   run2 user knee{'knee': 3} -> - => True/center:center_in_expected
+   run1 ref  knee{'knee': 2, 'elbow': 1} -> - => True/center:center_in_expected
+   run2 ref  elbow{'elbow': 3} -> knee{'knee': 2, 'elbow': 1} => True/mark:mark_in_expected
+
+ref-pdshape [3] confirmed right_shoulder angle_vs_reference__right_shoulder userMarked=True refMarked(raw doc, advisory=absent)=False
+   run1 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run2 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run1 ref  neck{'neck': 2, 'head': 1} -> - => False/none:no_mark_and_center_elsewhere
+   run2 ref  neck{'neck': 2, 'head': 1} -> - => False/none:no_mark_and_center_elsewhere
+
+ref-pdshape [4] confirmed left_hip angle_vs_reference__left_hip userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user back_waist{'back_waist': 3} -> - => True/center:center_in_expected
+   run2 user back_waist{'back_waist': 3} -> - => True/center:center_in_expected
+   run1 ref  back_waist{'back_waist': 3} -> - => True/center:center_in_expected
+   run2 ref  back_waist{'back_waist': 3} -> - => True/center:center_in_expected
+
+ref-pdshape [5] advisory left_shoulder None userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user head{'head': 3} -> neck{'neck': 2, 'head': 1} => False/mark:mark_elsewhere
+   run2 user head{'head': 3} -> neck{'neck': 3} => False/mark:mark_elsewhere
+   run1 ref  chest{'chest': 3} -> - => True/center:center_in_expected
+   run2 ref  chest{'chest': 3} -> - => True/center:center_in_expected
+
+ref-climb [0] confirmed right_knee angle_vs_reference__right_knee userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user knee{'knee': 3} -> - => True/center:center_in_expected
+   run2 user knee{'knee': 3} -> - => True/center:center_in_expected
+   run1 ref  knee{'knee': 3} -> - => True/center:center_in_expected
+   run2 ref  knee{'knee': 3} -> - => True/center:center_in_expected
+
+ref-climb [1] advisory left_hip None userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user thigh{'thigh': 3} -> - => True/center:center_in_expected
+   run2 user thigh{'thigh': 3} -> - => True/center:center_in_expected
+   run1 ref  knee{'knee': 3} -> no_mark{'no_mark': 3} => None/mark:mark_disagreement
+   run2 ref  knee{'knee': 3} -> no_mark{'no_mark': 3} => None/mark:mark_disagreement
+
+ref-climb [2] advisory left_shoulder None userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run2 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run1 ref  chest{'chest': 3} -> - => True/center:center_in_expected
+   run2 ref  chest{'chest': 3} -> - => True/center:center_in_expected
+
+ref-power-spin [0] confirmed left_hip leg_extension userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 user hip{'hip': 3} -> - => True/center:center_in_expected
+   run1 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+
+ref-power-spin [1] confirmed left_shoulder angle_vs_reference__left_shoulder userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user knee{'knee': 2, 'thigh': 1} -> knee{'knee': 2, 'elbow': 1} => False/mark:mark_elsewhere
+   run2 user knee{'knee': 3} -> knee{'knee': 3} => False/mark:mark_elsewhere
+   run1 ref  armpit{'armpit': 3} -> - => True/center:center_in_expected
+   run2 ref  armpit{'armpit': 3} -> - => True/center:center_in_expected
+
+ref-elbow-twist-sister [0] confirmed right_elbow angle_vs_reference__right_elbow userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run2 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run1 ref  elbow{'elbow': 3} -> - => True/center:center_in_expected
+   run2 ref  elbow{'elbow': 3} -> - => True/center:center_in_expected
+
+ref-elbow-twist-sister [1] confirmed left_shoulder angle_vs_reference__left_shoulder userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user thigh{'thigh': 3} -> thigh{'hip': 1, 'thigh': 2} => False/mark:mark_elsewhere
+   run2 user hip{'hip': 2, 'thigh': 1} -> thigh{'thigh': 3} => False/mark:mark_elsewhere
+   run1 ref  unclear{'knee': 1, 'elbow': 1, 'thigh': 1} -> hip{'hip': 3} => False/mark:mark_elsewhere
+   run2 ref  thigh{'thigh': 2, 'error': 1} -> unclear{'thigh': 1, 'hip': 1, 'knee': 1} => None/mark:unreadable
+
+ref-elbow-twist-sister [2] confirmed right_shoulder angle_vs_reference__right_shoulder userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run2 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run1 ref  shoulder{'shoulder': 2, 'elbow': 1} -> - => True/center:center_in_expected
+   run2 ref  elbow{'elbow': 2, 'shoulder': 1} -> shoulder{'elbow': 1, 'shoulder': 2} => True/mark:mark_in_expected
+
+ref-elbow-twist-sister [3] confirmed left_hip angle_vs_reference__left_hip userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 user hip{'hip': 3} -> - => True/center:center_in_expected
+   run1 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+
+ref-elbow-twist-sister [4] confirmed right_hip angle_vs_reference__right_hip userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 user hip{'hip': 3} -> - => True/center:center_in_expected
+   run1 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+
+ref-elbow-twist-sister [5] advisory left_shoulder None userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user head{'head': 3} -> head{'head': 2, 'neck': 1} => False/mark:mark_elsewhere
+   run2 user head{'neck': 1, 'head': 2} -> head{'head': 2, 'neck': 1} => False/mark:mark_elsewhere
+   run1 ref  chest{'chest': 3} -> - => True/center:center_in_expected
+   run2 ref  chest{'chest': 3} -> - => True/center:center_in_expected
+
+ref-kip-up [0] confirmed left_knee split_angle userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user thigh{'thigh': 3} -> - => True/center:center_in_expected
+   run2 user hip{'hip': 2, 'thigh': 1} -> - => True/center:center_in_expected
+   run1 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+
+ref-peter-pan [0] confirmed left_shoulder angle_vs_reference__left_shoulder userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user armpit{'armpit': 3} -> - => True/center:center_in_expected
+   run2 user armpit{'armpit': 3} -> - => True/center:center_in_expected
+   run1 ref  shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run2 ref  shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+
+ref-peter-pan [1] advisory right_shoulder None userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run2 user shoulder{'shoulder': 3} -> - => True/center:center_in_expected
+   run1 ref  back_waist{'back_waist': 3} -> - => True/center:center_in_expected
+   run2 ref  back_waist{'back_waist': 3} -> - => True/center:center_in_expected
+
+ref-peter-pan [2] advisory right_hip None userMarked=True refMarked(raw doc, advisory=absent)=True
+   run1 user hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 user hip{'hip': 3} -> - => True/center:center_in_expected
+   run1 ref  hip{'hip': 3} -> - => True/center:center_in_expected
+   run2 ref  hip{'hip': 3} -> - => True/center:center_in_expected

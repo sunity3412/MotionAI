@@ -1,0 +1,37 @@
+card_photo_audit replay=/Users/kimtaesung/Dev/SunityMotion/.planning/quick/260905-ota-mark-part-adjudication/evidence/audit_ota_run2.json model=gemini-3.8-flash rounds=3 cards=21
+  ref-pdshape [0] confirmed right_elbow     user=back_waist→- False/none:no_mark_and_center_elsewhere ref=hand→- True/center:center_in_expected MISMATCH
+  ref-pdshape [1] confirmed left_elbow      user=elbow→- True/center:center_in_expected ref=elbow→- True/center:center_in_expected ok
+  ref-pdshape [2] confirmed left_knee       user=knee→- True/center:center_in_expected ref=elbow→knee True/mark:mark_in_expected ok
+  ref-pdshape [3] confirmed right_shoulder  user=shoulder→- True/center:center_in_expected ref=neck→- False/none:no_mark_and_center_elsewhere MISMATCH
+  ref-pdshape [4] confirmed left_hip        user=back_waist→- True/center:center_in_expected ref=back_waist→- True/center:center_in_expected ok
+  ref-pdshape [5] advisory  left_shoulder   user=head→neck False/mark:mark_elsewhere ref=chest→- True/center:center_in_expected MISMATCH
+  ref-climb [0] confirmed right_knee      user=knee→- True/center:center_in_expected ref=knee→- True/center:center_in_expected ok
+  ref-climb [1] advisory  left_hip        user=thigh→- True/center:center_in_expected ref=knee→no_mark False/none:no_mark_and_center_elsewhere MISMATCH
+  ref-climb [2] advisory  left_shoulder   user=shoulder→- True/center:center_in_expected ref=chest→- True/center:center_in_expected ok
+  ref-power-spin [0] confirmed left_hip        user=hip→- True/center:center_in_expected ref=hip→- True/center:center_in_expected ok
+  ref-power-spin [1] confirmed left_shoulder   user=knee→knee False/mark:mark_elsewhere ref=armpit→- True/center:center_in_expected MISMATCH
+  ref-elbow-twist-sister [0] confirmed right_elbow     user=shoulder→- True/center:center_in_expected ref=elbow→- True/center:center_in_expected ok
+  ref-elbow-twist-sister [1] confirmed left_shoulder   user=hip→thigh False/mark:mark_elsewhere ref=thigh→unclear None/mark:unreadable MISMATCH
+  ref-elbow-twist-sister [2] confirmed right_shoulder  user=shoulder→- True/center:center_in_expected ref=elbow→shoulder True/mark:mark_in_expected ok
+  ref-elbow-twist-sister [3] confirmed left_hip        user=hip→- True/center:center_in_expected ref=hip→- True/center:center_in_expected ok
+  ref-elbow-twist-sister [4] confirmed right_hip       user=hip→- True/center:center_in_expected ref=hip→- True/center:center_in_expected ok
+  ref-elbow-twist-sister [5] advisory  left_shoulder   user=head→head False/mark:mark_elsewhere ref=chest→- True/center:center_in_expected MISMATCH
+  ref-kip-up [0] confirmed left_knee       user=hip→- True/center:center_in_expected ref=hip→- True/center:center_in_expected ok
+  ref-peter-pan [0] confirmed left_shoulder   user=armpit→- True/center:center_in_expected ref=shoulder→- True/center:center_in_expected ok
+  ref-peter-pan [1] advisory  right_shoulder  user=shoulder→- True/center:center_in_expected ref=back_waist→- True/center:center_in_expected ok
+  ref-peter-pan [2] advisory  right_hip       user=hip→- True/center:center_in_expected ref=hip→- True/center:center_in_expected ok
+
+wrote /Users/kimtaesung/Dev/SunityMotion/.planning/quick/260905-ota-mark-part-adjudication/evidence/audit_ota_run2_replay.json
+
+# mismatch cards
+  ref-pdshape [0] confirmed right_elbow angle_vs_reference__right_elbow user=back_waist→- False/none:no_mark_and_center_elsewhere ref=hand→- True/center:center_in_expected
+  ref-pdshape [3] confirmed right_shoulder angle_vs_reference__right_shoulder user=shoulder→- True/center:center_in_expected ref=neck→- False/none:no_mark_and_center_elsewhere
+  ref-pdshape [5] advisory left_shoulder None user=head→neck False/mark:mark_elsewhere ref=chest→- True/center:center_in_expected
+  ref-climb [1] advisory left_hip None user=thigh→- True/center:center_in_expected ref=knee→no_mark False/none:no_mark_and_center_elsewhere
+  ref-power-spin [1] confirmed left_shoulder angle_vs_reference__left_shoulder user=knee→knee False/mark:mark_elsewhere ref=armpit→- True/center:center_in_expected
+  ref-elbow-twist-sister [1] confirmed left_shoulder angle_vs_reference__left_shoulder user=hip→thigh False/mark:mark_elsewhere ref=thigh→unclear None/mark:unreadable
+  ref-elbow-twist-sister [5] advisory left_shoulder None user=head→head False/mark:mark_elsewhere ref=chest→- True/center:center_in_expected
+
+# unresolved cards
+card_photo_audit unaudited=0 tier2_panels=8
+card_photo_audit total=21 mismatched=7 unresolved=0

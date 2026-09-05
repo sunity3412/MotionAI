@@ -245,8 +245,9 @@ def test_card_verdict_precedence():
     # 목↔어깨: pdshape [3] 오른어깨 ref (run3·run4 neck 2:1). doc refMarked=False →
     # 2단 없이 확정 — 표시가 없고 정중앙도 어깨가 아니다.
     ("pdshape 오른어깨 ref = neck, 표시 없음", _SHOULDER, "neck", False, None, None),
-    # 무릎↔엉덩이: 클라임 [1] 참고 왼골반 ref (run3 thigh 2:1 / run4 knee 2:1). 표시 있음.
-    ("클라임 참고 왼골반 ref = knee", _HIP, "knee", True, "hip", "knee"),
+    # 무릎↔엉덩이: 클라임 [1] 참고 왼골반 ref (mvm run3 thigh 2:1 / run4 knee 2:1, ota knee
+    # 3/3 ×2런). 참고 카드 기준 측은 게이트 B 무마킹 — 눈도 no_mark 3/3 ×2런 → 2단 없이 확정.
+    ("클라임 참고 왼골반 ref = knee, 정책상 표시 없음", _HIP, "knee", False, None, None),
     # 겨드랑이↔팔꿈치: 엘보 [0] 오른팔꿈치 ref — 대장은 armpit, 눈은 10/10 elbow. 대장값으로.
     ("엘보 오른팔꿈치 ref = armpit (대장)", _ELBOW, "armpit", True, "elbow", "armpit"),
     # 팔↔다리: pdshape [2] 왼무릎 ref (run2~4 elbow 3:0). 표시 있음.
@@ -285,3 +286,42 @@ def test_mark_vocab_lockstep_with_card_gates():
     assert cpa.NO_MARK == cg.NO_MARK
     assert cpa.MARK_VOCAB == cpa.PART_VOCAB | {"no_mark"}
     assert "unclear" not in cpa.MARK_VOCAB
+
+
+# ── 09-05 ota 표시 측정 실측값 (run1·run2, 3회 최빈) — 허용 집합 무변경의 근거 ─────────
+#
+# (카드, 허용 집합, 정중앙, 표시, 기대 결말). 표시가 집합 밖인 것은 전부 원거리 —
+# 인접 확장으로 구제될 사례가 없다. 두 런에서 표시 토큰이 같은 패널만 박제한다
+# (엘보 [1] ref 는 run1 hip 3/3, run2 3자 동률 → 제외).
+_OTA_0905_MARKS = [
+    ("pdshape [5] 참고 왼어깨 user: 원이 얼굴", _SHOULDER, "head", "neck", "mark_elsewhere"),
+    ("파워스핀 [1] 왼어깨 user: 각도선이 든 다리", _SHOULDER, "knee", "knee", "mark_elsewhere"),
+    ("엘보 [1] 왼어깨 user: 꺾인 선이 허벅지", _SHOULDER, "thigh", "thigh", "mark_elsewhere"),
+    ("엘보 [5] 참고 왼어깨 user: 원이 얼굴", _SHOULDER, "head", "head", "mark_elsewhere"),
+    ("pdshape [2] 왼무릎 ref: 정중앙 팔꿈치, 표시는 무릎", _KNEE, "elbow", "knee", "mark_in_expected"),
+    ("엘보 [2] 오른어깨 ref: 정중앙 팔꿈치, 표시는 어깨", _SHOULDER, "elbow", "shoulder",
+     "mark_in_expected"),
+]
+
+
+@pytest.mark.parametrize("case", _OTA_0905_MARKS, ids=[c[0] for c in _OTA_0905_MARKS])
+def test_ota_0905_measured_marks(case):
+    name, expected, center, mark, reason = case
+    assert cpa.needs_mark_query(expected, center, marked=True), name
+    adj = cpa.adjudicate(expected, center, mark, marked=True)
+    assert adj["by"] == "mark" and adj["reason"] == reason, (name, adj)
+    assert adj["ok"] is (reason == "mark_in_expected")
+
+
+def test_widening_shoulder_to_neck_would_pass_face_circle_cards():
+    """shoulder 에 neck 을 넣으면 얼굴 위 원(pdshape·엘보 참고 왼어깨)이 by=mark 로 통과한다 —
+    그 결함이 이 감사가 잡으려는 종류라 넓히지 않는다 (quick-260905-ota Task 4 판단)."""
+    assert "neck" not in _SHOULDER and "head" not in _SHOULDER
+    widened = _SHOULDER | {"neck"}
+    assert cpa.adjudicate(widened, "head", "neck", marked=True)["ok"] is True   # 통과해 버림
+    assert cpa.adjudicate(_SHOULDER, "head", "neck", marked=True)["ok"] is False
+    # hip 에 knee 를 넣으면 참고 왼골반 ref 가 by=center 로 통과해 버린다 — 그 패널은 표시가
+    # 없어(게이트 B, 눈 no_mark 3/3 ×2런) 표시 측정이 넓힘을 지지할 길이 없다. 이번 1벌을
+    # 깨끗하게 보이려는 조정이 정확히 이것이라 하지 않는다.
+    assert cpa.adjudicate(_HIP | {"knee"}, "knee", None, marked=False)["ok"] is True
+    assert cpa.adjudicate(_HIP, "knee", None, marked=False)["reason"] == "no_mark_and_center_elsewhere"

@@ -64,6 +64,21 @@ MARK_VOCAB: frozenset[str] = PART_VOCAB | {NO_MARK}
 # 동일 — 좌/우는 여기서도 쓰지 않는다. 카드가 대표로 삼는 관절은 4종뿐
 # (pipeline._KISMAM_TO_KEYPOINT: elbow/shoulder/hip/knee 좌우). 미등록 종류 = 허용
 # 집합 없음(빈 집합 → 감사 불가, 불일치로 세지 않는다).
+#
+# 2026-09-05 (quick-260905-ota) — mvm 의 인접 경계 3종을 **표시 측정**(mark_part, 09-03
+# 라이브 21장 × 2런, 3회 최빈)으로 가른 결과 **집합 무변경**. 넓힐 근거가 측정에 없다:
+#   · 목↔어깨 (pdshape 오른어깨 ref, 정중앙 neck 2:1 ×2런): 그 패널은 refMarked=False —
+#     잴 표시가 없다. 표시가 neck/head 로 읽힌 패널은 참고 왼어깨 2장(pdshape·엘보, 원이
+#     얼굴 위 — 표시 neck 2:1→3:0 / head 2:1 ×2런)뿐이고 그것은 표시 전위 그 자체다.
+#     shoulder 에 neck 을 넣으면 그 카드가 by=mark 로 통과한다 (테스트가 이를 고정).
+#   · 무릎↔엉덩이 (클라임 참고 왼골반 ref, 정중앙 knee 3/3 ×2런): 참고 카드 기준 측은
+#     게이트 B 로 무마킹이 정책 — 눈도 no_mark 3/3 ×2런. 지지할 표시가 없다.
+#   · 겨드랑이↔팔꿈치 (엘보 오른팔꿈치 ref): 눈은 elbow 3/3 ×2런(mvm 포함 16/16) — 1단
+#     통과. 대장의 armpit 은 사람 판독이었고 집합은 이미 맞다.
+#   2단이 살린 카드 2장은 표시가 이미 집합 안(pdshape 왼무릎 ref elbow→mark knee, 엘보
+#   오른어깨 ref elbow→mark shoulder). 표시 측정 패널 8 중 집합 밖 표시는 전부 원거리
+#   (knee·thigh·hip·head/neck 이 어깨 카드에) — 인접 확장으로 구제될 사례 0.
+#   증거: .planning/quick/260905-ota-mark-part-adjudication/evidence/ (run1·run2 + replay).
 _KIND_PARTS: dict[str, frozenset[str]] = {
     "elbow": frozenset({"elbow", "hand", "shoulder"}),
     "shoulder": frozenset({"shoulder", "armpit", "chest", "back_waist"}),

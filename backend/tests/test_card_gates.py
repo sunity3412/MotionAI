@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 
 import numpy as np
@@ -523,3 +524,127 @@ def test_decide_card_is_frozen_value_object():
     with pytest.raises(Exception):
         d.emit = False  # type: ignore[misc]
     assert (d.hold_state, d.pair_state, d.eye_state) == ("hold", "match", "match")
+
+
+# ── claim "part" (quick-260905-mvm) — 카드 사진 감사용 관측 claim ─────────────
+#
+# 09-05 belle 발견: 확대 카드 21장 중 5장이 제목과 다른 부위. 눈에게 기대 부위를
+# 알려주면 짜맞추므로 질문은 "무엇이 보이는가"만 묻고(좌우·기대 관절 0), 대조는
+# card_photo_audit 가 한다. 기존 claim 3종·machine_eye 는 무변경이어야 한다.
+
+_PART_ENUM_PLAN = ["head", "neck", "shoulder", "armpit", "elbow", "hand", "chest",
+                   "abdomen", "back_waist", "hip", "thigh", "knee", "foot", "unclear"]
+
+
+def test_part_question_has_no_side_words():
+    """부하 규칙: part 질문에 좌우 어휘(왼/오른/left/right) 0 — 대소문자 무관."""
+    q = cg._CLAIM_QUESTION["part"]
+    for tok in ("왼", "오른", "좌", "우측", "left", "right"):
+        assert tok not in q.lower(), tok
+    # 기대 부위를 못 새게 하는 구조: 오클루전 변형·관절 종류 힌트가 붙지 않는다
+    assert cg._claim_question("part", None) == q
+    assert cg._claim_question("part", "arm") == q
+    assert cg._claim_question("part", "leg", "무릎") == q
+    assert cg._claim_question("part", "arm", "팔꿈치") == q
+    assert "참고:" not in q
+    assert "정중앙" in q
+
+
+def test_part_enum_matches_plan_and_tokens():
+    """스키마 enum 은 plan 의 14 토큰(영문 소문자, 기존 bent/extended 관례)."""
+    assert cg._CLAIM_ENUM["part"] == _PART_ENUM_PLAN
+    assert cg.PART_TOKENS == frozenset(_PART_ENUM_PLAN) - {"unclear"}
+    assert "unclear" not in cg.PART_TOKENS
+    assert all(t == t.lower() and t.isascii() for t in cg._CLAIM_ENUM["part"])
+    # 질문 본문이 enum 전체를 중립 나열한다 — 어느 것이 정답인지 드러내지 않는다
+    for tok in cg.PART_TOKENS:
+        assert f"({tok})" in cg._CLAIM_QUESTION["part"], tok
+
+
+def test_existing_claims_unchanged_by_part_addition():
+    """기존 3 claim 의 질문·스키마는 그대로 — part 는 추가만."""
+    assert set(cg._CLAIM_QUESTION) == {"bent", "extended", "off_pole", "part"}
+    assert cg._CLAIM_ENUM["bent"] == ["bent", "extended", "off_body", "unclear"]
+    assert cg._CLAIM_ENUM["extended"] == ["bent", "extended", "off_body", "unclear"]
+    assert cg._CLAIM_ENUM["off_pole"] == ["off_pole", "on_pole", "off_body",
+                                          "no_pole", "unclear"]
+    for c in ("bent", "extended", "off_pole"):
+        assert "정중앙" not in cg._CLAIM_QUESTION[c]
+        assert cg._CLAIM_QUESTION[c].endswith(cg._LIMB_QUESTION)
+    # bent/extended 오클루전 변형·off_pole 통과 경로 종전과 동일
+    assert cg._claim_question("off_pole", "leg", "무릎") == cg._CLAIM_QUESTION["off_pole"]
+    assert cg._claim_question("bent", "leg") != cg._CLAIM_QUESTION["bent"]
+    assert cg._claim_question("bent", None) == cg._CLAIM_QUESTION["bent"]
+
+
+def test_eye_verdict_part_is_observation_only():
+    """part 판정 = 부위 토큰을 읽어냈는가 — 기대와의 대조·사지 대조는 하지 않는다."""
+    assert cg._eye_verdict("back_waist", "arm", "part", "arm")   # 대조 없음
+    assert cg._eye_verdict("thigh", "leg", "part", "arm")        # 사지 상충도 비적용
+    assert cg._eye_verdict("elbow", "unclear", "part", None)
+    assert not cg._eye_verdict("unclear", "arm", "part", "arm")  # 못 읽음
+    assert not cg._eye_verdict("bent", "arm", "part", "arm")     # enum 밖 = 못 읽음
+    assert not cg._eye_verdict("error", None, "part", None)
+    # 기존 claim 판정은 그대로
+    assert cg._eye_verdict("bent", "leg", "bent", "leg")
+    assert not cg._eye_verdict("bent", "arm", "bent", "leg")
+
+
+class _CannedResp:
+    def __init__(self, payload: dict):
+        self._raw = json.dumps(payload).encode("utf-8")
+
+    def read(self) -> bytes:
+        return self._raw
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+
+def test_eye_judge_part_sends_part_question_and_schema(monkeypatch):
+    """eye_judge(crop, "part") — 요청 본문에 part 질문·enum 이 실리고 토큰이 돌아온다.
+
+    네트워크 0: urlopen 을 가로채 요청을 박제하고 정해진 응답을 돌려준다.
+    """
+    from PIL import Image
+
+    captured: list[dict] = []
+
+    def fake_urlopen(req, timeout=None):
+        captured.append({"url": req.full_url, "body": json.loads(req.data),
+                         "timeout": timeout})
+        text = json.dumps({"observed": "back_waist", "limb": "other",
+                           "confidence": 0.8, "reason": "등허리가 중앙"})
+        return _CannedResp({"candidates": [{"content": {"parts": [{"text": text}]}}]})
+
+    monkeypatch.setattr(cg.urllib.request, "urlopen", fake_urlopen)
+    crop = Image.new("RGB", (16, 16), (200, 200, 200))
+    res = cg.eye_judge(crop, "part", api_key="k", expected_limb="arm",
+                       joint_kind="팔꿈치", model=cg.DEFAULT_C_MODEL)
+    assert len(captured) == 1
+    parts = captured[0]["body"]["contents"][0]["parts"]
+    assert parts[1]["text"] == cg._CLAIM_QUESTION["part"]   # 힌트·변형 미부착
+    schema = captured[0]["body"]["generationConfig"]["response_schema"]
+    assert schema["properties"]["observed"]["enum"] == cg._CLAIM_ENUM["part"]
+    assert captured[0]["body"]["generationConfig"]["temperature"] == 0
+    assert cg.DEFAULT_C_MODEL in captured[0]["url"]
+    assert res["observed"] == "back_waist"
+    assert res["match"] is True          # 읽어냈다 — 대조는 audit 의 몫
+    assert res["limb"] == "other"
+
+
+def test_eye_judge_part_unclear_is_no_match(monkeypatch):
+    """unclear 응답 = 못 읽음 → match False (다수결 재질문 대상)."""
+    from PIL import Image
+
+    def fake_urlopen(req, timeout=None):
+        text = json.dumps({"observed": "unclear", "limb": "unclear",
+                           "confidence": 0.2, "reason": ""})
+        return _CannedResp({"candidates": [{"content": {"parts": [{"text": text}]}}]})
+
+    monkeypatch.setattr(cg.urllib.request, "urlopen", fake_urlopen)
+    res = cg.eye_judge(Image.new("RGB", (8, 8)), "part", api_key="k")
+    assert res["observed"] == "unclear" and res["match"] is False

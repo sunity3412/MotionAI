@@ -13,6 +13,10 @@ report/track 형상만 본다. **채점 무접촉** — 소비처는 complete �
                   2단 = 상태(bent/extended) + 사지 종류(팔/다리) — 마크-전위 구멍
                   (ii0 SWEEP-REPORT §3-2 kneepath 실측: 무릎 마크가 팔에 얹혀
                   claim=bent 가 우연 일치) 수리분.
+  · claim "part" — 완성된 카드 사진이 제목의 부위를 보여주는지 감사하는 관측
+                  claim (quick-260905-mvm). 눈은 "정중앙에 가장 크게 보이는 부위"
+                  토큰만 답하고, 제목과의 대조는 card_photo_audit(순수)가 한다.
+                  운영 게이트(bent/extended/off_pole)와 machine_eye 는 무변경.
 
 임계는 ii0 스윕 확정값 (260811-ii0-SWEEP-REPORT §2 튜닝 이력 — **재튜닝 금지**):
   · HOLD_MAX_DPS 60  — 승인 9정지 hold 최대 59.3(경계) vs fresh 전환 최소 98 실측.
@@ -482,13 +486,29 @@ _CLAIM_QUESTION = {
                  "보인다면, 표시된 부위가 폴에서 '떨어져 있음(off_pole)'인지 "
                  "'붙어 있음(on_pole)'인지 판정하세요. 원이 신체 위에 있지 않으면 "
                  "'off_body', 폴이 안 보이면 'no_pole'." + _LIMB_QUESTION),
+    # 카드 사진 감사 (quick-260905-mvm) — 09-05 belle 발견: 21장 중 5장이 제목과
+    # 다른 부위(팔꿈치 카드가 등허리 등). 눈에게 기대 부위를 알려주면 짜맞추므로
+    # (bz5 부록 C 와 같은 이유) 질문은 "무엇이 보이는가"만 묻는다 — 좌우 0,
+    # 기대 관절 0. 후보 목록은 스키마 enum 전체를 중립 순서로 나열한 것이라
+    # 어느 것이 정답인지 드러내지 않는다. 대조는 card_photo_audit 가 한다.
+    "part": ("사진 정중앙에 가장 크게 보이는 신체 부위는 무엇입니까? 머리(head), "
+             "목(neck), 어깨(shoulder), 겨드랑이(armpit), 팔꿈치(elbow), 손(hand), "
+             "가슴(chest), 배(abdomen), 등허리(back_waist), 엉덩이(hip), "
+             "허벅지(thigh), 무릎(knee), 발(foot) 중 하나를 observed 필드에 "
+             "답하세요. 분간이 안 되면 'unclear'." + _LIMB_QUESTION),
 }
 
 _CLAIM_ENUM = {
     "bent": ["bent", "extended", "off_body", "unclear"],
     "extended": ["bent", "extended", "off_body", "unclear"],
     "off_pole": ["off_pole", "on_pole", "off_body", "no_pole", "unclear"],
+    "part": ["head", "neck", "shoulder", "armpit", "elbow", "hand", "chest",
+             "abdomen", "back_waist", "hip", "thigh", "knee", "foot", "unclear"],
 }
+
+# part claim 의 "부위를 읽어냈다" 토큰 집합 — enum 에서 unclear 를 뺀 것.
+# card_photo_audit.expected_parts 의 허용 집합 어휘도 이 토큰 공간을 쓴다.
+PART_TOKENS = frozenset(_CLAIM_ENUM["part"]) - {"unclear"}
 
 _LIMB_ENUM = ["arm", "leg", "other", "unclear"]
 
@@ -566,8 +586,12 @@ def _claim_question(claim: str, expected_limb: str | None,
     마크가 팔 위, 기대 False) 0/5 → 0/5 유지. vlu "라이브 1회 PASS"는 눈의
     비결정성이었고 관절 종류 명시가 이를 안정시킨다. joint_kind None·미등록·
     off_pole 은 종전과 byte-동일 (하위호환).
+
+    part (quick-260905-mvm) 는 off_pole 과 같이 항상 _CLAIM_QUESTION 그대로 —
+    오클루전 변형·관절 종류 힌트를 붙이면 기대 부위가 질문에 새어 들어가
+    감사의 전제(눈은 관측만)가 깨진다.
     """
-    if claim == "off_pole" or expected_limb not in ("arm", "leg"):
+    if claim in ("off_pole", "part") or expected_limb not in ("arm", "leg"):
         return _CLAIM_QUESTION[claim]
     target, subj = ("팔", "팔이") if expected_limb == "arm" else ("다리", "다리가")
     q = (
@@ -592,7 +616,16 @@ def _eye_verdict(observed: str, limb: str | None, claim: str,
     (kneepath 실측 — 무릎 마크가 굽은 팔에 얹혀 claim=bent 우연 일치) 상태가
     맞아도 불일치 처리. limb 가 'other'/'unclear' 는 적극 모순이 아니므로 비차단
     — 차단은 arm↔leg 확정 상충에만 (좌/우 이름 금지는 유지).
+
+    claim "part" (quick-260905-mvm): 이 함수는 기대 부위를 모르므로 **판정하지
+    않는다** — 반환 = "부위 토큰을 읽어냈다"(PART_TOKENS 안, unclear 아님).
+    사지 종류 대조도 적용하지 않는다(어느 사지가 기대인지 역시 모른다). 제목과의
+    대조는 card_photo_audit.audit_card 가 한다 — 눈은 관측, 게이트는 결정이라는
+    기존 계약과 동형. 스키마 enum 밖 문자열(스키마 우회 응답)은 읽어낸 것이
+    아니므로 False (fail-closed).
     """
+    if claim == "part":
+        return observed in PART_TOKENS
     if observed != claim:
         return False
     if (expected_limb in ("arm", "leg") and limb in ("arm", "leg")

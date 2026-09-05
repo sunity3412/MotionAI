@@ -18,6 +18,16 @@
   · audit_card(expected, user_observed, ref_observed, *, user_marked, ref_marked)
     — 패널별 대조. 표시가 없는 측(marked=False)은 "표시 위치" 불일치를 묻지 않고
     "그 부위가 보이는가"만 본다 (플래그 이름이 갈린다).
+  · adjudicate(expected, center_token, mark_token, *, marked) — 2단 판정
+    (quick-260905-ota). mvm 감사에서 걸린 8장 중 3장이 인접 경계(목↔어깨, 무릎↔엉덩이,
+    겨드랑이↔팔꿈치)였다. 허용 집합을 넓히면 잡으려던 종류까지 놓치므로 경계는
+    측정으로 가른다: 1단(정중앙, part)이 허용 밖이면 **표시가 있는 패널에만** 2단
+    (표시가 놓인 부위, mark_part)을 묻고, 표시가 허용 안이면 통과(by=mark — 정중앙은
+    인접 맥락이었을 뿐), 밖이면 확정 불일치(mark_elsewhere — 사진이 다른 부위를
+    가리킨다). 표시가 없는 패널은 2단 없이 확정(no_mark_and_center_elsewhere).
+    눈이 no_mark 라는데 doc 은 표시 있음이면 판정 불가(mark_disagreement) — doc 과
+    그림이 어긋난 것 자체가 보고 대상. needs_mark_query 가 2단 필요 여부를,
+    card_verdict 가 카드 단위 결말(ok/mismatch/unresolved/unaudited)을 정한다.
 
 알려진 정답 (09-05 실측 대장 — 테스트 fixture 의 근거):
   1. pdshape 6.1s 오른팔꿈치 카드 = 등허리(back_waist)        → 불일치
@@ -44,6 +54,11 @@ PART_VOCAB: frozenset[str] = frozenset({
 # 눈이 "못 읽음"으로 돌려주는 값 — 불일치가 아니라 판정 불가 (눈이 못 본 것은 틀린 게
 # 아니다: card_gates.eye_mismatch 와 같은 의미론). "error" 는 eye_judge 호출 실패.
 UNREAD: frozenset[str] = frozenset({"unclear", "error"})
+
+# 2단(mark_part) 어휘 = 13 부위 + no_mark (card_gates.MARK_PART_TOKENS 와 lockstep).
+# no_mark 는 "표시가 없다"는 관측이지 못 읽음이 아니다 — quick-260905-ota.
+NO_MARK = "no_mark"
+MARK_VOCAB: frozenset[str] = PART_VOCAB | {NO_MARK}
 
 # 관절 종류 → 허용 부위. 관절 이름 꼬리(split("_")[-1]) 관례는 card_gates.joint_limb 과
 # 동일 — 좌/우는 여기서도 쓰지 않는다. 카드가 대표로 삼는 관절은 4종뿐
@@ -138,13 +153,103 @@ def is_mismatch(audit: dict) -> bool:
     return any(f.split(":", 1)[-1] in MISMATCH_FLAGS for f in audit.get("flags", ()))
 
 
+# ── 2단 판정 — 표시가 놓인 부위로 경계를 가른다 (quick-260905-ota) ─────────────
+#
+# 결말 4종 (+ 판정 불가):
+#   ok True  by center  center_in_expected            1단 통과 — 2단 불필요
+#   ok True  by mark    mark_in_expected              정중앙은 인접 맥락, 표시는 제목 부위
+#   ok False by mark    mark_elsewhere                표시가 다른 부위에 — 확정 불일치
+#   ok False by none    no_mark_and_center_elsewhere  표시 없고 정중앙도 아님 — 확정
+#   ok None  by mark    mark_disagreement             doc 표시 유무 ≠ 눈 (그 자체가 보고 대상)
+#   ok None  by center|mark  unreadable               눈이 못 읽음 (unclear/error/어휘 밖)
+#   ok None  by mark    mark_unobserved               2단이 필요한데 아직 안 물었음
+#   ok None  by none    no_expectation                허용 집합 없음 — 감사 불가
+
+ADJ_BY = ("center", "mark", "none")
+
+
+def _readable(token: str | None) -> bool:
+    return token is not None and str(token) not in UNREAD and str(token) in PART_VOCAB
+
+
+def needs_mark_query(expected: frozenset[str] | set[str], center_token: str | None, *,
+                     marked: bool) -> bool:
+    """이 패널에 2단(mark_part) 질의가 필요한가 — 허용 집합 있음 + 표시 있음 + 1단이 통과가
+    아님(정중앙이 허용 밖이거나 못 읽음). 표시 없는 패널은 2단 없이 확정되므로 False.
+
+    못 읽음(unclear 동률 등)도 2단으로 보낸다 — 못 읽음은 통과가 아니고, 표시 질문이
+    정중앙 질문보다 카드가 가리키는 지점에 정확하다 (plan 의 2단 근거 그대로).
+    """
+    exp = frozenset(expected or ())
+    if not exp or not marked:
+        return False
+    return not (_readable(center_token) and str(center_token) in exp)
+
+
+def adjudicate(expected: frozenset[str] | set[str], center_token: str | None,
+               mark_token: str | None = None, *, marked: bool) -> dict:
+    """패널 한 장의 2단 판정 → {ok, by, reason} (순수).
+
+    center_token = 1단(part) 최빈 토큰, mark_token = 2단(mark_part) 최빈 토큰 —
+    2단을 안 물었으면 None. marked = doc 의 userMarked/refMarked (09-05 감사에서 21장
+    전부 실제 그림과 일치 확인). 분기는 모듈 상단 표 그대로 — 결말은 서로 배타.
+    """
+    exp = frozenset(expected or ())
+    if not exp:
+        return {"ok": None, "by": "none", "reason": "no_expectation"}
+    center = None if center_token is None else str(center_token)
+    center_read = _readable(center)
+    if center_read and center in exp:
+        return {"ok": True, "by": "center", "reason": "center_in_expected"}
+    mark = None if mark_token is None else str(mark_token)
+    if not marked:
+        if mark is not None and mark in PART_VOCAB:
+            # doc 은 표시 없음인데 눈이 표시를 봤다 — 반대 방향 어긋남도 같은 보고 대상
+            return {"ok": None, "by": "mark", "reason": "mark_disagreement"}
+        if not center_read:
+            return {"ok": None, "by": "center", "reason": "unreadable"}
+        return {"ok": False, "by": "none", "reason": "no_mark_and_center_elsewhere"}
+    if mark is None:
+        return {"ok": None, "by": "mark", "reason": "mark_unobserved"}
+    if mark == NO_MARK:
+        return {"ok": None, "by": "mark", "reason": "mark_disagreement"}
+    if mark in UNREAD or mark not in PART_VOCAB:
+        return {"ok": None, "by": "mark", "reason": "unreadable"}
+    if mark in exp:
+        return {"ok": True, "by": "mark", "reason": "mark_in_expected"}
+    return {"ok": False, "by": "mark", "reason": "mark_elsewhere"}
+
+
+CARD_VERDICTS = ("ok", "mismatch", "unresolved", "unaudited")
+
+
+def card_verdict(user_adj: dict, ref_adj: dict) -> str:
+    """카드 단위 결말 — 어느 패널이든 ok False 면 mismatch, 아니면 어느 패널이든 판정 불가
+    (no_expectation 제외) 면 unresolved, 둘 다 no_expectation 이면 unaudited, 그 외 ok."""
+    adjs = (user_adj, ref_adj)
+    if any(a.get("ok") is False for a in adjs):
+        return "mismatch"
+    if all(a.get("reason") == "no_expectation" for a in adjs):
+        return "unaudited"
+    if any(a.get("ok") is None for a in adjs):
+        return "unresolved"
+    return "ok"
+
+
 __all__ = [
+    "ADJ_BY",
     "ANGLE_CRIT_PREFIX",
+    "CARD_VERDICTS",
+    "MARK_VOCAB",
     "MISMATCH_FLAGS",
+    "NO_MARK",
     "PART_VOCAB",
     "UNREAD",
+    "adjudicate",
     "audit_card",
+    "card_verdict",
     "expected_parts",
     "is_mismatch",
     "joint_kind",
+    "needs_mark_query",
 ]

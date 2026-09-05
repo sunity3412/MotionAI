@@ -13,7 +13,7 @@ EVAL_OUT_DIR repo-밖 강제 / SERIAL / _meta provenance / cold re-run / ALLDONE
                   조합 정답 시만 1점 — MMBench 방식). 언어 프라이어 shortcut 검출.
   C. json       = 파싱 성공률 + REPORT_KEYS Exact Match + CER(레벤슈타인 편집거리).
                   schema.normalize_report 화이트리스트 + guided JSON 으로 포맷 통제.
-  D. coaching   = LLM-as-a-Judge — 외부 최상위 모델(gemini-3.7-flash)이 결함 분석의
+  D. coaching   = LLM-as-a-Judge — 외부 최상위 모델(gemini-3.8-flash)이 결함 분석의
                   생체역학 타당성을 1~5 블라인드 채점(모델명 은닉, 주입 가능 callable).
 
 ── 객관성 하드가드 ([[analysis-objectivity-no-human-scores]]) ──

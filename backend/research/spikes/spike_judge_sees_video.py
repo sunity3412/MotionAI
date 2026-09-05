@@ -32,8 +32,12 @@ import sys
 _BACKEND = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BACKEND / "training"))
 
+# 텍스트 judge = 현행 gemini_teacher.JUDGE_MODEL 과 같은 정본(gemini/config.py) — 문자열을
+# 여기 박지 않는다 (quick-260905-mbd). 실행 예의 PYTHONPATH=shared/python 이 전제.
+from sunity_shared.gemini.config import DEFAULT_C_MODEL  # noqa: E402 - sys.path 주입 뒤
+
 VIDEO_JUDGE_MODEL = "gemini-3.7-flash-video-understanding-eap"
-TEXT_JUDGE_MODEL = "gemini-3.7-flash"
+TEXT_JUDGE_MODEL = DEFAULT_C_MODEL
 
 
 def _judge_prompt(report: dict, motion=None) -> str:

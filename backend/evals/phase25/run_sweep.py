@@ -104,10 +104,14 @@ os.environ.setdefault("GEMINI_UPLOAD_PREFETCH", "1")
 # ── Phase 27-09 (D-05 반영) — moment extractor 전용 모델 키 production mirror ──
 # GEMINI_MOMENT_MODEL: moment extractor 만 Flash 로 스코핑하는 전용 키
 # (gemini_moment_extractor.py — GEMINI_MODEL 은 veto scorer 와 공유라 전역 flip 금지,
-# 27-FLASH-DECISION §반영 제약). production start_server.sh 박제값과 동일 mirror.
+# 27-FLASH-DECISION §반영 제약). production start_server.sh 와 동일 mirror — 값은 여기
+# 박지 않고 gemini/config.py 의 DEFAULT_C_MODEL 을 읽는다 (quick-260905-mbd: 3.7 문자열이
+# 여기 남아 화이트리스트 밖 모델을 가리키고 있었다 — config.py 08-18 주석의 그 실패 모드).
 # setdefault 이므로 운영자가 명시 export 하면 그 값 우선 (Pro baseline A/B 재현:
-# GEMINI_MOMENT_MODEL=gemini-2.5-pro). pipeline 로드 전 module-level 주입 (위 패턴 동일).
-os.environ.setdefault("GEMINI_MOMENT_MODEL", "gemini-3.7-flash")
+# GEMINI_MOMENT_MODEL=gemini-3.1-pro-preview). pipeline 로드 전 module-level 주입 (위 패턴 동일).
+from sunity_shared.gemini.config import DEFAULT_C_MODEL as _MOMENT_MODEL_DEFAULT  # noqa: E402 - sys.path 주입 뒤
+
+os.environ.setdefault("GEMINI_MOMENT_MODEL", _MOMENT_MODEL_DEFAULT)
 
 # ── 산출물 경로 (25-SWEEP-EVIDENCE 근본원인 4 — pod repo 오염 방지) ───────────
 # 신규 산출물은 repo 밖 EVAL_OUT_DIR 로만 쓴다. repo 내 evals/*/baseline/ 은

@@ -8,7 +8,7 @@ Plan 22-04 Task 1 (D-10b). 배치 흐름:
       prompt 시스템 프롬프트 + RTMW 좌표(select_frame_indices 서브샘플 행) 입력 →
       D-01 통합 리포트 JSON + <thought> 수신 → 즉시 client.files.delete(finally, 실패
       해도 삭제).
-  (3) 필터: LLM judge(gemini-3.7-flash, 0~10 블라인드) < JUDGE_MIN_SCORE 폐기 + 반복
+  (3) 필터: LLM judge(gemini-3.8-flash, 0~10 블라인드) < JUDGE_MIN_SCORE 폐기 + 반복
       루프 탐지 + 물리 불가 궤적 휴리스틱(속도/가속도) + 뼈길이 정합 + faults ⊇
       DEDUCTION_CONSUMED_KEYS 미충족 폐기.
   (4) 출력: 로컬 distill JSONL + 필터 통계(수락/폐기 사유별 카운트). video_hash 캐시로
@@ -368,7 +368,7 @@ def _extract_json_object(text: str):
 
 
 def judge_report(client, report: dict, *, judge_model: str = JUDGE_MODEL, motion=None) -> int:
-    """LLM judge — 리포트를 0~10 블라인드 채점(gemini-3.7-flash). 파싱 실패 시 0.
+    """LLM judge — 리포트를 0~10 블라인드 채점(gemini-3.8-flash). 파싱 실패 시 0.
 
     judge 점수는 필터 임계로만 쓰고 라벨에 저장하지 않는다(객관성 hard gate). 점수만
     숫자로 요구해 파싱 단순화.

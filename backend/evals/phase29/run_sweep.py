@@ -87,8 +87,12 @@ os.environ.setdefault("GEMINI_VISION_VETO_ENABLED", "1")
 os.environ.setdefault("GEMINI_MAX_VETO_WALL_S", "300")
 
 # ── production mirror env (phase25/27 계보 승계 — 명시 export 시 그 값 우선) ──
+# GEMINI_MOMENT_MODEL 값은 박지 않는다 — start_server.sh 와 같이 gemini/config.py 의
+# DEFAULT_C_MODEL 을 읽는다 (quick-260905-mbd: 3.7 문자열이 화이트리스트 밖에 남아 있었다).
+from sunity_shared.gemini.config import DEFAULT_C_MODEL as _MOMENT_MODEL_DEFAULT  # noqa: E402 - sys.path 주입 뒤
+
 os.environ.setdefault("GEMINI_UPLOAD_PREFETCH", "1")
-os.environ.setdefault("GEMINI_MOMENT_MODEL", "gemini-3.7-flash")
+os.environ.setdefault("GEMINI_MOMENT_MODEL", _MOMENT_MODEL_DEFAULT)
 
 # ── 산출물 경로 (25-SWEEP-EVIDENCE 근본원인 4 — repo 오염 방지) ───────────────
 # 신규 산출물은 repo 밖 EVAL_OUT_DIR 로만 쓴다. repo 내 evals/*/baseline/ 은

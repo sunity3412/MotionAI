@@ -122,7 +122,7 @@ def judge_coach_tone(
 
     Returns:
       `{"pass": bool | None, "confidence": float | None, "reasoning_ko": str,
-        "judge_model": "gemini-3.7-flash"}`.
+        "judge_model": "gemini-3.8-flash"}`.
 
       · pass: judge 가 산출한 binary (LLM None 시 None).
       · confidence: belle_label 박혀있고 judge pass 박혀있으면 1.0 (일치) or 0.0

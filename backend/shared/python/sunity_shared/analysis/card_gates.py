@@ -17,6 +17,11 @@ report/track 형상만 본다. **채점 무접촉** — 소비처는 complete �
                   claim (quick-260905-mvm). 눈은 "정중앙에 가장 크게 보이는 부위"
                   토큰만 답하고, 제목과의 대조는 card_photo_audit(순수)가 한다.
                   운영 게이트(bent/extended/off_pole)와 machine_eye 는 무변경.
+  · claim "mark_part" — 카드 감사 2단(quick-260905-ota). 1단(part, 정중앙)에서
+                  허용 집합 밖으로 읽힌 패널에만 "빨간 표시가 놓인 부위"를 묻는다 —
+                  crop 정중앙이 이웃 부위로 읽히는 것은 정상이고, 카드가 실제로
+                  가리키는 지점은 표시다. 표시가 없으면 no_mark. 좌우·기대 관절 0
+                  은 part 와 동일하게 유지. 판정은 card_photo_audit.adjudicate.
 
 임계는 ii0 스윕 확정값 (260811-ii0-SWEEP-REPORT §2 튜닝 이력 — **재튜닝 금지**):
   · HOLD_MAX_DPS 60  — 승인 9정지 hold 최대 59.3(경계) vs fresh 전환 최소 98 실측.
@@ -496,6 +501,19 @@ _CLAIM_QUESTION = {
              "가슴(chest), 배(abdomen), 등허리(back_waist), 엉덩이(hip), "
              "허벅지(thigh), 무릎(knee), 발(foot) 중 하나를 observed 필드에 "
              "답하세요. 분간이 안 되면 'unclear'." + _LIMB_QUESTION),
+    # 카드 감사 2단 (quick-260905-ota) — 09-05 mvm 감사에서 걸린 8장 중 3장이 인접
+    # 경계(목↔어깨, 무릎↔엉덩이, 겨드랑이↔팔꿈치)였다. 허용 집합을 넓히면 잡으려던
+    # 종류("팔꿈치 카드가 등허리")까지 놓치므로 경계는 측정으로 가른다: 표시가 있는
+    # 카드에서 정확한 질문은 "표시가 어느 부위에 놓였는가"다. part 와 같은 이유로
+    # 좌우 0·기대 관절 0, 후보는 enum 전체 중립 나열. 표시 색은 카드 렌더(fault_zoom
+    # _BRAND #FF4B33 = 주황빛 빨강)를 그대로 지칭한다.
+    "mark_part": ("사진 안의 빨간색(주황빛 빨강) 표시(선·원·화살표)는 어느 신체 "
+                  "부위에 놓여 있습니까? 선이면 선이 꺾이거나 만나는 지점, 원이면 원의 "
+                  "중심이 놓인 부위를 기준으로 머리(head), 목(neck), 어깨(shoulder), "
+                  "겨드랑이(armpit), 팔꿈치(elbow), 손(hand), 가슴(chest), 배(abdomen), "
+                  "등허리(back_waist), 엉덩이(hip), 허벅지(thigh), 무릎(knee), 발(foot) "
+                  "중 하나를 observed 필드에 답하세요. 그런 표시가 하나도 없으면 "
+                  "'no_mark', 분간이 안 되면 'unclear'." + _LIMB_QUESTION),
 }
 
 _CLAIM_ENUM = {
@@ -504,11 +522,21 @@ _CLAIM_ENUM = {
     "off_pole": ["off_pole", "on_pole", "off_body", "no_pole", "unclear"],
     "part": ["head", "neck", "shoulder", "armpit", "elbow", "hand", "chest",
              "abdomen", "back_waist", "hip", "thigh", "knee", "foot", "unclear"],
+    # mark_part = part 의 13 부위 + no_mark (표시 없음) + unclear (quick-260905-ota)
+    "mark_part": ["head", "neck", "shoulder", "armpit", "elbow", "hand", "chest",
+                  "abdomen", "back_waist", "hip", "thigh", "knee", "foot",
+                  "no_mark", "unclear"],
 }
 
 # part claim 의 "부위를 읽어냈다" 토큰 집합 — enum 에서 unclear 를 뺀 것.
 # card_photo_audit.expected_parts 의 허용 집합 어휘도 이 토큰 공간을 쓴다.
 PART_TOKENS = frozenset(_CLAIM_ENUM["part"]) - {"unclear"}
+
+# mark_part 의 "읽어냈다" 토큰 집합 = 13 부위 + no_mark. no_mark 도 읽어낸 것이다
+# (표시가 없다는 관측) — doc 의 표시 유무와 어긋나면 그 자체가 보고 대상
+# (card_photo_audit.adjudicate: mark_disagreement). quick-260905-ota.
+NO_MARK = "no_mark"
+MARK_PART_TOKENS = frozenset(_CLAIM_ENUM["mark_part"]) - {"unclear"}
 
 _LIMB_ENUM = ["arm", "leg", "other", "unclear"]
 
@@ -589,9 +617,11 @@ def _claim_question(claim: str, expected_limb: str | None,
 
     part (quick-260905-mvm) 는 off_pole 과 같이 항상 _CLAIM_QUESTION 그대로 —
     오클루전 변형·관절 종류 힌트를 붙이면 기대 부위가 질문에 새어 들어가
-    감사의 전제(눈은 관측만)가 깨진다.
+    감사의 전제(눈은 관측만)가 깨진다. mark_part (quick-260905-ota) 도 같은
+    이유로 그대로.
     """
-    if claim in ("off_pole", "part") or expected_limb not in ("arm", "leg"):
+    if (claim in ("off_pole", "part", "mark_part")
+            or expected_limb not in ("arm", "leg")):
         return _CLAIM_QUESTION[claim]
     target, subj = ("팔", "팔이") if expected_limb == "arm" else ("다리", "다리가")
     q = (
@@ -623,9 +653,14 @@ def _eye_verdict(observed: str, limb: str | None, claim: str,
     대조는 card_photo_audit.audit_card 가 한다 — 눈은 관측, 게이트는 결정이라는
     기존 계약과 동형. 스키마 enum 밖 문자열(스키마 우회 응답)은 읽어낸 것이
     아니므로 False (fail-closed).
+
+    claim "mark_part" (quick-260905-ota): part 와 동형 — 읽어냈는가만. no_mark
+    도 읽어낸 것(표시가 없다는 관측). 대조는 card_photo_audit.adjudicate.
     """
     if claim == "part":
         return observed in PART_TOKENS
+    if claim == "mark_part":
+        return observed in MARK_PART_TOKENS
     if observed != claim:
         return False
     if (expected_limb in ("arm", "leg") and limb in ("arm", "leg")

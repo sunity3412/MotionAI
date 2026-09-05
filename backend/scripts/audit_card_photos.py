@@ -183,6 +183,22 @@ def judge_panel(panel, *, api_key: str, model: str, rounds: int,
     }
 
 
+def marked_flags(card: dict) -> tuple[bool, bool]:
+    """(userMarked, refMarked) — doc 의 표시 인증 flag, 부재 시 렌더 정책으로 보정.
+
+    두 flag 는 **criterion 카드에만** 실린다 (contract §11.9/§11.11; fault_zoom 방출부는
+    legacy/advisory 카드에 키를 넣지 않는다). 부재 = legacy/advisory 카드 = 게이트 B
+    (quick-260705-wbs): 학생 측만 그리고 **기준 측은 정책상 무마킹**. mvm 은 부재를
+    양측 True 로 읽어 참고 카드 기준 패널에 mark_mismatch 를 달았고, ota 2단 실측
+    (09-05 run1·run2) 에서 그 패널들에 눈이 no_mark 를 답해 어긋남이 드러났다 —
+    표시 없는 패널은 2단 없이 확정되므로 값이 경로를 가른다 (Rule 1 수리).
+    criterion 카드인데 키가 없는 옛 doc 은 종전대로 양측 True.
+    """
+    if "userMarked" in card or "refMarked" in card:
+        return bool(card.get("userMarked", True)), bool(card.get("refMarked", True))
+    return True, card.get("criterion") is not None
+
+
 def _fmt_side(center: dict, mark: dict | None, adj: dict) -> str:
     """패널 한 쪽의 로그 표기 — `{center}→{mark|-} ok/by:reason`."""
     m = mark["observed"] if mark else "-"
@@ -206,16 +222,17 @@ def audit_doc(uid: str, aid: str, *, api_key: str, model: str, rounds: int,
         joint = card.get("joint")
         crit = card.get("criterion")
         tier = card.get("tier") or "confirmed"
-        # 표시 인증 flag 부재 = 종전 렌더(표시 있음) — 렌더러는 못 그렸을 때만 False 를
-        # 싣는다 (contract §11.9/§11.11). 값은 플래그 이름(mark_mismatch/part_not_shown)만 가른다.
-        user_marked = bool(card.get("userMarked", True))
-        ref_marked = bool(card.get("refMarked", True))
+        # 표시 인증 flag — 부재는 marked_flags 가 렌더 정책(게이트 B)으로 보정한다.
+        # 값은 플래그 이름(mark_mismatch/part_not_shown)과 2단 경로를 가른다.
+        user_marked, ref_marked = marked_flags(card)
         expected = cpa.expected_parts(crit, joint)
         row = {
             "uid": uid, "analysisId": aid, "reference": ref_id, "index": i,
             "tier": tier, "joint": joint, "criterion": crit,
             "userVideoSec": card.get("userVideoSec"), "refVideoSec": card.get("refVideoSec"),
             "userMarked": user_marked, "refMarked": ref_marked,
+            "userMarkedRaw": card.get("userMarked", "<absent>"),
+            "refMarkedRaw": card.get("refMarked", "<absent>"),
             "expected": sorted(expected),
         }
         try:
@@ -268,6 +285,66 @@ def audit_doc(uid: str, aid: str, *, api_key: str, model: str, rounds: int,
     return rows
 
 
+def replay_rows(rows: list[dict]) -> list[dict]:
+    """--out JSON 의 카드 행을 **눈 호출 없이** 재판정 — 저장된 1·2단 토큰 + marked_flags
+    보정값으로 adjudicate/card_verdict 만 다시 돈다 (순수). 표시 flag 기본값 수리 뒤
+    옛 런을 같은 규칙으로 다시 세는 용도. fetch 실패 행은 그대로 통과.
+    """
+    out: list[dict] = []
+    for r in rows:
+        if "user" not in r:
+            out.append(dict(r))
+            continue
+        card = {"criterion": r.get("criterion")}
+        for k in ("userMarked", "refMarked"):
+            raw = r.get(f"{k}Raw")
+            if raw is None:
+                # Raw 없는 옛 JSON(ota run1·run2): criterion 카드의 저장값은 doc 그대로이고
+                # 참고 카드의 저장값은 부재를 True 로 읽은 옛 기본값 — 부재로 되돌려 보정 대상
+                if card["criterion"] is not None:
+                    card[k] = r.get(k, True)
+            elif raw != "<absent>":
+                card[k] = raw
+        um, rm = marked_flags(card)
+        exp = frozenset(r.get("expected") or ())
+        u_adj = cpa.adjudicate(exp, r["user"]["observed"],
+                               (r.get("userMark") or {}).get("observed"), marked=um)
+        r_adj = cpa.adjudicate(exp, r["ref"]["observed"],
+                               (r.get("refMark") or {}).get("observed"), marked=rm)
+        v = cpa.card_verdict(u_adj, r_adj)
+        row = dict(r)
+        row.update({"userMarked": um, "refMarked": rm, "userAdj": u_adj, "refAdj": r_adj,
+                    "verdict": v, "mismatch": v == "mismatch"})
+        out.append(row)
+    return out
+
+
+def _report(rows: list[dict], *, model: str, rounds: int, out_path: str | None) -> None:
+    total = len(rows)
+    verdicts = [r.get("verdict", "unaudited") for r in rows]   # fetch 실패 행 = unaudited
+    mismatched = verdicts.count("mismatch")
+    unresolved = verdicts.count("unresolved")
+    unaudited = verdicts.count("unaudited")
+    tier2_panels = sum(1 for r in rows for k in ("userMark", "refMark") if r.get(k))
+    if out_path:
+        Path(out_path).write_text(
+            json.dumps({"model": model, "rounds": rounds, "cards": rows},
+                       ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+        print(f"\nwrote {out_path}", flush=True)
+    for label in ("mismatch", "unresolved"):
+        print(f"\n# {label} cards", flush=True)
+        for r in rows:
+            if r.get("verdict") == label:
+                print(f"  {r['reference']} [{r['index']}] {r['tier']} {r['joint']} "
+                      f"{r['criterion']} user={_fmt_side(r['user'], r.get('userMark'), r['userAdj'])} "
+                      f"ref={_fmt_side(r['ref'], r.get('refMark'), r['refAdj'])}", flush=True)
+    print(f"card_photo_audit unaudited={unaudited} tier2_panels={tier2_panels}", flush=True)
+    print(f"card_photo_audit total={total} mismatched={mismatched} unresolved={unresolved}",
+          flush=True)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="확대 카드 사진 감사 — 사진이 제목의 부위를 보여주는가 (관찰 전용)")
@@ -280,9 +357,26 @@ def main() -> int:
     ap.add_argument("--out", default=None, metavar="JSON", help="카드별 상세 JSON 저장 경로")
     ap.add_argument("--dump-dir", default=None, metavar="DIR",
                     help="이등분한 패널 JPEG 저장 (눈으로 대조용)")
+    ap.add_argument("--replay", default=None, metavar="JSON",
+                    help="이전 --out JSON 의 관측 토큰으로 재판정만 (눈 호출 0)")
     args = ap.parse_args()
     if args.rounds < 1 or args.rounds % 2 == 0:
         raise SystemExit(f"--rounds 는 양의 홀수여야 함 (다수결 동률 방지): {args.rounds}")
+
+    if args.replay:
+        saved = json.loads(Path(args.replay).read_text(encoding="utf-8"))
+        rows = replay_rows(saved.get("cards") or [])
+        print(f"card_photo_audit replay={args.replay} model={saved.get('model')} "
+              f"rounds={saved.get('rounds')} cards={len(rows)}", flush=True)
+        for r in rows:
+            if "user" in r:
+                print(f"  {r['reference']} [{r['index']}] {r['tier']:9s} {str(r['joint']):15s} "
+                      f"user={_fmt_side(r['user'], r.get('userMark'), r['userAdj'])} "
+                      f"ref={_fmt_side(r['ref'], r.get('refMark'), r['refAdj'])} "
+                      f"{r['verdict'].upper() if r['verdict'] != 'ok' else 'ok'}", flush=True)
+        _report(rows, model=str(saved.get("model")), rounds=int(saved.get("rounds") or 0),
+                out_path=args.out)
+        return 0
 
     pairs = parse_pairs(args)
     model = resolve_model("C")
@@ -295,29 +389,7 @@ def main() -> int:
         rows.extend(audit_doc(uid, aid, api_key=api_key, model=model,
                               rounds=args.rounds, dump_dir=dump_dir))
 
-    total = len(rows)
-    verdicts = [r.get("verdict", "unaudited") for r in rows]   # fetch 실패 행 = unaudited
-    mismatched = verdicts.count("mismatch")
-    unresolved = verdicts.count("unresolved")
-    unaudited = verdicts.count("unaudited")
-    tier2_panels = sum(1 for r in rows for k in ("userMark", "refMark") if r.get(k))
-    if args.out:
-        Path(args.out).write_text(
-            json.dumps({"model": model, "rounds": args.rounds, "cards": rows},
-                       ensure_ascii=False, indent=2, default=str),
-            encoding="utf-8",
-        )
-        print(f"\nwrote {args.out}", flush=True)
-    for label in ("mismatch", "unresolved"):
-        print(f"\n# {label} cards", flush=True)
-        for r in rows:
-            if r.get("verdict") == label:
-                print(f"  {r['reference']} [{r['index']}] {r['tier']} {r['joint']} "
-                      f"{r['criterion']} user={_fmt_side(r['user'], r.get('userMark'), r['userAdj'])} "
-                      f"ref={_fmt_side(r['ref'], r.get('refMark'), r['refAdj'])}", flush=True)
-    print(f"card_photo_audit unaudited={unaudited} tier2_panels={tier2_panels}", flush=True)
-    print(f"card_photo_audit total={total} mismatched={mismatched} unresolved={unresolved}",
-          flush=True)
+    _report(rows, model=model, rounds=args.rounds, out_path=args.out)
     return 0
 
 

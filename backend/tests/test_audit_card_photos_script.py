@@ -106,20 +106,25 @@ def test_audit_doc_two_tier_flow_offline(monkeypatch):
         → ok by mark. 카드 ok.
     [1] 오른팔꿈치: user 정중앙 back_waist + userMarked=False → 2단 없이 확정(by none),
         ref elbow 통과. 카드 mismatch.
-    [2] 참고 왼골반(criterion 없음): user thigh 통과, ref knee + 표시 → 2단 → knee
+    [2] 왼골반(criterion 카드, 양측 표시): user thigh 통과, ref knee + 표시 → 2단 → knee
         → mark_elsewhere. 카드 mismatch.
+    [3] 참고 왼골반(criterion 없음, flag 부재): 게이트 B — 기준 측 무마킹이 정책이므로
+        ref knee 는 2단 없이 확정(by none). user thigh 통과. 카드 mismatch, 2단 호출 0.
     """
     doc = {"referenceMotionId": "ref-x", "result": {"faultZoomComparisons": [
         {"joint": "right_shoulder", "criterion": "angle_vs_reference__right_shoulder",
          "tier": "confirmed", "imageUrl": "u0", "userMarked": True, "refMarked": True},
         {"joint": "right_elbow", "criterion": "angle_vs_reference__right_elbow",
          "tier": "confirmed", "imageUrl": "u1", "userMarked": False, "refMarked": True},
-        {"joint": "left_hip", "criterion": None, "tier": "advisory", "imageUrl": "u2"},
+        {"joint": "left_hip", "criterion": "angle_vs_reference__left_hip",
+         "tier": "confirmed", "imageUrl": "u2", "userMarked": True, "refMarked": True},
+        {"joint": "left_hip", "criterion": None, "tier": "advisory", "imageUrl": "u3"},
     ]}}
     center = {  # (card, side) → 1단 토큰
         (0, "user"): "shoulder", (0, "ref"): "neck",
         (1, "user"): "back_waist", (1, "ref"): "elbow",
         (2, "user"): "thigh", (2, "ref"): "knee",
+        (3, "user"): "thigh", (3, "ref"): "knee",
     }
     mark = {(0, "ref"): "shoulder", (2, "ref"): "knee"}
     card_no = {"n": -1}
@@ -141,11 +146,17 @@ def test_audit_doc_two_tier_flow_offline(monkeypatch):
     monkeypatch.setattr(cg, "eye_judge", fake_eye_judge)
 
     rows = acp.audit_doc("u", "a", api_key="k", model="m", rounds=3, dump_dir=None)
-    assert [r["verdict"] for r in rows] == ["ok", "mismatch", "mismatch"]
-    # 2단 호출은 정확히 두 패널(카드 0 ref, 카드 2 ref) × 3회 — 표시 없는 카드 1 user 는 0회
+    assert [r["verdict"] for r in rows] == ["ok", "mismatch", "mismatch", "mismatch"]
+    # 2단 호출은 정확히 두 패널(카드 0 ref, 카드 2 ref) × 3회 — 표시 없는 카드 1 user 와
+    # 정책상 무마킹인 참고 카드 3 ref 는 0회
     tier2 = [c for c in calls if c[2] == "mark_part"]
     assert tier2 == [(0, "ref", "mark_part")] * 3 + [(2, "ref", "mark_part")] * 3
-    assert len([c for c in calls if c[2] == "part"]) == 3 * 2 * 3
+    assert len([c for c in calls if c[2] == "part"]) == 4 * 2 * 3
+    assert rows[3]["refMarked"] is False and rows[3]["userMarked"] is True
+    assert rows[3]["refMarkedRaw"] == "<absent>" and rows[2]["refMarkedRaw"] is True
+    assert rows[3]["refAdj"] == {"ok": False, "by": "none",
+                                 "reason": "no_mark_and_center_elsewhere"}
+    assert rows[3]["refMark"] is None
     assert rows[0]["refAdj"] == {"ok": True, "by": "mark", "reason": "mark_in_expected"}
     assert rows[0]["userAdj"]["by"] == "center" and rows[0]["userMark"] is None
     assert rows[1]["userAdj"] == {"ok": False, "by": "none",
@@ -164,3 +175,51 @@ def test_fmt_side():
     adj = {"ok": False, "by": "none", "reason": "no_mark_and_center_elsewhere"}
     assert acp._fmt_side({"observed": "back_waist"}, None, adj) == \
         "back_waist→- False/none:no_mark_and_center_elsewhere"
+
+
+def test_marked_flags_absent_means_gate_b_for_advisory():
+    """flag 부재 = legacy/advisory(게이트 B: 학생 측만 표시) — 기준 측 False. criterion 카드는 doc 값."""
+    assert acp.marked_flags({"criterion": None}) == (True, False)
+    assert acp.marked_flags({"criterion": None, "tier": "advisory"}) == (True, False)
+    assert acp.marked_flags({"criterion": "angle_vs_reference__left_hip",
+                             "userMarked": False, "refMarked": True}) == (False, True)
+    assert acp.marked_flags({"criterion": "split_angle", "refMarked": False}) == (True, False)
+    # criterion 카드인데 키가 없는 옛 doc — 종전(양측 True)
+    assert acp.marked_flags({"criterion": "angle_vs_reference__left_hip"}) == (True, True)
+    # advisory 인데 키가 실린 doc 이 있으면 그 값을 믿는다 (렌더가 인증한 값)
+    assert acp.marked_flags({"criterion": None, "userMarked": False, "refMarked": True}) == (False, True)
+
+
+def test_replay_rows_reapplies_marked_flags_without_eye_calls(monkeypatch):
+    """--replay: 저장 토큰만으로 재판정 — Raw 없는 옛 JSON 의 참고 카드 기준 측은 부재로 되돌려 보정."""
+    monkeypatch.setattr(cg, "eye_judge", lambda *a, **k: (_ for _ in ()).throw(AssertionError("eye called")))
+    exp_hip = sorted(cpa.expected_parts(None, "left_hip"))
+    old_rows = [
+        # ota run1/run2 형상 (Raw 없음): 참고 카드 기준 측이 옛 기본값 True 로 2단까지 갔고 no_mark
+        {"reference": "ref-climb", "index": 1, "tier": "advisory", "joint": "left_hip",
+         "criterion": None, "userMarked": True, "refMarked": True, "expected": exp_hip,
+         "user": {"observed": "thigh"}, "ref": {"observed": "knee"},
+         "userMark": None, "refMark": {"observed": "no_mark"},
+         "userAdj": {}, "refAdj": {"ok": None, "by": "mark", "reason": "mark_disagreement"},
+         "verdict": "unresolved", "mismatch": False},
+        # criterion 카드: 저장 flag 는 doc 그대로 (userMarked=False) — 결말 유지
+        {"reference": "ref-pdshape", "index": 0, "tier": "confirmed", "joint": "right_elbow",
+         "criterion": "angle_vs_reference__right_elbow", "userMarked": False, "refMarked": False,
+         "expected": sorted(cpa.expected_parts("angle_vs_reference__right_elbow", None)),
+         "user": {"observed": "back_waist"}, "ref": {"observed": "hand"},
+         "userMark": None, "refMark": None, "userAdj": {}, "refAdj": {},
+         "verdict": "mismatch", "mismatch": True},
+        {"reference": "ref-x", "index": 0, "tier": "confirmed", "joint": "left_knee",
+         "criterion": "angle_vs_reference__left_knee", "error": "fetch",
+         "audit": {"userOk": None, "refOk": None, "flags": ["fetch_failed"]}},
+    ]
+    out = acp.replay_rows(old_rows)
+    assert out[0]["refMarked"] is False and out[0]["userMarked"] is True
+    assert out[0]["refAdj"] == {"ok": False, "by": "none", "reason": "no_mark_and_center_elsewhere"}
+    assert out[0]["verdict"] == "mismatch" and out[0]["mismatch"] is True
+    assert out[1]["userAdj"] == {"ok": False, "by": "none", "reason": "no_mark_and_center_elsewhere"}
+    assert out[1]["verdict"] == "mismatch"
+    assert out[2] == old_rows[2]                       # fetch 실패 행은 그대로
+    # 새 JSON (Raw 있음): Raw 가 우선
+    new_row = dict(old_rows[0], userMarkedRaw="<absent>", refMarkedRaw=True)
+    assert acp.replay_rows([new_row])[0]["refAdj"]["reason"] == "mark_disagreement"

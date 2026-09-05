@@ -1,0 +1,48 @@
+card_photo_audit model=gemini-3.8-flash rounds=3 docs=6
+
+## verifyupx0903b/bf92909542e3475aa2b8be8c7fa2cecc reference=ref-pdshape cards=6
+  [0] confirmed right_elbow     angle_vs_reference__right_elbow     user=back_waist(False) ref=hand(True) MISMATCH user:part_not_shown
+  [1] confirmed left_elbow      angle_vs_reference__left_elbow      user=elbow(True) ref=elbow(True) ok 
+  [2] confirmed left_knee       angle_vs_reference__left_knee       user=knee(True) ref=elbow(False) MISMATCH ref:mark_mismatch
+  [3] confirmed right_shoulder  angle_vs_reference__right_shoulder  user=shoulder(True) ref=head(False) MISMATCH ref:part_not_shown
+  [4] confirmed left_hip        angle_vs_reference__left_hip        user=back_waist(True) ref=back_waist(True) ok 
+  [5] advisory  left_shoulder   None                                user=head(False) ref=chest(True) MISMATCH user:mark_mismatch
+
+## verifyupx0903/c357f6b44117489281662072a640895c reference=ref-climb cards=3
+  [0] confirmed right_knee      angle_vs_reference__right_knee      user=knee(True) ref=knee(True) ok 
+  [1] advisory  left_hip        None                                user=thigh(True) ref=knee(False) MISMATCH ref:mark_mismatch
+  [2] advisory  left_shoulder   None                                user=shoulder(True) ref=chest(True) ok 
+
+## verifyupx0903/f5e8e134a5bf4fca8b0cfc3c1847004f reference=ref-power-spin cards=2
+  [0] confirmed left_hip        leg_extension                       user=hip(True) ref=hip(True) ok 
+  [1] confirmed left_shoulder   angle_vs_reference__left_shoulder   user=knee(False) ref=armpit(True) MISMATCH user:mark_mismatch
+
+## verifyupx0903/363fcea962d44967bea165e83c0d5d41 reference=ref-elbow-twist-sister cards=6
+  [0] confirmed right_elbow     angle_vs_reference__right_elbow     user=shoulder(True) ref=elbow(True) ok 
+  [1] confirmed left_shoulder   angle_vs_reference__left_shoulder   user=thigh(False) ref=thigh(False) MISMATCH user:mark_mismatch ref:mark_mismatch
+  [2] confirmed right_shoulder  angle_vs_reference__right_shoulder  user=shoulder(True) ref=shoulder(True) ok 
+  [3] confirmed left_hip        angle_vs_reference__left_hip        user=hip(True) ref=hip(True) ok 
+  [4] confirmed right_hip       angle_vs_reference__right_hip       user=hip(True) ref=hip(True) ok 
+  [5] advisory  left_shoulder   None                                user=head(False) ref=chest(True) MISMATCH user:mark_mismatch
+
+## verifyupx0903/fb695059107a41a5bb16bb37d0a3fe17 reference=ref-kip-up cards=1
+  [0] confirmed left_knee       split_angle                         user=thigh(True) ref=hip(True) ok 
+
+## verifyupx0903/4cf49d80931648948aa9b3bd91691035 reference=ref-peter-pan cards=3
+  [0] confirmed left_shoulder   angle_vs_reference__left_shoulder   user=armpit(True) ref=shoulder(True) ok 
+  [1] advisory  right_shoulder  None                                user=shoulder(True) ref=back_waist(True) ok 
+  [2] advisory  right_hip       None                                user=hip(True) ref=hip(True) ok 
+
+wrote /private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6bfc3616-21ea-4256-b73f-818496400e4c/scratchpad/mvm/audit_run2.json
+
+# mismatched cards
+  ref-pdshape [0] confirmed right_elbow angle_vs_reference__right_elbow user=back_waist ref=hand user:part_not_shown
+  ref-pdshape [2] confirmed left_knee angle_vs_reference__left_knee user=knee ref=elbow ref:mark_mismatch
+  ref-pdshape [3] confirmed right_shoulder angle_vs_reference__right_shoulder user=shoulder ref=head ref:part_not_shown
+  ref-pdshape [5] advisory left_shoulder None user=head ref=chest user:mark_mismatch
+  ref-climb [1] advisory left_hip None user=thigh ref=knee ref:mark_mismatch
+  ref-power-spin [1] confirmed left_shoulder angle_vs_reference__left_shoulder user=knee ref=armpit user:mark_mismatch
+  ref-elbow-twist-sister [1] confirmed left_shoulder angle_vs_reference__left_shoulder user=thigh ref=thigh user:mark_mismatch ref:mark_mismatch
+  ref-elbow-twist-sister [5] advisory left_shoulder None user=head ref=chest user:mark_mismatch
+card_photo_audit unreadable=0 unaudited=0
+card_photo_audit total=21 mismatched=8

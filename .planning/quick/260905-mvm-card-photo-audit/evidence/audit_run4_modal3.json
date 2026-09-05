@@ -1,0 +1,969 @@
+{
+  "model": "gemini-3.8-flash",
+  "rounds": 3,
+  "cards": [
+    {
+      "uid": "verifyupx0903b",
+      "analysisId": "bf92909542e3475aa2b8be8c7fa2cecc",
+      "reference": "ref-pdshape",
+      "index": 0,
+      "tier": "confirmed",
+      "joint": "right_elbow",
+      "criterion": "angle_vs_reference__right_elbow",
+      "userVideoSec": 6.102034011337112,
+      "refVideoSec": 4.620020087043857,
+      "userMarked": false,
+      "refMarked": false,
+      "expected": [
+        "elbow",
+        "hand",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "back_waist",
+        "limb": "other",
+        "confidence": 0.95,
+        "reason": "사진 정중앙에는 인버트 동작으로 거꾸로 매달려 있는 인물의 등과 허리(등 부위)가 가장 크게 보입니다.",
+        "rounds": 3,
+        "votes": {
+          "back_waist": 3
+        }
+      },
+      "ref": {
+        "observed": "hand",
+        "limb": "arm",
+        "confidence": 0.9,
+        "reason": "사진의 정중앙에는 폴(봉)을 쥐고 있는 손과 손목 부위가 위치해 있으며, 이는 팔(arm)에 속하는 신체 부위입니다.",
+        "rounds": 3,
+        "votes": {
+          "hand": 3
+        }
+      },
+      "audit": {
+        "userOk": false,
+        "refOk": true,
+        "flags": [
+          "user:part_not_shown"
+        ]
+      },
+      "mismatch": true
+    },
+    {
+      "uid": "verifyupx0903b",
+      "analysisId": "bf92909542e3475aa2b8be8c7fa2cecc",
+      "reference": "ref-pdshape",
+      "index": 1,
+      "tier": "confirmed",
+      "joint": "left_elbow",
+      "criterion": "angle_vs_reference__left_elbow",
+      "userVideoSec": 5.301767255751917,
+      "refVideoSec": 5.122196183461667,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "elbow",
+        "hand",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "elbow",
+        "limb": "arm",
+        "confidence": 0.95,
+        "reason": "The red angle markings highlight the bent elbow joint of the arm as the person hangs upside down on the pole.",
+        "rounds": 3,
+        "votes": {
+          "elbow": 3
+        }
+      },
+      "ref": {
+        "observed": "elbow",
+        "limb": "arm",
+        "confidence": 0.98,
+        "reason": "빨간색 선으로 꺾인 관절을 표시한 부위는 구부러진 팔꿈치(elbow)이며 팔에 속합니다.",
+        "rounds": 3,
+        "votes": {
+          "elbow": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903b",
+      "analysisId": "bf92909542e3475aa2b8be8c7fa2cecc",
+      "reference": "ref-pdshape",
+      "index": 2,
+      "tier": "confirmed",
+      "joint": "left_knee",
+      "criterion": "angle_vs_reference__left_knee",
+      "userVideoSec": 10.503501167055687,
+      "refVideoSec": 9.440910612654838,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "foot",
+        "knee",
+        "thigh"
+      ],
+      "user": {
+        "observed": "knee",
+        "limb": "leg",
+        "confidence": 0.96,
+        "reason": "The angle highlight is centered on the knee joint of the leg, connecting the thigh and lower leg.",
+        "rounds": 3,
+        "votes": {
+          "knee": 3
+        }
+      },
+      "ref": {
+        "observed": "elbow",
+        "limb": "arm",
+        "confidence": 0.88,
+        "reason": "The marked joint is an elbow where the upper arm extends from the shoulder toward the bent joint, and the forearm continues upward to grip the pole behind the extended leg.",
+        "rounds": 3,
+        "votes": {
+          "elbow": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": false,
+        "flags": [
+          "ref:mark_mismatch"
+        ]
+      },
+      "mismatch": true
+    },
+    {
+      "uid": "verifyupx0903b",
+      "analysisId": "bf92909542e3475aa2b8be8c7fa2cecc",
+      "reference": "ref-pdshape",
+      "index": 3,
+      "tier": "confirmed",
+      "joint": "right_shoulder",
+      "criterion": "angle_vs_reference__right_shoulder",
+      "userVideoSec": 13.804601533844616,
+      "refVideoSec": 10.746568463341145,
+      "userMarked": true,
+      "refMarked": false,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "shoulder",
+        "limb": "arm",
+        "confidence": 0.92,
+        "reason": "The circled area shows the shoulder (deltoid area) of the inverted pole dancer, connecting the upper arm to the torso.",
+        "rounds": 3,
+        "votes": {
+          "shoulder": 3
+        }
+      },
+      "ref": {
+        "observed": "neck",
+        "limb": "other",
+        "confidence": 0.85,
+        "reason": "사진의 정중앙(중심 좌표) 부근에는 턱선과 의상 상의 깃 사이를 잇는 목 부위가 위치해 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "neck": 2,
+          "head": 1
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": false,
+        "flags": [
+          "ref:part_not_shown"
+        ]
+      },
+      "mismatch": true
+    },
+    {
+      "uid": "verifyupx0903b",
+      "analysisId": "bf92909542e3475aa2b8be8c7fa2cecc",
+      "reference": "ref-pdshape",
+      "index": 4,
+      "tier": "confirmed",
+      "joint": "left_hip",
+      "criterion": "angle_vs_reference__left_hip",
+      "userVideoSec": 16.70556852284095,
+      "refVideoSec": 15.266153331101439,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "abdomen",
+        "back_waist",
+        "hip",
+        "thigh"
+      ],
+      "user": {
+        "observed": "back_waist",
+        "limb": "other",
+        "confidence": 0.95,
+        "reason": "사진 중앙에는 폴에 매달려 등을 보이고 있는 인물의 등허리(back_waist) 부분이 가장 크게 나타나 있으며, 이는 몸통 부위에 해당하여 limb는 other입니다.",
+        "rounds": 3,
+        "votes": {
+          "back_waist": 3
+        }
+      },
+      "ref": {
+        "observed": "back_waist",
+        "limb": "other",
+        "confidence": 0.9,
+        "reason": "The marked area indicates the lower back and waist region of the person holding onto the pole.",
+        "rounds": 3,
+        "votes": {
+          "back_waist": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903b",
+      "analysisId": "bf92909542e3475aa2b8be8c7fa2cecc",
+      "reference": "ref-pdshape",
+      "index": 5,
+      "tier": "advisory",
+      "joint": "left_shoulder",
+      "criterion": null,
+      "userVideoSec": 7.202400800266756,
+      "refVideoSec": 13.35788416471376,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "head",
+        "limb": "other",
+        "confidence": 0.9,
+        "reason": "The red circle primarily encloses the person's inverted face and head, along with the neck.",
+        "rounds": 3,
+        "votes": {
+          "neck": 1,
+          "head": 2
+        }
+      },
+      "ref": {
+        "observed": "chest",
+        "limb": "other",
+        "confidence": 0.85,
+        "reason": "사진의 정중앙 부근에는 검은색 탑을 착용한 가슴(chest) 부위가 가장 크게 위치해 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "chest": 3
+        }
+      },
+      "audit": {
+        "userOk": false,
+        "refOk": true,
+        "flags": [
+          "user:mark_mismatch"
+        ]
+      },
+      "mismatch": true
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "c357f6b44117489281662072a640895c",
+      "reference": "ref-climb",
+      "index": 0,
+      "tier": "confirmed",
+      "joint": "right_knee",
+      "criterion": "angle_vs_reference__right_knee",
+      "userVideoSec": 3.0110404817664773,
+      "refVideoSec": 6.7246570759451325,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "foot",
+        "knee",
+        "thigh"
+      ],
+      "user": {
+        "observed": "knee",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "The red lines mark the knee of the sharply bent leg positioned directly beneath the forearm.",
+        "rounds": 3,
+        "votes": {
+          "elbow": 1,
+          "knee": 2
+        }
+      },
+      "ref": {
+        "observed": "knee",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "The red angle highlights the knee joint between the thigh and the lower leg.",
+        "rounds": 3,
+        "votes": {
+          "knee": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "c357f6b44117489281662072a640895c",
+      "reference": "ref-climb",
+      "index": 1,
+      "tier": "advisory",
+      "joint": "left_hip",
+      "criterion": null,
+      "userVideoSec": 1.8066242890598863,
+      "refVideoSec": 1.1040481766477084,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "abdomen",
+        "back_waist",
+        "hip",
+        "thigh"
+      ],
+      "user": {
+        "observed": "thigh",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "빨간 원의 중심에는 허벅지(thigh) 상부와 엉덩이 아래쪽 연결 부위가 크게 위치해 있으며, 이는 다리(leg)에 해당합니다.",
+        "rounds": 3,
+        "votes": {
+          "thigh": 3
+        }
+      },
+      "ref": {
+        "observed": "knee",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "사진 중앙 부근에는 폴을 잡고 굽혀진 다리의 무릎 관절(knee)이 가장 두드러지게 위치해 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "knee": 2,
+          "thigh": 1
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": false,
+        "flags": [
+          "ref:mark_mismatch"
+        ]
+      },
+      "mismatch": true
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "c357f6b44117489281662072a640895c",
+      "reference": "ref-climb",
+      "index": 2,
+      "tier": "advisory",
+      "joint": "left_shoulder",
+      "criterion": null,
+      "userVideoSec": 1.8066242890598863,
+      "refVideoSec": 1.1040481766477084,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "shoulder",
+        "limb": "arm",
+        "confidence": 0.92,
+        "reason": "빨간색 원은 인물의 왼쪽 어깨 부위를 중심으로 감싸고 있으며, 어깨는 팔(arm)에 해당하는 관절 및 신체 부위입니다.",
+        "rounds": 3,
+        "votes": {
+          "shoulder": 3
+        }
+      },
+      "ref": {
+        "observed": "chest",
+        "limb": "other",
+        "confidence": 0.9,
+        "reason": "사진의 정중앙(좌우 및 상하 50% 위치)에는 검은색 탑을 입고 있는 상체 가슴 부위가 위치해 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "chest": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "f5e8e134a5bf4fca8b0cfc3c1847004f",
+      "reference": "ref-power-spin",
+      "index": 0,
+      "tier": "confirmed",
+      "joint": "left_hip",
+      "criterion": "leg_extension",
+      "userVideoSec": 1.9031719532554259,
+      "refVideoSec": 2.4,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "hip",
+        "knee",
+        "thigh"
+      ],
+      "user": {
+        "observed": "hip",
+        "limb": "other",
+        "confidence": 0.95,
+        "reason": "붉은 원으로 강조된 영역은 흰색 쇼츠를 입고 있는 엉덩이(hip) 부위입니다.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "ref": {
+        "observed": "hip",
+        "limb": "other",
+        "confidence": 0.95,
+        "reason": "The red circle focuses directly on the buttocks/hip area clad in white shorts.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "f5e8e134a5bf4fca8b0cfc3c1847004f",
+      "reference": "ref-power-spin",
+      "index": 1,
+      "tier": "confirmed",
+      "joint": "left_shoulder",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "userVideoSec": 6.711185308848081,
+      "refVideoSec": 9.6,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "knee",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "사진 정중앙에는 다리가 뻗어지는 관절 부위인 무릎(knee)이 위치해 있으며, 허벅지와 종아리를 잇는 다리(leg)의 관절 부위입니다.",
+        "rounds": 3,
+        "votes": {
+          "knee": 2,
+          "elbow": 1
+        }
+      },
+      "ref": {
+        "observed": "armpit",
+        "limb": "arm",
+        "confidence": 0.95,
+        "reason": "The vertex of the highlighted angle is located at the armpit (axilla), formed between the inner side of the raised upper arm and the side of the torso.",
+        "rounds": 3,
+        "votes": {
+          "armpit": 3
+        }
+      },
+      "audit": {
+        "userOk": false,
+        "refOk": true,
+        "flags": [
+          "user:mark_mismatch"
+        ]
+      },
+      "mismatch": true
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "363fcea962d44967bea165e83c0d5d41",
+      "reference": "ref-elbow-twist-sister",
+      "index": 0,
+      "tier": "confirmed",
+      "joint": "right_elbow",
+      "criterion": "angle_vs_reference__right_elbow",
+      "userVideoSec": 2.904841402337229,
+      "refVideoSec": 5.315947843530592,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "elbow",
+        "hand",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "shoulder",
+        "limb": "arm",
+        "confidence": 0.9,
+        "reason": "빨간색 원의 중심 부근에는 팔과 상체가 연결되는 어깨(삼각근 부위)가 가장 뚜렷하게 관찰되며, 이는 팔(arm)에 속하는 관절 부위입니다.",
+        "rounds": 3,
+        "votes": {
+          "shoulder": 3
+        }
+      },
+      "ref": {
+        "observed": "elbow",
+        "limb": "arm",
+        "confidence": 0.95,
+        "reason": "The red circle focuses on the bent elbow joint of the arm wrapped near the pole.",
+        "rounds": 3,
+        "votes": {
+          "elbow": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "363fcea962d44967bea165e83c0d5d41",
+      "reference": "ref-elbow-twist-sister",
+      "index": 1,
+      "tier": "confirmed",
+      "joint": "left_shoulder",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "userVideoSec": 1.2020033388981637,
+      "refVideoSec": 1.103309929789368,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "thigh",
+        "limb": "leg",
+        "confidence": 0.93,
+        "reason": "The annotated angle highlights the thigh area of the extended leg.",
+        "rounds": 3,
+        "votes": {
+          "thigh": 3
+        }
+      },
+      "ref": {
+        "observed": "unclear",
+        "limb": "leg",
+        "confidence": 0.9,
+        "reason": "The marked angle is located at the hip joint (고관절) connecting the pelvis/torso and the thigh of the leg.",
+        "rounds": 3,
+        "votes": {
+          "hip": 1,
+          "elbow": 1,
+          "knee": 1
+        }
+      },
+      "audit": {
+        "userOk": false,
+        "refOk": null,
+        "flags": [
+          "user:mark_mismatch",
+          "ref:unreadable"
+        ]
+      },
+      "mismatch": true
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "363fcea962d44967bea165e83c0d5d41",
+      "reference": "ref-elbow-twist-sister",
+      "index": 2,
+      "tier": "confirmed",
+      "joint": "right_shoulder",
+      "criterion": "angle_vs_reference__right_shoulder",
+      "userVideoSec": 1.001669449081803,
+      "refVideoSec": 0.9027081243731193,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "shoulder",
+        "limb": "arm",
+        "confidence": 0.95,
+        "reason": "The vertex of the highlighted angle points directly to the shoulder joint of the right arm.",
+        "rounds": 3,
+        "votes": {
+          "shoulder": 3
+        }
+      },
+      "ref": {
+        "observed": "shoulder",
+        "limb": "arm",
+        "confidence": 0.88,
+        "reason": "The marked joint at the junction of the torso and arm corresponds to the shoulder of the arm.",
+        "rounds": 3,
+        "votes": {
+          "shoulder": 2,
+          "elbow": 1
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "363fcea962d44967bea165e83c0d5d41",
+      "reference": "ref-elbow-twist-sister",
+      "index": 3,
+      "tier": "confirmed",
+      "joint": "left_hip",
+      "criterion": "angle_vs_reference__left_hip",
+      "userVideoSec": 11.118530884808015,
+      "refVideoSec": 11.534603811434302,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "abdomen",
+        "back_waist",
+        "hip",
+        "thigh"
+      ],
+      "user": {
+        "observed": "hip",
+        "limb": "leg",
+        "confidence": 0.9,
+        "reason": "사진의 정중앙에는 흰색 반바지를 착용한 엉덩이(골반) 부위가 가장 크게 보이며, 위로 곧게 뻗은 신체 부위는 다리(leg)에 해당합니다.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "ref": {
+        "observed": "hip",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "The marked vertex is at the hip joint, measuring the angle between the torso and the extended leg.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "363fcea962d44967bea165e83c0d5d41",
+      "reference": "ref-elbow-twist-sister",
+      "index": 4,
+      "tier": "confirmed",
+      "joint": "right_hip",
+      "criterion": "angle_vs_reference__right_hip",
+      "userVideoSec": 11.118530884808015,
+      "refVideoSec": 11.534603811434302,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "abdomen",
+        "back_waist",
+        "hip",
+        "thigh"
+      ],
+      "user": {
+        "observed": "hip",
+        "limb": "leg",
+        "confidence": 0.9,
+        "reason": "사진 정중앙에 가장 크게 보이는 신체 부위는 흰색 쇼츠로 감싸진 엉덩이(hip) 및 고관절 부위이며, 고관절은 다리(leg)에 속합니다.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "ref": {
+        "observed": "hip",
+        "limb": "other",
+        "confidence": 0.95,
+        "reason": "화살표가 가리키는 신체 부위는 엉덩이(hip)이며, 팔이나 다리가 아닌 골반/체간 부위에 속하므로 'other'로 분류됩니다.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "363fcea962d44967bea165e83c0d5d41",
+      "reference": "ref-elbow-twist-sister",
+      "index": 5,
+      "tier": "advisory",
+      "joint": "left_shoulder",
+      "criterion": null,
+      "userVideoSec": 7.212020033388982,
+      "refVideoSec": 20.260782347041122,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "neck",
+        "limb": "other",
+        "confidence": 0.9,
+        "reason": "빨간색 원의 중심은 턱 아래와 어깨 사이로 길게 뻗은 목 부위에 위치해 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "head": 1,
+          "neck": 2
+        }
+      },
+      "ref": {
+        "observed": "chest",
+        "limb": "other",
+        "confidence": 0.9,
+        "reason": "사진의 정중앙(50%, 50%)에는 폴 바로 옆에 검은색 스포츠 탑의 컷아웃이 있는 가슴(chest) 부위가 위치해 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "chest": 3
+        }
+      },
+      "audit": {
+        "userOk": false,
+        "refOk": true,
+        "flags": [
+          "user:mark_mismatch"
+        ]
+      },
+      "mismatch": true
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "fb695059107a41a5bb16bb37d0a3fe17",
+      "reference": "ref-kip-up",
+      "index": 0,
+      "tier": "confirmed",
+      "joint": "left_knee",
+      "criterion": "split_angle",
+      "userVideoSec": 1.8048128342245988,
+      "refVideoSec": 4.0,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "hip",
+        "thigh"
+      ],
+      "user": {
+        "observed": "thigh",
+        "limb": "leg",
+        "confidence": 0.92,
+        "reason": "The center of the image prominently features the thigh area of the legs, extending down from the hips.",
+        "rounds": 3,
+        "votes": {
+          "thigh": 3
+        }
+      },
+      "ref": {
+        "observed": "hip",
+        "limb": "leg",
+        "confidence": 0.95,
+        "reason": "사진의 중앙에는 흰색 반바지를 입은 엉덩이(고관절) 부위가 위치하며 주황색 선의 꼭짓점이 고관절/엉덩이 부위에 위치하여 두 다리가 벌어지는 각도를 나타내고 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "4cf49d80931648948aa9b3bd91691035",
+      "reference": "ref-peter-pan",
+      "index": 0,
+      "tier": "confirmed",
+      "joint": "left_shoulder",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "userVideoSec": 4.616928738708598,
+      "refVideoSec": 6.247900571044676,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "armpit",
+        "limb": "arm",
+        "confidence": 0.95,
+        "reason": "사진의 각도 표시선과 호(arc)는 팔을 들어 올렸을 때 몸통과 팔 안쪽 사이의 겨드랑이 부위에 위치하고 있으며, 이는 팔과 몸통을 연결하는 팔 부위 관절에 해당합니다.",
+        "rounds": 3,
+        "votes": {
+          "armpit": 3
+        }
+      },
+      "ref": {
+        "observed": "shoulder",
+        "limb": "arm",
+        "confidence": 0.95,
+        "reason": "각도 표시의 꼭짓점이 상완과 몸통이 연결되는 어깨 관절 부위에 위치하고 있습니다.",
+        "rounds": 3,
+        "votes": {
+          "shoulder": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "4cf49d80931648948aa9b3bd91691035",
+      "reference": "ref-peter-pan",
+      "index": 1,
+      "tier": "advisory",
+      "joint": "right_shoulder",
+      "criterion": null,
+      "userVideoSec": 1.405152224824356,
+      "refVideoSec": 1.9146792072556265,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "user": {
+        "observed": "shoulder",
+        "limb": "arm",
+        "confidence": 0.95,
+        "reason": "원 안에 위치한 주요 신체 부위는 피사체의 오른쪽 어깨이며, 어깨는 팔에 속하는 관절입니다.",
+        "rounds": 3,
+        "votes": {
+          "shoulder": 3
+        }
+      },
+      "ref": {
+        "observed": "back_waist",
+        "limb": "other",
+        "confidence": 0.95,
+        "reason": "The center of the image shows the back and waist region of a person facing away from the camera.",
+        "rounds": 3,
+        "votes": {
+          "back_waist": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    },
+    {
+      "uid": "verifyupx0903",
+      "analysisId": "4cf49d80931648948aa9b3bd91691035",
+      "reference": "ref-peter-pan",
+      "index": 2,
+      "tier": "advisory",
+      "joint": "right_hip",
+      "criterion": null,
+      "userVideoSec": 1.405152224824356,
+      "refVideoSec": 1.9146792072556265,
+      "userMarked": true,
+      "refMarked": true,
+      "expected": [
+        "abdomen",
+        "back_waist",
+        "hip",
+        "thigh"
+      ],
+      "user": {
+        "observed": "hip",
+        "limb": "other",
+        "confidence": 0.85,
+        "reason": "The marked circle focuses primarily on the hip and pelvic region of the body covered by the athletic shorts.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "ref": {
+        "observed": "hip",
+        "limb": "other",
+        "confidence": 0.95,
+        "reason": "사진의 정중앙에는 흰색 반바지를 착용한 엉덩이(골반) 부위가 가장 크고 중심에 위치해 있으며, 이는 몸통/골반 부위에 해당하므로 limb은 other로 분류됩니다.",
+        "rounds": 3,
+        "votes": {
+          "hip": 3
+        }
+      },
+      "audit": {
+        "userOk": true,
+        "refOk": true,
+        "flags": []
+      },
+      "mismatch": false
+    }
+  ]
+}

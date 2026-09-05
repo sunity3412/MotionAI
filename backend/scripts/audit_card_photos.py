@@ -15,6 +15,12 @@
     (정사각 패널 2 + gap) 이므로 높이를 패널 변으로 삼아 gap 을 기하로 복원한다.
   ★ 눈의 질문에는 좌우·기대 관절이 없다 (card_gates._CLAIM_QUESTION["part"]) — 눈은
     "무엇이 보이는가"만 답하고 대조는 card_photo_audit(순수)가 한다.
+  ★ 2단 판정 (quick-260905-ota): 1단(정중앙, part)이 허용 밖으로 읽힌 패널 가운데
+    **표시가 있는 패널에만** "빨간 표시가 놓인 부위"(mark_part) 를 같은 N회 최빈으로 더
+    묻고 card_photo_audit.adjudicate 로 결말을 정한다 — 표시가 허용 안이면 통과(by=mark,
+    정중앙은 인접 맥락), 밖이면 확정 불일치(mark_elsewhere). 표시 없는 패널은 2단 없이
+    확정(by=none). 표시 유무 = doc userMarked/refMarked (09-05 감사에서 21장 전부 실제
+    그림과 일치). 호출 비용 = 1단 그대로 + 탈락 패널분(mvm 21장 기준 8장 × 1~2패널).
   ★ 패널마다 --rounds 회 묻고 **최빈 토큰**으로 확정한다 (동률 = unclear, fail-closed).
     plan 은 eye_judge_majority 를 지목했지만 part claim 에서 그 함수의 "불일치"는
     unclear/error(못 읽음)뿐이라 읽어낸 토큰이 1회차에 확정된다 — 09-05 실측(같은 21장
@@ -33,9 +39,11 @@
       [--rounds 3] [--out audit.json] [--dump-dir panels/]
     --pairs uid:aid,uid:aid,...  로 여러 문서 한 번에.
 
-출력 마지막 줄(로그 grep 가능한 불변식): `card_photo_audit total=N mismatched=M`
-불일치 = card_photo_audit.is_mismatch (mark_mismatch / part_not_shown). 못 읽음(unreadable)·
-감사 불가(no_expectation)는 따로 세고 불일치로 세지 않는다 — 눈이 못 본 것은 틀린 게 아니다.
+출력 마지막 줄(로그 grep 가능한 불변식): `card_photo_audit total=N mismatched=M unresolved=K`
+결말 = card_photo_audit.card_verdict — mismatched 는 어느 패널이든 2단 뒤 ok False
+(mark_elsewhere / no_mark_and_center_elsewhere), unresolved 는 판정 불가(못 읽음·doc 과 그림의
+표시 유무 어긋남). 감사 불가(no_expectation)·다운로드 실패는 unaudited 로 따로 센다 —
+눈이 못 본 것은 틀린 게 아니다. 카드 행마다 패널별 `{center}→{mark} ok/by:reason` 을 싣는다.
 
 하지 않는 일: 파이프라인에 붙이지 않는다(분석 시점 게이트 승격은 다음 단위), 좌표로 감사하지
 않는다(crop 중심 출처가 경로마다 달라 rep12 신뢰도 판정은 오판 — 09-05 확인).
@@ -125,11 +133,15 @@ def split_panels(png: bytes):
     return left, right
 
 
-def modal_token(observed: list[str]) -> str:
-    """토큰 다수결 — 읽어낸 토큰(PART_VOCAB) 중 최빈값. 동률·전부 못 읽음 = 'unclear'."""
+def modal_token(observed: list[str], vocab: frozenset[str] = cpa.PART_VOCAB) -> str:
+    """토큰 다수결 — 읽어낸 토큰(vocab 안) 중 최빈값. 동률·전부 못 읽음 = 'unclear'.
+
+    vocab 은 claim 의 "읽어냈다" 집합 — part = PART_VOCAB, mark_part = MARK_VOCAB
+    (no_mark 도 표다: 표시가 없다는 관측). 기본값은 종전(part) 그대로.
+    """
     counts: dict[str, int] = {}
     for tok in observed:
-        if tok in cpa.PART_VOCAB:
+        if tok in vocab:
             counts[tok] = counts.get(tok, 0) + 1
     if not counts:
         return "unclear"
@@ -138,22 +150,30 @@ def modal_token(observed: list[str]) -> str:
     return winners[0] if len(winners) == 1 else "unclear"
 
 
-def judge_panel(panel, *, api_key: str, model: str, rounds: int) -> dict:
-    """패널 1장 → part 관측: eye_judge 를 rounds 회 호출, 최빈 토큰으로 확정.
+_CLAIM_VOCAB = {"part": cpa.PART_VOCAB, "mark_part": cpa.MARK_VOCAB}
 
+
+def judge_panel(panel, *, api_key: str, model: str, rounds: int,
+                claim: str = "part") -> dict:
+    """패널 1장 → claim 관측: eye_judge 를 rounds 회 호출, 최빈 토큰으로 확정.
+
+    claim = "part"(1단, 정중앙 부위) | "mark_part"(2단, 표시가 놓인 부위 — quick-260905-ota).
     각 호출은 운영 경로(card_gates.eye_judge — 질문·JSON 스키마·temperature 0) 그대로.
     반환 observed = 최빈 토큰(동률/전부 못 읽음 = unclear), votes = 토큰별 표,
     reason = 최빈 토큰 첫 응답의 근거 문장.
     """
-    results = [cg.eye_judge(panel, "part", api_key=api_key, model=model)
+    if claim not in _CLAIM_VOCAB:
+        raise ValueError(f"unknown audit claim: {claim}")
+    results = [cg.eye_judge(panel, claim, api_key=api_key, model=model)
                for _ in range(rounds)]
     tokens = [str(r.get("observed")) for r in results]
-    winner = modal_token(tokens)
+    winner = modal_token(tokens, _CLAIM_VOCAB[claim])
     first = next((r for r in results if r.get("observed") == winner), results[0])
     votes: dict[str, int] = {}
     for t in tokens:
         votes[t] = votes.get(t, 0) + 1
     return {
+        "claim": claim,
         "observed": winner,
         "limb": first.get("limb"),
         "confidence": first.get("confidence"),
@@ -161,6 +181,12 @@ def judge_panel(panel, *, api_key: str, model: str, rounds: int) -> dict:
         "rounds": len(results),
         "votes": votes,
     }
+
+
+def _fmt_side(center: dict, mark: dict | None, adj: dict) -> str:
+    """패널 한 쪽의 로그 표기 — `{center}→{mark|-} ok/by:reason`."""
+    m = mark["observed"] if mark else "-"
+    return f"{center['observed']}→{m} {adj['ok']}/{adj['by']}:{adj['reason']}"
 
 
 def audit_doc(uid: str, aid: str, *, api_key: str, model: str, rounds: int,
@@ -206,18 +232,37 @@ def audit_doc(uid: str, aid: str, *, api_key: str, model: str, rounds: int,
             stem = f"{aid[:8]}_{i:02d}_{crit or joint}"
             user_panel.save(dump_dir / f"{stem}_user.jpg", quality=90)
             ref_panel.save(dump_dir / f"{stem}_ref.jpg", quality=90)
+        # 1단 — 정중앙 부위 (mvm 그대로)
         u = judge_panel(user_panel, api_key=api_key, model=model, rounds=rounds)
         r = judge_panel(ref_panel, api_key=api_key, model=model, rounds=rounds)
         audit = cpa.audit_card(expected, u["observed"], r["observed"],
                                user_marked=user_marked, ref_marked=ref_marked)
-        row.update({"user": u, "ref": r, "audit": audit,
-                    "mismatch": cpa.is_mismatch(audit)})
+        # 2단 — 1단 탈락 + 표시 있는 패널에만 표시 위치를 묻는다 (quick-260905-ota)
+        um = rm = None
+        if cpa.needs_mark_query(expected, u["observed"], marked=user_marked):
+            um = judge_panel(user_panel, api_key=api_key, model=model, rounds=rounds,
+                             claim="mark_part")
+        if cpa.needs_mark_query(expected, r["observed"], marked=ref_marked):
+            rm = judge_panel(ref_panel, api_key=api_key, model=model, rounds=rounds,
+                             claim="mark_part")
+        u_adj = cpa.adjudicate(expected, u["observed"], um["observed"] if um else None,
+                               marked=user_marked)
+        r_adj = cpa.adjudicate(expected, r["observed"], rm["observed"] if rm else None,
+                               marked=ref_marked)
+        verdict = cpa.card_verdict(u_adj, r_adj)
+        row.update({"user": u, "ref": r, "userMark": um, "refMark": rm,
+                    "audit": audit, "userAdj": u_adj, "refAdj": r_adj,
+                    "verdict": verdict, "mismatch": verdict == "mismatch"})
         rows.append(row)
-        mark = "MISMATCH" if row["mismatch"] else ("ok" if not audit["flags"] else "?")
+        votes = f"votes user={u['votes']} ref={r['votes']}"
+        if um:
+            votes += f" userMark={um['votes']}"
+        if rm:
+            votes += f" refMark={rm['votes']}"
         print(
             f"  [{i}] {tier:9s} {str(joint):15s} {str(crit):35s} "
-            f"user={u['observed']}({audit['userOk']}) ref={r['observed']}({audit['refOk']}) "
-            f"{mark} {' '.join(audit['flags'])}  votes user={u['votes']} ref={r['votes']}",
+            f"user={_fmt_side(u, um, u_adj)} ref={_fmt_side(r, rm, r_adj)} "
+            f"{verdict.upper() if verdict != 'ok' else 'ok'}  {votes}",
             flush=True,
         )
     return rows
@@ -251,12 +296,11 @@ def main() -> int:
                               rounds=args.rounds, dump_dir=dump_dir))
 
     total = len(rows)
-    mismatched = sum(1 for r in rows if r.get("mismatch"))
-    unreadable = sum(1 for r in rows
-                     if any(f.endswith("unreadable") for f in r["audit"]["flags"]))
-    unaudited = sum(1 for r in rows
-                    if r["audit"]["flags"] and set(r["audit"]["flags"]) <= {
-                        "no_expectation", "fetch_failed"})
+    verdicts = [r.get("verdict", "unaudited") for r in rows]   # fetch 실패 행 = unaudited
+    mismatched = verdicts.count("mismatch")
+    unresolved = verdicts.count("unresolved")
+    unaudited = verdicts.count("unaudited")
+    tier2_panels = sum(1 for r in rows for k in ("userMark", "refMark") if r.get(k))
     if args.out:
         Path(args.out).write_text(
             json.dumps({"model": model, "rounds": args.rounds, "cards": rows},
@@ -264,14 +308,16 @@ def main() -> int:
             encoding="utf-8",
         )
         print(f"\nwrote {args.out}", flush=True)
-    print(f"\n# mismatched cards", flush=True)
-    for r in rows:
-        if r.get("mismatch"):
-            print(f"  {r['reference']} [{r['index']}] {r['tier']} {r['joint']} "
-                  f"{r['criterion']} user={r['user']['observed']} ref={r['ref']['observed']} "
-                  f"{' '.join(r['audit']['flags'])}", flush=True)
-    print(f"card_photo_audit unreadable={unreadable} unaudited={unaudited}", flush=True)
-    print(f"card_photo_audit total={total} mismatched={mismatched}", flush=True)
+    for label in ("mismatch", "unresolved"):
+        print(f"\n# {label} cards", flush=True)
+        for r in rows:
+            if r.get("verdict") == label:
+                print(f"  {r['reference']} [{r['index']}] {r['tier']} {r['joint']} "
+                      f"{r['criterion']} user={_fmt_side(r['user'], r.get('userMark'), r['userAdj'])} "
+                      f"ref={_fmt_side(r['ref'], r.get('refMark'), r['refAdj'])}", flush=True)
+    print(f"card_photo_audit unaudited={unaudited} tier2_panels={tier2_panels}", flush=True)
+    print(f"card_photo_audit total={total} mismatched={mismatched} unresolved={unresolved}",
+          flush=True)
     return 0
 
 

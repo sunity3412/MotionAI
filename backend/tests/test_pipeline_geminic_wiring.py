@@ -38,6 +38,8 @@ if str(_PIPELINE_DIR) not in sys.path:
 # pipeline app.py — Lambda 함수 entry. 본 test 가 import 시점에 boto3 client /
 # Cerebras 등 초기화 트리거 가능. 미설치 환경 박제 graceful skip — 본 plan scope 는
 # wiring 검증이므로 실 Lambda 환경에서만 verify (자동화 verify 명령은 plan 박제).
+from sunity_shared.gemini.config import DEFAULT_C_MODEL  # noqa: E402 - Layer path 주입 뒤
+
 pipeline_app = pytest.importorskip("app")
 
 
@@ -247,7 +249,7 @@ class TestWave1Helper:
             "occlusion_severe": False,
             "camera_angle_problematic": False,
             "notes_ko": "ok",
-            "model": "gemini-3.7-flash",
+            "model": DEFAULT_C_MODEL,
             "tokens_used": 0,
             "latency_ms": 100,
             "guardrail_triggered": None,
@@ -319,7 +321,7 @@ class TestWave1Helper:
             "occlusion_severe": False,
             "camera_angle_problematic": False,
             "notes_ko": "ok",
-            "model": "gemini-3.7-flash",
+            "model": DEFAULT_C_MODEL,
             "tokens_used": 0,
             "latency_ms": 100,
             "guardrail_triggered": None,

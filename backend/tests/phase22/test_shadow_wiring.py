@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from sunity_shared import firestore_admin
+from sunity_shared.gemini.config import DEFAULT_C_MODEL
 
 
 # ─── Firestore client stub (실 Firestore/네트워크 0) ──────────────────────────
@@ -86,7 +87,7 @@ def test_store_vlm_shadow_writes_merge_and_timestamps(fake_firestore):
             "verdict": "fail",
             "prompt_version": "v3",
             "schema_version": 2,
-            "model": "gemini-3.7-flash",
+            "model": DEFAULT_C_MODEL,
             "status": "applied",
         },
     )
@@ -100,7 +101,7 @@ def test_store_vlm_shadow_writes_merge_and_timestamps(fake_firestore):
     assert isinstance(p["created_at"], int)
     assert isinstance(p["updated_at"], int)
     assert p["roles"]["veto"]["verdict"] == "fail"
-    assert p["roles"]["veto"]["model"] == "gemini-3.7-flash"
+    assert p["roles"]["veto"]["model"] == DEFAULT_C_MODEL
 
 
 def test_store_vlm_shadow_preserves_created_at(fake_firestore, monkeypatch):

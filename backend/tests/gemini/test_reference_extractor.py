@@ -7,7 +7,7 @@
     그 외 G3 fallback 의 3 케이스.
   · GeminiVisionCall.call 은 monkeypatch 로 stub — 외부 네트워크 호출 0.
   · resolve_model 경로 박제 — GEMINI_A_MODEL 가 override path. ALLOWED_MODELS
-    (gemini-3.1-pro-preview / gemini-3.7-flash) 만 통과.
+    (gemini-3.1-pro-preview / Flash 정본 DEFAULT_C_MODEL) 만 통과.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from sunity_shared.gemini import reference_extractor
+from sunity_shared.gemini.config import DEFAULT_C_MODEL
 from sunity_shared.gemini.schemas import (
     CheckpointJoint,
     ReferenceRegistration,
@@ -371,7 +372,7 @@ class TestGeminiCallInit:
         assert stub.init_kwargs.get("model") == "gemini-3.1-pro-preview"
 
     def test_env_override_path(self, tmp_path, monkeypatch) -> None:
-        """GEMINI_A_MODEL=gemini-3.7-flash 박힘 시 fallback 박제 (resolve_model)."""
+        """GEMINI_A_MODEL=Flash 정본(DEFAULT_C_MODEL) 박힘 시 fallback 박제 (resolve_model)."""
         stub = _StubCall(
             _ok_registration(
                 motion_name_ipsf="Butterfly",
@@ -379,14 +380,14 @@ class TestGeminiCallInit:
             )
         )
         _patch_call(monkeypatch, stub)
-        monkeypatch.setenv("GEMINI_A_MODEL", "gemini-3.7-flash")
+        monkeypatch.setenv("GEMINI_A_MODEL", DEFAULT_C_MODEL)
 
         reference_extractor.extract_reference_metadata(
             _video(tmp_path),
             studio_alias=None,
         )
 
-        assert stub.init_kwargs.get("model") == "gemini-3.7-flash"
+        assert stub.init_kwargs.get("model") == DEFAULT_C_MODEL
 
     def test_disallowed_model_raises(self, tmp_path, monkeypatch) -> None:
         """ALLOWED_MODELS 박제 외 → resolve_model ValueError (graceful X)."""

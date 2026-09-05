@@ -255,11 +255,12 @@ def test_model_mismatch_invalidates(
 ) -> None:
     """model_name mismatch → None (모델 교체 시 stale 박제 보호)."""
     from sunity_shared.analysis.technique_cache import TechniqueCache
+    from sunity_shared.gemini.config import DEFAULT_C_MODEL
 
     writer = TechniqueCache(yaml_version="v1", model_name="gemini-3.1-pro")
     writer.store(video_file, {"motion": "ref-foxtop", "moments": []})
 
-    reader = TechniqueCache(yaml_version="v1", model_name="gemini-3.7-flash")
+    reader = TechniqueCache(yaml_version="v1", model_name=DEFAULT_C_MODEL)
     assert reader.lookup(video_file) is None
 
 

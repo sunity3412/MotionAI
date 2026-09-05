@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+from sunity_shared.gemini.config import DEFAULT_C_MODEL
+
 
 # 이 파일이 reload 하는 모듈들 — 끝나면 원상복구해야 한다(아래 fixture).
 _RELOADED_MODULES = (
@@ -108,11 +110,12 @@ def test_gemini_moment_model_dedicated_key_scopes_extractor_only(monkeypatch):
     GEMINI_MODEL 은 veto scorer 와 공유 env 라 전역 export 시 veto 까지 flip 된다.
     전용 키는 extractor default 만 바꾸고 veto(DEFAULT_VISION_MODEL)는 무접촉.
     """
-    monkeypatch.setenv("GEMINI_MOMENT_MODEL", "gemini-3.7-flash")
+    # 전용 키 값은 Flash 정본(config) — 공유 키(Pro)와 다르므로 우선순위가 판별된다.
+    monkeypatch.setenv("GEMINI_MOMENT_MODEL", DEFAULT_C_MODEL)
     monkeypatch.setenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
     mod = _reload_extractor_module()
     # 전용 키가 공유 키보다 우선.
-    assert mod.DEFAULT_GEMINI_MODEL == "gemini-3.7-flash"
+    assert mod.DEFAULT_GEMINI_MODEL == DEFAULT_C_MODEL
 
     # veto scorer 는 GEMINI_MOMENT_MODEL 무접촉 — GEMINI_MODEL 체인 유지.
     import sunity_shared.analysis.gemini_vision_scorer as scorer_mod

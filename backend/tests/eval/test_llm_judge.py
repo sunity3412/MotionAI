@@ -22,6 +22,8 @@ from typing import Any
 
 import pytest
 
+from sunity_shared.gemini.config import DEFAULT_C_MODEL
+
 
 def _reload_llm_judge():
     import sunity_shared.eval.llm_judge as lj
@@ -51,7 +53,7 @@ def test_judge_pass_true(monkeypatch):
     )
 
     assert result["pass"] is True
-    assert result["judge_model"] == "gemini-3.7-flash"
+    assert result["judge_model"] == DEFAULT_C_MODEL
     assert result["confidence"] is None  # belle_label 없음 — calibration mode X
 
 

@@ -29,6 +29,7 @@ import pytest
 
 from sunity_shared import models
 from sunity_shared.analysis import interfaces, visual_gen
+from sunity_shared.gemini.config import DEFAULT_C_MODEL
 
 _SRC = Path(visual_gen.__file__).read_text(encoding="utf-8")
 _LAYER = str(Path(visual_gen.__file__).resolve().parents[2])  # .../shared/python
@@ -633,7 +634,7 @@ def test_judge_parses_verdict_and_sends_key_in_header_only(gemini_http):
 
     call = gemini_http.calls[0]
     assert call["url"] == visual_gen.GEMINI_ENDPOINT
-    assert "gemini-3.7-flash" in call["url"]
+    assert DEFAULT_C_MODEL in call["url"]  # 판정 endpoint 는 Flash 정본으로 조립된다
     assert call["headers"]["x-goog-api-key"] == "G-SECRET"
     assert "G-SECRET" not in call["url"]
     texts = [p["text"] for p in json.loads(call["body"])["contents"][0]["parts"] if "text" in p]

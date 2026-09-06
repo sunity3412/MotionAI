@@ -1,0 +1,674 @@
+[
+ {
+  "doc": "climb",
+  "idx": 0,
+  "side": "user",
+  "joint": "right_knee",
+  "crit": "angle_vs_reference__right_knee",
+  "conf": 0.584,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "elbow",
+  "votes": {
+   "elbow": 2,
+   "thigh": 1
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "climb",
+  "idx": 0,
+  "side": "ref",
+  "joint": "right_knee",
+  "crit": "angle_vs_reference__right_knee",
+  "conf": 0.66,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "hand",
+  "votes": {
+   "hand": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "powerspin",
+  "idx": 0,
+  "side": "user",
+  "joint": "left_hip",
+  "crit": "leg_extension",
+  "conf": 0.667,
+  "expected": [
+   "hip",
+   "knee",
+   "thigh"
+  ],
+  "tight": "hip",
+  "votes": {
+   "back_waist": 1,
+   "hip": 2
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "powerspin",
+  "idx": 0,
+  "side": "ref",
+  "joint": "left_hip",
+  "crit": "leg_extension",
+  "conf": 0.665,
+  "expected": [
+   "hip",
+   "knee",
+   "thigh"
+  ],
+  "tight": "thigh",
+  "votes": {
+   "thigh": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "powerspin",
+  "idx": 1,
+  "side": "user",
+  "joint": "left_shoulder",
+  "crit": "angle_vs_reference__left_shoulder",
+  "conf": 0.787,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "back_waist",
+  "votes": {
+   "back_waist": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "powerspin",
+  "idx": 1,
+  "side": "ref",
+  "joint": "left_shoulder",
+  "crit": "angle_vs_reference__left_shoulder",
+  "conf": 0.822,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "unclear",
+  "votes": {
+   "foot": 1,
+   "hand": 1,
+   "head": 1
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "powerspin",
+  "idx": 2,
+  "side": "user",
+  "joint": "left_elbow",
+  "crit": null,
+  "conf": 0.808,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "elbow",
+  "votes": {
+   "elbow": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "powerspin",
+  "idx": 2,
+  "side": "ref",
+  "joint": "left_elbow",
+  "crit": null,
+  "conf": 0.809,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "elbow",
+  "votes": {
+   "elbow": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "kipup",
+  "idx": 0,
+  "side": "user",
+  "joint": "left_shoulder",
+  "crit": null,
+  "conf": 0.843,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "shoulder",
+  "votes": {
+   "back_waist": 1,
+   "shoulder": 2
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "kipup",
+  "idx": 0,
+  "side": "ref",
+  "joint": "left_shoulder",
+  "crit": null,
+  "conf": 0.757,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "unclear",
+  "votes": {
+   "unclear": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 0,
+  "side": "user",
+  "joint": "right_elbow",
+  "crit": "angle_vs_reference__right_elbow",
+  "conf": 0.687,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "elbow",
+  "votes": {
+   "elbow": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 0,
+  "side": "ref",
+  "joint": "right_elbow",
+  "crit": "angle_vs_reference__right_elbow",
+  "conf": 0.706,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "hand",
+  "votes": {
+   "hand": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 1,
+  "side": "user",
+  "joint": "right_hip",
+  "crit": "angle_vs_reference__right_hip",
+  "conf": 0.512,
+  "expected": [
+   "abdomen",
+   "back_waist",
+   "hip",
+   "thigh"
+  ],
+  "tight": "hip",
+  "votes": {
+   "hip": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 1,
+  "side": "ref",
+  "joint": "right_hip",
+  "crit": "angle_vs_reference__right_hip",
+  "conf": 0.606,
+  "expected": [
+   "abdomen",
+   "back_waist",
+   "hip",
+   "thigh"
+  ],
+  "tight": "hand",
+  "votes": {
+   "unclear": 2,
+   "hand": 1
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 2,
+  "side": "user",
+  "joint": "left_hip",
+  "crit": "angle_vs_reference__left_hip",
+  "conf": 0.524,
+  "expected": [
+   "abdomen",
+   "back_waist",
+   "hip",
+   "thigh"
+  ],
+  "tight": "hip",
+  "votes": {
+   "hip": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 2,
+  "side": "ref",
+  "joint": "left_hip",
+  "crit": "angle_vs_reference__left_hip",
+  "conf": 0.589,
+  "expected": [
+   "abdomen",
+   "back_waist",
+   "hip",
+   "thigh"
+  ],
+  "tight": "unclear",
+  "votes": {
+   "unclear": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 3,
+  "side": "user",
+  "joint": "right_shoulder",
+  "crit": "angle_vs_reference__right_shoulder",
+  "conf": 0.51,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "thigh",
+  "votes": {
+   "thigh": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 3,
+  "side": "ref",
+  "joint": "right_shoulder",
+  "crit": "angle_vs_reference__right_shoulder",
+  "conf": 0.324,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "hand",
+  "votes": {
+   "hand": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 0,
+  "side": "user",
+  "joint": "right_knee",
+  "crit": "angle_vs_reference__right_knee",
+  "conf": 0.4,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "back_waist",
+  "votes": {
+   "back_waist": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 0,
+  "side": "ref",
+  "joint": "right_knee",
+  "crit": "angle_vs_reference__right_knee",
+  "conf": 0.433,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "elbow",
+  "votes": {
+   "elbow": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 1,
+  "side": "user",
+  "joint": "left_elbow",
+  "crit": "angle_vs_reference__left_elbow",
+  "conf": 0.541,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "elbow",
+  "votes": {
+   "elbow": 2,
+   "armpit": 1
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "pdshape",
+  "idx": 1,
+  "side": "ref",
+  "joint": "left_elbow",
+  "crit": "angle_vs_reference__left_elbow",
+  "conf": 0.872,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "unclear",
+  "votes": {
+   "unclear": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 2,
+  "side": "user",
+  "joint": "left_knee",
+  "crit": "angle_vs_reference__left_knee",
+  "conf": 0.57,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "thigh",
+  "votes": {
+   "armpit": 1,
+   "thigh": 2
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "pdshape",
+  "idx": 2,
+  "side": "ref",
+  "joint": "left_knee",
+  "crit": "angle_vs_reference__left_knee",
+  "conf": 0.749,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "hand",
+  "votes": {
+   "foot": 1,
+   "hand": 2
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 3,
+  "side": "user",
+  "joint": "right_elbow",
+  "crit": "angle_vs_reference__right_elbow",
+  "conf": 0.585,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "head",
+  "votes": {
+   "head": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 3,
+  "side": "ref",
+  "joint": "right_elbow",
+  "crit": "angle_vs_reference__right_elbow",
+  "conf": 0.626,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "elbow",
+  "votes": {
+   "elbow": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "pdshape",
+  "idx": 4,
+  "side": "user",
+  "joint": "left_shoulder",
+  "crit": null,
+  "conf": 0.637,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "head",
+  "votes": {
+   "head": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 4,
+  "side": "ref",
+  "joint": "left_shoulder",
+  "crit": null,
+  "conf": 0.288,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "hip",
+  "votes": {
+   "hip": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 5,
+  "side": "user",
+  "joint": "right_knee",
+  "crit": null,
+  "conf": 0.668,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "elbow",
+  "votes": {
+   "elbow": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "pdshape",
+  "idx": 5,
+  "side": "ref",
+  "joint": "right_knee",
+  "crit": null,
+  "conf": 0.177,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "chest",
+  "votes": {
+   "chest": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "peterpan",
+  "idx": 0,
+  "side": "user",
+  "joint": "left_shoulder",
+  "crit": "angle_vs_reference__left_shoulder",
+  "conf": 0.66,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "armpit",
+  "votes": {
+   "armpit": 3
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "peterpan",
+  "idx": 0,
+  "side": "ref",
+  "joint": "left_shoulder",
+  "crit": "angle_vs_reference__left_shoulder",
+  "conf": 0.742,
+  "expected": [
+   "armpit",
+   "back_waist",
+   "chest",
+   "shoulder"
+  ],
+  "tight": "unclear",
+  "votes": {
+   "unclear": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "peterpan",
+  "idx": 1,
+  "side": "user",
+  "joint": "right_elbow",
+  "crit": null,
+  "conf": 0.743,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "thigh",
+  "votes": {
+   "thigh": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "peterpan",
+  "idx": 1,
+  "side": "ref",
+  "joint": "right_elbow",
+  "crit": null,
+  "conf": 0.676,
+  "expected": [
+   "elbow",
+   "hand",
+   "shoulder"
+  ],
+  "tight": "unclear",
+  "votes": {
+   "unclear": 3
+  },
+  "kpOk": false
+ },
+ {
+  "doc": "peterpan",
+  "idx": 2,
+  "side": "user",
+  "joint": "right_knee",
+  "crit": null,
+  "conf": 0.786,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "knee",
+  "votes": {
+   "knee": 2,
+   "thigh": 1
+  },
+  "kpOk": true
+ },
+ {
+  "doc": "peterpan",
+  "idx": 2,
+  "side": "ref",
+  "joint": "right_knee",
+  "crit": null,
+  "conf": 0.793,
+  "expected": [
+   "foot",
+   "knee",
+   "thigh"
+  ],
+  "tight": "unclear",
+  "votes": {
+   "unclear": 3
+  },
+  "kpOk": false
+ }
+]

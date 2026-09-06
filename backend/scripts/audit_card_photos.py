@@ -20,7 +20,8 @@
     묻고 card_photo_audit.adjudicate 로 결말을 정한다 — 표시가 허용 안이면 통과(by=mark,
     정중앙은 인접 맥락), 밖이면 확정 불일치(mark_elsewhere). 표시 없는 패널은 2단 없이
     확정(by=none). 표시 유무 = doc userMarked/refMarked (09-05 감사에서 21장 전부 실제
-    그림과 일치). 호출 비용 = 1단 그대로 + 탈락 패널분(mvm 21장 기준 8장 × 1~2패널).
+    그림과 일치) (advisory 학생 측은 vho 부터 doc 값, 기준 측은 부재 = 정책 무마킹).
+    호출 비용 = 1단 그대로 + 탈락 패널분(mvm 21장 기준 8장 × 1~2패널).
   ★ 패널마다 --rounds 회 묻고 **최빈 토큰**으로 확정한다 (동률 = unclear, fail-closed).
     plan 은 eye_judge_majority 를 지목했지만 part claim 에서 그 함수의 "불일치"는
     unclear/error(못 읽음)뿐이라 읽어낸 토큰이 1회차에 확정된다 — 09-05 실측(같은 21장
@@ -172,19 +173,22 @@ def judge_panel(panel, *, api_key: str, model: str, rounds: int,
 
 
 def marked_flags(card: dict) -> tuple[bool, bool]:
-    """(userMarked, refMarked) — doc 의 표시 인증 flag, 부재 시 렌더 정책으로 보정.
+    """(userMarked, refMarked) — doc 의 표시 인증 flag, 부재 시 렌더 정책으로 보정. per-key.
 
-    두 flag 는 **criterion 카드에만** 실린다 (contract §11.9/§11.11; fault_zoom 방출부는
-    legacy/advisory 카드에 키를 넣지 않는다). 부재 = legacy/advisory 카드 = 게이트 B
-    (quick-260705-wbs): 학생 측만 그리고 **기준 측은 정책상 무마킹**. mvm 은 부재를
-    양측 True 로 읽어 참고 카드 기준 패널에 mark_mismatch 를 달았고, ota 2단 실측
-    (09-05 run1·run2) 에서 그 패널들에 눈이 no_mark 를 답해 어긋남이 드러났다 —
-    표시 없는 패널은 2단 없이 확정되므로 값이 경로를 가른다 (Rule 1 수리).
-    criterion 카드인데 키가 없는 옛 doc 은 종전대로 양측 True.
+    키가 있는 측은 doc(렌더가 인증한 값)을 믿고, 없는 측만 정책으로 보정한다 —
+    quick-260906-vho 부터 advisory/legacy 카드에 userMarked 가 실리는데(refMarked 는
+    §11.9 정책대로 부재) 종전 규칙은 한 키만 있어도 나머지를 True 로 기본값 처리해
+    기준 측을 거꾸로 표시 있음으로 읽었다. 옛 doc(둘 다 부재)은 종전 (True, criterion 유무).
+
+    부재 측의 정책 = 게이트 B (quick-260705-wbs): 학생 측은 그리고 **기준 측은
+    legacy/advisory 에서 정책상 무마킹**. mvm 은 부재를 양측 True 로 읽어 참고 카드 기준
+    패널에 mark_mismatch 를 달았고, ota 2단 실측(09-05 run1·run2) 에서 그 패널들에 눈이
+    no_mark 를 답해 어긋남이 드러났다 — 표시 없는 패널은 2단 없이 확정되므로 값이 경로를
+    가른다. criterion 카드인데 키가 없는 옛 doc 은 종전대로 양측 True.
     """
-    if "userMarked" in card or "refMarked" in card:
-        return bool(card.get("userMarked", True)), bool(card.get("refMarked", True))
-    return True, card.get("criterion") is not None
+    user = bool(card["userMarked"]) if "userMarked" in card else True
+    ref = bool(card["refMarked"]) if "refMarked" in card else (card.get("criterion") is not None)
+    return user, ref
 
 
 def _fmt_side(center: dict, mark: dict | None, adj: dict) -> str:

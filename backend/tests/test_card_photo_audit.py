@@ -325,3 +325,35 @@ def test_widening_shoulder_to_neck_would_pass_face_circle_cards():
     # 깨끗하게 보이려는 조정이 정확히 이것이라 하지 않는다.
     assert cpa.adjudicate(_HIP | {"knee"}, "knee", None, marked=False)["ok"] is True
     assert cpa.adjudicate(_HIP, "knee", None, marked=False)["reason"] == "no_mark_and_center_elsewhere"
+
+
+# ── 패널 사유 분류 panel_error_kind (quick-260906-vho) — 표시 오류 / 중심 오류 ────────
+
+
+def test_panel_error_kind_splits_mark_and_center():
+    """ok False 두 결말을 mark/center 로 가른다. 앵커 게이트(j8g/n2j)는 틀린 표시를 지우지
+    틀린 사진을 고치지 않으므로 게이트가 일하면 사유가 mark_elsewhere →
+    no_mark_and_center_elsewhere 로 옮겨갈 뿐 둘 다 mismatch — 집계가 갈라 세야 게이트
+    효과가 마지막 줄에 잡힌다. 나머지 결말(통과·판정 불가)은 None."""
+    assert cpa.panel_error_kind(cpa.adjudicate(_ELBOW, "back_waist", "thigh", marked=True)) == "mark"
+    assert cpa.panel_error_kind(cpa.adjudicate(_ELBOW, "back_waist", None, marked=False)) == "center"
+    for adj in (
+        cpa.adjudicate(_ELBOW, "elbow", None, marked=True),            # center_in_expected
+        cpa.adjudicate(_ELBOW, "back_waist", "hand", marked=True),     # mark_in_expected
+        cpa.adjudicate(_ELBOW, "back_waist", "no_mark", marked=True),  # mark_disagreement
+        cpa.adjudicate(_ELBOW, "unclear", None, marked=False),         # unreadable
+        cpa.adjudicate(_ELBOW, "back_waist", None, marked=True),       # mark_unobserved
+        cpa.adjudicate(frozenset(), "elbow", None, marked=True),       # no_expectation
+    ):
+        assert cpa.panel_error_kind(adj) is None, adj
+    # 완전성: adjudicate 가 ok False 를 내는 결말은 전부 kind 가 있고 정확히 두 사유뿐
+    fails = [cpa.adjudicate(_ELBOW, c, m, marked=mk)
+             for c in ("elbow", "back_waist", "unclear", None)
+             for m in (None, "elbow", "thigh", "no_mark", "unclear")
+             for mk in (True, False)]
+    fails = [a for a in fails if a["ok"] is False]
+    assert fails
+    assert all(cpa.panel_error_kind(a) in cpa.PANEL_ERROR_KINDS for a in fails)
+    assert {a["reason"] for a in fails} == {"mark_elsewhere", "no_mark_and_center_elsewhere"}
+    assert set(cpa.PANEL_ERROR_KINDS) == {"mark", "center"}
+    assert "panel_error_kind" in cpa.__all__ and "PANEL_ERROR_KINDS" in cpa.__all__

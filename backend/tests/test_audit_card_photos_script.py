@@ -264,3 +264,33 @@ def test_replay_rows_reapplies_marked_flags_without_eye_calls(monkeypatch):
     # 새 JSON (Raw 있음): Raw 가 우선
     new_row = dict(old_rows[0], userMarkedRaw="<absent>", refMarkedRaw=True)
     assert acp.replay_rows([new_row])[0]["refAdj"]["reason"] == "mark_disagreement"
+
+
+def test_report_appends_mark_and_center_error_columns(capsys):
+    """마지막 줄 = `card_photo_audit total=N mismatched=M unresolved=U mark_errors=A center_errors=B`
+    (quick-260906-vho) — 기존 세 필드는 순서·이름 그대로, 뒤에 두 열만 덧붙인다. 앞줄
+    `unaudited=/tier2_panels=` 무변경. fetch 실패 행(userAdj/refAdj 없음)은 집계에서 건너뛴다."""
+    ok_c = {"ok": True, "by": "center", "reason": "center_in_expected"}
+    mark_e = {"ok": False, "by": "mark", "reason": "mark_elsewhere"}
+    center_e = {"ok": False, "by": "none", "reason": "no_mark_and_center_elsewhere"}
+    disagree = {"ok": None, "by": "mark", "reason": "mark_disagreement"}
+
+    def _row(i, u_adj, r_adj, verdict, um=None):
+        return {"reference": "ref-x", "index": i, "tier": "confirmed", "joint": "left_elbow",
+                "criterion": "angle_vs_reference__left_elbow",
+                "user": {"observed": "back_waist"}, "ref": {"observed": "elbow"},
+                "userMark": um, "refMark": None,
+                "userAdj": u_adj, "refAdj": r_adj, "verdict": verdict}
+
+    rows = [
+        _row(0, mark_e, ok_c, "mismatch", um={"observed": "thigh"}),
+        _row(1, center_e, center_e, "mismatch"),
+        _row(2, disagree, ok_c, "unresolved", um={"observed": "no_mark"}),
+        _row(3, ok_c, ok_c, "ok"),
+        {"error": "fetch", "audit": {"userOk": None, "refOk": None, "flags": ["fetch_failed"]}},
+    ]
+    acp._report(rows, model="m", rounds=3, out_path=None)
+    lines = capsys.readouterr().out.rstrip("\n").split("\n")
+    assert lines[-1] == ("card_photo_audit total=5 mismatched=2 unresolved=1 "
+                         "mark_errors=1 center_errors=2")
+    assert lines[-2].startswith("card_photo_audit unaudited=1 tier2_panels=")

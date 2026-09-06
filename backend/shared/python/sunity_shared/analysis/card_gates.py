@@ -48,6 +48,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..gemini.config import DEFAULT_C_MODEL  # 모델 문자열 owner = config 한 곳
+from . import card_photo_audit as cpa  # 순수(numpy 0, 이 모듈을 안 끌어옴) — 순환 0
 from . import fault_zoom as fz
 from .skeleton import JOINT_ANGLES
 
@@ -821,6 +822,182 @@ def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
                 joint_kind=joint_kind, model=model, timeout_s=timeout_s)
     out["crop"] = crop
     return out
+
+
+# ── 앵커 부위 확인 (quick-260906-j8g) ──────────────────────────────────────────
+#
+# 카드를 내보내기 전에 **앵커 좌표가 실제로 제목의 부위인지** 기계 눈으로 본다.
+# 2026-09-06 실측(09-03 라이브 6문서 36패널, 관절 좌표에 짧은 변 18% 무마킹 크롭 →
+# 눈 3회 최빈): 좌표 OK 15 / 틀림 14 / 못 읽음 7. 신뢰도(conf 0.872 판독불가, 0.749
+# 무릎 자리에 손)도 붕괴 검사(f4j 붕괴 14→4 인데 감점 카드 눈 불일치 4→4)도 이것을
+# 예측하지 못한다 — 카드 크롭(≈0.42)은 몸 절반이 들어와 틀린 좌표를 가린다. 그래서
+# 보는 수밖에 없다. 기존 machine_eye(claim bent/extended, 학생만)와 **별개** — 그
+# 게이트·질문·_eye_verdict 무접촉. 판정은 card_photo_audit(순수), 여기는 눈·크롭·
+# 프레임 후보·상태기계, 처분(이동/표시 생략)은 pipeline.
+#
+# belle 09-03 규칙 1 — "멈춤 구간마다 사진 1장, 검사는 표시만 정한다". 이 절의 어떤
+# 함수도 카드를 없앨 수 없다.
+
+# 2026-09-06 36패널 측정에 쓴 값 그대로(좌표 OK 15/틀림 14/못읽음 7). 카드 크롭 ≈0.42
+# 는 몸 절반이 들어와 틀린 좌표를 가린다(클라임 오른무릎: 카드 감사 ok 인데 좌표는 팔).
+# 측정 계측기의 값이지 새 튜닝값이 아니다 — 재튜닝 금지. 바꾸려면 36패널을 다시 잰다.
+ANCHOR_CHECK_CROP_FRAC = 0.18
+# 창 안 재확인 프레임 상한 = 비용 상한 (무한 재시도 금지). 후보는 fault_zoom._frame_usable
+# 이 성하다고 판정한 프레임뿐(anchor_retry_frames). verify_anchor_side 가 이 값을 소유한다
+# — 호출측이 후보를 더 줘도 2.
+ANCHOR_CHECK_MAX_RETRY = 2
+# 측정 프로토콜 "3회 최빈" 그대로. 홀수(동률 방지 — eye_judge_majority 관례). 조기
+# 종료(2표)로 통상 2회.
+ANCHOR_CHECK_ROUNDS = 3
+
+
+def part_crop(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float], *,
+              frac: float = ANCHOR_CHECK_CROP_FRAC):
+    """관절 좌표 중심의 **마킹 없는** 좁은 정사각 크롭 (PIL RGB) — 한 변 = 짧은 변 × frac.
+
+    링을 그리면 눈이 링을 보고 답할 수 있다 — 측정 계측기는 마킹 없는 크롭으로 쟀고,
+    이 확인은 그 측정을 재현한다. mark_crop(운영 게이트 크롭, 링 있음)은 무접촉.
+    한 변은 max(1, round(min(H, W) × frac)) 를 프레임 안으로 클램프, 위치 클램프는
+    mark_crop 과 같은 식(경계에서 변이 줄지 않고 안으로 민다).
+    """
+    from PIL import Image
+
+    H, W = frame_rgb.shape[:2]
+    side = max(1, int(round(min(H, W) * float(frac))))
+    side = int(min(side, H, W))
+    x, y = float(joint_xy_px[0]), float(joint_xy_px[1])
+    x0 = int(np.clip(round(x - side / 2), 0, W - side))
+    y0 = int(np.clip(round(y - side / 2), 0, H - side))
+    return Image.fromarray(
+        np.ascontiguousarray(frame_rgb[y0:y0 + side, x0:x0 + side])
+    )
+
+
+def eye_part_token(crop, *, api_key: str, model: str = DEFAULT_C_MODEL,
+                   rounds: int = ANCHOR_CHECK_ROUNDS, timeout_s: float = 60.0) -> dict:
+    """크롭 정중앙의 부위 토큰 — eye_judge(claim="part") 를 최대 rounds 회, **토큰 최빈**.
+
+    운영 질문·스키마 그대로(_CLAIM_QUESTION["part"] — 좌우·기대 관절 0). expected_limb /
+    joint_kind 는 넘기지 않는다 — 기대가 질문에 새면 감사의 전제(눈은 관측만)가 깨진다
+    (_claim_question 의 part 분기와 같은 이유). eye_judge_majority 는 **match 표**를 세는데
+    part claim 에서 match 는 "읽어냈다"라 부위 최빈에 못 쓴다 — 표만 여기서 센다.
+
+    조기 종료: vocab(card_photo_audit.PART_VOCAB) 안 어느 토큰의 표가 rounds//2+1 에
+    이르면 중단 — 나머지 표가 뒤집을 수 없어 3회 최빈과 결과가 같다(통상 2회). 못 읽음
+    (unclear/error)은 표가 아니라 조기 종료를 일으키지 않는다.
+    반환 {observed: 최빈(동률/표 0 = unclear), tokens: 응답 순서 그대로, calls: 호출 수,
+    reason: 최빈 토큰 첫 응답의 근거 문장 또는 ""}.
+    """
+    if rounds < 1 or rounds % 2 == 0:
+        raise ValueError(f"rounds must be a positive odd int, got {rounds}")
+    need = rounds // 2 + 1
+    results: list[dict] = []
+    tokens: list[str] = []
+    counts: dict[str, int] = {}
+    for _ in range(rounds):
+        r = eye_judge(crop, "part", api_key=api_key, model=model, timeout_s=timeout_s)
+        results.append(r)
+        tok = str(r.get("observed"))
+        tokens.append(tok)
+        if tok in cpa.PART_VOCAB:
+            counts[tok] = counts.get(tok, 0) + 1
+            if counts[tok] >= need:
+                break
+    observed = cpa.modal_token(tokens)
+    first = next((r for r in results if str(r.get("observed")) == observed), None)
+    return {
+        "observed": observed,
+        "tokens": tokens,
+        "calls": len(tokens),
+        "reason": str(first.get("reason") or "") if first is not None else "",
+    }
+
+
+def anchor_retry_frames(report: dict | None, anchor_idx: int, members: tuple[str, ...], *,
+                        n_frames: int, frames_fps: float = 9.0,
+                        radius: int = fz._MOMENT_ANCHOR_RADIUS_WIDE,  # noqa: SLF001
+                        limit: int = ANCHOR_CHECK_MAX_RETRY) -> list[int]:
+    """앵커 창(±radius) 안 **건전 후보** 프레임 — 가까운 것부터, 최대 limit 개 (순수).
+
+    f4j(fault_zoom.nearest_usable_frame) 의 이동은 **붕괴만** 트리거하고 목적지가 1개다;
+    이것은 **눈 실패**가 트리거이고 후보 목록이다. 판정 함수는 같은 fault_zoom._frame_usable
+    한 개(비붕괴 AND 그릴 수 있음 — 중복 판정 금지). 순회도 같은 관례: d=1..radius,
+    (anchor−d, anchor+d) 순(−d 먼저, 결정론), 범위 밖 스킵, 앵커 자신 제외.
+    anchor_idx·반환은 frames_fps(9fps) 배열 인덱스 — 호출측 u9/r9 공간 그대로.
+    """
+    out: list[int] = []
+    if n_frames <= 0 or limit <= 0:
+        return out
+    rep = report or {}
+    rep_fps = float(rep.get("fps") or frames_fps)
+    rep_frames = int(rep.get("frames") or 0)
+    anchor = int(anchor_idx)
+    for d in range(1, int(radius) + 1):
+        for cand in (anchor - d, anchor + d):
+            if not (0 <= cand < n_frames):
+                continue
+            if fz._frame_usable(rep, cand, members, frames_fps,  # noqa: SLF001
+                                rep_fps, rep_frames):
+                out.append(cand)
+                if len(out) >= limit:
+                    return out
+    return out
+
+
+# 확인 결과 4종 — 어느 것도 방출을 바꾸지 않는다 (사진 장수·어느 멈춤인지 불변)
+ANCHOR_ACTIONS = ("pass", "moved", "suppressed", "unbound")
+
+
+@dataclass(frozen=True)
+class AnchorCheckOutcome:
+    action: str                                   # ANCHOR_ACTIONS
+    frame_idx: int                                # 그 측이 쓸 9fps 프레임 (moved 만 앵커와 다름)
+    trail: tuple[tuple[int, str, str], ...]       # (frame, observed, verdict) 눈 판독 순서
+    eye_calls: int                                # ask 가 보고한 calls 합 (캐시 적중 = 0)
+
+
+def verify_anchor_side(*, anchor_idx: int, expected, retry_frames, ask) -> AnchorCheckOutcome:
+    """한 측(학생 또는 기준)의 앵커 확인 상태기계 (순수) — 눈·좌표·프레임은 ask 로 주입.
+
+    ask(frame_idx) -> {"observed": 부위 토큰, "calls": 호출 수} | None. None = 그 프레임은
+    판정 불가(좌표·프레임·API 키 부재) — 감사 불가는 불일치가 아니다.
+
+    belle 09-03 규칙 1 "멈춤 구간마다 사진 1장, 검사는 표시만 정한다" 그대로:
+      a. expected 가 비면 unbound (호출 0).
+      b. 앵커를 묻는다. None → unbound. ok 또는 unreadable(눈이 못 본 것은 틀린 게
+         아니다) → pass(앵커 프레임). mismatch → c.
+      c. 후보(retry_frames)를 가까운 것부터 **최대 ANCHOR_CHECK_MAX_RETRY 개** — 상한은
+         이 함수가 소유한다(호출측이 더 줘도 2). None 후보는 호출 0 으로 스킵하되 상한을
+         소모한다. ok 면 moved(그 후보 프레임). 그 외(mismatch/unreadable)는 다음 후보.
+      d. 소진 → suppressed. frame_idx 는 **앵커** — 사진은 그 멈춤 그대로, 표시만 생략.
+    이 함수는 카드를 없앨 수 없다 — action 4종 어느 것도 방출을 바꾸지 않는다(emit/drop
+    류 필드가 없다). 비용 상한: 호출측 라운드 r 일 때 측당 최대 (1 + MAX_RETRY) × r 회
+    (r=3: 9회, 조기 종료로 통상 2회).
+    """
+    exp = frozenset(expected or ())
+    anchor = int(anchor_idx)
+    if not exp:
+        return AnchorCheckOutcome("unbound", anchor, (), 0)
+    first = ask(anchor)
+    if first is None:
+        return AnchorCheckOutcome("unbound", anchor, (), 0)
+    calls = int(first.get("calls") or 0)
+    obs = str(first.get("observed"))
+    verdict = cpa.anchor_verdict(obs, exp)
+    trail: list[tuple[int, str, str]] = [(anchor, obs, verdict)]
+    if verdict != "mismatch":
+        return AnchorCheckOutcome("pass", anchor, tuple(trail), calls)
+    for cand in list(retry_frames)[:ANCHOR_CHECK_MAX_RETRY]:
+        got = ask(int(cand))
+        if got is None:
+            continue
+        calls += int(got.get("calls") or 0)
+        obs = str(got.get("observed"))
+        verdict = cpa.anchor_verdict(obs, exp)
+        trail.append((int(cand), obs, verdict))
+        if verdict == "ok":
+            return AnchorCheckOutcome("moved", int(cand), tuple(trail), calls)
+    return AnchorCheckOutcome("suppressed", anchor, tuple(trail), calls)
 
 
 # ── 카드 결정 — 게이트는 표시만 정한다 (quick-260903-upx) ─────────────────────

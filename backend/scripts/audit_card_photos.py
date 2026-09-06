@@ -133,21 +133,9 @@ def split_panels(png: bytes):
     return left, right
 
 
-def modal_token(observed: list[str], vocab: frozenset[str] = cpa.PART_VOCAB) -> str:
-    """토큰 다수결 — 읽어낸 토큰(vocab 안) 중 최빈값. 동률·전부 못 읽음 = 'unclear'.
-
-    vocab 은 claim 의 "읽어냈다" 집합 — part = PART_VOCAB, mark_part = MARK_VOCAB
-    (no_mark 도 표다: 표시가 없다는 관측). 기본값은 종전(part) 그대로.
-    """
-    counts: dict[str, int] = {}
-    for tok in observed:
-        if tok in vocab:
-            counts[tok] = counts.get(tok, 0) + 1
-    if not counts:
-        return "unclear"
-    best = max(counts.values())
-    winners = [t for t, n in counts.items() if n == best]
-    return winners[0] if len(winners) == 1 else "unclear"
+# 토큰 다수결 — 정본은 card_photo_audit (quick-260906-j8g 이관). 파이프라인 앵커 확인과
+# 이 스크립트가 같은 최빈 규칙을 쓴다. 시그니처·기본 vocab(part) 동일.
+modal_token = cpa.modal_token
 
 
 _CLAIM_VOCAB = {"part": cpa.PART_VOCAB, "mark_part": cpa.MARK_VOCAB}

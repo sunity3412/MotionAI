@@ -39,8 +39,16 @@
 
 numpy / boto3 / 네트워크 의존 0 — card_gates 를 import 하지 않는다 (numpy 를 끌어온다).
 토큰 어휘는 card_gates._CLAIM_ENUM["part"] 와 lockstep — 테스트가 두 집합의 일치를
-강제한다 (tests/test_card_photo_audit.py). **파이프라인 무접촉** — 분석 시점 게이트로
-승격하는 것은 별도 단위 (카드마다 눈 호출이 늘고, 불일치 시 처분이 별도 결정).
+강제한다 (tests/test_card_photo_audit.py). 위의 감사 함수들(audit_card/adjudicate/
+card_verdict)은 **파이프라인 무접촉** — 완성 사진 감사 스크립트 전용.
+
+앵커 확인 (quick-260906-j8g):
+  2026-09-06 실측(09-03 라이브 6문서 36패널, 관절 좌표에 짧은 변 18% 무마킹 크롭 → 기계
+  눈 3회 최빈): 좌표 OK 15 / 좌표 틀림 14 / 못 읽음 7. 신뢰도(conf 0.872 판독불가, 0.749
+  무릎 자리에 손)도 붕괴 검사(f4j 붕괴 14→4 인데 감점 카드 눈 불일치 4→4)도 이것을
+  예측하지 못한다 — 카드 크롭(짧은 변 42%)은 몸 절반이 들어와 틀린 좌표를 가린다.
+  그래서 카드를 내보내기 전에 앵커 좌표를 눈으로 본다. 이 모듈은 판정(modal_token /
+  anchor_verdict)만, card_gates 가 눈·프레임, pipeline 이 처분(이동·표시 생략).
 """
 
 from __future__ import annotations
@@ -187,6 +195,54 @@ def _readable(token: str | None) -> bool:
     return token is not None and str(token) not in UNREAD and str(token) in PART_VOCAB
 
 
+def modal_token(observed, vocab: frozenset[str] = PART_VOCAB) -> str:
+    """토큰 다수결 — 읽어낸 토큰(vocab 안) 중 최빈값. 동률·전부 못 읽음 = 'unclear'.
+
+    스크립트(scripts/audit_card_photos.py)에서 이관(quick-260906-j8g) — 파이프라인
+    앵커 확인(card_gates.eye_part_token)과 감사 스크립트가 **같은 최빈 규칙**을 쓴다.
+    vocab 은 claim 의 "읽어냈다" 집합 — part = PART_VOCAB, mark_part = MARK_VOCAB
+    (no_mark 도 표다: 표시가 없다는 관측). 동률을 unclear 로 닫는 이유: 09-05 실측
+    (같은 21장 2회, temperature 0)에서 42패널 중 4패널의 토큰이 바뀌었다 — 표가
+    갈리면 확정하지 않는다 (fail-closed).
+    """
+    counts: dict[str, int] = {}
+    for tok in observed:
+        if tok in vocab:
+            counts[tok] = counts.get(tok, 0) + 1
+    if not counts:
+        return "unclear"
+    best = max(counts.values())
+    winners = [t for t, n in counts.items() if n == best]
+    return winners[0] if len(winners) == 1 else "unclear"
+
+
+# 앵커 판정 결말 4종 — 서로 배타 (quick-260906-j8g)
+ANCHOR_VERDICTS = ("ok", "mismatch", "unreadable", "no_expectation")
+
+
+def anchor_verdict(observed: str | None, expected) -> str:
+    """앵커 좌표의 좁은 크롭을 눈이 읽은 부위(observed) 가 제목의 허용 집합(expected) 안인가.
+
+    · no_expectation — 허용 집합 없음(expected_parts 가 빈 집합): 감사 불가.
+    · unreadable    — 눈이 못 읽음(unclear/error/어휘 밖). **불일치가 아니다** — 눈이
+                      못 본 것은 틀린 게 아니다 (card_gates.eye_mismatch 의미론과 동형:
+                      frame_missing/no_api_key 가 표시를 지우지 않는 것과 같은 이유).
+                      좁은 크롭(짧은 변 18%)은 축소본 폴백에서 60px 대라 못 읽음이
+                      잦을 수 있고, 그것으로 표시를 지우면 카드가 운으로 사라진다.
+    · ok / mismatch — 읽어낸 부위가 허용 안/밖.
+
+    판정만 하고 처분(이동/생략)은 하지 않는다 — 처분은 비용(눈 호출 상한)과 프레임
+    후보를 아는 호출측(card_gates.verify_anchor_side → pipeline)의 결정이고, 이 함수는
+    순수(numpy/네트워크 0)라 스크립트·테스트가 같은 규칙을 재사용한다.
+    """
+    exp = frozenset(expected or ())
+    if not exp:
+        return "no_expectation"
+    if not _readable(observed):
+        return "unreadable"
+    return "ok" if str(observed) in exp else "mismatch"
+
+
 def needs_mark_query(expected: frozenset[str] | set[str], center_token: str | None, *,
                      marked: bool) -> bool:
     """이 패널에 2단(mark_part) 질의가 필요한가 — 허용 집합 있음 + 표시 있음 + 1단이 통과가
@@ -253,6 +309,7 @@ def card_verdict(user_adj: dict, ref_adj: dict) -> str:
 
 __all__ = [
     "ADJ_BY",
+    "ANCHOR_VERDICTS",
     "ANGLE_CRIT_PREFIX",
     "CARD_VERDICTS",
     "MARK_VOCAB",
@@ -261,10 +318,12 @@ __all__ = [
     "PART_VOCAB",
     "UNREAD",
     "adjudicate",
+    "anchor_verdict",
     "audit_card",
     "card_verdict",
     "expected_parts",
     "is_mismatch",
     "joint_kind",
+    "modal_token",
     "needs_mark_query",
 ]

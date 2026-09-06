@@ -1764,12 +1764,13 @@ def test_normal_path_user_marked_true():
     assert _brand_px_left_panel(c["png"]) > 0
 
 
-def test_user_marked_absent_on_legacy_cards():
-    """legacy/advisory(criterion 부재) 카드에는 userMarked 키 자체가 없다 (refMarked 선례)."""
+def test_legacy_cards_emit_user_marked_but_not_ref_marked():
+    """legacy(criterion 부재) 카드도 userMarked 는 방출(학생 측은 정책 무마킹이 없다 —
+    quick-260906-vho), refMarked 는 §11.9 정책대로 키 부재."""
     good = _report(9, 9.0, confidence=0.9)
     comps = fz.build_fault_zoom_comparisons(
         _frames(9), _frames(9), good, good, worst_seconds=0.5,
         fault_joints=["left_knee"], joint_deltas={"left_knee": 20.0},
         frames_fps=9.0, ref_frame_idx=4,
     )
-    assert comps and "userMarked" not in comps[0] and "refMarked" not in comps[0]
+    assert comps and comps[0]["userMarked"] is True and "refMarked" not in comps[0]

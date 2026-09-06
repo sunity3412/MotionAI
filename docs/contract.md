@@ -1994,6 +1994,7 @@ eyeState    string   optional  ← 'match' | 'mismatch' | 'skip' | 'none'       
 ```
 
 - **앱 동작:** `userMarked === false` 면 시트에 "왼쪽 사진에는 관절 위치를 확인하지 못해 표시를 넣지 않았어요" 한 줄(§11.9 문장의 좌측판). 나머지 3개는 표시 전용 진단 재료 — 렌더 분기 없음(부재 = 종전).
+- **방출 범위 (quick-260906-vho):** `userMarked` 는 criterion 유무·tier 와 무관하게 모든 카드에 방출 — 학생 측 원 마커는 criterion 과 무관하게 그려지므로(게이트 B 는 기준 측 정책) 값이 사실이다. n2j 앵커 게이트가 advisory 학생 표시를 생략할 수 있어 감사가 추정 대신 이 값을 읽는다. `refMarked` 는 §11.9 그대로 criterion 카드만. 앱 동작 불변 — 시트 한 줄은 record 기준 매칭 카드(`sheetPrimaryZoom`)에만 걸린다.
 - 불변식(서버 로그): `card_gates 대체 부착 완료 … expected_units=N emitted=N` — expected = 상한 없는 criterion unit 수. 부족 시 WARNING.
 - 3-way lockstep: `analysis.ts FaultZoomComparison.userMarked?/holdState?/pairState?/eyeState?` ↔ `fault_zoom.py` 방출부(userMarked) + `pipeline _run_gated_card_inherit`(상태 3종) + `_fault_zoom_upload_items` 매퍼 ↔ 본 절.
 

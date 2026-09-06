@@ -3966,14 +3966,19 @@ def build_fault_zoom_comparisons(
         # 없는 이유를 말하게 된다. 판정 대상이 아닌 카드는 필드 부재 = 앱 종전대로.
         if unit.criterion is not None:
             item["refMarked"] = bool(r_drew_legs or r_drew_angle or r_drew_circle)
-            # quick-260903-upx — 학생 패널 미러 (refMarked 와 동형·동의미): 원·
-            # 사이각·각도 중 하나라도 그렸으면 True. 눈 불일치(suppress_marks
-            # 'user')·relaxed/전신 폴백·display_anchor 부재 측이 False 를 낸다 —
-            # 앱은 이 값만 보고 "왼쪽 사진에는 표시를 넣지 않았어요" 한 줄.
-            # criterion 카드만 (legacy/advisory 는 키 부재 — refMarked 선례).
-            # 3-way lockstep: analysis.ts FaultZoomComparison.userMarked? +
-            # pipeline _fault_zoom_upload_items 매퍼 + contract.md §11.11.
-            item["userMarked"] = bool(u_drew_legs or u_drew_angle or u_drew_circle)
+        # quick-260903-upx — 학생 패널 미러 (refMarked 와 동형·동의미): 원·
+        # 사이각·각도 중 하나라도 그렸으면 True. 눈 불일치(suppress_marks
+        # 'user')·relaxed/전신 폴백·display_anchor 부재 측이 False 를 낸다 —
+        # 앱은 이 값만 보고 "왼쪽 사진에는 표시를 넣지 않았어요" 한 줄.
+        # (a) 학생 원 마커는 criterion 과 무관하게 u_kind == 'valid' 면 그려지므로
+        #     기준 측과 달리 정책 무마킹이 없다 — 값이 사실이라 모든 카드에 방출한다.
+        # (b) quick-260906-n2j 앵커 게이트가 advisory 학생 표시를 지울 수 있게 되어
+        #     감사(scripts/audit_card_photos.py marked_flags)가 추정 대신 이 값을
+        #     읽는다 (quick-260906-vho).
+        # (c) refMarked 는 §11.9 정책대로 criterion 카드만.
+        # 3-way lockstep: analysis.ts FaultZoomComparison.userMarked? +
+        # pipeline _fault_zoom_upload_items 매퍼 + contract.md §11.11.
+        item["userMarked"] = bool(u_drew_legs or u_drew_angle or u_drew_circle)
         # F-3 실영상 초 (quick-260730-l7t) — paircap 초 표기(S6) + 참고코너 페어
         # 정합. **rep 인덱스(userFrameIdx/refFrameIdx)로 초를 재계산 금지** — 두
         # 값은 별개 축이다(rep 공간 vs 비디오 9fps 공간). 3-way lockstep:

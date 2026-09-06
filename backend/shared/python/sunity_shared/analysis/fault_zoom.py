@@ -2921,6 +2921,7 @@ def build_fault_zoom_comparisons(
     align_bake: dict | None = None,
     label_fps: tuple[float | None, float | None] | None = None,
     suppress_marks: set[str] | frozenset[str] = frozenset(),
+    anchor_check=None,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -3044,6 +3045,16 @@ def build_fault_zoom_comparisons(
       `_run_gated_card_inherit`)이 기계 눈 실제 불일치(학생 측)·display_anchor
       부재 측을 넣는다. 그 측 인증(userMarked/refMarked)은 False. 기본
       frozenset() = 전 경로 byte-동일.
+    anchor_check (quick-260906-n2j): 카드마다 부르는 **표시 여부 판정** 콜백.
+      `anchor_check(ctx) -> {"user","ref"} 부분집합` — 반환 측은 그 카드에서만
+      suppress_marks 와 **합집합**으로 무표시가 된다. ctx =
+      `{joint, criterion, user: {frame, xy, kind}, ref: {...}}` 이고 `xy` 는
+      `_side_crop` 이 그 측에 실제로 쓴 **크롭 중심**(vertex 우선, 없으면 anchor,
+      없으면 None) — 게이트가 카드가 보여주지 않는 자리를 검사하지 않게 하는
+      단일 출처다. stage-1·advisory 는 카드 여러 장을 한 호출로 만들어
+      suppress_marks(호출 전체 인자)로는 카드별 판정을 실을 수 없어 생긴 이음매.
+      **이 콜백은 카드를 없앨 수 없다** — 반환값은 표시 집합뿐이고 예외는
+      fail-open(표시 유지). None(default) = 전 경로 byte-동일.
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -3567,11 +3578,40 @@ def build_fault_zoom_comparisons(
                 center=r_vertex,
                 side_override=shared_side_ref,
             )
+            # quick-260906-n2j — 카드별 표시 판정. 중심은 `_side_crop` 에 넘긴 그
+            # 값 그대로(vertex 우선, 없으면 anchor) — 게이트가 검사하는 자리와
+            # 카드가 보여주는 자리를 하나로 묶는 단일 출처다. 예외는 fail-open:
+            # 검사가 깨져도 카드도 표시도 살린다(카드 삭제 권한 없음).
+            _supp = frozenset(suppress_marks)
+            if anchor_check is not None:
+                try:
+                    _extra = anchor_check({
+                        "joint": unit.joint,
+                        "criterion": unit.criterion,
+                        "user": {
+                            "frame": u_frame, "kind": u_kind,
+                            "xy": u_vertex if u_vertex is not None else (
+                                _anchor_xy(u_valid, deltas) if u_valid else None
+                            ),
+                        },
+                        "ref": {
+                            "frame": r_frame, "kind": r_kind,
+                            "xy": r_vertex if r_vertex is not None else (
+                                _anchor_xy(r_valid, deltas) if r_valid else None
+                            ),
+                        },
+                    })
+                    _supp = _supp | frozenset(_extra or ())
+                except Exception:  # noqa: BLE001 - 검사 실패가 카드를 죽이지 않는다
+                    log.exception(
+                        "fault_zoom_anchor_check_failed analysis_id=%s criterion=%s",
+                        analysis_id, unit.criterion or "none",
+                    )
             # quick-260903-upx — 표시 생략 측의 무표시 원본 (크롭은 그대로, 표시만
             # 생략 — "게이트는 표시만 정한다"). 아래 드로잉 로직은 무접촉으로
             # 돌고, 스탬프 직전에 이 원본으로 되돌린다 (반대측 표시는 그대로).
-            _u_plain = u_img.copy() if "user" in suppress_marks else None
-            _r_plain = r_img.copy() if "ref" in suppress_marks else None
+            _u_plain = u_img.copy() if "user" in _supp else None
+            _r_plain = r_img.copy() if "ref" in _supp else None
             if unit.criterion is not None and (
                 u_kind == "full" or r_kind == "full"
             ):
@@ -3880,7 +3920,7 @@ def build_fault_zoom_comparisons(
                 log.info(
                     "fault_zoom_marks_suppressed analysis_id=%s criterion=%s sides=%s",
                     analysis_id, unit.criterion or "none",
-                    ",".join(s for s in ("user", "ref") if s in suppress_marks),
+                    ",".join(s for s in ("user", "ref") if s in _supp),
                 )
             u_crop = _stamp_time(u_crop, u_video_sec)
             if stamp_ref:

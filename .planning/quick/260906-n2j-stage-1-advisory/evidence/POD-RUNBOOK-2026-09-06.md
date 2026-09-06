@@ -9,6 +9,30 @@ Workflow/TaskStop 은 정상. 워크플로 2개(이미지 판정 에이전트 8�
 실행하다 `fork failed: resource temporarily unavailable` 이 뜬 뒤부터이고, 작업을 전부
 TaskStop 해도 복구되지 않았다. **새 세션을 열면 해소된다.**
 
+## §0-1 ★이미 켜져 있다 — 새 세션은 §1.4 부터
+
+09-06 19:0x 에 아래까지 **완료**했다. 새 세션은 Pod 을 새로 만들지 말고 이걸 이어받을 것.
+
+```
+Pod   : ssjrcw9fynu9ja  (name sunity-motion-serve-0906)
+GPU   : RTX 4090 24GB · $0.74/hr
+ssh   : ssh -p 10642 root@213.173.98.96
+proxy : https://ssjrcw9fynu9ja-8000.proxy.runpod.net
+SSM   : pod-expected=up  (이미 기록함)
+확인함: nvidia-smi OK · /workspace/SunityMotion 있음 · aws_env.sh · start_server.sh 있음
+반입함: /workspace/delta.bundle  (origin/main..main, HEAD 1eef14e7 시점)
+```
+
+**아직 안 한 것 = 부트스트랩 · 번들 checkout · 서버 기동 · Lambda 동기화 · 분석 실행.**
+(로컬 셸이 `fork failed` 로 죽어 중단 — Pod 문제 아님)
+
+살아 있는지 먼저 확인:
+`curl -s -m 10 https://ssjrcw9fynu9ja-8000.proxy.runpod.net/health`
+죽어 있으면 RunPod 콘솔에서 상태 확인 후, terminate 됐으면 §1 부터 새로.
+
+**셸 명령은 한 번에 하나씩, 배경 작업·동시 에이전트를 최소로 할 것** — 09-06 에
+워크플로 2개(에이전트 8개)+배경 python 을 겹쳐 돌리다 맥이 프로세스 한도에 걸렸다.
+
 ## §1 기동 (정본 = memory `demo-only-pod-bring-up-procedure`)
 
 1. Pod 생성 — **Ada(L4 24GB / 4090)**. Blackwell 금지(ORT 1.22 CUDA EP 위험).

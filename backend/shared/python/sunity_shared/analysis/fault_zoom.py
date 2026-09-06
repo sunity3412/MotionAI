@@ -415,6 +415,24 @@ def _drop_collapsed(rep: dict, ordered: list[int], frames_fps: float,
     return kept if len(kept) != len(ordered) else ordered
 
 
+def _frame_usable(
+    report: dict, idx: int, members: tuple[str, ...],
+    frames_fps: float, rep_fps: float, rep_frames: int,
+) -> bool:
+    """쓸 수 있는 프레임인가 — 그릴 수 있음(_member_pts valid) AND 비붕괴(pose_collapse 단일 출처).
+
+    창 승급(quick-260810-ms2)과 gated 이동(quick-260906-f4j)이 **같은 판정**을 써야 한다 —
+    붕괴만 보면 그릴 수 없는 프레임으로 간다(실측 p34fresh1786349646: 기본 창에 붕괴 아닌
+    프레임이 있었지만 그릴 수 없는 프레임이라 선택자가 못 썼고, 결국 붕괴 프레임이 뽑혔다).
+    idx 는 frames_fps(9fps) 공간, 변환은 `_to_rep_idx` 선례의 공식 한 벌(중복 공식 금지).
+    """
+    rep_idx = _to_rep_idx(idx, frames_fps, rep_fps, rep_frames)
+    return (
+        bool(_member_pts(report, rep_idx, members)[0])
+        and not is_collapsed_frame(report, rep_idx)
+    )
+
+
 def select_confident_frame(
     report: dict,
     candidates: list,
@@ -565,6 +583,67 @@ _MOMENT_ANCHOR_RADIUS = 2
 #
 # 비용(박제): 승급된 카드에 한해 표시 프레임이 측정 순간에서 최대 0.4s 멀어진다.
 _MOMENT_ANCHOR_RADIUS_WIDE = 4
+
+
+def nearest_usable_frame(
+    report: dict,
+    frame_idx: int,
+    members: tuple[str, ...],
+    *,
+    n_frames: int,
+    frames_fps: float = 9.0,
+    radius: int = _MOMENT_ANCHOR_RADIUS_WIDE,
+) -> tuple[int, str]:
+    """붕괴 앵커를 반경 안 **가장 가까운 성한 프레임**으로 옮긴다 (순수, quick-260906-f4j).
+
+    반환 (idx, status). status 는 호출측 로그용 3종 — "kept"(앵커 비붕괴, 그대로) /
+    "moved"(옮김) / "stuck"(앵커 붕괴인데 반경 안에 성한 프레임 없음, 그대로 = fail-open).
+    frame_idx·반환 idx 는 frames_fps(9fps) 배열 인덱스 — build_fault_zoom_comparisons 의
+    `user_frame_idx`/`ref_frame_idx` override 공간 그대로.
+
+    **왜 필요한가 (2026-09-06 실측, 09-03 라이브 6문서 21장 = 42패널).** 앵커 붕괴 패널 14
+    (학생 5 · 정은지 9). conf<0.5 겹침 8 → 신뢰도는 붕괴의 부분집합. 14개 **전부 gated 카드**
+    (경로별 gated 12 / stage1 3 / advisory 6, stage1·advisory 붕괴 0). 반사실(학생 불건전
+    5패널 전수를 옮겨 기계 눈 재질문): 1장 불일치→통과, 4장 통과 유지, 악화 0.
+
+    **기전.** gated 호출부(app.py `_run_gated_card_inherit`)는 `dtw_match=None` +
+    `at_frame_idx=None` 으로 프레임을 고정해 부르므로 build_fault_zoom_comparisons 의 후보
+    합성 블록(`_drop_collapsed` · `select_confident_frame` · `_ring(±2→±4)` 창 승급)이
+    구조적으로 미도달 — 08-10(ms2/e4v) 붕괴 방어가 정작 필요한 카드에서 안 돈다. 그래서
+    호출부가 u9/r9 를 넘기기 **전에** 이 함수로 옮긴다.
+
+    **왜 ±4 인가.** 코드가 실제 고르는 9fps 격자에서 ±2 에 10/14, ±4 에 11/14, ±8 에 14/14
+    (최대 이동 0.78초, 대부분 0.11초). ±8 이 전건이지만 ms2 가 박제한 "항상 넓히면 악화"
+    교훈(p34fresh1786348954, 17도→72도) 위에서 belle 지목 카드가 ±4 에서 구제된다 —
+    새 상수 0, `_MOMENT_ANCHOR_RADIUS_WIDE` 재사용.
+
+    **트리거는 붕괴만.** 비붕괴인데 그릴 수 없는 앵커는 align_bake 폴백(quick-260813-nh4)이
+    소유하는 경우라 건드리지 않는다 — 트리거를 넓히면 m0k A/B 소생 6/6 인증 경로가 바뀐다.
+    목적지 판정은 `_frame_usable`(창 승급과 같은 함수 — 붕괴만 보면 그릴 수 없는 프레임으로
+    간다, p34fresh1786349646). 같은 거리는 작은 인덱스가 이긴다(select_confident_frame 의
+    오름차순 tie-break 관례 — 실측상 방향 선호 근거 없음, 결정론이 목적).
+
+    채점 무접촉 — complete 이후 표시 렌더(D-20). 사진 장수·어느 멈춤인지 불변(바뀌는 것은
+    그 멈춤 안 몇 번째 프레임뿐).
+    """
+    if n_frames <= 0:
+        return int(frame_idx), "kept"
+    anchor = max(0, min(int(frame_idx), max(0, int(n_frames) - 1)))
+    rep = report or {}
+    rep_fps = float(rep.get("fps") or frames_fps)
+    rep_frames = int(rep.get("frames") or 0)
+    if not is_collapsed_frame(
+        rep, _to_rep_idx(anchor, frames_fps, rep_fps, rep_frames)
+    ):
+        return anchor, "kept"
+    for d in range(1, int(radius) + 1):
+        for cand in (anchor - d, anchor + d):
+            if not (0 <= cand < n_frames):
+                continue
+            if _frame_usable(rep, cand, members, frames_fps, rep_fps, rep_frames):
+                return cand, "moved"
+    return anchor, "stuck"
+
 
 # 포즈 거리 계산에 필요한 최소 공통 신뢰관절 수. 3점 이하면 이동/스케일 정규화 후
 # 남는 자유도가 거의 없어 거리값이 의미를 잃는다(역립 구간 keypoint 붕괴 시 2~3개만
@@ -3190,16 +3269,12 @@ def build_fault_zoom_comparisons(
                 # 없는** 프레임이라 선택자가 못 썼고, 승급은 안 걸려 결국 붕괴 프레임이
                 # 뽑혔다(사이각 6/171도, ray Δ 163도). 승급 조건은 선택자가 실제로
                 # 요구하는 것과 같아야 한다 — 판정은 `_member_pts`(앵커 분기와 동일 게이트).
+                # 판정 함수 = `_frame_usable` (quick-260906-f4j 가 gated 이동과 공유).
                 _u_syn = _ring(_MOMENT_ANCHOR_RADIUS)
                 if not any(
-                    _member_pts(
-                        user_report,
-                        _to_rep_idx(_c, frames_fps, u_rep_fps, u_rep_frames),
-                        unit.members,
-                    )[0]
-                    and not is_collapsed_frame(
-                        user_report,
-                        _to_rep_idx(_c, frames_fps, u_rep_fps, u_rep_frames),
+                    _frame_usable(
+                        user_report, _c, unit.members,
+                        frames_fps, u_rep_fps, u_rep_frames,
                     )
                     for _c in _u_syn
                 ):

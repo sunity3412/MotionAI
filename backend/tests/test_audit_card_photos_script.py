@@ -190,6 +190,47 @@ def test_marked_flags_absent_means_gate_b_for_advisory():
     assert acp.marked_flags({"criterion": None, "userMarked": False, "refMarked": True}) == (False, True)
 
 
+def test_marked_flags_reads_each_key_independently():
+    """per-key (quick-260906-vho): 키가 있는 측은 doc 값, 없는 측만 정책 폴백.
+
+    vho 부터 advisory/legacy 카드에 userMarked 만 실린다(refMarked 는 §11.9 정책대로 부재).
+    종전 규칙은 한 키만 있어도 나머지를 True 로 기본값 처리해 기준 측을 거꾸로 표시
+    있음으로 읽었다 — (False, True). 새 방출에서 기준 측은 정책 폴백 False 여야 한다.
+    """
+    assert acp.marked_flags({"criterion": None, "tier": "advisory", "userMarked": False}) == (False, False)
+    assert acp.marked_flags({"criterion": None, "userMarked": True}) == (True, False)
+    # criterion 카드에서 refMarked 만 없는 옛 형상 — 종전대로 True
+    assert acp.marked_flags({"criterion": "split_angle", "userMarked": True}) == (True, True)
+
+
+def test_replay_suppressed_advisory_is_mismatch_not_unresolved():
+    """09-06 n2j 라이브 실물 `ref-peter-pan [1] advisory right_elbow user=back_waist→no_mark
+    None/mark:mark_disagreement` — 앵커 게이트가 학생 표시를 지웠는데 doc 에 userMarked 가
+    없어 감사가 표시 있음으로 추정, 2단을 묻고 눈이 no_mark 를 답해 판정 불가가 됐다.
+    방출된 userMarked=False 를 읽으면 그 패널은 2단 없이 확정(no_mark_and_center_elsewhere)
+    이고 카드는 mismatch 다. 옛 doc(부재)이면 종전 왜곡(unresolved)이 그대로 — 박제."""
+    exp = sorted(cpa.expected_parts(None, "right_elbow"))
+    row = {"reference": "ref-peter-pan", "index": 1, "tier": "advisory", "joint": "right_elbow",
+           "criterion": None, "expected": exp,
+           "user": {"observed": "back_waist"}, "ref": {"observed": "elbow"},
+           "userMark": {"observed": "no_mark"}, "refMark": None,
+           "userMarked": True, "refMarked": False,
+           "userMarkedRaw": False, "refMarkedRaw": "<absent>",
+           "userAdj": {}, "refAdj": {}, "verdict": "unresolved", "mismatch": False}
+    out = acp.replay_rows([row])[0]
+    assert out["userMarked"] is False and out["refMarked"] is False
+    assert out["userAdj"] == {"ok": False, "by": "none", "reason": "no_mark_and_center_elsewhere"}
+    assert out["refAdj"]["reason"] == "center_in_expected"
+    assert out["verdict"] == "mismatch" and out["mismatch"] is True
+    # 옛 doc (userMarked 부재) — 추정이 판정 불가를 만든다
+    old = acp.replay_rows([dict(row, userMarkedRaw="<absent>")])[0]
+    assert old["userAdj"]["reason"] == "mark_disagreement"
+    assert old["verdict"] == "unresolved"
+    # 억제 패널에는 2단 질의가 나가지 않는다
+    assert cpa.needs_mark_query(frozenset({"elbow", "hand", "shoulder"}), "back_waist",
+                                marked=False) is False
+
+
 def test_replay_rows_reapplies_marked_flags_without_eye_calls(monkeypatch):
     """--replay: 저장 토큰만으로 재판정 — Raw 없는 옛 JSON 의 참고 카드 기준 측은 부재로 되돌려 보정."""
     monkeypatch.setattr(cg, "eye_judge", lambda *a, **k: (_ for _ in ()).throw(AssertionError("eye called")))

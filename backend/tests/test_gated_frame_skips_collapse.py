@@ -152,3 +152,66 @@ def test_frame_usable_requires_uncollapsed_and_drawable() -> None:
     assert fz._frame_usable(rep, 0, MEMBERS, 9.0, 9.0, n) is False  # noqa: SLF001
     assert fz._frame_usable(rep, 1, MEMBERS, 9.0, 9.0, n) is False  # noqa: SLF001
     assert fz._frame_usable(rep, 2, MEMBERS, 9.0, 9.0, n) is True  # noqa: SLF001
+
+
+# ── 배선 source 단언 — app.py 는 env 의존이라 import 금지, 텍스트로 읽는다 ──────
+# (선례 test_fault_zoom_ref_marked.py::test_ref_marked_three_way_lockstep)
+
+_APP = Path(__file__).resolve().parents[1] / "functions" / "pipeline" / "app.py"
+
+
+def _app_src() -> str:
+    return _APP.read_text(encoding="utf-8")
+
+
+def _gated_body() -> str:
+    """`def _run_gated_card_inherit(` 부터 다음 컬럼0 `def ` 직전까지."""
+    src = _app_src()
+    start = src.index("def _run_gated_card_inherit(")
+    end = src.index("\ndef ", start + 1)
+    return src[start:end]
+
+
+def test_gated_call_site_moves_u9_r9_before_building_comparisons() -> None:
+    """u9/r9 를 build_fault_zoom_comparisons 에 넘기기 **전에** 양측 독립으로 옮긴다."""
+    body = _gated_body()
+    assert body.count("_fz.nearest_usable_frame(") == 2
+    assert (
+        body.index("_fz.nearest_usable_frame(")
+        < body.index("comps = _fz.build_fault_zoom_comparisons(")
+    )
+    # 순간은 여전히 override 가 소유 — 호출 형태 불변.
+    assert "user_frame_idx=u9" in body
+    assert "ref_frame_idx=r9" in body
+    assert "fault_zoom_gated_frame_shift" in body
+
+
+def test_stage1_and_advisory_call_sites_are_untouched() -> None:
+    """범위 가드 — app.py 전체에서 nearest_usable_frame( 비주석 등장이 정확히 2(학생·기준)."""
+    n = sum(
+        line.count("nearest_usable_frame(")
+        for line in _app_src().splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    assert n == 2, f"gated 경로 밖으로 새면 안 된다(stage-1·advisory 붕괴 0 실측): {n}"
+
+
+def test_shift_log_format_is_locked_for_postmortem_grep() -> None:
+    """사후 grep 재료 고정 — 다음 Pod 때 이 문자열로 로그를 회수한다."""
+    assert (
+        "fault_zoom_gated_frame_shift analysis_id=%s rid=%s "
+        "user=%d->%d(%s) ref=%d->%d(%s)"
+    ) in _app_src()
+
+
+def test_moved_side_drops_freeze_moment_payload() -> None:
+    """옮긴 카드는 display_anchor=None + 옮긴 측 align_bake={} — 좌표와 프레임이 같은 순간을 가리킨다."""
+    body = _gated_body()
+    shift = body[body.index("_fz.nearest_usable_frame("):body.index(
+        "comps = _fz.build_fault_zoom_comparisons("
+    )]
+    assert "display_anchor = None" in shift
+    assert 'align_bake["user"] = {}' in shift
+    assert 'align_bake["ref"] = {}' in shift
+    # suppress 무접촉 — 표시 생략은 게이트 판정이지 프레임 문제가 아니다.
+    assert "suppress.add(" not in shift

@@ -5331,6 +5331,58 @@ def _run_gated_card_inherit(
                 r9 = _override_idx(
                     r_sec, "ref", int(ref_frames.shape[0]), ref_report
                 )
+                # quick-260906-f4j — 붕괴 앵커 이동. 09-06 실측(09-03 라이브 6문서
+                # 21장 = 42패널): 앵커 붕괴 14패널이 **전부 gated 카드**(stage-1·
+                # advisory 붕괴 0), 9fps 격자 ±4 안 구제 11/14, 반사실 5패널 악화 0.
+                # 이 경로는 dtw_match=None + at_frame_idx=None 으로 프레임을 고정해
+                # 부르므로 fault_zoom 의 창 승급(ms2)·_drop_collapsed 가 구조적으로
+                # 미도달 — 그래서 여기서 옮긴다. 판정·반경은 fault_zoom 순수 함수가
+                # 소유(새 상수 0), 양측 독립, 못 옮기면 그대로(fail-open). 사진 장수·
+                # 어느 멈춤인지 불변 — 바뀌는 것은 그 멈춤 안 몇 번째 프레임뿐.
+                _members = tuple(str(j) for j in (cu.get("joints") or ()) if j)
+                u9_new, u_why = _fz.nearest_usable_frame(
+                    user_report, u9, _members, n_frames=int(user_frames.shape[0])
+                )
+                r9_new, r_why = _fz.nearest_usable_frame(
+                    ref_report, r9, _members, n_frames=int(ref_frames.shape[0])
+                )
+                _da_tag = "kept"
+                if u_why == "moved" or r_why == "moved":
+                    # freeze-순간 좌표 payload 정합 — display_anchor·align_bake 는
+                    # 정의상 게이트 freeze 순간(u_ai/r_ai)의 align 17-kp 좌표
+                    # (quick-260813-fxx/nh4). 프레임이 그 순간을 떠나면 그 좌표는 그
+                    # 프레임의 것이 아니다. display_anchor 는 적용되면 크롭 중심·원
+                    # 앵커·V 꼭짓점 **전부**의 단일 출처라 그대로 두면 옮긴 사진 위에
+                    # 옛 순간의 중심이 찍힌다(이번 결함과 같은 종류의 "제목과 다른
+                    # 부위"). fault_zoom 은 both-or-neither 라 한 측만 옮겨도 쌍이
+                    # 무효 → None(양측 rep12 vertex 경로 = fxx 이전 동작).
+                    # align_bake 는 옮긴 측만 비운다 — 옮긴 프레임은 _frame_usable 로
+                    # rep12 valid 가 보장되므로 폴백이 필요 없고, 안 옮긴 측의 폴백은
+                    # 그대로 산다. suppress 는 무접촉(눈 불일치·align conf 미달의 표시
+                    # 생략은 게이트 판정이지 프레임 문제가 아니다 — userMarked/
+                    # refMarked 가 사실을 말한다).
+                    _da_tag = "dropped" if display_anchor is not None else "absent"
+                    display_anchor = None
+                    if u_why == "moved":
+                        align_bake["user"] = {}
+                    if r_why == "moved":
+                        align_bake["ref"] = {}
+                if u_why != "kept" or r_why != "kept":
+                    # 배선 실행 로그 증거(wiring-claims-need-log-evidence) — 옮김과
+                    # stuck 을 모두 남긴다: "앵커 붕괴인데 ±4 안에 성한 프레임 없음"이
+                    # 사후 판별의 핵심 흔적. 둘 다 kept 면 침묵 = 종전 로그 byte-동일.
+                    log.info(
+                        "fault_zoom_gated_frame_shift analysis_id=%s rid=%s user=%d->%d(%s) ref=%d->%d(%s) display_anchor=%s",
+                        analysis_id,
+                        str(rec.get("recordId") or "").split(":")[0],
+                        u9, u9_new, u_why, r9, r9_new, r_why, _da_tag,
+                    )
+                # 옮긴 측만 교체 — kept/stuck 은 원값 그대로(비붕괴 앵커 byte-동일;
+                # 클램프는 build_fault_zoom_comparisons 가 종전대로 한다).
+                if u_why == "moved":
+                    u9 = u9_new
+                if r_why == "moved":
+                    r9 = r9_new
                 comps = _fz.build_fault_zoom_comparisons(
                     user_frames, ref_frames, user_report, ref_report, None,
                     list(cu.get("joints") or ()), deficits,

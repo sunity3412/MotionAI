@@ -1,0 +1,1618 @@
+{
+  "generated": "2026-09-06",
+  "preregistration": "SHOULDER-GRAMMAR-PREREGISTRATION.md (2906b272)",
+  "instrument": "card_gates.eye_part_token (claim='part', PART_VOCAB)",
+  "rounds": 5,
+  "verdict_rule": "A 의 최빈이 expected_parts 안이면 A 가 좋다. A in/V in=same, A in/V out=worse, A out/V in=better, A out/V out=same, 못 읽음=null",
+  "render_dir": "/Users/Shared/sunity-shoulder-trial",
+  "cards": [
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "analysisId": "4e232c4a73ec40a6a8deb07cbf6aa03f",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "userFrameIdx": 178,
+      "refFrameIdx": 196,
+      "userMarked": true,
+      "refMarked": true,
+      "gatedPath": false,
+      "user_video_frame_idx": 89,
+      "ref_video_frame_idx": 131,
+      "user_eff_fps": 9.9967,
+      "ref_eff_fps": 9.9567,
+      "frame_wh": {
+        "user": [
+          2160,
+          3840
+        ],
+        "ref": [
+          1080,
+          1920
+        ]
+      },
+      "crop_frac_A": 0.55,
+      "crop_frac_C": 0.55,
+      "crop_frac_unchanged_by_C": true,
+      "expected_parts": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "sides": {
+        "user": {
+          "stamp_time_from_delivered": true,
+          "variants": {
+            "A": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/pdshape_user_A.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 1188,
+              "brand_px": 718,
+              "sha1": "f2aa7e2f86feba7dd0929e89afeaa6684e308e2e",
+              "vs_delivered": {
+                "panel": "4e232c4a_02_angle_vs_reference__left_shoulder_user.jpg",
+                "exists": true,
+                "mae": 2.13,
+                "brand_px_rendered": 718,
+                "brand_px_delivered": 452,
+                "brand_iou": 0.63
+              },
+              "delivered_box": {
+                "exists": true,
+                "match_mae_gray": 6.15,
+                "measured_box_native": [
+                  224,
+                  1610
+                ],
+                "expected_box_native": [
+                  224,
+                  1611
+                ],
+                "delta_native_px": [
+                  0,
+                  -1
+                ],
+                "delta_panel_px": [
+                  0.0,
+                  -0.3
+                ],
+                "armpit_to_shoulder_panel_px": [
+                  -4.6,
+                  19.5
+                ],
+                "dist_delta_to_A_px": 0.3,
+                "dist_delta_to_C_px": 20.3,
+                "closer_to": "A(겨드랑이)"
+              },
+              "eye": {
+                "observed": "shoulder",
+                "tokens": [
+                  "shoulder",
+                  "shoulder",
+                  "shoulder"
+                ],
+                "calls": 3,
+                "reason": "The marked vertex is at the shoulder joint, indicating the angle between the torso and the upper arm.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "B": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/pdshape_user_B.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 1188,
+              "brand_px": 718,
+              "sha1": "f2aa7e2f86feba7dd0929e89afeaa6684e308e2e",
+              "eye": {
+                "observed": "shoulder",
+                "tokens": [
+                  "shoulder",
+                  "shoulder",
+                  "shoulder"
+                ],
+                "calls": 3,
+                "reason": "The angle marker indicates the right shoulder joint connecting the torso to the upper arm.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "C": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/pdshape_user_C.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 1188,
+              "brand_px": 718,
+              "sha1": "26eee9a2bae8ebf92206f3ed5e5f90e187126d40",
+              "eye": {
+                "observed": "shoulder",
+                "tokens": [
+                  "shoulder",
+                  "shoulder",
+                  "shoulder"
+                ],
+                "calls": 3,
+                "reason": "The marked vertex is located at the right shoulder joint, measuring the angle between the torso and the upper arm.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "D": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/pdshape_user_D.jpg",
+              "drew_angle": false,
+              "crop_kind": "valid",
+              "crop_side_px": 1188,
+              "brand_px": 1356,
+              "sha1": "d32b40b7bbee6ddfbf30fb7ba0e9ae87fb516d05",
+              "eye": {
+                "observed": "chest",
+                "tokens": [
+                  "chest",
+                  "chest",
+                  "chest"
+                ],
+                "calls": 3,
+                "reason": "The red circle is centered on the black sports top covering the upper torso/chest area of the inverted person.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            }
+          },
+          "B_identical_to_A": true
+        },
+        "ref": {
+          "stamp_time_from_delivered": false,
+          "variants": {
+            "A": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/pdshape_ref_A.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 594,
+              "brand_px": 751,
+              "sha1": "23e9aeea9bdbb90149a26e5e9c3102aaf78d0ba6",
+              "vs_delivered": {
+                "panel": "4e232c4a_02_angle_vs_reference__left_shoulder_ref.jpg",
+                "exists": true,
+                "mae": 1.92,
+                "brand_px_rendered": 751,
+                "brand_px_delivered": 502,
+                "brand_iou": 0.668
+              },
+              "delivered_box": {
+                "exists": true,
+                "match_mae_gray": 6.02,
+                "measured_box_native": [
+                  111,
+                  761
+                ],
+                "expected_box_native": [
+                  111,
+                  761
+                ],
+                "delta_native_px": [
+                  0,
+                  0
+                ],
+                "delta_panel_px": [
+                  0.0,
+                  0.0
+                ],
+                "armpit_to_shoulder_panel_px": [
+                  -8.1,
+                  20.7
+                ],
+                "dist_delta_to_A_px": 0.0,
+                "dist_delta_to_C_px": 22.2,
+                "closer_to": "A(겨드랑이)"
+              },
+              "eye": {
+                "observed": "shoulder",
+                "tokens": [
+                  "shoulder",
+                  "neck",
+                  "chest",
+                  "shoulder",
+                  "shoulder"
+                ],
+                "calls": 5,
+                "reason": "The vertex of the angle marks the shoulder joint connecting the torso and the extended arm.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "B": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/pdshape_ref_B.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 594,
+              "brand_px": 751,
+              "sha1": "23e9aeea9bdbb90149a26e5e9c3102aaf78d0ba6",
+              "eye": {
+                "observed": "shoulder",
+                "tokens": [
+                  "shoulder",
+                  "neck",
+                  "shoulder",
+                  "shoulder"
+                ],
+                "calls": 4,
+                "reason": "The vertex of the angle is located at the shoulder joint, connecting the lateral trunk to the extended upper arm while inverted on the pole.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "C": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/pdshape_ref_C.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 594,
+              "brand_px": 750,
+              "sha1": "a559c6514203a633d9cd40c05c4c49a55d7da18a",
+              "eye": {
+                "observed": "shoulder",
+                "tokens": [
+                  "shoulder",
+                  "shoulder",
+                  "shoulder"
+                ],
+                "calls": 3,
+                "reason": "The vertex of the highlighted angle is located at the user's shoulder joint, connecting the torso (chest area) with the arm extended downwards.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "D": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/pdshape_ref_D.jpg",
+              "drew_angle": false,
+              "crop_kind": "valid",
+              "crop_side_px": 594,
+              "brand_px": 1356,
+              "sha1": "9cddd89ea8d0c9726cbb8e3dcc8eda1721a1609e",
+              "eye": {
+                "observed": "chest",
+                "tokens": [
+                  "chest",
+                  "chest",
+                  "chest"
+                ],
+                "calls": 3,
+                "reason": "The red circle is centered on the person's upper torso/chest area clothed in a black sports top while hanging inverted on the pole.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            }
+          },
+          "B_identical_to_A": true
+        }
+      }
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "analysisId": "a559705f06784505bf266afe99cf2822",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "userFrameIdx": 106,
+      "refFrameIdx": 92,
+      "userMarked": true,
+      "refMarked": true,
+      "gatedPath": true,
+      "user_video_frame_idx": 53,
+      "ref_video_frame_idx": 61,
+      "user_eff_fps": 9.9633,
+      "ref_eff_fps": 9.9633,
+      "frame_wh": {
+        "user": [
+          2160,
+          3840
+        ],
+        "ref": [
+          2160,
+          3840
+        ]
+      },
+      "crop_frac_A": 0.4,
+      "crop_frac_C": 0.4,
+      "crop_frac_unchanged_by_C": true,
+      "expected_parts": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "sides": {
+        "user": {
+          "stamp_time_from_delivered": true,
+          "variants": {
+            "A": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/climb_user_A.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 707,
+              "sha1": "f256e56e9e605c10dcaf56e87050068697618fa7",
+              "vs_delivered": {
+                "panel": "a559705f_02_angle_vs_reference__left_shoulder_user.jpg",
+                "exists": true,
+                "mae": 47.55,
+                "brand_px_rendered": 707,
+                "brand_px_delivered": 458,
+                "brand_iou": 0.648
+              },
+              "delivered_box": {
+                "exists": true,
+                "match_mae_gray": 5.34,
+                "measured_box_native": [
+                  444,
+                  1529
+                ],
+                "expected_box_native": [
+                  343,
+                  1555
+                ],
+                "delta_native_px": [
+                  101,
+                  -26
+                ],
+                "delta_panel_px": [
+                  42.1,
+                  -10.8
+                ],
+                "armpit_to_shoulder_panel_px": [
+                  -3.1,
+                  -22.7
+                ],
+                "dist_delta_to_A_px": 43.5,
+                "dist_delta_to_C_px": 46.8,
+                "closer_to": "제3의 좌표(A·C 어느 쪽도 아님)"
+              },
+              "eye": {
+                "observed": "back_waist",
+                "tokens": [
+                  "back_waist",
+                  "back_waist",
+                  "back_waist"
+                ],
+                "calls": 3,
+                "reason": "사진 정중앙의 각도 표시선은 허리 및 옆구리/등 부위(back_waist)의 굽힘 정도를 나타내고 있으며, 팔이나 다리가 아니므로 limb는 other에 해당합니다.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "B": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/climb_user_B.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 707,
+              "sha1": "f256e56e9e605c10dcaf56e87050068697618fa7",
+              "eye": {
+                "observed": "back_waist",
+                "tokens": [
+                  "back_waist",
+                  "back_waist",
+                  "back_waist"
+                ],
+                "calls": 3,
+                "reason": "The red angle marks the bend at the waist/flank area (back_waist) of the torso, which belongs to the trunk rather than an arm or leg.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "C": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/climb_user_C.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 712,
+              "sha1": "0d31abbc2400e7e63aad37acca71dc24bd027ebc",
+              "eye": {
+                "observed": "chest",
+                "tokens": [
+                  "chest",
+                  "chest",
+                  "chest"
+                ],
+                "calls": 3,
+                "reason": "표시된 각도의 꼭짓점은 상체 측면 흉곽(가슴) 부위에 위치하며 몸통에 속하므로 limb는 other입니다.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "D": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/climb_user_D.jpg",
+              "drew_angle": false,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 1356,
+              "sha1": "55d7d9a483598f1f0e3947181aa3cf07aec0309c",
+              "eye": {
+                "observed": "back_waist",
+                "tokens": [
+                  "back_waist",
+                  "back_waist",
+                  "back_waist"
+                ],
+                "calls": 3,
+                "reason": "The red circle is centered on the side and back of the torso, highlighting the waist and lower back region.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            }
+          },
+          "B_identical_to_A": true
+        },
+        "ref": {
+          "stamp_time_from_delivered": false,
+          "variants": {
+            "A": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/climb_ref_A.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 743,
+              "sha1": "a992b9ff9f78085e2281fb6d4c87306cd257faf3",
+              "vs_delivered": {
+                "panel": "a559705f_02_angle_vs_reference__left_shoulder_ref.jpg",
+                "exists": true,
+                "mae": 49.25,
+                "brand_px_rendered": 743,
+                "brand_px_delivered": 498,
+                "brand_iou": 0.666
+              },
+              "delivered_box": {
+                "exists": true,
+                "match_mae_gray": 4.86,
+                "measured_box_native": [
+                  528,
+                  1572
+                ],
+                "expected_box_native": [
+                  415,
+                  1592
+                ],
+                "delta_native_px": [
+                  113,
+                  -20
+                ],
+                "delta_panel_px": [
+                  47.1,
+                  -8.3
+                ],
+                "armpit_to_shoulder_panel_px": [
+                  11.5,
+                  -20.9
+                ],
+                "dist_delta_to_A_px": 47.8,
+                "dist_delta_to_C_px": 37.8,
+                "closer_to": "제3의 좌표(A·C 어느 쪽도 아님)"
+              },
+              "eye": {
+                "observed": "hip",
+                "tokens": [
+                  "hip",
+                  "hip",
+                  "hip"
+                ],
+                "calls": 3,
+                "reason": "The red angle markings highlight the hip joint, measuring the flexion angle between the pelvis/torso and the thigh, which corresponds to the leg.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            },
+            "B": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/climb_ref_B.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 743,
+              "sha1": "a992b9ff9f78085e2281fb6d4c87306cd257faf3",
+              "eye": {
+                "observed": "hip",
+                "tokens": [
+                  "hip",
+                  "hip",
+                  "hip"
+                ],
+                "calls": 3,
+                "reason": "표시된 각도는 대퇴골과 골반 사이의 고관절(엉덩이 관절, hip) 부위의 굴곡을 나타내고 있으며, 이는 다리(leg)에 속하는 관절입니다.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            },
+            "C": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/climb_ref_C.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 750,
+              "sha1": "9e9dbc69bd063ff502406117b8ae75409937461b",
+              "eye": {
+                "observed": "hip",
+                "tokens": [
+                  "hip",
+                  "hip",
+                  "hip"
+                ],
+                "calls": 3,
+                "reason": "The angle marker is positioned at the hip joint, measuring the flexion angle between the torso/pelvis and the thigh.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            },
+            "D": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/climb_ref_D.jpg",
+              "drew_angle": false,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 1356,
+              "sha1": "99f2b0d81f362a94e9467dafb2989f4639c02a2f",
+              "eye": {
+                "observed": "chest",
+                "tokens": [
+                  "chest",
+                  "chest",
+                  "chest"
+                ],
+                "calls": 3,
+                "reason": "The red circle is centered on the chest and torso region covered by the black top.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "better"
+            }
+          },
+          "B_identical_to_A": true
+        }
+      }
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "analysisId": "5ae210fabec349698e1d35912b8f22e1",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "userFrameIdx": 108,
+      "refFrameIdx": 98,
+      "userMarked": false,
+      "refMarked": true,
+      "gatedPath": false,
+      "user_video_frame_idx": 54,
+      "ref_video_frame_idx": 65,
+      "user_eff_fps": 9.9833,
+      "ref_eff_fps": 10.0,
+      "frame_wh": {
+        "user": [
+          2160,
+          3840
+        ],
+        "ref": [
+          1080,
+          1920
+        ]
+      },
+      "crop_frac_A": 0.4,
+      "crop_frac_C": 0.4,
+      "crop_frac_unchanged_by_C": true,
+      "expected_parts": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "sides": {
+        "user": {
+          "stamp_time_from_delivered": true,
+          "variants": {
+            "A": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/powerspin_user_A.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 655,
+              "sha1": "9974b2acde27396fef24065673d8a9cb8c9307e6",
+              "vs_delivered": {
+                "panel": "5ae210fa_01_angle_vs_reference__left_shoulder_user.jpg",
+                "exists": true,
+                "mae": 2.74,
+                "brand_px_rendered": 655,
+                "brand_px_delivered": 0,
+                "brand_iou": 0.0
+              },
+              "delivered_box": {
+                "exists": true,
+                "match_mae_gray": 2.29,
+                "measured_box_native": [
+                  600,
+                  1342
+                ],
+                "expected_box_native": [
+                  600,
+                  1342
+                ],
+                "delta_native_px": [
+                  0,
+                  0
+                ],
+                "delta_panel_px": [
+                  0.0,
+                  0.0
+                ],
+                "armpit_to_shoulder_panel_px": [
+                  -16.4,
+                  -4.3
+                ],
+                "dist_delta_to_A_px": 0.0,
+                "dist_delta_to_C_px": 17.0,
+                "closer_to": "A(겨드랑이)"
+              },
+              "eye": {
+                "observed": "hip",
+                "tokens": [
+                  "hip",
+                  "hip",
+                  "thigh",
+                  "thigh",
+                  "hip"
+                ],
+                "calls": 5,
+                "reason": "사진 정중앙의 꺾인 각도는 몸통과 허벅지가 만나는 고관절(hip joint) 부위를 가리키며, 이는 다리(leg)에 연결된 관절에 해당합니다.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            },
+            "B": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/powerspin_user_B.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 655,
+              "sha1": "9974b2acde27396fef24065673d8a9cb8c9307e6",
+              "eye": {
+                "observed": "thigh",
+                "tokens": [
+                  "thigh",
+                  "thigh",
+                  "thigh"
+                ],
+                "calls": 3,
+                "reason": "The center of the image prominently displays the thigh extending horizontally across the frame, with the angle marking the hip/thigh joint area of the leg.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            },
+            "C": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/powerspin_user_C.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 655,
+              "sha1": "07ca65046088f0b28dc02659359d9c20719c8869",
+              "eye": {
+                "observed": "thigh",
+                "tokens": [
+                  "thigh",
+                  "thigh",
+                  "thigh"
+                ],
+                "calls": 3,
+                "reason": "사진 정중앙에는 수평으로 길게 뻗어 있는 다리의 허벅지(thigh) 부위가 가장 크게 위치해 있으며, 이는 다리(leg)에 해당합니다.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            },
+            "D": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/powerspin_user_D.jpg",
+              "drew_angle": false,
+              "crop_kind": "valid",
+              "crop_side_px": 864,
+              "brand_px": 1356,
+              "sha1": "34bcd527009c6ab458e5e331602eb0b555e7b083",
+              "eye": {
+                "observed": "thigh",
+                "tokens": [
+                  "thigh",
+                  "thigh",
+                  "thigh"
+                ],
+                "calls": 3,
+                "reason": "The red circle primarily highlights the upper thigh of the horizontally extended leg.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            }
+          },
+          "B_identical_to_A": true
+        },
+        "ref": {
+          "stamp_time_from_delivered": false,
+          "variants": {
+            "A": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/powerspin_ref_A.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 432,
+              "brand_px": 667,
+              "sha1": "89cec517ed710833d4db2adb9b1a3e256459fd99",
+              "vs_delivered": {
+                "panel": "5ae210fa_01_angle_vs_reference__left_shoulder_ref.jpg",
+                "exists": true,
+                "mae": 1.74,
+                "brand_px_rendered": 667,
+                "brand_px_delivered": 421,
+                "brand_iou": 0.631
+              },
+              "delivered_box": {
+                "exists": true,
+                "match_mae_gray": 4.23,
+                "measured_box_native": [
+                  262,
+                  582
+                ],
+                "expected_box_native": [
+                  261,
+                  582
+                ],
+                "delta_native_px": [
+                  1,
+                  0
+                ],
+                "delta_panel_px": [
+                  0.8,
+                  0.0
+                ],
+                "armpit_to_shoulder_panel_px": [
+                  -16.9,
+                  -1.7
+                ],
+                "dist_delta_to_A_px": 0.8,
+                "dist_delta_to_C_px": 17.8,
+                "closer_to": "A(겨드랑이)"
+              },
+              "eye": {
+                "observed": "hip",
+                "tokens": [
+                  "hip",
+                  "hip",
+                  "hip"
+                ],
+                "calls": 3,
+                "reason": "각도의 꼭짓점은 골반과 대퇴부(허벅지)를 연결하는 고관절(엉덩이 부위)에 위치하며, 이는 다리에 속하는 관절입니다.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            },
+            "B": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/powerspin_ref_B.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 432,
+              "brand_px": 667,
+              "sha1": "89cec517ed710833d4db2adb9b1a3e256459fd99",
+              "eye": {
+                "observed": "hip",
+                "tokens": [
+                  "hip",
+                  "hip",
+                  "hip"
+                ],
+                "calls": 3,
+                "reason": "The angle marker is placed at the hip joint, measuring the angle between the pelvis/torso and the thigh.",
+                "cached": true,
+                "in_allowed": false
+              },
+              "better_than_A": "same"
+            },
+            "C": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/powerspin_ref_C.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 432,
+              "brand_px": 668,
+              "sha1": "870d5b6b6abb97dca658bdb6389bd6625c5342c3",
+              "eye": {
+                "observed": "chest",
+                "tokens": [
+                  "chest",
+                  "hip",
+                  "armpit",
+                  "shoulder",
+                  "chest"
+                ],
+                "calls": 5,
+                "reason": "사진의 정중앙에는 검은색 탑을 입고 있는 상체의 가슴(chest) 부위가 위치해 있으며, 몸통에 해당하므로 limb는 'other'로 분류됩니다.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "better"
+            },
+            "D": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/powerspin_ref_D.jpg",
+              "drew_angle": false,
+              "crop_kind": "valid",
+              "crop_side_px": 432,
+              "brand_px": 1356,
+              "sha1": "67430934314e0d70b5649353c3785309f2a54c1b",
+              "eye": {
+                "observed": "chest",
+                "tokens": [
+                  "chest",
+                  "chest",
+                  "chest"
+                ],
+                "calls": 3,
+                "reason": "The highlighted region primarily covers the chest area clad in a black sports top.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "better"
+            }
+          },
+          "B_identical_to_A": true
+        }
+      }
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "analysisId": "21b1b7ed3bc84d829d201334e64acc5b",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "userFrameIdx": 96,
+      "refFrameIdx": 96,
+      "userMarked": true,
+      "refMarked": true,
+      "gatedPath": true,
+      "user_video_frame_idx": 48,
+      "ref_video_frame_idx": 64,
+      "user_eff_fps": 9.9633,
+      "ref_eff_fps": 9.9233,
+      "frame_wh": {
+        "user": [
+          2160,
+          3840
+        ],
+        "ref": [
+          1080,
+          1920
+        ]
+      },
+      "crop_frac_A": 0.55,
+      "crop_frac_C": 0.55,
+      "crop_frac_unchanged_by_C": true,
+      "expected_parts": [
+        "armpit",
+        "back_waist",
+        "chest",
+        "shoulder"
+      ],
+      "sides": {
+        "user": {
+          "stamp_time_from_delivered": true,
+          "variants": {
+            "A": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/peterpan_user_A.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 1188,
+              "brand_px": 749,
+              "sha1": "c4fe2b5bbcae20ff52b803bb0d255f176dd42faa",
+              "vs_delivered": {
+                "panel": "21b1b7ed_00_angle_vs_reference__left_shoulder_user.jpg",
+                "exists": true,
+                "mae": 24.09,
+                "brand_px_rendered": 749,
+                "brand_px_delivered": 494,
+                "brand_iou": 0.66
+              },
+              "delivered_box": {
+                "exists": true,
+                "match_mae_gray": 4.59,
+                "measured_box_native": [
+                  756,
+                  1013
+                ],
+                "expected_box_native": [
+                  770,
+                  1100
+                ],
+                "delta_native_px": [
+                  -14,
+                  -87
+                ],
+                "delta_panel_px": [
+                  -4.2,
+                  -26.4
+                ],
+                "armpit_to_shoulder_panel_px": [
+                  -5.3,
+                  -21.3
+                ],
+                "dist_delta_to_A_px": 26.7,
+                "dist_delta_to_C_px": 5.2,
+                "closer_to": "C(어깨 관절)"
+              },
+              "eye": {
+                "observed": "armpit",
+                "tokens": [
+                  "armpit",
+                  "armpit",
+                  "armpit"
+                ],
+                "calls": 3,
+                "reason": "The marked angle measures the opening between the upper arm and the torso, corresponding to the armpit (axilla) angle, commonly tracked as 겨각 in pole dance.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "B": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/peterpan_user_B.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 1188,
+              "brand_px": 749,
+              "sha1": "c4fe2b5bbcae20ff52b803bb0d255f176dd42faa",
+              "eye": {
+                "observed": "armpit",
+                "tokens": [
+                  "shoulder",
+                  "armpit",
+                  "armpit",
+                  "armpit"
+                ],
+                "calls": 4,
+                "reason": "각도 측정 표시의 꼭짓점이 팔과 몸통이 만나는 겨드랑이(armpit) 부위에 위치해 있으며, 이는 상지(arm)에 관련된 관절 부위입니다.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "C": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/peterpan_user_C.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 1188,
+              "brand_px": 744,
+              "sha1": "1f0ed949e1dde9692d6679d27c3d1a3daed8e089",
+              "eye": {
+                "observed": "shoulder",
+                "tokens": [
+                  "shoulder",
+                  "shoulder",
+                  "shoulder"
+                ],
+                "calls": 3,
+                "reason": "The angle arc is centered at the shoulder joint, measuring the angle between the upper arm and the torso.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "D": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/peterpan_user_D.jpg",
+              "drew_angle": false,
+              "crop_kind": "valid",
+              "crop_side_px": 1188,
+              "brand_px": 1356,
+              "sha1": "e59f85ecfce3a68a86b979585087b2cddedc505a",
+              "eye": {
+                "observed": "chest",
+                "tokens": [
+                  "chest",
+                  "chest",
+                  "armpit",
+                  "chest"
+                ],
+                "calls": 4,
+                "reason": "The red circle is centered on the upper torso/chest area covered by the black sports bra, representing the chest.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            }
+          },
+          "B_identical_to_A": true
+        },
+        "ref": {
+          "stamp_time_from_delivered": false,
+          "variants": {
+            "A": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/peterpan_ref_A.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 594,
+              "brand_px": 739,
+              "sha1": "49c27b1b3a2687447ab4c3739fc90ebf1832abe0",
+              "vs_delivered": {
+                "panel": "21b1b7ed_00_angle_vs_reference__left_shoulder_ref.jpg",
+                "exists": true,
+                "mae": 24.15,
+                "brand_px_rendered": 739,
+                "brand_px_delivered": 469,
+                "brand_iou": 0.635
+              },
+              "delivered_box": {
+                "exists": true,
+                "match_mae_gray": 2.69,
+                "measured_box_native": [
+                  416,
+                  431
+                ],
+                "expected_box_native": [
+                  412,
+                  471
+                ],
+                "delta_native_px": [
+                  4,
+                  -40
+                ],
+                "delta_panel_px": [
+                  2.4,
+                  -24.2
+                ],
+                "armpit_to_shoulder_panel_px": [
+                  -0.6,
+                  -22.4
+                ],
+                "dist_delta_to_A_px": 24.3,
+                "dist_delta_to_C_px": 3.5,
+                "closer_to": "C(어깨 관절)"
+              },
+              "eye": {
+                "observed": "armpit",
+                "tokens": [
+                  "armpit",
+                  "armpit",
+                  "shoulder",
+                  "armpit"
+                ],
+                "calls": 4,
+                "reason": "The angle arc and vertex are located at the armpit (axilla), measuring the angle between the upper arm and the side of the torso.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "B": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/peterpan_ref_B.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 594,
+              "brand_px": 739,
+              "sha1": "49c27b1b3a2687447ab4c3739fc90ebf1832abe0",
+              "eye": {
+                "observed": "armpit",
+                "tokens": [
+                  "armpit",
+                  "armpit",
+                  "shoulder",
+                  "armpit"
+                ],
+                "calls": 4,
+                "reason": "The angle marker and arc are positioned at the armpit, measuring the angle between the upper arm and the torso (shoulder joint motion of the arm).",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "C": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/peterpan_ref_C.jpg",
+              "drew_angle": true,
+              "crop_kind": "valid",
+              "crop_side_px": 594,
+              "brand_px": 634,
+              "sha1": "799443ad10e8e87ff2e5a58b5615ed2ffae7ddcc",
+              "eye": {
+                "observed": "armpit",
+                "tokens": [
+                  "armpit",
+                  "armpit",
+                  "armpit"
+                ],
+                "calls": 3,
+                "reason": "The marked angle measures the angle between the upper arm and the torso, centered at the armpit/shoulder joint of the arm.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            },
+            "D": {
+              "rendered": true,
+              "path": "/Users/Shared/sunity-shoulder-trial/peterpan_ref_D.jpg",
+              "drew_angle": false,
+              "crop_kind": "valid",
+              "crop_side_px": 594,
+              "brand_px": 1356,
+              "sha1": "4586601e82d09d3753fea57bf0e535284032175e",
+              "eye": {
+                "observed": "armpit",
+                "tokens": [
+                  "armpit",
+                  "armpit",
+                  "armpit"
+                ],
+                "calls": 3,
+                "reason": "The red circle is centered on the exposed armpit (axilla) beneath the raised arm holding the pole.",
+                "cached": true,
+                "in_allowed": true
+              },
+              "better_than_A": "same"
+            }
+          },
+          "B_identical_to_A": true
+        }
+      }
+    }
+  ],
+  "rows": [
+    {
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "A",
+      "eye_mode": "shoulder",
+      "tokens": [
+        "shoulder",
+        "shoulder",
+        "shoulder"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "B",
+      "eye_mode": "shoulder",
+      "tokens": [
+        "shoulder",
+        "shoulder",
+        "shoulder"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "C",
+      "eye_mode": "shoulder",
+      "tokens": [
+        "shoulder",
+        "shoulder",
+        "shoulder"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "D",
+      "eye_mode": "chest",
+      "tokens": [
+        "chest",
+        "chest",
+        "chest"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "A",
+      "eye_mode": "shoulder",
+      "tokens": [
+        "shoulder",
+        "neck",
+        "chest",
+        "shoulder",
+        "shoulder"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "B",
+      "eye_mode": "shoulder",
+      "tokens": [
+        "shoulder",
+        "neck",
+        "shoulder",
+        "shoulder"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "C",
+      "eye_mode": "shoulder",
+      "tokens": [
+        "shoulder",
+        "shoulder",
+        "shoulder"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "D",
+      "eye_mode": "chest",
+      "tokens": [
+        "chest",
+        "chest",
+        "chest"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "climb",
+      "side": "user",
+      "variant": "A",
+      "eye_mode": "back_waist",
+      "tokens": [
+        "back_waist",
+        "back_waist",
+        "back_waist"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "climb",
+      "side": "user",
+      "variant": "B",
+      "eye_mode": "back_waist",
+      "tokens": [
+        "back_waist",
+        "back_waist",
+        "back_waist"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "climb",
+      "side": "user",
+      "variant": "C",
+      "eye_mode": "chest",
+      "tokens": [
+        "chest",
+        "chest",
+        "chest"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "climb",
+      "side": "user",
+      "variant": "D",
+      "eye_mode": "back_waist",
+      "tokens": [
+        "back_waist",
+        "back_waist",
+        "back_waist"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "climb",
+      "side": "ref",
+      "variant": "A",
+      "eye_mode": "hip",
+      "tokens": [
+        "hip",
+        "hip",
+        "hip"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "climb",
+      "side": "ref",
+      "variant": "B",
+      "eye_mode": "hip",
+      "tokens": [
+        "hip",
+        "hip",
+        "hip"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "climb",
+      "side": "ref",
+      "variant": "C",
+      "eye_mode": "hip",
+      "tokens": [
+        "hip",
+        "hip",
+        "hip"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "climb",
+      "side": "ref",
+      "variant": "D",
+      "eye_mode": "chest",
+      "tokens": [
+        "chest",
+        "chest",
+        "chest"
+      ],
+      "better_than_A": "better"
+    },
+    {
+      "motion": "powerspin",
+      "side": "user",
+      "variant": "A",
+      "eye_mode": "hip",
+      "tokens": [
+        "hip",
+        "hip",
+        "thigh",
+        "thigh",
+        "hip"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "powerspin",
+      "side": "user",
+      "variant": "B",
+      "eye_mode": "thigh",
+      "tokens": [
+        "thigh",
+        "thigh",
+        "thigh"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "powerspin",
+      "side": "user",
+      "variant": "C",
+      "eye_mode": "thigh",
+      "tokens": [
+        "thigh",
+        "thigh",
+        "thigh"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "powerspin",
+      "side": "user",
+      "variant": "D",
+      "eye_mode": "thigh",
+      "tokens": [
+        "thigh",
+        "thigh",
+        "thigh"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "powerspin",
+      "side": "ref",
+      "variant": "A",
+      "eye_mode": "hip",
+      "tokens": [
+        "hip",
+        "hip",
+        "hip"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "powerspin",
+      "side": "ref",
+      "variant": "B",
+      "eye_mode": "hip",
+      "tokens": [
+        "hip",
+        "hip",
+        "hip"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "powerspin",
+      "side": "ref",
+      "variant": "C",
+      "eye_mode": "chest",
+      "tokens": [
+        "chest",
+        "hip",
+        "armpit",
+        "shoulder",
+        "chest"
+      ],
+      "better_than_A": "better"
+    },
+    {
+      "motion": "powerspin",
+      "side": "ref",
+      "variant": "D",
+      "eye_mode": "chest",
+      "tokens": [
+        "chest",
+        "chest",
+        "chest"
+      ],
+      "better_than_A": "better"
+    },
+    {
+      "motion": "peterpan",
+      "side": "user",
+      "variant": "A",
+      "eye_mode": "armpit",
+      "tokens": [
+        "armpit",
+        "armpit",
+        "armpit"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "peterpan",
+      "side": "user",
+      "variant": "B",
+      "eye_mode": "armpit",
+      "tokens": [
+        "shoulder",
+        "armpit",
+        "armpit",
+        "armpit"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "peterpan",
+      "side": "user",
+      "variant": "C",
+      "eye_mode": "shoulder",
+      "tokens": [
+        "shoulder",
+        "shoulder",
+        "shoulder"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "peterpan",
+      "side": "user",
+      "variant": "D",
+      "eye_mode": "chest",
+      "tokens": [
+        "chest",
+        "chest",
+        "armpit",
+        "chest"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "peterpan",
+      "side": "ref",
+      "variant": "A",
+      "eye_mode": "armpit",
+      "tokens": [
+        "armpit",
+        "armpit",
+        "shoulder",
+        "armpit"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "peterpan",
+      "side": "ref",
+      "variant": "B",
+      "eye_mode": "armpit",
+      "tokens": [
+        "armpit",
+        "armpit",
+        "shoulder",
+        "armpit"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "peterpan",
+      "side": "ref",
+      "variant": "C",
+      "eye_mode": "armpit",
+      "tokens": [
+        "armpit",
+        "armpit",
+        "armpit"
+      ],
+      "better_than_A": "same"
+    },
+    {
+      "motion": "peterpan",
+      "side": "ref",
+      "variant": "D",
+      "eye_mode": "armpit",
+      "tokens": [
+        "armpit",
+        "armpit",
+        "armpit"
+      ],
+      "better_than_A": "same"
+    }
+  ],
+  "unmeasurable": [],
+  "notes": [
+    "pdshape user: B 렌더가 A 와 **바이트 동일** (고정 길이 64/85px 가 꼭짓점→관절 거리보다 짧아 클램프가 안 걸린다) — 눈 호출은 그대로 하되 이 면에서 B 는 A 의 재측정이다.",
+    "pdshape ref: B 렌더가 A 와 **바이트 동일** (고정 길이 64/85px 가 꼭짓점→관절 거리보다 짧아 클램프가 안 걸린다) — 눈 호출은 그대로 하되 이 면에서 B 는 A 의 재측정이다.",
+    "climb user: B 렌더가 A 와 **바이트 동일** (고정 길이 64/85px 가 꼭짓점→관절 거리보다 짧아 클램프가 안 걸린다) — 눈 호출은 그대로 하되 이 면에서 B 는 A 의 재측정이다.",
+    "climb ref: B 렌더가 A 와 **바이트 동일** (고정 길이 64/85px 가 꼭짓점→관절 거리보다 짧아 클램프가 안 걸린다) — 눈 호출은 그대로 하되 이 면에서 B 는 A 의 재측정이다.",
+    "powerspin user: B 렌더가 A 와 **바이트 동일** (고정 길이 64/85px 가 꼭짓점→관절 거리보다 짧아 클램프가 안 걸린다) — 눈 호출은 그대로 하되 이 면에서 B 는 A 의 재측정이다.",
+    "powerspin ref: B 렌더가 A 와 **바이트 동일** (고정 길이 64/85px 가 꼭짓점→관절 거리보다 짧아 클램프가 안 걸린다) — 눈 호출은 그대로 하되 이 면에서 B 는 A 의 재측정이다.",
+    "peterpan user: B 렌더가 A 와 **바이트 동일** (고정 길이 64/85px 가 꼭짓점→관절 거리보다 짧아 클램프가 안 걸린다) — 눈 호출은 그대로 하되 이 면에서 B 는 A 의 재측정이다.",
+    "peterpan ref: B 렌더가 A 와 **바이트 동일** (고정 길이 64/85px 가 꼭짓점→관절 거리보다 짧아 클램프가 안 걸린다) — 눈 호출은 그대로 하되 이 면에서 B 는 A 의 재측정이다.",
+    "[계기 한계] `eye_part_token` 의 질문(_CLAIM_QUESTION['part'])은 \"사진 **정중앙**에 가장 크게 보이는 부위\"다. 이 문법은 꼭짓점을 패널 정중앙에 두므로 이 계기가 재는 것은 **꼭짓점이 어느 부위에 앉았는가**이고, belle 지적의 핵심인 \"선 끝이 다리에 닿는다\"는 **못 잰다** — 그건 M1 의 nearest_joint / leg_intrusion_px 몫이다. 새 어휘를 만들지 말라는 지시를 따랐고, 그래서 이 한계가 남는다.",
+    "[5회 규율] rounds=5 로 불렀다. `eye_part_token` 은 어느 토큰이 3표에 이르면 조기 종료한다(남은 표가 못 뒤집으므로 5회 최빈과 결과 동일) — 각 면의 tokens 길이가 실제 호출 수다.",
+    "[눈 재현율] A/B 렌더는 8면 전부 바이트 동일인데 최빈 토큰이 갈린 면 = 1/8 [('powerspin', 'user')]. 같은 그림에 같은 질문을 던진 결과라 이 수가 곧 이 계기의 노이즈 바닥이다.",
+    "[배달 재현] stage-1 카드(pdshape·powerspin)는 배달된 크롭 상자와 0~1 원본px 일치 — 내 A 는 belle 이 본 그 사진과 같은 크롭이다. 멈춤 상속 카드(climb·peterpan)는 라이브가 꼭짓점을 display_anchor(align 17-kp, 어디에도 저장 안 됨)로 갈아끼워 상자가 다르다. 배달 중심이 어느 후보에 가까운가 = {'pdshape/user': 'A(겨드랑이)', 'pdshape/ref': 'A(겨드랑이)', 'climb/user': '제3의 좌표(A·C 어느 쪽도 아님)', 'climb/ref': '제3의 좌표(A·C 어느 쪽도 아님)', 'powerspin/user': 'A(겨드랑이)', 'powerspin/ref': 'A(겨드랑이)', 'peterpan/user': 'C(어깨 관절)', 'peterpan/ref': 'C(어깨 관절)'}. peterpan 2면은 배달 중심이 **C(어깨 관절)** 에 3.5~5.2 패널px 로 붙는다 — 그 카드는 라이브에서 이미 C 문법으로 그려져 있었다는 뜻이다. climb 2면은 A(43.5·47.8)에도 C(46.8·37.8)에도 안 붙는 제3의 중심이다. 네 면 다 여기 A 렌더는 반사실이다.",
+    "[반사실 1면] powerspin user 는 라이브에서 앵커 게이트가 표시를 억제했다(userMarked=False, 배달 패널 브랜드 픽셀 0). 여기 렌더는 \"억제가 없었다면\" 의 그림이다 — 문법 비교에는 필요하지만 배달된 사진은 아니다."
+  ]
+}

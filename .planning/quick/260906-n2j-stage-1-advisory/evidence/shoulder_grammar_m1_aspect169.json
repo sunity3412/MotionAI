@@ -1,0 +1,1586 @@
+{
+  "generated": "2026-09-06",
+  "aspect": "16:9(counterfactual)",
+  "preregistration": "SHOULDER-GRAMMAR-PREREGISTRATION.md (2906b272)",
+  "uid": "NdVZrpbmUbPMNMjASFwUgy8Fj9p1",
+  "user_frame_wh": [
+    3840,
+    2160
+  ],
+  "ref_frame_wh": {
+    "ref-pdshape": [
+      1920,
+      1080
+    ],
+    "ref-climb": [
+      3840,
+      2160
+    ],
+    "ref-power-spin": [
+      1920,
+      1080
+    ],
+    "ref-kip-up": [
+      1920,
+      1080
+    ],
+    "ref-peter-pan": [
+      1920,
+      1080
+    ],
+    "ref-elbow-twist-sister": [
+      1920,
+      1080
+    ]
+  },
+  "circle_r_px": 57,
+  "cards": [
+    {
+      "card": "pdshape#2",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "userFrameIdx": 178,
+      "refFrameIdx": 196,
+      "userMarked": true,
+      "refMarked": true,
+      "crop_frac_recomputed_A": 0.4,
+      "crop_frac_live_log": 0.55,
+      "crop_frac_match": false,
+      "crop_frac_recomputed_C": 0.4,
+      "sides": {
+        "user": {
+          "A": {
+            "variant": "A",
+            "crop_frac": 0.4,
+            "crop_side_px": 864,
+            "vertex_norm": [
+              0.37888,
+              0.57429
+            ],
+            "vertex_panel_px": [
+              180.0,
+              180.2
+            ],
+            "dist_vertex_to_hip_px": 106.63,
+            "dist_vertex_to_elbow_px": 71.45,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              230.8,
+              112.0
+            ],
+            "beyond_hip": 0.797,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 21.63,
+            "leg_intrusion_px": 84.8,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 7.45,
+            "aux_limb_leg_intrusion_px": 213.02,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": -53.3,
+            "limb_dir_deg": 91.28
+          },
+          "B": {
+            "variant": "B",
+            "crop_frac": 0.4,
+            "crop_side_px": 864,
+            "vertex_norm": [
+              0.37888,
+              0.57429
+            ],
+            "vertex_panel_px": [
+              180.0,
+              180.2
+            ],
+            "dist_vertex_to_hip_px": 106.63,
+            "dist_vertex_to_elbow_px": 71.45,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              230.8,
+              112.0
+            ],
+            "beyond_hip": 0.797,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 21.63,
+            "leg_intrusion_px": 84.8,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 7.45,
+            "aux_limb_leg_intrusion_px": 213.02,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": -53.3,
+            "limb_dir_deg": 91.28
+          },
+          "C": {
+            "variant": "C",
+            "crop_frac": 0.4,
+            "crop_side_px": 864,
+            "vertex_norm": [
+              0.37185,
+              0.59106
+            ],
+            "vertex_panel_px": [
+              180.0,
+              179.9
+            ],
+            "dist_vertex_to_hip_px": 125.45,
+            "dist_vertex_to_elbow_px": 57.16,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              230.8,
+              111.7
+            ],
+            "beyond_hip": 0.678,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 40.45,
+            "leg_intrusion_px": 101.68,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 6.84,
+            "aux_limb_leg_intrusion_px": 227.18,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": -53.3,
+            "limb_dir_deg": 80.28
+          },
+          "D": {
+            "variant": "D",
+            "crop_frac": 0.4,
+            "crop_side_px": 864,
+            "vertex_norm": [
+              0.37888,
+              0.57429
+            ],
+            "vertex_panel_px": [
+              180.0,
+              180.2
+            ],
+            "dist_vertex_to_hip_px": 106.63,
+            "dist_vertex_to_elbow_px": 71.45,
+            "beyond_hip": null,
+            "nearest_joint": null,
+            "leg_intrusion_px": 107.42,
+            "leg_intrusion_joint": "left_knee",
+            "leg_intrusion_def": "d(circle_center, nearest knee/ankle) - r(57px)"
+          },
+          "_panel_check": {
+            "panel": "4e232c4a_02_angle_vs_reference__left_shoulder_user.jpg",
+            "drawn_dirs_deg": [
+              -77.5,
+              92.5
+            ],
+            "computed_A_dirs_deg": [
+              91.28,
+              -53.3
+            ]
+          }
+        },
+        "ref": {
+          "A": {
+            "variant": "A",
+            "crop_frac": 0.4,
+            "crop_side_px": 432,
+            "vertex_norm": [
+              0.37813,
+              0.55092
+            ],
+            "vertex_panel_px": [
+              180.0,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 144.15,
+            "dist_vertex_to_elbow_px": 68.39,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              246.0,
+              126.4
+            ],
+            "beyond_hip": 0.59,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 59.15,
+            "leg_intrusion_px": 128.28,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 4.39,
+            "aux_limb_leg_intrusion_px": 252.57,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": -39.05,
+            "limb_dir_deg": 90.99
+          },
+          "B": {
+            "variant": "B",
+            "crop_frac": 0.4,
+            "crop_side_px": 432,
+            "vertex_norm": [
+              0.37813,
+              0.55092
+            ],
+            "vertex_panel_px": [
+              180.0,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 144.15,
+            "dist_vertex_to_elbow_px": 68.39,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              246.0,
+              126.4
+            ],
+            "beyond_hip": 0.59,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 59.15,
+            "leg_intrusion_px": 128.28,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 4.39,
+            "aux_limb_leg_intrusion_px": 252.57,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": -39.05,
+            "limb_dir_deg": 90.99
+          },
+          "C": {
+            "variant": "C",
+            "crop_frac": 0.4,
+            "crop_side_px": 432,
+            "vertex_norm": [
+              0.36578,
+              0.56873
+            ],
+            "vertex_panel_px": [
+              180.2,
+              180.2
+            ],
+            "dist_vertex_to_hip_px": 169.59,
+            "dist_vertex_to_elbow_px": 55.55,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              246.3,
+              126.6
+            ],
+            "beyond_hip": 0.501,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 84.59,
+            "leg_intrusion_px": 152.67,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 8.45,
+            "aux_limb_leg_intrusion_px": 264.58,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": -39.05,
+            "limb_dir_deg": 70.47
+          },
+          "D": {
+            "variant": "D",
+            "crop_frac": 0.4,
+            "crop_side_px": 432,
+            "vertex_norm": [
+              0.37813,
+              0.55092
+            ],
+            "vertex_panel_px": [
+              180.0,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 144.15,
+            "dist_vertex_to_elbow_px": 68.39,
+            "beyond_hip": null,
+            "nearest_joint": null,
+            "leg_intrusion_px": 153.74,
+            "leg_intrusion_joint": "left_knee",
+            "leg_intrusion_def": "d(circle_center, nearest knee/ankle) - r(57px)"
+          },
+          "_panel_check": {
+            "panel": "4e232c4a_02_angle_vs_reference__left_shoulder_ref.jpg",
+            "drawn_dirs_deg": [
+              -67.5,
+              92.5
+            ],
+            "computed_A_dirs_deg": [
+              90.99,
+              -39.05
+            ]
+          }
+        }
+      }
+    },
+    {
+      "card": "pdshape#4",
+      "criterion": null,
+      "joint": "left_shoulder",
+      "tier": "advisory",
+      "skipped": "no_criterion"
+    },
+    {
+      "card": "climb#2",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "userFrameIdx": 106,
+      "refFrameIdx": 92,
+      "userMarked": true,
+      "refMarked": true,
+      "crop_frac_recomputed_A": 0.512,
+      "crop_frac_live_log": 0.4,
+      "crop_frac_match": false,
+      "crop_frac_recomputed_C": 0.512,
+      "sides": {
+        "user": {
+          "A": {
+            "variant": "A",
+            "crop_frac": 0.512,
+            "crop_side_px": 1106,
+            "vertex_norm": [
+              0.3588,
+              0.51742
+            ],
+            "vertex_panel_px": [
+              179.9,
+              179.9
+            ],
+            "dist_vertex_to_hip_px": 61.54,
+            "dist_vertex_to_elbow_px": 141.56,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              213.9,
+              257.8
+            ],
+            "beyond_hip": 1.381,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 23.46,
+            "leg_intrusion_px": 142.57,
+            "leg_intrusion_joint": "right_ankle",
+            "aux_limb_end_nearest_joint": "right_hip",
+            "aux_limb_end_nearest_dist_px": 23.63,
+            "aux_limb_leg_intrusion_px": 113.15,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 66.45,
+            "limb_dir_deg": 7.57
+          },
+          "B": {
+            "variant": "B",
+            "crop_frac": 0.512,
+            "crop_side_px": 1106,
+            "vertex_norm": [
+              0.3588,
+              0.51742
+            ],
+            "vertex_panel_px": [
+              179.9,
+              179.9
+            ],
+            "dist_vertex_to_hip_px": 61.54,
+            "dist_vertex_to_elbow_px": 141.56,
+            "torso_line_len_px": 61.54,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              204.5,
+              236.3
+            ],
+            "beyond_hip": 1.0,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 0.0,
+            "leg_intrusion_px": 153.97,
+            "leg_intrusion_joint": "right_ankle",
+            "aux_limb_end_nearest_joint": "right_hip",
+            "aux_limb_end_nearest_dist_px": 23.63,
+            "aux_limb_leg_intrusion_px": 113.15,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 66.45,
+            "limb_dir_deg": 7.57
+          },
+          "C": {
+            "variant": "C",
+            "crop_frac": 0.512,
+            "crop_side_px": 1106,
+            "vertex_norm": [
+              0.35532,
+              0.50326
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 72.4,
+            "dist_vertex_to_elbow_px": 147.47,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              214.1,
+              257.9
+            ],
+            "beyond_hip": 1.174,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 12.6,
+            "leg_intrusion_px": 147.5,
+            "leg_intrusion_joint": "right_ankle",
+            "aux_limb_end_nearest_joint": "right_hip",
+            "aux_limb_end_nearest_dist_px": 26.75,
+            "aux_limb_leg_intrusion_px": 118.06,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 66.45,
+            "limb_dir_deg": 11.19
+          },
+          "D": {
+            "variant": "D",
+            "crop_frac": 0.512,
+            "crop_side_px": 1106,
+            "vertex_norm": [
+              0.3588,
+              0.51742
+            ],
+            "vertex_panel_px": [
+              179.9,
+              179.9
+            ],
+            "dist_vertex_to_hip_px": 61.54,
+            "dist_vertex_to_elbow_px": 141.56,
+            "beyond_hip": null,
+            "nearest_joint": null,
+            "leg_intrusion_px": 119.53,
+            "leg_intrusion_joint": "right_knee",
+            "leg_intrusion_def": "d(circle_center, nearest knee/ankle) - r(57px)"
+          },
+          "_panel_check": {
+            "panel": "a559705f_02_angle_vs_reference__left_shoulder_user.jpg",
+            "drawn_dirs_deg": [
+              82.5,
+              22.5
+            ],
+            "computed_A_dirs_deg": [
+              7.57,
+              66.45
+            ]
+          }
+        },
+        "ref": {
+          "A": {
+            "variant": "A",
+            "crop_frac": 0.512,
+            "crop_side_px": 1106,
+            "vertex_norm": [
+              0.392,
+              0.52705
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.1
+            ],
+            "dist_vertex_to_hip_px": 104.53,
+            "dist_vertex_to_elbow_px": 90.09,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              106.4,
+              222.5
+            ],
+            "beyond_hip": 0.813,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 19.53,
+            "leg_intrusion_px": 160.82,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 26.09,
+            "aux_limb_leg_intrusion_px": 48.69,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 150.09,
+            "limb_dir_deg": 7.26
+          },
+          "B": {
+            "variant": "B",
+            "crop_frac": 0.512,
+            "crop_side_px": 1106,
+            "vertex_norm": [
+              0.392,
+              0.52705
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.1
+            ],
+            "dist_vertex_to_hip_px": 104.53,
+            "dist_vertex_to_elbow_px": 90.09,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              106.4,
+              222.5
+            ],
+            "beyond_hip": 0.813,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 19.53,
+            "leg_intrusion_px": 160.82,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 26.09,
+            "aux_limb_leg_intrusion_px": 48.69,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 150.09,
+            "limb_dir_deg": 7.26
+          },
+          "C": {
+            "variant": "C",
+            "crop_frac": 0.512,
+            "crop_side_px": 1106,
+            "vertex_norm": [
+              0.40479,
+              0.51396
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.1
+            ],
+            "dist_vertex_to_hip_px": 122.98,
+            "dist_vertex_to_elbow_px": 76.21,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              106.5,
+              222.4
+            ],
+            "beyond_hip": 0.691,
+            "nearest_joint": "right_hip",
+            "nearest_joint_dist_px": 16.19,
+            "leg_intrusion_px": 145.39,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 12.21,
+            "aux_limb_leg_intrusion_px": 38.56,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 150.09,
+            "limb_dir_deg": 15.67
+          },
+          "D": {
+            "variant": "D",
+            "crop_frac": 0.512,
+            "crop_side_px": 1106,
+            "vertex_norm": [
+              0.392,
+              0.52705
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.1
+            ],
+            "dist_vertex_to_hip_px": 104.53,
+            "dist_vertex_to_elbow_px": 90.09,
+            "beyond_hip": null,
+            "nearest_joint": null,
+            "leg_intrusion_px": 51.72,
+            "leg_intrusion_joint": "left_knee",
+            "leg_intrusion_def": "d(circle_center, nearest knee/ankle) - r(57px)"
+          },
+          "_panel_check": {
+            "panel": "a559705f_02_angle_vs_reference__left_shoulder_ref.jpg",
+            "drawn_dirs_deg": [
+              117.5,
+              22.5
+            ],
+            "computed_A_dirs_deg": [
+              7.26,
+              150.09
+            ]
+          }
+        }
+      }
+    },
+    {
+      "card": "powerspin#1",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "userFrameIdx": 108,
+      "refFrameIdx": 98,
+      "userMarked": false,
+      "refMarked": true,
+      "crop_frac_recomputed_A": 0.4,
+      "crop_frac_live_log": 0.4,
+      "crop_frac_match": true,
+      "crop_frac_recomputed_C": 0.4451,
+      "sides": {
+        "user": {
+          "A": {
+            "variant": "A",
+            "crop_frac": 0.4,
+            "crop_side_px": 864,
+            "vertex_norm": [
+              0.47772,
+              0.462
+            ],
+            "vertex_panel_px": [
+              180.2,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 165.84,
+            "dist_vertex_to_elbow_px": 78.6,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              264.9,
+              187.0
+            ],
+            "beyond_hip": 0.513,
+            "nearest_joint": "right_hip",
+            "nearest_joint_dist_px": 65.75,
+            "leg_intrusion_px": 194.8,
+            "leg_intrusion_joint": "right_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 14.6,
+            "aux_limb_leg_intrusion_px": 141.86,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 4.74,
+            "limb_dir_deg": -91.01
+          },
+          "B": {
+            "variant": "B",
+            "crop_frac": 0.4,
+            "crop_side_px": 864,
+            "vertex_norm": [
+              0.47772,
+              0.462
+            ],
+            "vertex_panel_px": [
+              180.2,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 165.84,
+            "dist_vertex_to_elbow_px": 78.6,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              264.9,
+              187.0
+            ],
+            "beyond_hip": 0.513,
+            "nearest_joint": "right_hip",
+            "nearest_joint_dist_px": 65.75,
+            "leg_intrusion_px": 194.8,
+            "leg_intrusion_joint": "right_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 14.6,
+            "aux_limb_leg_intrusion_px": 141.86,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 4.74,
+            "limb_dir_deg": -91.01
+          },
+          "C": {
+            "variant": "C",
+            "crop_frac": 0.4451,
+            "crop_side_px": 961,
+            "vertex_norm": [
+              0.45949,
+              0.45931
+            ],
+            "vertex_panel_px": [
+              180.0,
+              179.9
+            ],
+            "dist_vertex_to_hip_px": 175.42,
+            "dist_vertex_to_elbow_px": 72.89,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              264.7,
+              186.9
+            ],
+            "beyond_hip": 0.485,
+            "nearest_joint": "right_hip",
+            "nearest_joint_dist_px": 73.87,
+            "leg_intrusion_px": 158.66,
+            "leg_intrusion_joint": "right_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 8.89,
+            "aux_limb_leg_intrusion_px": 121.57,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 4.74,
+            "limb_dir_deg": -69.96
+          },
+          "D": {
+            "variant": "D",
+            "crop_frac": 0.4,
+            "crop_side_px": 864,
+            "vertex_norm": [
+              0.47772,
+              0.462
+            ],
+            "vertex_panel_px": [
+              180.2,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 165.84,
+            "dist_vertex_to_elbow_px": 78.6,
+            "beyond_hip": null,
+            "nearest_joint": null,
+            "leg_intrusion_px": 78.82,
+            "leg_intrusion_joint": "left_knee",
+            "leg_intrusion_def": "d(circle_center, nearest knee/ankle) - r(57px)"
+          },
+          "_panel_check": {
+            "panel": "5ae210fa_01_angle_vs_reference__left_shoulder_user.jpg",
+            "drawn_dirs_deg": null,
+            "computed_A_dirs_deg": [
+              -91.01,
+              4.74
+            ]
+          }
+        },
+        "ref": {
+          "A": {
+            "variant": "A",
+            "crop_frac": 0.4,
+            "crop_side_px": 432,
+            "vertex_norm": [
+              0.44161,
+              0.41573
+            ],
+            "vertex_panel_px": [
+              179.9,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 170.35,
+            "dist_vertex_to_elbow_px": 68.08,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              264.9,
+              182.7
+            ],
+            "beyond_hip": 0.499,
+            "nearest_joint": "left_elbow",
+            "nearest_joint_dist_px": 62.01,
+            "leg_intrusion_px": 108.59,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 4.08,
+            "aux_limb_leg_intrusion_px": 64.2,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 1.86,
+            "limb_dir_deg": -44.32
+          },
+          "B": {
+            "variant": "B",
+            "crop_frac": 0.4,
+            "crop_side_px": 432,
+            "vertex_norm": [
+              0.44161,
+              0.41573
+            ],
+            "vertex_panel_px": [
+              179.9,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 170.35,
+            "dist_vertex_to_elbow_px": 68.08,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              264.9,
+              182.7
+            ],
+            "beyond_hip": 0.499,
+            "nearest_joint": "left_elbow",
+            "nearest_joint_dist_px": 62.01,
+            "leg_intrusion_px": 108.59,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 4.08,
+            "aux_limb_leg_intrusion_px": 64.2,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 1.86,
+            "limb_dir_deg": -44.32
+          },
+          "C": {
+            "variant": "C",
+            "crop_frac": 0.4451,
+            "crop_side_px": 481,
+            "vertex_norm": [
+              0.42283,
+              0.41465
+            ],
+            "vertex_panel_px": [
+              180.2,
+              180.2
+            ],
+            "dist_vertex_to_hip_px": 180.0,
+            "dist_vertex_to_elbow_px": 82.18,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              265.2,
+              183.0
+            ],
+            "beyond_hip": 0.472,
+            "nearest_joint": "left_elbow",
+            "nearest_joint_dist_px": 46.81,
+            "leg_intrusion_px": 80.63,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "left_elbow",
+            "aux_limb_end_nearest_dist_px": 18.18,
+            "aux_limb_leg_intrusion_px": 44.99,
+            "aux_limb_leg_intrusion_joint": "left_knee",
+            "torso_dir_deg": 1.86,
+            "limb_dir_deg": -30.61
+          },
+          "D": {
+            "variant": "D",
+            "crop_frac": 0.4,
+            "crop_side_px": 432,
+            "vertex_norm": [
+              0.44161,
+              0.41573
+            ],
+            "vertex_panel_px": [
+              179.9,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 170.35,
+            "dist_vertex_to_elbow_px": 68.08,
+            "beyond_hip": null,
+            "nearest_joint": null,
+            "leg_intrusion_px": 2.53,
+            "leg_intrusion_joint": "left_knee",
+            "leg_intrusion_def": "d(circle_center, nearest knee/ankle) - r(57px)"
+          },
+          "_panel_check": {
+            "panel": "5ae210fa_01_angle_vs_reference__left_shoulder_ref.jpg",
+            "drawn_dirs_deg": [
+              -72.5,
+              7.5
+            ],
+            "computed_A_dirs_deg": [
+              -44.32,
+              1.86
+            ]
+          }
+        }
+      }
+    },
+    {
+      "card": "kipup#0",
+      "criterion": null,
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "skipped": "no_criterion"
+    },
+    {
+      "card": "peterpan#0",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "joint": "left_shoulder",
+      "tier": "confirmed",
+      "userFrameIdx": 96,
+      "refFrameIdx": 96,
+      "userMarked": true,
+      "refMarked": true,
+      "crop_frac_recomputed_A": 0.4392,
+      "crop_frac_live_log": 0.55,
+      "crop_frac_match": false,
+      "crop_frac_recomputed_C": 0.4392,
+      "sides": {
+        "user": {
+          "A": {
+            "variant": "A",
+            "crop_frac": 0.4392,
+            "crop_side_px": 949,
+            "vertex_norm": [
+              0.63169,
+              0.44102
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 107.93,
+            "dist_vertex_to_elbow_px": 137.11,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              232.3,
+              247.1
+            ],
+            "beyond_hip": 0.788,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 22.93,
+            "leg_intrusion_px": 94.0,
+            "leg_intrusion_joint": "right_ankle",
+            "aux_limb_end_nearest_joint": "right_shoulder",
+            "aux_limb_end_nearest_dist_px": 41.88,
+            "aux_limb_leg_intrusion_px": 177.95,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 52.07,
+            "limb_dir_deg": -145.95
+          },
+          "B": {
+            "variant": "B",
+            "crop_frac": 0.4392,
+            "crop_side_px": 949,
+            "vertex_norm": [
+              0.63169,
+              0.44102
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 107.93,
+            "dist_vertex_to_elbow_px": 137.11,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              232.3,
+              247.1
+            ],
+            "beyond_hip": 0.788,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 22.93,
+            "leg_intrusion_px": 94.0,
+            "leg_intrusion_joint": "right_ankle",
+            "aux_limb_end_nearest_joint": "right_shoulder",
+            "aux_limb_end_nearest_dist_px": 41.88,
+            "aux_limb_leg_intrusion_px": 177.95,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 52.07,
+            "limb_dir_deg": -145.95
+          },
+          "C": {
+            "variant": "C",
+            "crop_frac": 0.4392,
+            "crop_side_px": 949,
+            "vertex_norm": [
+              0.62366,
+              0.42268
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.2
+            ],
+            "dist_vertex_to_hip_px": 126.98,
+            "dist_vertex_to_elbow_px": 119.15,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              232.4,
+              247.2
+            ],
+            "beyond_hip": 0.669,
+            "nearest_joint": "right_hip",
+            "nearest_joint_dist_px": 35.13,
+            "leg_intrusion_px": 112.57,
+            "leg_intrusion_joint": "right_ankle",
+            "aux_limb_end_nearest_joint": "right_shoulder",
+            "aux_limb_end_nearest_dist_px": 54.2,
+            "aux_limb_leg_intrusion_px": 184.89,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 52.07,
+            "limb_dir_deg": -148.79
+          },
+          "D": {
+            "variant": "D",
+            "crop_frac": 0.4392,
+            "crop_side_px": 949,
+            "vertex_norm": [
+              0.63169,
+              0.44102
+            ],
+            "vertex_panel_px": [
+              180.1,
+              180.0
+            ],
+            "dist_vertex_to_hip_px": 107.93,
+            "dist_vertex_to_elbow_px": 137.11,
+            "beyond_hip": null,
+            "nearest_joint": null,
+            "leg_intrusion_px": 118.09,
+            "leg_intrusion_joint": "left_knee",
+            "leg_intrusion_def": "d(circle_center, nearest knee/ankle) - r(57px)"
+          },
+          "_panel_check": {
+            "panel": "21b1b7ed_00_angle_vs_reference__left_shoulder_user.jpg",
+            "drawn_dirs_deg": [
+              77.5,
+              -117.5
+            ],
+            "computed_A_dirs_deg": [
+              -145.95,
+              52.07
+            ]
+          }
+        },
+        "ref": {
+          "A": {
+            "variant": "A",
+            "crop_frac": 0.4392,
+            "crop_side_px": 474,
+            "vertex_norm": [
+              0.65603,
+              0.4001
+            ],
+            "vertex_panel_px": [
+              179.7,
+              180.1
+            ],
+            "dist_vertex_to_hip_px": 89.75,
+            "dist_vertex_to_elbow_px": 129.51,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              187.3,
+              264.7
+            ],
+            "beyond_hip": 0.947,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 4.75,
+            "leg_intrusion_px": 91.15,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "right_shoulder",
+            "aux_limb_end_nearest_dist_px": 31.99,
+            "aux_limb_leg_intrusion_px": 188.71,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 84.87,
+            "limb_dir_deg": -156.22
+          },
+          "B": {
+            "variant": "B",
+            "crop_frac": 0.4392,
+            "crop_side_px": 474,
+            "vertex_norm": [
+              0.65603,
+              0.4001
+            ],
+            "vertex_panel_px": [
+              179.7,
+              180.1
+            ],
+            "dist_vertex_to_hip_px": 89.75,
+            "dist_vertex_to_elbow_px": 129.51,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              187.3,
+              264.7
+            ],
+            "beyond_hip": 0.947,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 4.75,
+            "leg_intrusion_px": 91.15,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "right_shoulder",
+            "aux_limb_end_nearest_dist_px": 31.99,
+            "aux_limb_leg_intrusion_px": 188.71,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 84.87,
+            "limb_dir_deg": -156.22
+          },
+          "C": {
+            "variant": "C",
+            "crop_frac": 0.4392,
+            "crop_side_px": 474,
+            "vertex_norm": [
+              0.65506,
+              0.38087
+            ],
+            "vertex_panel_px": [
+              179.8,
+              180.3
+            ],
+            "dist_vertex_to_hip_px": 105.59,
+            "dist_vertex_to_elbow_px": 122.64,
+            "torso_line_len_px": 85.0,
+            "limb_line_len_px": 64.0,
+            "torso_end_px": [
+              187.4,
+              264.9
+            ],
+            "beyond_hip": 0.805,
+            "nearest_joint": "left_hip",
+            "nearest_joint_dist_px": 20.59,
+            "leg_intrusion_px": 105.72,
+            "leg_intrusion_joint": "left_knee",
+            "aux_limb_end_nearest_joint": "right_shoulder",
+            "aux_limb_end_nearest_dist_px": 38.01,
+            "aux_limb_leg_intrusion_px": 196.84,
+            "aux_limb_leg_intrusion_joint": "right_knee",
+            "torso_dir_deg": 84.87,
+            "limb_dir_deg": -162.71
+          },
+          "D": {
+            "variant": "D",
+            "crop_frac": 0.4392,
+            "crop_side_px": 474,
+            "vertex_norm": [
+              0.65603,
+              0.4001
+            ],
+            "vertex_panel_px": [
+              179.7,
+              180.1
+            ],
+            "dist_vertex_to_hip_px": 89.75,
+            "dist_vertex_to_elbow_px": 129.51,
+            "beyond_hip": null,
+            "nearest_joint": null,
+            "leg_intrusion_px": 114.98,
+            "leg_intrusion_joint": "left_knee",
+            "leg_intrusion_def": "d(circle_center, nearest knee/ankle) - r(57px)"
+          },
+          "_panel_check": {
+            "panel": "21b1b7ed_00_angle_vs_reference__left_shoulder_ref.jpg",
+            "drawn_dirs_deg": [
+              87.5,
+              -127.5
+            ],
+            "computed_A_dirs_deg": [
+              -156.22,
+              84.87
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "rows": [
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "A",
+      "beyond_hip": 0.797,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 84.8
+    },
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "B",
+      "beyond_hip": 0.797,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 84.8
+    },
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "C",
+      "beyond_hip": 0.678,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 101.68
+    },
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": 107.42
+    },
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "A",
+      "beyond_hip": 0.59,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 128.28
+    },
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "B",
+      "beyond_hip": 0.59,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 128.28
+    },
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "C",
+      "beyond_hip": 0.501,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 152.67
+    },
+    {
+      "card": "pdshape#2",
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": 153.74
+    },
+    {
+      "card": "pdshape#4",
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "A",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "pdshape#4",
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "B",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "pdshape#4",
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "C",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "pdshape#4",
+      "motion": "pdshape",
+      "side": "user",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "pdshape#4",
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "A",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "pdshape#4",
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "B",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "pdshape#4",
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "C",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "pdshape#4",
+      "motion": "pdshape",
+      "side": "ref",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "side": "user",
+      "variant": "A",
+      "beyond_hip": 1.381,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 142.57
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "side": "user",
+      "variant": "B",
+      "beyond_hip": 1.0,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 153.97
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "side": "user",
+      "variant": "C",
+      "beyond_hip": 1.174,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 147.5
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "side": "user",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": 119.53
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "side": "ref",
+      "variant": "A",
+      "beyond_hip": 0.813,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 160.82
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "side": "ref",
+      "variant": "B",
+      "beyond_hip": 0.813,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 160.82
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "side": "ref",
+      "variant": "C",
+      "beyond_hip": 0.691,
+      "nearest_joint": "right_hip",
+      "leg_intrusion_px": 145.39
+    },
+    {
+      "card": "climb#2",
+      "motion": "climb",
+      "side": "ref",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": 51.72
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "side": "user",
+      "variant": "A",
+      "beyond_hip": 0.513,
+      "nearest_joint": "right_hip",
+      "leg_intrusion_px": 194.8
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "side": "user",
+      "variant": "B",
+      "beyond_hip": 0.513,
+      "nearest_joint": "right_hip",
+      "leg_intrusion_px": 194.8
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "side": "user",
+      "variant": "C",
+      "beyond_hip": 0.485,
+      "nearest_joint": "right_hip",
+      "leg_intrusion_px": 158.66
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "side": "user",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": 78.82
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "side": "ref",
+      "variant": "A",
+      "beyond_hip": 0.499,
+      "nearest_joint": "left_elbow",
+      "leg_intrusion_px": 108.59
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "side": "ref",
+      "variant": "B",
+      "beyond_hip": 0.499,
+      "nearest_joint": "left_elbow",
+      "leg_intrusion_px": 108.59
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "side": "ref",
+      "variant": "C",
+      "beyond_hip": 0.472,
+      "nearest_joint": "left_elbow",
+      "leg_intrusion_px": 80.63
+    },
+    {
+      "card": "powerspin#1",
+      "motion": "powerspin",
+      "side": "ref",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": 2.53
+    },
+    {
+      "card": "kipup#0",
+      "motion": "kipup",
+      "side": "user",
+      "variant": "A",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "kipup#0",
+      "motion": "kipup",
+      "side": "user",
+      "variant": "B",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "kipup#0",
+      "motion": "kipup",
+      "side": "user",
+      "variant": "C",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "kipup#0",
+      "motion": "kipup",
+      "side": "user",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "kipup#0",
+      "motion": "kipup",
+      "side": "ref",
+      "variant": "A",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "kipup#0",
+      "motion": "kipup",
+      "side": "ref",
+      "variant": "B",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "kipup#0",
+      "motion": "kipup",
+      "side": "ref",
+      "variant": "C",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "kipup#0",
+      "motion": "kipup",
+      "side": "ref",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": null
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "side": "user",
+      "variant": "A",
+      "beyond_hip": 0.788,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 94.0
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "side": "user",
+      "variant": "B",
+      "beyond_hip": 0.788,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 94.0
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "side": "user",
+      "variant": "C",
+      "beyond_hip": 0.669,
+      "nearest_joint": "right_hip",
+      "leg_intrusion_px": 112.57
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "side": "user",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": 118.09
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "side": "ref",
+      "variant": "A",
+      "beyond_hip": 0.947,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 91.15
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "side": "ref",
+      "variant": "B",
+      "beyond_hip": 0.947,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 91.15
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "side": "ref",
+      "variant": "C",
+      "beyond_hip": 0.805,
+      "nearest_joint": "left_hip",
+      "leg_intrusion_px": 105.72
+    },
+    {
+      "card": "peterpan#0",
+      "motion": "peterpan",
+      "side": "ref",
+      "variant": "D",
+      "beyond_hip": null,
+      "nearest_joint": null,
+      "leg_intrusion_px": 114.98
+    }
+  ],
+  "unmeasurable": [
+    "pdshape#4 user (joint=left_shoulder, tier=advisory): criterion 없는 카드 — 각도 문법 미적용(원 마커만), 라이브 로그 angle_bake=omitted:no_criterion. 4안 전부 동일 그림.",
+    "pdshape#4 ref (joint=left_shoulder, tier=advisory): criterion 없는 카드 — 각도 문법 미적용(원 마커만), 라이브 로그 angle_bake=omitted:no_criterion. 4안 전부 동일 그림.",
+    "kipup#0 user (joint=left_shoulder, tier=confirmed): criterion 없는 카드 — 각도 문법 미적용(원 마커만), 라이브 로그 angle_bake=omitted:no_criterion. 4안 전부 동일 그림.",
+    "kipup#0 ref (joint=left_shoulder, tier=confirmed): criterion 없는 카드 — 각도 문법 미적용(원 마커만), 라이브 로그 angle_bake=omitted:no_criterion. 4안 전부 동일 그림."
+  ]
+}

@@ -205,11 +205,14 @@ def test_shift_log_format_is_locked_for_postmortem_grep() -> None:
 
 
 def test_moved_side_drops_freeze_moment_payload() -> None:
-    """옮긴 카드는 display_anchor=None + 옮긴 측 align_bake={} — 좌표와 프레임이 같은 순간을 가리킨다."""
+    """옮긴 카드는 display_anchor=None + 옮긴 측 align_bake={} — 좌표와 프레임이 같은 순간을 가리킨다.
+
+    슬라이스 끝 = `r9 = r9_new`(f4j 블록 끝) — 그 뒤의 quick-260906-j8g 앵커 확인 블록은
+    suppress 를 쓴다(표시 생략은 그쪽 처분). 이 단언은 f4j 이동 블록 자체의 무접촉만 본다.
+    """
     body = _gated_body()
-    shift = body[body.index("_fz.nearest_usable_frame("):body.index(
-        "comps = _fz.build_fault_zoom_comparisons("
-    )]
+    shift = body[body.index("_fz.nearest_usable_frame("):body.index("r9 = r9_new")
+                 + len("r9 = r9_new")]
     assert "display_anchor = None" in shift
     assert 'align_bake["user"] = {}' in shift
     assert 'align_bake["ref"] = {}' in shift

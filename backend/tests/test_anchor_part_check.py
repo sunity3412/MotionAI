@@ -329,3 +329,87 @@ def test_outcome_cannot_drop_a_card() -> None:
     assert set(cg.AnchorCheckOutcome.__dataclass_fields__) == {
         "action", "frame_idx", "trail", "eye_calls",
     }
+
+
+# ── 배선 source 단언 — app.py 는 env 의존이라 import 금지, 텍스트로 읽는다 ──────
+# (선례 test_gated_frame_skips_collapse.py — 같은 _gated_body 절단)
+
+_APP = Path(__file__).resolve().parents[1] / "functions" / "pipeline" / "app.py"
+_BUILD = "comps = _fz.build_fault_zoom_comparisons("
+_F4J_END = "r9 = r9_new"
+
+
+def _app_src() -> str:
+    return _APP.read_text(encoding="utf-8")
+
+
+def _gated_body() -> str:
+    """`def _run_gated_card_inherit(` 부터 다음 컬럼0 `def ` 직전까지."""
+    src = _app_src()
+    start = src.index("def _run_gated_card_inherit(")
+    end = src.index("\ndef ", start + 1)
+    return src[start:end]
+
+
+def _anchor_block() -> str:
+    """f4j 블록 끝(`r9 = r9_new`) 부터 build_fault_zoom_comparisons 호출 직전까지 = 앵커 확인 블록."""
+    body = _gated_body()
+    return body[body.index(_F4J_END):body.index(_BUILD)]
+
+
+def test_wiring_calls_pure_layer_once_each_and_verify_twice() -> None:
+    """본확인 + 교차 재확인 = verify_anchor_side 2곳, 나머지 부품은 각 1곳 — 판정은 순수 층에만."""
+    body = _gated_body()
+    assert body.count("cg.verify_anchor_side(") == 2
+    assert body.count("cg.anchor_retry_frames(") == 1
+    assert body.count("cg.part_crop(") == 1
+    assert body.count("cg.eye_part_token(") == 1
+    assert body.count("cpa.expected_parts(") == 1
+
+
+def test_wiring_sits_between_f4j_move_and_card_build() -> None:
+    """f4j 이동 직후·카드 합성 직전 — 옮긴 u9/r9 가 확인을 거쳐 그대로 override 로 간다."""
+    body = _gated_body()
+    assert (body.index(_F4J_END) < body.index("cg.verify_anchor_side(")
+            < body.index(_BUILD))
+    assert "user_frame_idx=u9" in body and "ref_frame_idx=r9" in body
+    assert "suppress_marks=frozenset(suppress)" in body   # 호출 형태 불변 — 새 방출 필드 0
+
+
+def test_wiring_block_can_only_suppress_or_move_never_drop_a_unit() -> None:
+    """사진 장수 불변 — 이 블록은 unit 을 버릴 수 없다(흐름 제어·목록 조작 0), 표시 생략은 기존 suppress 경로."""
+    block = _anchor_block()
+    assert "suppress.add(" in block
+    assert "display_anchor = None" in block
+    assert "continue" not in block
+    assert "gated_raw" not in block
+    assert "units.remove" not in block
+
+
+def test_existing_eye_check_and_machine_eye_untouched() -> None:
+    """_eye_check(학생만·bent/extended)는 별개 게이트 — part/anchor 어휘 0, machine_eye 호출 1 그대로."""
+    body = _gated_body()
+    eye = body[body.index("def _eye_check("):body.index("def _pair_at(")]
+    assert "part" not in eye and "anchor" not in eye and "part_crop" not in eye
+    assert body.count("cg.machine_eye(") == 1
+
+
+def test_stage1_and_advisory_call_sites_untouched() -> None:
+    """범위 가드 — app.py 전체 비주석 verify_anchor_side( 가 정확히 2 이고 둘 다 gated 본문 안."""
+    src = _app_src()
+    n = sum(line.count("verify_anchor_side(")
+            for line in src.splitlines() if not line.lstrip().startswith("#"))
+    assert n == 2, f"gated 경로 밖으로 새면 안 된다(stage-1·advisory 는 다음 단위): {n}"
+    assert _gated_body().count("verify_anchor_side(") == 2
+
+
+def test_log_formats_locked_for_postmortem_grep() -> None:
+    """다음 Pod 때 이 문자열로 호출 수·통과/이동/생략을 회수한다 — 형식 lockstep."""
+    src = _app_src()
+    assert ("fault_zoom_anchor_check analysis_id=%s rid=%s side=%s joint=%s "
+            "expected=%s action=%s frame=%d->%d trail=%s eye_calls=%d") in src
+    assert ("fault_zoom_anchor_check_summary analysis_id=%s cards=%d sides=%d "
+            "eye_calls=%d") in src
+    # 부착 완료 로그 문자열 불변 (09-03 이후 사후 grep 재료)
+    assert ("card_gates 대체 부착 완료 analysis_id=%s expected_units=%d emitted=%d"
+            in src)

@@ -4894,6 +4894,7 @@ def _run_gated_card_inherit(
         from PIL import Image
 
         from sunity_shared.analysis import card_gates as cg
+        from sunity_shared.analysis import card_photo_audit as cpa
         from sunity_shared.analysis import compare_render as _cr
         from sunity_shared.analysis import fault_zoom as _fz
         from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
@@ -4968,6 +4969,16 @@ def _run_gated_card_inherit(
         eye_calls = 0
         # 눈 호출은 freeze 방출 판정에만 쓰인다 (탐색 없음) — 상한은 구조가
         # 보장: freeze 건수(≤5/분석) × user 측 1회 + 캐시 (T-ufb-03).
+        # quick-260906-j8g — 앵커 부위 확인 집계(문서당 요약 로그 재료) + 캐시.
+        # 캐시 키 = (측, 9fps 프레임, 관절 라벨, round(x,4), round(y,4)) — 같은
+        # 프레임·관절이라도 좌표 출처(display_anchor=align vs rep12)가 다르면 다른
+        # 질문이라 좌표를 키에 넣는다. 상한은 card_gates 순수 함수가 소유
+        # (MAX_RETRY 2 · ROUNDS 3 · 조기 종료) — 여기는 합산만.
+        anchor_stats = {
+            "sides": 0, "eye_calls": 0, "pass": 0, "moved": 0,
+            "suppressed": 0, "unbound": 0, "recheck": 0,
+        }
+        _anchor_cache: dict[tuple, str] = {}
 
         def _frame_at(side: str, sec: float):
             n = _fcount.get(side) or 0
@@ -5383,6 +5394,194 @@ def _run_gated_card_inherit(
                     u9 = u9_new
                 if r_why == "moved":
                     r9 = r9_new
+                # quick-260906-j8g — 앵커 부위 확인 (양측). 사진은 남기고 표시만 정한다 (belle 09-03 규칙 1).
+                # 09-06 실측(09-03 라이브 6문서 36패널, 관절 좌표에 짧은 변 18% 무마킹
+                # 크롭 → 기계 눈 3회 최빈): 좌표 OK 15 / 틀림 14 / 못 읽음 7. 신뢰도
+                # (conf 0.872 판독불가·0.749 무릎 자리에 손)도 붕괴 검사(f4j 가 붕괴
+                # 14→4 로 줄였는데 감점 카드 눈 불일치 4→4)도 이것을 못 거른다 — 옮긴
+                # 프레임의 좌표도 틀리기 때문. 카드 크롭(≈0.42)은 몸 절반이 들어와
+                # 틀린 좌표를 가린다. 그래서 내보내기 전에 본다.
+                # 기존 _eye_check 는 학생만·claim bent/extended 라 이 결함을 못 잡는다
+                # — 별개 확인이고 그 게이트는 무접촉. 판정·상한·상태기계는 전부
+                # card_gates/card_photo_audit 순수 함수 소유 — 여기는 좌표·프레임·눈을
+                # 잇고 처분(이동 / suppress)만 한다. 이 블록은 unit 을 버릴 수 없다:
+                # 실패 측은 suppress(표시 생략)뿐, 사진 장수·어느 멈춤인지 불변.
+                _is_angle = crit.startswith(_fz.ANGLE_VS_REFERENCE_PREFIX)
+                _check_joint = (
+                    cg.crit_joint(crit.split("__")[-1]) if _is_angle else crit
+                )   # 로그·캐시·원장 라벨 — 좌우 이름은 눈 질문에 가지 않는다
+                _expected = cpa.expected_parts(
+                    crit, _members[0] if len(_members) == 1 else None
+                )
+                _frames9 = {"user": user_frames, "ref": ref_frames}
+                _reps = {"user": user_report or {}, "ref": ref_report or {}}
+                _moved = {"user": False, "ref": False}
+                _used_da = {"user": False, "ref": False}
+                _mid = (
+                    profile.motion_id
+                    if isinstance(getattr(profile, "motion_id", None), str)
+                    else None
+                )
+                _rid = str(rec.get("recordId") or "").split(":")[0]
+
+                def _rep_idx(side: str, idx9: int) -> int:
+                    _rp = _reps[side]
+                    return _fz._to_rep_idx(  # noqa: SLF001 - align_bake 블록의 _fz._kp_conf 선례
+                        int(idx9), 9.0, float(_rp.get("fps") or 9.0),
+                        int(_rp.get("frames") or 0),
+                    )
+
+                def _video_idx(side: str, idx9: int) -> int:
+                    # fault_zoom 이 실제로 자르는 프레임과 같은 인덱스 — 학생은 클램프,
+                    # 기준은 rep9 → 비디오 배열 타임베이스 매핑.
+                    _n = int(_frames9[side].shape[0])
+                    if side == "user":
+                        return max(0, min(int(idx9), _n - 1))
+                    _rp = _reps["ref"]
+                    return _fz.ref_display_frame_index(
+                        int(idx9), _n, int(_rp.get("frames") or 0),
+                        float(_rp.get("fps") or 9.0), 9.0,
+                    )
+
+                def _xy_for_check(side: str, idx9: int):
+                    # 그릴 좌표의 우선순위 = fault_zoom build_fault_zoom_comparisons 미러:
+                    # ① display_anchor(align 좌표, 안 옮긴 측만) ② 단일 관절 각도
+                    # criterion 의 꼭짓점(rep12, criterion_vertex_xy) ③ 멤버 valid
+                    # (rep12 → 비면 align_bake seam 2 주입)의 _anchor_xy ④ None —
+                    # 좌표가 없으면 fault_zoom 도 relaxed/전신(표시 0)이라 검사할
+                    # 표시가 없다 = 비구속.
+                    if not _moved[side] and display_anchor is not None:
+                        _used_da[side] = True
+                        return display_anchor[side]
+                    _rp = _reps[side]
+                    _ri = _rep_idx(side, idx9)
+                    if _is_angle and len(_members) == 1:
+                        _resolver = (
+                            _fz._gated_kp if side == "user"  # noqa: SLF001
+                            else _fz.make_reference_anchor_resolver(_mid, crit)
+                        )
+                        _xy = _fz.criterion_vertex_xy(
+                            crit, _members, _rp, _ri, deficits, _resolver
+                        )
+                        if _xy is not None:
+                            return _xy
+                    _valid = _fz._member_pts(_rp, _ri, _members)[0]  # noqa: SLF001
+                    if not _valid and not _moved[side]:
+                        _valid = [
+                            (m, xy) for m, xy in align_bake[side].items()
+                            if m in _members
+                        ]
+                    if _valid:
+                        return _fz._anchor_xy(_valid, deficits)  # noqa: SLF001
+                    return None
+
+                def _ask_part(side: str, idx9: int):
+                    """(측, 9fps 프레임) → {"observed", "calls"} | None(판정 불가)."""
+                    nonlocal eye_calls
+                    _xy = _xy_for_check(side, idx9)
+                    if _xy is None:
+                        return None
+                    _key = (
+                        side, int(idx9), _check_joint,
+                        round(float(_xy[0]), 4), round(float(_xy[1]), 4),
+                    )
+                    _hit = _anchor_cache.get(_key)
+                    if _hit is not None:
+                        return {"observed": _hit, "calls": 0}
+                    if not api_key:
+                        return None   # 기존 no_api_key 비차단 관례 — 비구속
+                    # 카드와 **같은 픽셀 원천**(원본 우선, 축소본 폴백) — 측정 스크립트는
+                    # 리포 밖(scratchpad)이라 그 원천이 미기록, 카드 기준으로 정한다.
+                    _frame = _fz.native_or_downscaled(
+                        native_at, side, _video_idx(side, idx9), _frames9[side]
+                    )
+                    _H, _W = _frame.shape[:2]
+                    _crop = cg.part_crop(
+                        _frame, (float(_xy[0]) * _W, float(_xy[1]) * _H)
+                    )
+                    _res = cg.eye_part_token(_crop, api_key=api_key)
+                    eye_calls += int(_res["calls"])
+                    anchor_stats["eye_calls"] += int(_res["calls"])
+                    _anchor_cache[_key] = str(_res["observed"])
+                    try:
+                        # 원장 additive (기존 업로드 블록은 side/joint/png 키만 요구)
+                        _buf = io.BytesIO()
+                        _crop.save(_buf, format="PNG")
+                        eye_ledger.append({
+                            "side": side, "joint": _check_joint,
+                            "frameIdx": int(idx9), "frameSpace": "video9",
+                            "sec": round(int(idx9) / float(eff.get(side) or 9.0), 3),
+                            "claim": "part", "observed": str(_res["observed"]),
+                            "expected": sorted(_expected), "rounds": int(_res["calls"]),
+                            "reason": str(_res.get("reason") or ""),
+                            "png": _buf.getvalue(),
+                        })
+                    except Exception:  # noqa: BLE001 - 원장은 관측 부산물, 실패 비차단
+                        pass
+                    return {"observed": str(_res["observed"]), "calls": int(_res["calls"])}
+
+                for _side in ("user", "ref"):
+                    # 이미 suppress 된 측(눈 불일치·align conf 미달)은 표시가 없다 —
+                    # 검사할 표시가 없으니 호출 0. `if` 블록으로 감싼다(unit 을 버리는
+                    # 흐름 제어 없음 — source 단언이 이를 고정).
+                    if _side not in suppress:
+                        _idx9 = u9 if _side == "user" else r9
+                        _retry = cg.anchor_retry_frames(
+                            _reps[_side], _idx9, _members,
+                            n_frames=int(_frames9[_side].shape[0]),
+                        )
+                        _out = cg.verify_anchor_side(
+                            anchor_idx=_idx9, expected=_expected, retry_frames=_retry,
+                            # 루프 변수는 기본 인자로 고정 (functools 미import)
+                            ask=(lambda i, s=_side: _ask_part(s, i)),
+                        )
+                        anchor_stats["sides"] += 1
+                        anchor_stats[_out.action] += 1
+                        if _out.action == "moved":
+                            # f4j 와 같은 이유 — display_anchor 는 freeze 순간(align)의
+                            # 좌표라 옮긴 프레임의 것이 아니다. both-or-neither 라 None,
+                            # 옮긴 측 align_bake 는 비운다(옮긴 프레임은 rep12 valid 보장).
+                            if _side == "user":
+                                u9 = _out.frame_idx
+                            else:
+                                r9 = _out.frame_idx
+                            _moved[_side] = True
+                            display_anchor = None
+                            align_bake[_side] = {}
+                        elif _out.action == "suppressed":
+                            # 기존 suppress_marks 경로 — 그 측 원·선·호·화살표 생략,
+                            # userMarked/refMarked=False 가 사실을 말한다. 새 필드 0.
+                            suppress.add(_side)
+                        log.info(
+                            "fault_zoom_anchor_check analysis_id=%s rid=%s side=%s joint=%s expected=%s action=%s frame=%d->%d trail=%s eye_calls=%d",
+                            analysis_id, _rid, _side, _check_joint,
+                            "|".join(sorted(_expected)) or "-", _out.action,
+                            _idx9, _out.frame_idx,
+                            ",".join(f"{f}:{o}/{v}" for f, o, v in _out.trail) or "-",
+                            _out.eye_calls,
+                        )
+                # 교차 재확인(1회, 재확인 프레임 0): 그 측은 display_anchor(align) 좌표로
+                # 통과했는데 다른 측 이동으로 display_anchor 가 떨어져 이제 rep12 좌표로
+                # 그려진다 — 검사한 좌표와 그릴 좌표가 다르므로 그릴 좌표를 한 번 더 본다.
+                for _side in ("user", "ref"):
+                    if (_used_da[_side] and display_anchor is None
+                            and not _moved[_side] and _side not in suppress):
+                        _idx9 = u9 if _side == "user" else r9
+                        _out2 = cg.verify_anchor_side(
+                            anchor_idx=_idx9, expected=_expected, retry_frames=[],
+                            ask=(lambda i, s=_side: _ask_part(s, i)),
+                        )
+                        anchor_stats["recheck"] += 1
+                        if _out2.action == "suppressed":
+                            suppress.add(_side)
+                        log.info(
+                            "fault_zoom_anchor_check analysis_id=%s rid=%s side=%s joint=%s expected=%s action=%s frame=%d->%d trail=%s eye_calls=%d",
+                            analysis_id, _rid, _side, _check_joint,
+                            "|".join(sorted(_expected)) or "-",
+                            f"recheck:{_out2.action}", _idx9, _out2.frame_idx,
+                            ",".join(f"{f}:{o}/{v}" for f, o, v in _out2.trail) or "-",
+                            _out2.eye_calls,
+                        )
                 comps = _fz.build_fault_zoom_comparisons(
                     user_frames, ref_frames, user_report, ref_report, None,
                     list(cu.get("joints") or ()), deficits,
@@ -5470,6 +5669,15 @@ def _run_gated_card_inherit(
             max_units=max(4, len(records)),
         ))
         emitted_n = len(items) + len(stage1_keep)
+        # quick-260906-j8g — 문서당 앵커 확인 요약 (다음 Pod 때 이 문자열로 호출 수·
+        # 통과/이동/생략을 회수한다). 부착 완료 로그 문자열은 무변경(사후 grep 재료).
+        log.info(
+            "fault_zoom_anchor_check_summary analysis_id=%s cards=%d sides=%d eye_calls=%d pass=%d moved=%d suppressed=%d unbound=%d recheck=%d",
+            analysis_id, len(gated_raw), anchor_stats["sides"],
+            anchor_stats["eye_calls"], anchor_stats["pass"], anchor_stats["moved"],
+            anchor_stats["suppressed"], anchor_stats["unbound"],
+            anchor_stats["recheck"],
+        )
         log.info(
             "card_gates 대체 부착 완료 analysis_id=%s expected_units=%d emitted=%d "
             "confirmed=%d stage1_keep=%d advisory=%d",

@@ -40,11 +40,16 @@
       [--rounds 3] [--out audit.json] [--dump-dir panels/]
     --pairs uid:aid,uid:aid,...  로 여러 문서 한 번에.
 
-출력 마지막 줄(로그 grep 가능한 불변식): `card_photo_audit total=N mismatched=M unresolved=K`
+출력 마지막 줄(로그 grep 가능한 불변식):
+    `card_photo_audit total=N mismatched=M unresolved=U mark_errors=A center_errors=B`
 결말 = card_photo_audit.card_verdict — mismatched 는 어느 패널이든 2단 뒤 ok False
 (mark_elsewhere / no_mark_and_center_elsewhere), unresolved 는 판정 불가(못 읽음·doc 과 그림의
 표시 유무 어긋남). 감사 불가(no_expectation)·다운로드 실패는 unaudited 로 따로 센다 —
 눈이 못 본 것은 틀린 게 아니다. 카드 행마다 패널별 `{center}→{mark} ok/by:reason` 을 싣는다.
+mark_errors = 표시가 딴 부위에 놓인 패널(mark_elsewhere), center_errors = 표시 없이 사진
+중심이 딴 부위인 패널(no_mark_and_center_elsewhere) — card_photo_audit.panel_error_kind 로
+패널마다 센다 (quick-260906-vho). 앵커 게이트가 일하면 전자가 후자로 옮겨간다 — mismatched
+는 그대로여도 이 두 열이 게이트 효과를 보인다. --replay 도 같은 _report 를 타 같은 줄을 낸다.
 
 하지 않는 일: 파이프라인에 붙이지 않는다(분석 시점 게이트 승격은 다음 단위), 좌표로 감사하지
 않는다(crop 중심 출처가 경로마다 달라 rep12 신뢰도 판정은 오판 — 09-05 확인).
@@ -318,6 +323,11 @@ def _report(rows: list[dict], *, model: str, rounds: int, out_path: str | None) 
     unresolved = verdicts.count("unresolved")
     unaudited = verdicts.count("unaudited")
     tier2_panels = sum(1 for r in rows for k in ("userMark", "refMark") if r.get(k))
+    # 패널 사유 집계 (quick-260906-vho) — 표시 오류 / 중심 오류. fetch 실패 행은 userAdj/
+    # refAdj 가 없어 건너뛴다. 카드 결말(mismatched)은 그대로 — 두 열은 눈금만 더한다.
+    kinds = [cpa.panel_error_kind(r[k]) for r in rows for k in ("userAdj", "refAdj") if k in r]
+    mark_errors = kinds.count("mark")
+    center_errors = kinds.count("center")
     if out_path:
         Path(out_path).write_text(
             json.dumps({"model": model, "rounds": rounds, "cards": rows},
@@ -333,7 +343,8 @@ def _report(rows: list[dict], *, model: str, rounds: int, out_path: str | None) 
                       f"{r['criterion']} user={_fmt_side(r['user'], r.get('userMark'), r['userAdj'])} "
                       f"ref={_fmt_side(r['ref'], r.get('refMark'), r['refAdj'])}", flush=True)
     print(f"card_photo_audit unaudited={unaudited} tier2_panels={tier2_panels}", flush=True)
-    print(f"card_photo_audit total={total} mismatched={mismatched} unresolved={unresolved}",
+    print(f"card_photo_audit total={total} mismatched={mismatched} unresolved={unresolved} "
+          f"mark_errors={mark_errors} center_errors={center_errors}",
           flush=True)
 
 

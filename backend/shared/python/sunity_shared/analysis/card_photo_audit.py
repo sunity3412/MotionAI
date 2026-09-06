@@ -307,6 +307,37 @@ def card_verdict(user_adj: dict, ref_adj: dict) -> str:
     return "ok"
 
 
+# ── 패널 사유 분류 — 표시 오류 / 중심 오류 (quick-260906-vho) ────────────────────────
+#
+# adjudicate 가 ok False 를 내는 결말은 정확히 두 개(위 결말 표):
+#   ok False by mark    mark_elsewhere                → "mark"   표시가 딴 부위에 놓임
+#   ok False by none    no_mark_and_center_elsewhere  → "center" 표시 없이 사진 중심이 딴 부위
+# 앵커 게이트(j8g/n2j)가 하는 일은 틀린 표시를 지우는 것이지 틀린 사진을 고치는 것이
+# 아니다 — 게이트가 일하면 그 패널의 사유가 mark → center 로 옮겨갈 뿐 둘 다 mismatch 라
+# 카드 결말(card_verdict)과 마지막 줄 mismatched= 에 게이트 효과가 잡히지 않았다
+# (09-06 n2j 라이브 18카드: mismatched 6 그대로, 사유는 mark 1 / center 5). 이 함수가
+# 패널 사유를 둘로 가르고 스크립트(_report)가 mark_errors=/center_errors= 로 센다.
+
+PANEL_ERROR_KINDS = ("mark", "center")
+
+_REASON_TO_KIND: dict[str, str] = {
+    "mark_elsewhere": "mark",
+    "no_mark_and_center_elsewhere": "center",
+}
+
+
+def panel_error_kind(adj: dict) -> str | None:
+    """adjudicate 결과 → 확정 불일치의 종류 ("mark" | "center"), 불일치가 아니면 None.
+
+    ok False 가 아닌 결말(통과·판정 불가·no_expectation)은 전부 None — 판정 불가는
+    틀린 것이 아니다(card_verdict 의 unresolved 와 같은 의미론). 순수 함수, 카드 결말
+    (card_verdict)·판정 문자열 무접촉 — 이미 나온 사유를 세는 눈금일 뿐이다.
+    """
+    if adj.get("ok") is not False:
+        return None
+    return _REASON_TO_KIND.get(str(adj.get("reason")))
+
+
 __all__ = [
     "ADJ_BY",
     "ANCHOR_VERDICTS",
@@ -315,6 +346,7 @@ __all__ = [
     "MARK_VOCAB",
     "MISMATCH_FLAGS",
     "NO_MARK",
+    "PANEL_ERROR_KINDS",
     "PART_VOCAB",
     "UNREAD",
     "adjudicate",
@@ -326,4 +358,5 @@ __all__ = [
     "joint_kind",
     "modal_token",
     "needs_mark_query",
+    "panel_error_kind",
 ]

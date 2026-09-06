@@ -394,13 +394,36 @@ def test_existing_eye_check_and_machine_eye_untouched() -> None:
     assert body.count("cg.machine_eye(") == 1
 
 
-def test_stage1_and_advisory_call_sites_untouched() -> None:
-    """범위 가드 — app.py 전체 비주석 verify_anchor_side( 가 정확히 2 이고 둘 다 gated 본문 안."""
+def test_anchor_check_call_sites_are_the_three_card_paths() -> None:
+    """범위 가드 — 확인 게이트는 카드를 만드는 세 경로에만 있다 (quick-260906-n2j).
+
+    gated 본문 2회(앵커 + 교차 재확인) + stage-1·advisory 공용 팩토리 1회 = 3.
+    그 밖에서 발화하면 채점·다른 산출물에 게이트가 샌 것이다.
+    """
     src = _app_src()
     n = sum(line.count("verify_anchor_side(")
             for line in src.splitlines() if not line.lstrip().startswith("#"))
-    assert n == 2, f"gated 경로 밖으로 새면 안 된다(stage-1·advisory 는 다음 단위): {n}"
+    assert n == 3, f"카드 경로 밖으로 새면 안 된다: {n}"
     assert _gated_body().count("verify_anchor_side(") == 2
+    factory = src[src.index("def _make_card_anchor_check("):
+                  src.index("def _render_fault_zoom(")]
+    assert factory.count("verify_anchor_side(") == 1
+    # 두 호출부 모두 같은 팩토리를 쓴다 — 경로별 사본 0.
+    assert src.count("anchor_check=_make_card_anchor_check(") == 2
+    assert 'path="stage1"' in src and 'path="advisory"' in src
+
+
+def test_card_anchor_check_factory_can_only_suppress_never_drop() -> None:
+    """팩토리도 카드를 없앨 수 없다 — 반환은 표시 집합뿐, 흐름 제어·목록 조작 0."""
+    src = _app_src()
+    factory = src[src.index("def _make_card_anchor_check("):
+                  src.index("def _render_fault_zoom(")]
+    assert "out.add(side)" in factory
+    assert "return frozenset(out)" in factory
+    for banned in ("comps.remove", "adv_comps", "raise ", "del "):
+        assert banned not in factory, banned
+    # 재확인 프레임 미사용 — 09-06 라이브 moved=0/15 (측당 눈 1회).
+    assert "retry_frames=()" in factory
 
 
 def test_log_formats_locked_for_postmortem_grep() -> None:

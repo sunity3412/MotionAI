@@ -3388,6 +3388,74 @@ def _build_native_frame_provider(user_video_path: str, right_video_path: str, ex
     return _at
 
 
+def _make_card_anchor_check(*, api_key: str, analysis_id: str, path: str,
+                            stats: dict):
+    """stage-1·advisory 카드의 표시 여부 판정 콜백 (quick-260906-n2j).
+
+    09-06 실측이 세운 사실: 관절 좌표 자체가 36패널 중 14에서 그 부위가 아니었고,
+    신뢰도도 붕괴 검사도 그것을 예측하지 못했다. 카드 크롭(짧은 변 ≈0.42)은 몸 절반이
+    들어와 틀린 좌표를 가린다 — 그래서 **내보내기 전에 좁게(0.18) 잘라 눈에 묻는다**.
+    j8g 가 gated 경로에 붙인 것과 같은 게이트를 나머지 두 경로에도 건다.
+
+    판정·상한·상태기계는 전부 card_gates/card_photo_audit 순수 함수 소유 — 여기는
+    좌표·프레임·눈을 잇고 처분(표시 생략)만 한다. **카드를 없앨 수 없다**:
+    반환값은 표시 집합뿐이다 (belle 09-03 규칙 1 "검사는 표시만 정한다").
+
+    재확인 프레임을 주지 않는다(`retry_frames=()`). 09-06 j8g 라이브 `moved=0/15` —
+    재확인이 카드를 구제한 적이 한 번도 없다(틀린 좌표는 이웃 프레임에서도 틀리다).
+    게다가 이 두 경로는 이미 관절별 confidence 최대 프레임을 스스로 고른다.
+
+    호출 0 인 경우(= unbound): 크롭 중심 없음 / 전신 폴백(kind='full', 표시 자체가
+    없음) / 기대 부위 파생 불가 / API 키 부재. 감사 불가는 불일치가 아니다.
+    """
+    from sunity_shared.analysis import card_gates as cg
+    from sunity_shared.analysis import card_photo_audit as cpa
+
+    def _check(ctx) -> frozenset:
+        out: set[str] = set()
+        crit = ctx.get("criterion")
+        joint = str(ctx.get("joint") or "")
+        expected = cpa.expected_parts(crit, joint)
+        for side in ("user", "ref"):
+            info = ctx.get(side) or {}
+            xy = info.get("xy")
+            frame = info.get("frame")
+            if xy is None or frame is None or str(info.get("kind")) == "full":
+                stats["unbound"] += 1
+                continue
+
+            def _ask(_idx, _frame=frame, _xy=xy):
+                if not api_key:
+                    return None
+                _h, _w = _frame.shape[:2]
+                _crop = cg.part_crop(
+                    _frame, (float(_xy[0]) * _w, float(_xy[1]) * _h)
+                )
+                _res = cg.eye_part_token(_crop, api_key=api_key)
+                stats["eye_calls"] += int(_res["calls"])
+                return {"observed": str(_res["observed"]),
+                        "calls": int(_res["calls"])}
+
+            res = cg.verify_anchor_side(
+                anchor_idx=0, expected=expected, retry_frames=(), ask=_ask,
+            )
+            stats["sides"] += 1
+            stats[res.action] += 1
+            if res.action == "suppressed":
+                out.add(side)
+            log.info(
+                "fault_zoom_anchor_check analysis_id=%s path=%s side=%s joint=%s "
+                "criterion=%s expected=%s action=%s trail=%s eye_calls=%d",
+                analysis_id, path, side, joint, crit or "none",
+                "|".join(sorted(expected)) or "-", res.action,
+                ",".join(f"{o}/{v}" for _f, o, v in res.trail) or "-",
+                res.eye_calls,
+            )
+        return frozenset(out)
+
+    return _check
+
+
 def _render_fault_zoom(
     result: dict,
     user_video_path: str,
@@ -3485,6 +3553,14 @@ def _render_fault_zoom(
         except Exception:  # noqa: BLE001 - 판정 불가 = 그 측 폴백 (fail-open)
             _e = None
         _label_eff[_which] = float(_e) if _e and _e > 0 else None
+    # quick-260906-n2j — 앵커 부위 확인 게이트. stage-1(확정 감점)·advisory(참고)
+    # 두 배치가 **같은 집계**를 쓰되 로그 path 로 구분한다. 카드 삭제 권한 없음 —
+    # 실패 측은 그 카드에서 표시만 생략(사진·장수 불변).
+    _anchor_stats = {
+        "sides": 0, "eye_calls": 0, "pass": 0, "moved": 0,
+        "suppressed": 0, "unbound": 0,
+    }
+    _anchor_key = os.environ.get("GEMINI_API_KEY", "").strip()
     comps = fault_zoom.build_fault_zoom_comparisons(
         user_frames,
         right_frames,
@@ -3521,6 +3597,11 @@ def _render_fault_zoom(
         native_frame_at=_native_at,
         # 초 라벨 = 실효 rate 환산 (quick-260813-u8i — 위 _label_eff 산출).
         label_fps=(_label_eff["user"], _label_eff["ref"]),
+        # quick-260906-n2j — 카드마다 앵커 부위 확인 (실패 측 표시만 생략).
+        anchor_check=_make_card_anchor_check(
+            api_key=_anchor_key, analysis_id=analysis_id, path="stage1",
+            stats=_anchor_stats,
+        ),
     )
     # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
     # 'deficit' 은 좌+우 grouping(arms 1장) 활성용 내부 전달일 뿐, 방출 item 에는
@@ -3563,7 +3644,21 @@ def _render_fault_zoom(
             native_frame_at=_native_at,
             # 초 라벨도 tier 와 무관 — confirmed 와 동일 실효 rate 환산 (u8i).
             label_fps=(_label_eff["user"], _label_eff["ref"]),
+            # 앵커 부위 확인도 tier 와 무관 (quick-260906-n2j) — 09-06 라이브에서
+            # 틀린 표시가 남은 pdshape 카드 3장 중 1장이 advisory 였다.
+            anchor_check=_make_card_anchor_check(
+                api_key=_anchor_key, analysis_id=analysis_id, path="advisory",
+                stats=_anchor_stats,
+            ),
         )
+    # 문서당 요약 1행 (grep 가능한 불변식) — 두 경로 합산.
+    log.info(
+        "fault_zoom_anchor_check_summary analysis_id=%s scope=render "
+        "sides=%d eye_calls=%d pass=%d suppressed=%d unbound=%d",
+        analysis_id, _anchor_stats["sides"], _anchor_stats["eye_calls"],
+        _anchor_stats["pass"], _anchor_stats["suppressed"],
+        _anchor_stats["unbound"],
+    )
     out: list[dict] = []
     for tier, batch in (
         ("confirmed", comps),

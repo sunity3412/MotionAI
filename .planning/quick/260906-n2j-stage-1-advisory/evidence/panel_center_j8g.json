@@ -1,0 +1,586 @@
+[
+  {
+    "doc": "c4f944f0",
+    "idx": "00",
+    "crit": "angle_vs_reference__right_elbow",
+    "joint": "right_elbow",
+    "side": "ref",
+    "observed": "elbow",
+    "tokens": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "reason": "The image shows an elbow hooked tightly around the pole (elbow grip), with the arm positioned in front of the hip/thigh."
+  },
+  {
+    "doc": "c4f944f0",
+    "idx": "00",
+    "crit": "angle_vs_reference__right_elbow",
+    "joint": "right_elbow",
+    "side": "user",
+    "observed": "elbow",
+    "tokens": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "reason": "The image shows an arm wrapped around a pole with the bent elbow prominently visible in the center."
+  },
+  {
+    "doc": "c4f944f0",
+    "idx": "01",
+    "crit": "angle_vs_reference__right_hip",
+    "joint": "right_hip",
+    "side": "ref",
+    "observed": "hip",
+    "tokens": [
+      "shoulder",
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "reason": "붉은색 원의 중심에는 흰색 하의를 착용한 엉덩이(골반) 부위가 가장 크게 나타나 있습니다."
+  },
+  {
+    "doc": "c4f944f0",
+    "idx": "01",
+    "crit": "angle_vs_reference__right_hip",
+    "joint": "right_hip",
+    "side": "user",
+    "observed": "hip",
+    "tokens": [
+      "hip",
+      "shoulder",
+      "hip",
+      "hip"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "reason": "빨간색 원 안에는 흰색 반바지/하의를 착용한 골반 및 엉덩이(hip) 부위가 가장 크게 나타나 있으며, 이는 다리(골반/고관절) 계통에 해당합니다."
+  },
+  {
+    "doc": "c4f944f0",
+    "idx": "02",
+    "crit": "angle_vs_reference__left_hip",
+    "joint": "left_hip",
+    "side": "ref",
+    "observed": "armpit",
+    "tokens": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "reason": "팔을 위로 들어 올렸을 때 나타나는 겨드랑이 접힘 부위와 상체 옆선이 사진 중앙에 위치해 있습니다."
+  },
+  {
+    "doc": "c4f944f0",
+    "idx": "02",
+    "crit": "angle_vs_reference__left_hip",
+    "joint": "left_hip",
+    "side": "user",
+    "observed": "hip",
+    "tokens": [
+      "hip",
+      "back_waist",
+      "hip",
+      "hip"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "reason": "사진의 중앙에는 흰색 하의가 착용된 골반 및 엉덩이(hip) 부위가 가장 크게 위치해 있습니다."
+  },
+  {
+    "doc": "c4f944f0",
+    "idx": "03",
+    "crit": "angle_vs_reference__right_shoulder",
+    "joint": "right_shoulder",
+    "side": "ref",
+    "observed": "armpit",
+    "tokens": [
+      "armpit",
+      "armpit",
+      "shoulder",
+      "armpit"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "reason": "The red circle focuses on the underarm area (armpit) where the raised arm connects to the torso/chest, with a shoulder strap running across the crease."
+  },
+  {
+    "doc": "c4f944f0",
+    "idx": "03",
+    "crit": "angle_vs_reference__right_shoulder",
+    "joint": "right_shoulder",
+    "side": "user",
+    "observed": "abdomen",
+    "tokens": [
+      "abdomen",
+      "back_waist",
+      "abdomen",
+      "abdomen"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "reason": "The image shows the midriff/abdominal area of the torso with the navel visible on the right side between the upper and lower garments, which belongs to the tors"
+  },
+  {
+    "doc": "ee577422",
+    "idx": "00",
+    "crit": "angle_vs_reference__right_knee",
+    "joint": "right_knee",
+    "side": "ref",
+    "observed": "elbow",
+    "tokens": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "reason": "The angle marker is placed at the bent elbow joint, connecting the forearm leading up to the hand on the pole and the upper arm extending down toward the torso."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "00",
+    "crit": "angle_vs_reference__right_knee",
+    "joint": "right_knee",
+    "side": "user",
+    "observed": "elbow",
+    "tokens": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "reason": "사진 정중앙에 팔이 굽혀지며 형성된 팔꿈치 관절 부위가 뚜렷하게 관찰됩니다."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "01",
+    "crit": "angle_vs_reference__left_elbow",
+    "joint": "left_elbow",
+    "side": "ref",
+    "observed": "elbow",
+    "tokens": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "reason": "The image shows an arm extended during an activity (likely pole dancing), with the angle measurement highlighting the elbow joint."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "01",
+    "crit": "angle_vs_reference__left_elbow",
+    "joint": "left_elbow",
+    "side": "user",
+    "observed": "elbow",
+    "tokens": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "reason": "The image highlights an arm extended alongside the torso near a pole, with the angle arc positioned at the elbow joint."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "02",
+    "crit": "angle_vs_reference__left_knee",
+    "joint": "left_knee",
+    "side": "ref",
+    "observed": "knee",
+    "tokens": [
+      "elbow",
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "reason": "The image shows a pole dancer inverted on a pole. The body part circled in red is the knee of the extended leg, with the patella and joint structure clearly vis"
+  },
+  {
+    "doc": "ee577422",
+    "idx": "02",
+    "crit": "angle_vs_reference__left_knee",
+    "joint": "left_knee",
+    "side": "user",
+    "observed": "thigh",
+    "tokens": [
+      "thigh",
+      "thigh",
+      "thigh"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "reason": "사진의 정중앙에는 골반에서 무릎으로 이어지는 다리의 허벅지(thigh) 부위가 가장 크게 관찰됩니다."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "03",
+    "crit": "angle_vs_reference__right_elbow",
+    "joint": "right_elbow",
+    "side": "ref",
+    "observed": "elbow",
+    "tokens": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "reason": "The marked joint is located along the arm at the level of the torso, showing the bend between the upper arm and forearm."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "03",
+    "crit": "angle_vs_reference__right_elbow",
+    "joint": "right_elbow",
+    "side": "user",
+    "observed": "head",
+    "tokens": [
+      "head",
+      "head",
+      "head"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "reason": "사진의 정중앙 영역에는 검은 머리카락으로 덮인 머리(head)가 가장 크게 위치해 있습니다."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "04",
+    "crit": "left_shoulder",
+    "joint": "left_shoulder",
+    "side": "ref",
+    "observed": "unclear",
+    "tokens": [
+      "hip",
+      "hip",
+      "back_waist",
+      "back_waist",
+      "chest"
+    ],
+    "verdict": "unreadable",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "reason": ""
+  },
+  {
+    "doc": "ee577422",
+    "idx": "04",
+    "crit": "left_shoulder",
+    "joint": "left_shoulder",
+    "side": "user",
+    "observed": "head",
+    "tokens": [
+      "head",
+      "neck",
+      "neck",
+      "head",
+      "head"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "reason": "The red circle encompasses the upside-down face and head of the person performing pole dance."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "05",
+    "crit": "right_knee",
+    "joint": "right_knee",
+    "side": "ref",
+    "observed": "knee",
+    "tokens": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "reason": "The prominent bent joint on the left side of the center is a knee, showing the characteristic fold and proportions of a bent leg with the thigh and calf."
+  },
+  {
+    "doc": "ee577422",
+    "idx": "05",
+    "crit": "right_knee",
+    "joint": "right_knee",
+    "side": "user",
+    "observed": "knee",
+    "tokens": [
+      "elbow",
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "reason": "원 내부의 관절은 굵기와 형태로 볼 때 팔에 비해 훨씬 두꺼운 다리의 관절(무릎)이며, 관절 아래쪽으로 종아리 근육의 굴곡이 이어지는 것을 확인할 수 있습니다."
+  },
+  {
+    "doc": "f6f6ea51",
+    "idx": "00",
+    "crit": "angle_vs_reference__right_knee",
+    "joint": "right_knee",
+    "side": "ref",
+    "observed": "hand",
+    "tokens": [
+      "knee",
+      "hand",
+      "hand",
+      "hand"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "reason": "사진의 중심부에서 왼쪽으로 이어지는 팔과 손목, 손가락 부위가 가장 두드러지게 관찰되며, 팔에 해당하는 관절 및 부위입니다."
+  },
+  {
+    "doc": "f6f6ea51",
+    "idx": "00",
+    "crit": "angle_vs_reference__right_knee",
+    "joint": "right_knee",
+    "side": "user",
+    "observed": "knee",
+    "tokens": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "reason": "The red indicator points to the apex of the bent leg, which corresponds to the knee joint positioned behind the forearm."
+  },
+  {
+    "doc": "fde902a9",
+    "idx": "00",
+    "crit": "leg_extension",
+    "joint": "leg_extension",
+    "side": "ref",
+    "observed": "hip",
+    "tokens": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "hip",
+      "knee",
+      "thigh"
+    ],
+    "reason": "The red circle is centered on the hip and pelvis area (covered in white shorts) while performing a vertical split on a pole, which connects to the leg."
+  },
+  {
+    "doc": "fde902a9",
+    "idx": "00",
+    "crit": "leg_extension",
+    "joint": "leg_extension",
+    "side": "user",
+    "observed": "hip",
+    "tokens": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "hip",
+      "knee",
+      "thigh"
+    ],
+    "reason": "The red circle focuses on the hip and buttock region wearing light-colored polewear shorts. Since the hip is part of the pelvic/torso region rather than the arm"
+  },
+  {
+    "doc": "fde902a9",
+    "idx": "01",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "ref",
+    "observed": "shoulder",
+    "tokens": [
+      "shoulder",
+      "shoulder",
+      "shoulder"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "reason": "The red circle is centered around the shoulder joint connecting the upper arm and torso while the person grips the pole."
+  },
+  {
+    "doc": "fde902a9",
+    "idx": "01",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "user",
+    "observed": "back_waist",
+    "tokens": [
+      "back_waist",
+      "back_waist",
+      "back_waist"
+    ],
+    "verdict": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "reason": "원 내부의 중앙에 가장 넓게 드러나 있는 부위는 브라 스트랩이 걸쳐진 상부 등(back) 부위이므로 back_waist에 해당하며, 몸통 부위이므로 limb는 other입니다."
+  },
+  {
+    "doc": "fde902a9",
+    "idx": "02",
+    "crit": "left_elbow",
+    "joint": "left_elbow",
+    "side": "ref",
+    "observed": "armpit",
+    "tokens": [
+      "back_waist",
+      "armpit",
+      "back_waist",
+      "armpit",
+      "armpit"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "reason": "The image clearly shows an underarm/armpit area exposed by an arm raised upwards, framed by clothing straps."
+  },
+  {
+    "doc": "fde902a9",
+    "idx": "02",
+    "crit": "left_elbow",
+    "joint": "left_elbow",
+    "side": "user",
+    "observed": "armpit",
+    "tokens": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "reason": "사진의 중앙 부근에는 위로 뻗은 팔과 몸통 사이의 겨드랑이가 가장 두드러지게 관찰되며, 상단의 붉은 원은 팔 부위를 가리키고 있으므로 limb는 arm에 해당합니다."
+  }
+]

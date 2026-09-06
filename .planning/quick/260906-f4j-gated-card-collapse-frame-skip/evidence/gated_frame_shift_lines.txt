@@ -1,0 +1,8 @@
+2026-09-06 02:40:53,261 INFO root: fault_zoom_gated_frame_shift analysis_id=5b2ffbb4d53e429ca354d101287cac0d rid=r03 user=53->53(kept) ref=39->39(stuck) display_anchor=kept
+2026-09-06 02:41:00,139 INFO root: fault_zoom_gated_frame_shift analysis_id=5b2ffbb4d53e429ca354d101287cac0d rid=r01 user=29->26(moved) ref=6->6(kept) display_anchor=dropped
+2026-09-06 02:45:46,994 INFO root: fault_zoom_gated_frame_shift analysis_id=2a541a3b265748c29b60b3111450d09a rid=r00 user=30->29(moved) ref=50->50(kept) display_anchor=dropped
+2026-09-06 02:50:12,282 INFO root: fault_zoom_gated_frame_shift analysis_id=35d020f0fc1f470d94f182518e594f08 rid=r00 user=57->55(moved) ref=65->65(kept) display_anchor=absent
+2026-09-06 02:50:14,403 INFO root: fault_zoom_gated_frame_shift analysis_id=35d020f0fc1f470d94f182518e594f08 rid=r01 user=8->6(moved) ref=26->25(moved) display_anchor=absent
+2026-09-06 02:58:15,965 INFO root: fault_zoom_gated_frame_shift analysis_id=449330e9b07d4a1da9b3b2f910cee34d rid=r03 user=111->110(moved) ref=88->90(moved) display_anchor=dropped
+2026-09-06 02:58:18,754 INFO root: fault_zoom_gated_frame_shift analysis_id=449330e9b07d4a1da9b3b2f910cee34d rid=r02 user=111->110(moved) ref=88->90(moved) display_anchor=dropped
+2026-09-06 02:58:19,080 INFO root: fault_zoom_gated_frame_shift analysis_id=449330e9b07d4a1da9b3b2f910cee34d rid=r01 user=118->118(kept) ref=136->136(stuck) display_anchor=kept

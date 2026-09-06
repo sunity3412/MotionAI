@@ -1,0 +1,49 @@
+PAIRS=verifyf4j0906:5b2ffbb4d53e429ca354d101287cac0d,verifyf4j0906:2a541a3b265748c29b60b3111450d09a,verifyf4j0906:35d020f0fc1f470d94f182518e594f08,verifyf4j0906:449330e9b07d4a1da9b3b2f910cee34d,verifyf4j0906:3f632a1e4b824956bf0c9a7b72e5f84b,verifyf4j0906:9afc260767a7492eb445f3e81cf0eb97
+card_photo_audit model=gemini-3.8-flash rounds=5 docs=6
+
+## verifyf4j0906/5b2ffbb4d53e429ca354d101287cac0d reference=ref-pdshape cards=6
+  [0] confirmed right_knee      angle_vs_reference__right_knee      user=knee→- True/center:center_in_expected ref=elbow→elbow False/mark:mark_elsewhere MISMATCH  votes user={'knee': 5} ref={'elbow': 5} refMark={'hip': 1, 'elbow': 4}
+  [1] confirmed left_elbow      angle_vs_reference__left_elbow      user=elbow→- True/center:center_in_expected ref=elbow→- True/center:center_in_expected ok  votes user={'elbow': 5} ref={'elbow': 5}
+  [2] confirmed left_knee       angle_vs_reference__left_knee       user=back_waist→- False/none:no_mark_and_center_elsewhere ref=elbow→elbow False/mark:mark_elsewhere MISMATCH  votes user={'back_waist': 5} ref={'elbow': 5} refMark={'elbow': 5}
+  [3] confirmed right_elbow     angle_vs_reference__right_elbow     user=neck→neck False/mark:mark_elsewhere ref=elbow→- True/center:center_in_expected MISMATCH  votes user={'neck': 5} ref={'elbow': 5} userMark={'neck': 5}
+  [4] advisory  left_shoulder   None                                user=head→neck False/mark:mark_elsewhere ref=back_waist→- True/center:center_in_expected MISMATCH  votes user={'head': 4, 'neck': 1} ref={'back_waist': 5} userMark={'neck': 5}
+  [5] advisory  right_knee      None                                user=knee→- True/center:center_in_expected ref=hip→- False/none:no_mark_and_center_elsewhere MISMATCH  votes user={'knee': 5} ref={'hip': 5}
+
+## verifyf4j0906/2a541a3b265748c29b60b3111450d09a reference=ref-climb cards=1
+  [0] confirmed right_knee      angle_vs_reference__right_knee      user=knee→- True/center:center_in_expected ref=knee→- True/center:center_in_expected ok  votes user={'knee': 5} ref={'knee': 5}
+
+## verifyf4j0906/35d020f0fc1f470d94f182518e594f08 reference=ref-power-spin cards=3
+  [0] confirmed left_hip        leg_extension                       user=hip→- True/center:center_in_expected ref=hip→- True/center:center_in_expected ok  votes user={'hip': 5} ref={'hip': 5}
+  [1] confirmed left_shoulder   angle_vs_reference__left_shoulder   user=back_waist→- True/center:center_in_expected ref=knee→- False/none:no_mark_and_center_elsewhere MISMATCH  votes user={'back_waist': 5} ref={'knee': 5}
+  [2] advisory  left_elbow      None                                user=elbow→- True/center:center_in_expected ref=back_waist→- False/none:no_mark_and_center_elsewhere MISMATCH  votes user={'elbow': 5} ref={'back_waist': 5}
+
+## verifyf4j0906/449330e9b07d4a1da9b3b2f910cee34d reference=ref-elbow-twist-sister cards=4
+  [0] confirmed right_elbow     angle_vs_reference__right_elbow     user=unclear→- None/center:unreadable ref=elbow→- True/center:center_in_expected UNRESOLVED  votes user={'elbow': 2, 'abdomen': 2, 'chest': 1} ref={'elbow': 5}
+  [1] confirmed right_hip       angle_vs_reference__right_hip       user=hip→- True/center:center_in_expected ref=hip→- True/center:center_in_expected ok  votes user={'hip': 5} ref={'hip': 5}
+  [2] confirmed left_hip        angle_vs_reference__left_hip        user=hip→- True/center:center_in_expected ref=hip→- True/center:center_in_expected ok  votes user={'hip': 5} ref={'hip': 5}
+  [3] confirmed right_shoulder  angle_vs_reference__right_shoulder  user=chest→- True/center:center_in_expected ref=armpit→- True/center:center_in_expected ok  votes user={'chest': 4, 'back_waist': 1} ref={'armpit': 5}
+
+## verifyf4j0906/3f632a1e4b824956bf0c9a7b72e5f84b reference=ref-kip-up cards=1
+  [0] confirmed left_shoulder   None                                user=shoulder→- True/center:center_in_expected ref=back_waist→- True/center:center_in_expected ok  votes user={'shoulder': 5} ref={'back_waist': 5}
+
+## verifyf4j0906/9afc260767a7492eb445f3e81cf0eb97 reference=ref-peter-pan cards=3
+  [0] confirmed left_shoulder   angle_vs_reference__left_shoulder   user=armpit→- True/center:center_in_expected ref=shoulder→- True/center:center_in_expected ok  votes user={'armpit': 5} ref={'shoulder': 4, 'armpit': 1}
+  [1] advisory  right_elbow     None                                user=back_waist→back_waist False/mark:mark_elsewhere ref=hip→- False/none:no_mark_and_center_elsewhere MISMATCH  votes user={'back_waist': 5} ref={'hip': 5} userMark={'back_waist': 4, 'abdomen': 1}
+  [2] advisory  right_knee      None                                user=knee→- True/center:center_in_expected ref=knee→- True/center:center_in_expected ok  votes user={'knee': 5} ref={'knee': 3, 'thigh': 2}
+
+wrote /private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/73c5cba3-4bed-4232-837d-cd400799d5c0/scratchpad/audit_f4j.json
+
+# mismatch cards
+  ref-pdshape [0] confirmed right_knee angle_vs_reference__right_knee user=knee→- True/center:center_in_expected ref=elbow→elbow False/mark:mark_elsewhere
+  ref-pdshape [2] confirmed left_knee angle_vs_reference__left_knee user=back_waist→- False/none:no_mark_and_center_elsewhere ref=elbow→elbow False/mark:mark_elsewhere
+  ref-pdshape [3] confirmed right_elbow angle_vs_reference__right_elbow user=neck→neck False/mark:mark_elsewhere ref=elbow→- True/center:center_in_expected
+  ref-pdshape [4] advisory left_shoulder None user=head→neck False/mark:mark_elsewhere ref=back_waist→- True/center:center_in_expected
+  ref-pdshape [5] advisory right_knee None user=knee→- True/center:center_in_expected ref=hip→- False/none:no_mark_and_center_elsewhere
+  ref-power-spin [1] confirmed left_shoulder angle_vs_reference__left_shoulder user=back_waist→- True/center:center_in_expected ref=knee→- False/none:no_mark_and_center_elsewhere
+  ref-power-spin [2] advisory left_elbow None user=elbow→- True/center:center_in_expected ref=back_waist→- False/none:no_mark_and_center_elsewhere
+  ref-peter-pan [1] advisory right_elbow None user=back_waist→back_waist False/mark:mark_elsewhere ref=hip→- False/none:no_mark_and_center_elsewhere
+
+# unresolved cards
+  ref-elbow-twist-sister [0] confirmed right_elbow angle_vs_reference__right_elbow user=unclear→- None/center:unreadable ref=elbow→- True/center:center_in_expected
+card_photo_audit unaudited=0 tier2_panels=5
+card_photo_audit total=18 mismatched=8 unresolved=1

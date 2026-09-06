@@ -1,0 +1,1028 @@
+[
+ {
+  "doc": "pdshape",
+  "idx": 0,
+  "mis": true,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__right_elbow",
+  "vJ": [
+   "right_elbow"
+  ],
+  "uSec": 6.1,
+  "uIdx": 122,
+  "uHealthy": false,
+  "uConf": {
+   "right_elbow": 0.389
+  },
+  "uCollapsed": true,
+  "u": {
+   "hit2": 0,
+   "hit4": 1,
+   "hit8": 6,
+   "hit15": 12,
+   "hit30": 29,
+   "nearK": 4,
+   "nearFrame": 114,
+   "nearSec": 0.44,
+   "k0": 61
+  },
+  "rIdx": 68,
+  "rHealthy": false,
+  "rConf": {
+   "right_elbow": 0.413
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 2,
+   "hit4": 2,
+   "hit8": 4,
+   "hit15": 10,
+   "hit30": 18,
+   "nearK": 1,
+   "nearFrame": 66,
+   "nearSec": 0.11,
+   "k0": 34
+  },
+  "uMarked": false,
+  "rMarked": false,
+  "pairState": "match"
+ },
+ {
+  "doc": "pdshape",
+  "idx": 1,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__left_elbow",
+  "vJ": [
+   "left_elbow"
+  ],
+  "uSec": 5.3,
+  "uIdx": 106,
+  "uHealthy": true,
+  "uConf": {
+   "left_elbow": 0.702
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 2,
+   "hit4": 3,
+   "hit8": 5,
+   "hit15": 12,
+   "hit30": 28,
+   "nearK": 0,
+   "nearFrame": 106,
+   "nearSec": 0.0,
+   "k0": 53
+  },
+  "rIdx": 76,
+  "rHealthy": false,
+  "rConf": {
+   "left_elbow": 0.74
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 0,
+   "hit4": 0,
+   "hit8": 2,
+   "hit15": 6,
+   "hit30": 16,
+   "nearK": 5,
+   "nearFrame": 66,
+   "nearSec": 0.56,
+   "k0": 38
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "pdshape",
+  "idx": 2,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__left_knee",
+  "vJ": [
+   "left_knee"
+  ],
+  "uSec": 10.5,
+  "uIdx": 210,
+  "uHealthy": true,
+  "uConf": {
+   "left_knee": 0.733
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 3,
+   "hit4": 5,
+   "hit8": 10,
+   "hit15": 17,
+   "hit30": 38,
+   "nearK": 0,
+   "nearFrame": 210,
+   "nearSec": 0.0,
+   "k0": 105
+  },
+  "rIdx": 140,
+  "rHealthy": false,
+  "rConf": {
+   "left_knee": 0.233
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 0,
+   "hit4": 0,
+   "hit8": 1,
+   "hit15": 2,
+   "hit30": 10,
+   "nearK": 7,
+   "nearFrame": 154,
+   "nearSec": 0.78,
+   "k0": 70
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "pdshape",
+  "idx": 3,
+  "mis": true,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__right_shoulder",
+  "vJ": [
+   "right_shoulder",
+   "right_hip"
+  ],
+  "uSec": 13.8,
+  "uIdx": 276,
+  "uHealthy": true,
+  "uConf": {
+   "right_shoulder": 0.574,
+   "right_hip": 0.574
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 5,
+   "hit4": 6,
+   "hit8": 10,
+   "hit15": 17,
+   "hit30": 38,
+   "nearK": 0,
+   "nearFrame": 276,
+   "nearSec": 0.0,
+   "k0": 138
+  },
+  "rIdx": 160,
+  "rHealthy": false,
+  "rConf": {
+   "right_shoulder": 0.378,
+   "right_hip": 0.32
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 1,
+   "hit4": 1,
+   "hit8": 1,
+   "hit15": 3,
+   "hit30": 11,
+   "nearK": 1,
+   "nearFrame": 162,
+   "nearSec": 0.11,
+   "k0": 80
+  },
+  "uMarked": true,
+  "rMarked": false,
+  "pairState": "pose_far"
+ },
+ {
+  "doc": "pdshape",
+  "idx": 4,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__left_hip",
+  "vJ": [
+   "left_hip"
+  ],
+  "uSec": 16.71,
+  "uIdx": 334,
+  "uHealthy": true,
+  "uConf": {
+   "left_hip": 0.691
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 3,
+   "hit4": 5,
+   "hit8": 12,
+   "hit15": 24,
+   "hit30": 36,
+   "nearK": 0,
+   "nearFrame": 334,
+   "nearSec": 0.0,
+   "k0": 167
+  },
+  "rIdx": 226,
+  "rHealthy": true,
+  "rConf": {
+   "left_hip": 0.713
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 4,
+   "hit4": 8,
+   "hit8": 10,
+   "hit15": 13,
+   "hit30": 16,
+   "nearK": 0,
+   "nearFrame": 226,
+   "nearSec": 0.0,
+   "k0": 113
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "pdshape",
+  "idx": 5,
+  "mis": true,
+  "tier": "advisory",
+  "criterion": null,
+  "vJ": [
+   "left_shoulder"
+  ],
+  "uSec": 7.2,
+  "uIdx": 144,
+  "uHealthy": true,
+  "uConf": {
+   "left_shoulder": 0.638
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 2,
+   "hit4": 3,
+   "hit8": 5,
+   "hit15": 13,
+   "hit30": 28,
+   "nearK": 0,
+   "nearFrame": 144,
+   "nearSec": 0.0,
+   "k0": 72
+  },
+  "rIdx": 198,
+  "rHealthy": true,
+  "rConf": {
+   "left_shoulder": 0.647
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 4,
+   "hit4": 4,
+   "hit8": 7,
+   "hit15": 16,
+   "hit30": 19,
+   "nearK": 0,
+   "nearFrame": 198,
+   "nearSec": 0.0,
+   "k0": 99
+  },
+  "uMarked": null,
+  "rMarked": null,
+  "pairState": null
+ },
+ {
+  "doc": "climb",
+  "idx": 0,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__right_knee",
+  "vJ": [
+   "right_knee"
+  ],
+  "uSec": 3.01,
+  "uIdx": 60,
+  "uHealthy": false,
+  "uConf": {
+   "right_knee": 0.689
+  },
+  "uCollapsed": true,
+  "u": {
+   "hit2": 4,
+   "hit4": 7,
+   "hit8": 9,
+   "hit15": 18,
+   "hit30": 38,
+   "nearK": 1,
+   "nearFrame": 58,
+   "nearSec": 0.11,
+   "k0": 30
+  },
+  "rIdx": 100,
+  "rHealthy": true,
+  "rConf": {
+   "right_knee": 0.66
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 4,
+   "hit4": 6,
+   "hit8": 11,
+   "hit15": 17,
+   "hit30": 25,
+   "nearK": 0,
+   "nearFrame": 100,
+   "nearSec": 0.0,
+   "k0": 50
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "climb",
+  "idx": 1,
+  "mis": true,
+  "tier": "advisory",
+  "criterion": null,
+  "vJ": [
+   "left_hip"
+  ],
+  "uSec": 1.81,
+  "uIdx": 36,
+  "uHealthy": true,
+  "uConf": {
+   "left_hip": 0.704
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 3,
+   "hit4": 5,
+   "hit8": 13,
+   "hit15": 23,
+   "hit30": 32,
+   "nearK": 0,
+   "nearFrame": 36,
+   "nearSec": 0.0,
+   "k0": 18
+  },
+  "rIdx": 15,
+  "rHealthy": true,
+  "rConf": {
+   "left_hip": 0.586
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 3,
+   "hit4": 7,
+   "hit8": 14,
+   "hit15": 18,
+   "hit30": 27,
+   "nearK": 0,
+   "nearFrame": 16,
+   "nearSec": 0.06,
+   "k0": 8
+  },
+  "uMarked": null,
+  "rMarked": null,
+  "pairState": null
+ },
+ {
+  "doc": "climb",
+  "idx": 2,
+  "mis": false,
+  "tier": "advisory",
+  "criterion": null,
+  "vJ": [
+   "left_shoulder"
+  ],
+  "uSec": 1.81,
+  "uIdx": 36,
+  "uHealthy": true,
+  "uConf": {
+   "left_shoulder": 0.668
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 3,
+   "hit4": 5,
+   "hit8": 13,
+   "hit15": 23,
+   "hit30": 32,
+   "nearK": 0,
+   "nearFrame": 36,
+   "nearSec": 0.0,
+   "k0": 18
+  },
+  "rIdx": 15,
+  "rHealthy": true,
+  "rConf": {
+   "left_shoulder": 0.661
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 4,
+   "hit4": 8,
+   "hit8": 15,
+   "hit15": 20,
+   "hit30": 30,
+   "nearK": 0,
+   "nearFrame": 16,
+   "nearSec": 0.06,
+   "k0": 8
+  },
+  "uMarked": null,
+  "rMarked": null,
+  "pairState": null
+ },
+ {
+  "doc": "powerspin",
+  "idx": 0,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "leg_extension",
+  "vJ": [
+   "left_hip"
+  ],
+  "uSec": 1.9,
+  "uIdx": 38,
+  "uHealthy": true,
+  "uConf": {
+   "left_hip": 0.599
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 3,
+   "hit4": 4,
+   "hit8": 6,
+   "hit15": 11,
+   "hit30": 22,
+   "nearK": 0,
+   "nearFrame": 38,
+   "nearSec": 0.0,
+   "k0": 19
+  },
+  "rIdx": 36,
+  "rHealthy": true,
+  "rConf": {
+   "left_hip": 0.628
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 4,
+   "hit4": 7,
+   "hit8": 13,
+   "hit15": 17,
+   "hit30": 21,
+   "nearK": 0,
+   "nearFrame": 36,
+   "nearSec": 0.0,
+   "k0": 18
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": null
+ },
+ {
+  "doc": "powerspin",
+  "idx": 1,
+  "mis": true,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__left_shoulder",
+  "vJ": [
+   "left_shoulder",
+   "left_hip"
+  ],
+  "uSec": 6.71,
+  "uIdx": 134,
+  "uHealthy": true,
+  "uConf": {
+   "left_shoulder": 0.685,
+   "left_hip": 0.594
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 5,
+   "hit4": 8,
+   "hit8": 10,
+   "hit15": 18,
+   "hit30": 24,
+   "nearK": 0,
+   "nearFrame": 134,
+   "nearSec": 0.0,
+   "k0": 67
+  },
+  "rIdx": 144,
+  "rHealthy": true,
+  "rConf": {
+   "left_shoulder": 0.779,
+   "left_hip": 0.71
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 5,
+   "hit4": 7,
+   "hit8": 14,
+   "hit15": 19,
+   "hit30": 25,
+   "nearK": 0,
+   "nearFrame": 144,
+   "nearSec": 0.0,
+   "k0": 72
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": null
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 0,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__right_elbow",
+  "vJ": [
+   "right_elbow"
+  ],
+  "uSec": 2.9,
+  "uIdx": 58,
+  "uHealthy": false,
+  "uConf": {
+   "right_elbow": 0.73
+  },
+  "uCollapsed": true,
+  "u": {
+   "hit2": 0,
+   "hit4": 0,
+   "hit8": 2,
+   "hit15": 5,
+   "hit30": 17,
+   "nearK": 5,
+   "nearFrame": 48,
+   "nearSec": 0.56,
+   "k0": 29
+  },
+  "rIdx": 80,
+  "rHealthy": false,
+  "rConf": {
+   "right_elbow": 0.468
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 2,
+   "hit4": 2,
+   "hit8": 6,
+   "hit15": 9,
+   "hit30": 18,
+   "nearK": 1,
+   "nearFrame": 78,
+   "nearSec": 0.11,
+   "k0": 40
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 1,
+  "mis": true,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__left_shoulder",
+  "vJ": [
+   "left_shoulder",
+   "left_hip"
+  ],
+  "uSec": 1.2,
+  "uIdx": 24,
+  "uHealthy": true,
+  "uConf": {
+   "left_shoulder": 0.635,
+   "left_hip": 0.616
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 4,
+   "hit4": 5,
+   "hit8": 10,
+   "hit15": 11,
+   "hit30": 13,
+   "nearK": 0,
+   "nearFrame": 24,
+   "nearSec": 0.0,
+   "k0": 12
+  },
+  "rIdx": 16,
+  "rHealthy": false,
+  "rConf": {
+   "left_shoulder": 0.206,
+   "left_hip": 0.324
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 3,
+   "hit4": 5,
+   "hit8": 7,
+   "hit15": 10,
+   "hit30": 13,
+   "nearK": 1,
+   "nearFrame": 14,
+   "nearSec": 0.11,
+   "k0": 8
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 2,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__right_shoulder",
+  "vJ": [
+   "right_shoulder",
+   "right_hip"
+  ],
+  "uSec": 1.0,
+  "uIdx": 20,
+  "uHealthy": true,
+  "uConf": {
+   "right_shoulder": 0.773,
+   "right_hip": 0.652
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 4,
+   "hit4": 7,
+   "hit8": 9,
+   "hit15": 10,
+   "hit30": 11,
+   "nearK": 0,
+   "nearFrame": 20,
+   "nearSec": 0.0,
+   "k0": 10
+  },
+  "rIdx": 14,
+  "rHealthy": true,
+  "rConf": {
+   "right_shoulder": 0.827,
+   "right_hip": 0.678
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 2,
+   "hit4": 5,
+   "hit8": 7,
+   "hit15": 10,
+   "hit30": 11,
+   "nearK": 0,
+   "nearFrame": 14,
+   "nearSec": 0.0,
+   "k0": 7
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 3,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__left_hip",
+  "vJ": [
+   "left_hip"
+  ],
+  "uSec": 11.12,
+  "uIdx": 222,
+  "uHealthy": false,
+  "uConf": {
+   "left_hip": 0.314
+  },
+  "uCollapsed": true,
+  "u": {
+   "hit2": 2,
+   "hit4": 5,
+   "hit8": 9,
+   "hit15": 15,
+   "hit30": 29,
+   "nearK": 1,
+   "nearFrame": 220,
+   "nearSec": 0.11,
+   "k0": 111
+  },
+  "rIdx": 172,
+  "rHealthy": false,
+  "rConf": {
+   "left_hip": 0.297
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 1,
+   "hit4": 3,
+   "hit8": 8,
+   "hit15": 9,
+   "hit30": 13,
+   "nearK": 1,
+   "nearFrame": 170,
+   "nearSec": 0.11,
+   "k0": 86
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 4,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__right_hip",
+  "vJ": [
+   "right_hip"
+  ],
+  "uSec": 11.12,
+  "uIdx": 222,
+  "uHealthy": false,
+  "uConf": {
+   "right_hip": 0.362
+  },
+  "uCollapsed": true,
+  "u": {
+   "hit2": 2,
+   "hit4": 5,
+   "hit8": 9,
+   "hit15": 16,
+   "hit30": 31,
+   "nearK": 1,
+   "nearFrame": 220,
+   "nearSec": 0.11,
+   "k0": 111
+  },
+  "rIdx": 172,
+  "rHealthy": false,
+  "rConf": {
+   "right_hip": 0.365
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 1,
+   "hit4": 3,
+   "hit8": 8,
+   "hit15": 9,
+   "hit30": 12,
+   "nearK": 1,
+   "nearFrame": 170,
+   "nearSec": 0.11,
+   "k0": 86
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "elbowtwist",
+  "idx": 5,
+  "mis": true,
+  "tier": "advisory",
+  "criterion": null,
+  "vJ": [
+   "left_shoulder"
+  ],
+  "uSec": 7.21,
+  "uIdx": 144,
+  "uHealthy": true,
+  "uConf": {
+   "left_shoulder": 0.564
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 2,
+   "hit4": 4,
+   "hit8": 6,
+   "hit15": 12,
+   "hit30": 26,
+   "nearK": 0,
+   "nearFrame": 144,
+   "nearSec": 0.0,
+   "k0": 72
+  },
+  "rIdx": 302,
+  "rHealthy": true,
+  "rConf": {
+   "left_shoulder": 0.593
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 2,
+   "hit4": 4,
+   "hit8": 6,
+   "hit15": 11,
+   "hit30": 18,
+   "nearK": 0,
+   "nearFrame": 302,
+   "nearSec": 0.0,
+   "k0": 151
+  },
+  "uMarked": null,
+  "rMarked": null,
+  "pairState": null
+ },
+ {
+  "doc": "kipup",
+  "idx": 0,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "split_angle",
+  "vJ": [
+   "left_hip",
+   "right_hip"
+  ],
+  "uSec": 1.8,
+  "uIdx": 36,
+  "uHealthy": true,
+  "uConf": {
+   "left_hip": 0.663,
+   "right_hip": 0.699
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 5,
+   "hit4": 9,
+   "hit8": 15,
+   "hit15": 29,
+   "hit30": 44,
+   "nearK": 0,
+   "nearFrame": 36,
+   "nearSec": 0.0,
+   "k0": 18
+  },
+  "rIdx": 60,
+  "rHealthy": true,
+  "rConf": {
+   "left_hip": 0.616,
+   "right_hip": 0.64
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 5,
+   "hit4": 9,
+   "hit8": 14,
+   "hit15": 28,
+   "hit30": 53,
+   "nearK": 0,
+   "nearFrame": 60,
+   "nearSec": 0.0,
+   "k0": 30
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": null
+ },
+ {
+  "doc": "peterpan",
+  "idx": 0,
+  "mis": false,
+  "tier": "confirmed",
+  "criterion": "angle_vs_reference__left_shoulder",
+  "vJ": [
+   "left_shoulder",
+   "left_hip"
+  ],
+  "uSec": 4.62,
+  "uIdx": 92,
+  "uHealthy": true,
+  "uConf": {
+   "left_shoulder": 0.665,
+   "left_hip": 0.684
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 5,
+   "hit4": 9,
+   "hit8": 14,
+   "hit15": 28,
+   "hit30": 42,
+   "nearK": 0,
+   "nearFrame": 92,
+   "nearSec": 0.0,
+   "k0": 46
+  },
+  "rIdx": 92,
+  "rHealthy": false,
+  "rConf": {
+   "left_shoulder": 0.321,
+   "left_hip": 0.225
+  },
+  "rCollapsed": true,
+  "r": {
+   "hit2": 2,
+   "hit4": 5,
+   "hit8": 11,
+   "hit15": 22,
+   "hit30": 31,
+   "nearK": 2,
+   "nearFrame": 88,
+   "nearSec": 0.22,
+   "k0": 46
+  },
+  "uMarked": true,
+  "rMarked": true,
+  "pairState": "match"
+ },
+ {
+  "doc": "peterpan",
+  "idx": 1,
+  "mis": false,
+  "tier": "advisory",
+  "criterion": null,
+  "vJ": [
+   "right_shoulder"
+  ],
+  "uSec": 1.41,
+  "uIdx": 27,
+  "uHealthy": true,
+  "uConf": {
+   "right_shoulder": 0.825
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 4,
+   "hit4": 7,
+   "hit8": 15,
+   "hit15": 23,
+   "hit30": 36,
+   "nearK": 0,
+   "nearFrame": 28,
+   "nearSec": 0.06,
+   "k0": 14
+  },
+  "rIdx": 28,
+  "rHealthy": true,
+  "rConf": {
+   "right_shoulder": 0.836
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 3,
+   "hit4": 7,
+   "hit8": 13,
+   "hit15": 21,
+   "hit30": 32,
+   "nearK": 0,
+   "nearFrame": 28,
+   "nearSec": 0.0,
+   "k0": 14
+  },
+  "uMarked": null,
+  "rMarked": null,
+  "pairState": null
+ },
+ {
+  "doc": "peterpan",
+  "idx": 2,
+  "mis": false,
+  "tier": "advisory",
+  "criterion": null,
+  "vJ": [
+   "right_hip"
+  ],
+  "uSec": 1.41,
+  "uIdx": 27,
+  "uHealthy": true,
+  "uConf": {
+   "right_hip": 0.711
+  },
+  "uCollapsed": false,
+  "u": {
+   "hit2": 4,
+   "hit4": 7,
+   "hit8": 15,
+   "hit15": 24,
+   "hit30": 38,
+   "nearK": 0,
+   "nearFrame": 28,
+   "nearSec": 0.06,
+   "k0": 14
+  },
+  "rIdx": 28,
+  "rHealthy": true,
+  "rConf": {
+   "right_hip": 0.762
+  },
+  "rCollapsed": false,
+  "r": {
+   "hit2": 3,
+   "hit4": 7,
+   "hit8": 13,
+   "hit15": 21,
+   "hit30": 33,
+   "nearK": 0,
+   "nearFrame": 28,
+   "nearSec": 0.0,
+   "k0": 14
+  },
+  "uMarked": null,
+  "rMarked": null,
+  "pairState": null
+ }
+]

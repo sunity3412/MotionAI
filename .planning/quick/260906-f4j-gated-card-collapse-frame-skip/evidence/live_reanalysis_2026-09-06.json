@@ -1,0 +1,68 @@
+[
+ {
+  "motion": "pdshape",
+  "uid": "verifyf4j0906",
+  "analysisId": "5b2ffbb4d53e429ca354d101287cac0d",
+  "status": "done",
+  "score": 63,
+  "cards": 6,
+  "confirmed": 4,
+  "gated": 4,
+  "elapsed": 493
+ },
+ {
+  "motion": "climb",
+  "uid": "verifyf4j0906",
+  "analysisId": "2a541a3b265748c29b60b3111450d09a",
+  "status": "done",
+  "score": 92,
+  "cards": 1,
+  "confirmed": 1,
+  "gated": 1,
+  "elapsed": 292
+ },
+ {
+  "motion": "powerspin",
+  "uid": "verifyf4j0906",
+  "analysisId": "35d020f0fc1f470d94f182518e594f08",
+  "status": "done",
+  "score": 73,
+  "cards": 3,
+  "confirmed": 2,
+  "gated": 2,
+  "elapsed": 266
+ },
+ {
+  "motion": "elbowtwist",
+  "uid": "verifyf4j0906",
+  "analysisId": "449330e9b07d4a1da9b3b2f910cee34d",
+  "status": "done",
+  "score": 82,
+  "cards": 4,
+  "confirmed": 4,
+  "gated": 4,
+  "elapsed": 482
+ },
+ {
+  "motion": "kipup",
+  "uid": "verifyf4j0906",
+  "analysisId": "3f632a1e4b824956bf0c9a7b72e5f84b",
+  "status": "done",
+  "score": 100,
+  "cards": 1,
+  "confirmed": 1,
+  "gated": 0,
+  "elapsed": 375
+ },
+ {
+  "motion": "peterpan",
+  "uid": "verifyf4j0906",
+  "analysisId": "9afc260767a7492eb445f3e81cf0eb97",
+  "status": "done",
+  "score": 80,
+  "cards": 3,
+  "confirmed": 1,
+  "gated": 1,
+  "elapsed": 221
+ }
+]

@@ -32,7 +32,26 @@
 // fetch 실패/404 → onUnavailable() — 화면이 기존 듀얼 플레이어로 강등
 // (catch 삼킴 금지 — [[icloud-offload-breaks-original-asset-picker]] 교훈,
 // __DEV__ warn 으로 원인 가시화).
-import { useEffect, useMemo, useRef, useState } from 'react';
+//
+// belle 09-07 — 가로 전체화면에 손가락 확대(핀치) + 탭 멈춤을 얹는다. 이 가지에도
+// 필요한 이유: 어느 가지가 그려질지는 기기의 실시간 Firestore 상태가 정한다
+// (renderedCompareReady — result.tsx:1094). 듀얼 플레이어에만 확대를 달면 합성
+// 영상이 도착한 분석에서는 belle 이 그 기능을 아예 만나지 못한다.
+//
+// ★ 이 가지의 한계 — 감추지 않고 적어 둔다 (듀얼 플레이어와 같은 것을 주지 못한다):
+//   1) 두 패널이 **한 프레임에 이미 구워져** 있다. 그래서 핀치는 좌·우를 따로
+//      확대하지 못하고 둘을 함께 키운다. 왼쪽만 크게 보려면 손가락으로 확대한 뒤
+//      밀어서(팬) 그쪽으로 옮겨야 한다.
+//   2) **인증된 짝 순간으로 뛰어드는 진입점이 없다.** 이 가지가 가진 유일한 시각은
+//      freezes[].outSec 인데 그것은 **출력 mp4 의 시계**이지 학생 영상 초가 아니다
+//      (학생 도메인 초 = DeductionRecord.atVideoSec — 여기엔 없다). 그래서
+//      momentJump/openFullscreenAtRef 배선을 하지 않고, 기준 짝 정직 문구도 띄우지
+//      않는다. 짝을 말할 근거가 없는데 말하면 그것이 곧 날조다. 대신 기존 정지 틱
+//      (outSec 기반, 출력 시계 안에서는 정확)이 그 순간으로 데려다 준다.
+//   3) 기본 배율은 **1.0** 이다. 듀얼 플레이어의 1.35 는 세로 인물 영상을 위해
+//      belle 이 승인한 프레이밍이고, 여기 소스는 가로로 나란한 패널 2장이라 같은
+//      값을 쓰면 승인된 적 없는 크롭이 된다 (오늘 화면과 픽셀 동일 = 1.0).
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   PanResponder,
@@ -48,9 +67,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 
 import { fetchVisualAssetUrl } from '../lib/api';
+import {
+  hasSeenFullscreenPinchHint,
+  markFullscreenPinchHintSeen,
+} from '../lib/coachmark';
 import { circledNumberKo } from '../lib/deductionLabels';
+import { MIN_ZOOM, type ZoomState } from '../lib/pinchZoom';
 import type { RenderedCompareFreeze } from '../types/analysis';
 import { colors, radius, spacing, typography } from '../theme';
+import { ZoomPinchLayer } from './ZoomPinchLayer';
 
 // 정지 직전 여유 — 틱 탭이 정지 화면이 아니라 그 직전 재생부터 보이게
 // (지정 -0.5s — freeze 진입 크로스페이드 0.17s 계열보다 넉넉).
@@ -61,6 +86,16 @@ const TICK_INTERVAL_MS = 100;
 const THUMB_DIAMETER = 14;
 // 가로 전체화면 텍스트 배율 (t0v 관례 — 세로 대비 크게).
 const FULLSCREEN_TEXT_SCALE = 1.6;
+
+// belle 09-07 — 이 가지의 확대 출발점·복귀점. 1.0 = 오늘 화면과 픽셀 동일
+// (파일 헤더 한계 3 참조 — 듀얼 플레이어의 1.35 를 여기 가져오면 승인된 적 없는
+// 크롭이 된다). 팬은 1.0 에서 clampZoom 이 0 으로 강제하므로 오늘과 완전히 같다.
+const freshRenderedZoom = (): ZoomState => ({ scale: MIN_ZOOM, tx: 0, ty: 0 });
+
+// 첫 전체화면 진입 안내 pill 자동 소멸 시간(ms). VideoCompare 의 같은 안내와 같은
+// 값·같은 문구·같은 1회 플래그(coachmark.ts)를 쓴다 — 사용자에게는 같은 제스처를
+// 배우는 한 번의 경험이라, 가지가 둘이라고 두 번 가르치면 안 된다.
+const PINCH_HINT_AUTO_DISMISS_MS = 4000;
 
 function fmtTime(s: number): string {
   if (!isFinite(s) || s < 0) return '0:00';
@@ -218,6 +253,95 @@ export default function RenderedComparePlayer({
   const fsShort = Math.min(winW, winH);
   const fsLong = Math.max(winW, winH);
   const validFreezes = freezes ?? [];
+
+  // ── belle 09-07 손가락 확대 (파일 헤더의 한계 3건과 함께 읽을 것) ────────────
+  //
+  // 확대 상태는 여기가 소유하고, 배율·팬 수학은 lib/pinchZoom, 제스처 배선은
+  // components/ZoomPinchLayer 가 갖는다 (듀얼 플레이어와 같은 3분할 — 사본 0).
+  const [zoom, setZoom] = useState<ZoomState>(freshRenderedZoom);
+  // ZoomPinchLayer 는 클리핑 박스의 **숫자** 치수를 요구한다(퍼센트 금지 —
+  // 90° 회전 absolute 컨테이너 안에서 퍼센트가 축소 렌더된다, t0v 실측). 이 가지의
+  // 영상 자리는 컨트롤 높이에 따라 달라져 미리 계산할 수 없으므로 실측한다.
+  const [fsBox, setFsBox] = useState({ w: 0, h: 0 });
+  const onFsVideoLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setFsBox((prev) =>
+      prev.w === Math.round(width) && prev.h === Math.round(height)
+        ? prev
+        : { w: Math.round(width), h: Math.round(height) },
+    );
+  };
+  // 기본 프레이밍에서 벗어났는가 = '원래대로' 노출 조건. 배율 1.0 에서는 팬이
+  // clampZoom 에 의해 0 으로 강제되므로 사실상 배율 판정이지만, 판정 문법은
+  // 듀얼 플레이어와 같게 둔다(두 곳이 다른 규칙을 갖지 않는다).
+  const zoomTouched =
+    Math.abs(zoom.scale - MIN_ZOOM) > 0.001 || zoom.tx !== 0 || zoom.ty !== 0;
+
+  // 첫 진입 1회 안내. 낙관적 초기값 true(=이미 봄)라 AsyncStorage 읽기 전에
+  // 한 프레임 깜빡이지 않고, 읽기 실패도 true 로 수렴한다(coachmark.ts 계약).
+  const [pinchHintSeen, setPinchHintSeen] = useState(true);
+  const pinchHintSeenRef = useRef(true);
+  pinchHintSeenRef.current = pinchHintSeen;
+  const [pinchHintVisible, setPinchHintVisible] = useState(false);
+  const pinchHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    hasSeenFullscreenPinchHint()
+      .then((seen) => {
+        if (alive) setPinchHintSeen(seen);
+      })
+      .catch(() => {
+        /* graceful — 실패 시 초기값 true 유지(안내 미노출) */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(
+    () => () => {
+      if (pinchHintTimerRef.current) clearTimeout(pinchHintTimerRef.current);
+    },
+    [],
+  );
+
+  // 안내 종료 = 실제 핀치 / 영상 탭 / 4초 경과. 어느 경로든 "봤다"로 기록해 다음
+  // 진입부터 뜨지 않는다 (쓰기는 fire-and-forget — coachmark.ts 계약).
+  const dismissPinchHint = useCallback(() => {
+    if (pinchHintTimerRef.current) {
+      clearTimeout(pinchHintTimerRef.current);
+      pinchHintTimerRef.current = null;
+    }
+    setPinchHintVisible(false);
+    if (!pinchHintSeenRef.current) {
+      pinchHintSeenRef.current = true;
+      setPinchHintSeen(true);
+      markFullscreenPinchHintSeen();
+    }
+  }, []);
+
+  const openFullscreen = () => {
+    setFullscreen(true);
+    if (!pinchHintSeenRef.current) {
+      setPinchHintVisible(true);
+      if (pinchHintTimerRef.current) clearTimeout(pinchHintTimerRef.current);
+      pinchHintTimerRef.current = setTimeout(() => {
+        pinchHintTimerRef.current = null;
+        dismissPinchHint();
+      }, PINCH_HINT_AUTO_DISMISS_MS);
+    }
+  };
+  const closeFullscreen = () => {
+    setFullscreen(false);
+    // 닫으면 기본 프레이밍으로 복귀 — 다음에 열었을 때 지난번 확대가 남아 있으면
+    // "왜 이렇게 크게 나오지"가 된다 (듀얼 플레이어 closeFullscreen 과 같은 처분).
+    setZoom(freshRenderedZoom());
+    if (pinchHintTimerRef.current) {
+      clearTimeout(pinchHintTimerRef.current);
+      pinchHintTimerRef.current = null;
+    }
+    setPinchHintVisible(false);
+  };
   const progressPct =
     duration > 0 ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0;
 
@@ -334,7 +458,7 @@ export default function RenderedComparePlayer({
               accessibilityRole="button"
               accessibilityLabel="가로로 크게 보기"
               hitSlop={10}
-              onPress={() => setFullscreen(true)}
+              onPress={openFullscreen}
               style={styles.expandBtn}
             >
               <Ionicons name="expand" size={16} color={colors.textWhite} />
@@ -350,13 +474,14 @@ export default function RenderedComparePlayer({
 
       {/* 가로 전체화면 — 260702-t0v 90° 회전 Modal 패턴 (portrait 고정 유지).
           같은 player 인스턴스에 두 번째 VideoView attach — 재생 위치·상태 공유
-          (동기 로직 0). 탭 = 재생/일시정지 토글, 우상단 닫기, 하단 컨트롤 공유. */}
+          (동기 로직 0). 탭 = 재생/일시정지 토글, 우상단 닫기, 하단 컨트롤 공유.
+          belle 09-07 — 영상 표면은 ZoomPinchLayer 가 감싼다(손가락 확대 + 탭 멈춤). */}
       <Modal
         visible={fullscreen}
         animationType="fade"
         statusBarTranslucent
         supportedOrientations={['portrait']}
-        onRequestClose={() => setFullscreen(false)}
+        onRequestClose={closeFullscreen}
       >
         <StatusBar hidden />
         <View style={styles.fsRoot}>
@@ -371,29 +496,79 @@ export default function RenderedComparePlayer({
               },
             ]}
           >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="재생 또는 일시정지"
-              style={styles.fsVideoWrap}
-              onPress={togglePlay}
-            >
-              <VideoView
-                player={player}
-                style={styles.fsVideo}
-                contentFit="contain"
-                nativeControls={false}
-                // allowsFullscreen 은 expo-video 에서 deprecated(경고 발생)이고,
-                // nativeControls=false 면 전체화면 진입 UI 자체가 없어 무의미하다.
-                allowsPictureInPicture={false}
-                accessibilityLabel="동작 비교 영상 (가로)"
-              />
-            </Pressable>
+            {/* 종전의 Pressable 래퍼는 걷어냈다 — 같은 표면이 핀치·팬도 받아야
+                하는데 Pressable 과 PanResponder 가 responder 를 두고 다투면 확대
+                도중 탭이 끼어들어 재생이 토글된다. 탭 멈춤은 ZoomPinchLayer 의
+                onTap(움직이지 않은 짧은 접촉)으로 옮겼고, 보조기술용 재생/일시정지
+                버튼은 아래 fsControls 안에 accessibilityRole="button" 으로 이미
+                따로 있다(중복 표면을 잃은 것이지 기능을 잃은 것이 아니다). */}
+            <View style={styles.fsVideoWrap} onLayout={onFsVideoLayout}>
+              {fsBox.w > 0 && fsBox.h > 0 ? (
+                <ZoomPinchLayer
+                  boxW={fsBox.w}
+                  boxH={fsBox.h}
+                  state={zoom}
+                  onChange={setZoom}
+                  onTap={() => {
+                    dismissPinchHint();
+                    togglePlay();
+                  }}
+                  onPinchStart={dismissPinchHint}
+                  style={styles.fsVideoBox}
+                  accessibilityLabel="재생 또는 일시정지"
+                >
+                  <VideoView
+                    player={player}
+                    style={styles.fsVideo}
+                    contentFit="contain"
+                    nativeControls={false}
+                    // allowsFullscreen 은 expo-video 에서 deprecated(경고 발생)이고,
+                    // nativeControls=false 면 전체화면 진입 UI 자체가 없어 무의미하다.
+                    allowsPictureInPicture={false}
+                    accessibilityLabel="동작 비교 영상 (가로)"
+                  />
+                </ZoomPinchLayer>
+              ) : null}
+            </View>
             <View style={styles.fsControls}>{renderControls(true)}</View>
+            {/* belle 09-07 — 첫 진입 1회 안내. 손가락 확대는 화면에 단서가 없는
+                제스처라 처음 한 번은 말해 준다. 핀치·탭·4초 중 무엇이든 오면
+                사라지고 다시 뜨지 않는다(듀얼 플레이어와 같은 1회 플래그). */}
+            {pinchHintVisible ? (
+              <View style={styles.fsPinchHintWrap} pointerEvents="box-none">
+                <Pressable
+                  onPress={dismissPinchHint}
+                  accessibilityRole="button"
+                  accessibilityLabel="확대 안내 닫기"
+                  hitSlop={8}
+                  style={styles.fsPinchHintPill}
+                >
+                  <Ionicons name="resize" size={12} color={colors.textWhite} />
+                  <Text style={styles.fsPinchHintText}>
+                    두 손가락으로 벌리면 크게 보여요
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {/* belle 09-07 — 벌린 뒤 원래 프레이밍(1.0)으로 되돌리는 길. 닫기
+                버튼 왼쪽에 두어 우상단 두 손잡이가 겹치지 않는다. */}
+            {zoomTouched ? (
+              <Pressable
+                onPress={() => setZoom(freshRenderedZoom())}
+                accessibilityRole="button"
+                accessibilityLabel="확대 원래대로"
+                hitSlop={8}
+                style={styles.fsZoomResetPill}
+              >
+                <Ionicons name="contract" size={12} color={colors.textWhite} />
+                <Text style={styles.fsZoomResetText}>원래대로</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="가로 보기 닫기"
               hitSlop={12}
-              onPress={() => setFullscreen(false)}
+              onPress={closeFullscreen}
               style={styles.fsCloseBtn}
             >
               <Ionicons name="close" size={22} color={colors.textWhite} />
@@ -540,9 +715,59 @@ const styles = StyleSheet.create({
   fsVideoWrap: {
     flex: 1,
   },
+  // belle 09-07 — ZoomPinchLayer 의 클리핑 래퍼에 얹는 배경. overflow:'hidden' 은
+  // 레이어가 갖고 있으므로 여기서 덮지 않는다 (색만 호출측 몫 — 그 파일에 색 0).
+  fsVideoBox: {
+    backgroundColor: colors.videoBg,
+  },
   fsVideo: {
+    // 확대 박스(ZoomPinchLayer 내부 absolute, 숫자 치수)를 채운다 — 퍼센트의
+    // 기준이 그 숫자 박스라 회전 컨테이너의 퍼센트 축소 함정에 걸리지 않는다.
     width: '100%',
     height: '100%',
+  },
+  // belle 09-07 — 첫 진입 안내 pill / '원래대로' pill. 문법은 듀얼 플레이어와
+  // 동일(videoBg + textWhite + radius.button + Ionicons — 신규 색 0).
+  fsPinchHintWrap: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  fsPinchHintPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.button,
+    backgroundColor: colors.videoBg,
+  },
+  fsPinchHintText: {
+    ...typography.captionSmall,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    color: colors.textWhite,
+    fontWeight: '700',
+  },
+  fsZoomResetPill: {
+    position: 'absolute',
+    top: 10,
+    // 닫기 버튼(right 12, padding 8 × 2 + icon 22 = 38) 왼쪽에 8 간격으로.
+    right: 12 + 38 + 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.button,
+    backgroundColor: colors.videoBg,
+  },
+  fsZoomResetText: {
+    ...typography.captionSmall,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    color: colors.textWhite,
+    fontWeight: '700',
   },
   fsControls: {
     paddingHorizontal: 16,

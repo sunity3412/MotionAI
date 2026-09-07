@@ -52,8 +52,15 @@ import {
   stopCue,
 } from '../lib/audioCue';
 import { circledNumberKo } from '../lib/deductionLabels';
+import {
+  hasSeenFullscreenPinchHint,
+  markFullscreenPinchHintSeen,
+} from '../lib/coachmark';
+import { DEFAULT_ZOOM, type ZoomState } from '../lib/pinchZoom';
+import type { MomentTarget } from '../lib/momentJump';
+import { ZoomPinchLayer } from './ZoomPinchLayer';
 import { colors, layout, radius, spacing, typography } from '../theme';
-import type { MotionAlignment } from '../types/analysis';
+import type { AnalysisMode, MotionAlignment } from '../types/analysis';
 
 type SlotProps = {
   label: string;
@@ -304,6 +311,32 @@ export type VideoCompareProps = {
    * 소비처 0 — 일러스트 전면 제거 (belle 08-24). 미전달 = 렌더 0 (fail-closed).
    */
   renderCueIllustration?: (recordId: string) => React.ReactNode;
+  /**
+   * belle 09-07 — 비교 모드. **mode1 에서만** 기준(우) 패널의 "짝을 못 찾았어요"
+   * 정직 문구를 렌더하기 위한 유일한 신호다. mode3 는 기준 영상 자체가 없어
+   * (본인 영상 2개 비교) 짝의 인증/미인증을 말하는 것이 무의미하므로 전면 억제
+   * ([[mode3-progress-not-similarity]]).
+   *
+   * 미전달 = 억제(fail-closed). 라벨 문자열("정은지 선수" 등)로 모드를 추정하지
+   * 않는다 — 라벨은 표시 카피라 근거가 될 수 없다.
+   */
+  compareMode?: AnalysisMode;
+  /**
+   * belle 09-07 — "코칭이 짚는 순간으로 뛰어들어가 직접 확대해 본다" 진입점.
+   * 호출측(result.tsx)이 ref 를 넘기면 여기에 핸들러를 꽂아 준다: 전체화면을 열고
+   * 양쪽을 멈춘 뒤, 학생 영상은 target.userSec 로 seek(seekBoth) 하고 기준 영상은
+   * target.refSec(인증된 짝)으로 스냅한다.
+   *
+   * 왜 ref 인가: 순간으로 뛰는 것은 **명령**(imperative)이라 prop 상태로 표현하면
+   * "같은 순간을 두 번 누르면 안 움직인다" 같은 등가성 함정이 생긴다. 세로 카드의
+   * 감점 항목/틱에서 부르는 1회성 동작이므로 ref 명령이 맞다.
+   *
+   * 주의 — 초는 target 이 들고 온 저장값만 쓴다 — rep 프레임 인덱스로 초를 재계산하는
+   * 경로는 이 파일에 없다(docs/contract.md:1961-1962, momentJump.ts 헤더).
+   */
+  openFullscreenAtRef?: React.MutableRefObject<
+    ((target: MomentTarget) => void) | null
+  >;
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
@@ -396,12 +429,36 @@ const FULLSCREEN_TEXT_SCALE = FULLSCREEN_OVERLAY_SCALE * 0.75;
 // (박스가 임의 비율이면 오버레이 좌표가 letterbox 포함 영역으로 늘어나 어긋남).
 const VIDEO_ASPECT = 9 / 16;
 
-// quick-260705-k8y — 전체화면 고정 줌. belle 실기기 3차 2026-07-05 승인 —
+// quick-260705-k8y — 전체화면 **기본** 줌. belle 실기기 3차 2026-07-05 승인 —
 // 세로영상 위아래 여백(천장 등)을 잘라내고 인물을 키운다. 클리핑 래퍼가 기존
 // 박스 자리를 유지하므로 두 박스 row 레이아웃/컨트롤 배치 불변. 9:16 영상이
 // 9:16 박스에 contain(레터박스 없음)이라 1.35배 확대 시 상하/좌우 각 ~17.5%
-// 크롭 — 인물은 통상 중앙이라 안전. 크롭 정도 조정은 이 상수만 상향/하향.
-const FULLSCREEN_ZOOM = 1.35;
+// 크롭 — 인물은 통상 중앙이라 안전.
+//
+// belle 09-07 — 이제 고정값이 아니라 **손가락 확대의 출발점이자 복귀점**이다
+// (핀치로 벌렸다가 '원래대로' 를 누르면 정확히 여기로 돌아온다 — 1.0 이 아니다.
+// 1.35 는 belle 이 승인한 프레이밍이므로 1.0 으로 떨어뜨리면 승인 화면이 바뀐다).
+// 값 자체의 유일 출처는 lib/pinchZoom.ts 의 DEFAULT_ZOOM 이다 — 리터럴 1.35 가
+// 코드베이스에 두 벌 있으면 한쪽만 고쳐 프레이밍이 갈라진다. 여기는 별칭만 둔다.
+const FULLSCREEN_ZOOM_DEFAULT = DEFAULT_ZOOM;
+
+// 슬롯별 확대 상태. 좌(내 영상)/우(기준)는 서로 다른 부위를 볼 수 있어야 하므로
+// 독립이다 — 한쪽을 벌려도 다른 쪽 프레이밍은 그대로.
+type SlotZoom = { left: ZoomState; right: ZoomState };
+const freshZoomState = (): ZoomState => ({
+  scale: FULLSCREEN_ZOOM_DEFAULT,
+  tx: 0,
+  ty: 0,
+});
+const freshSlotZoom = (): SlotZoom => ({
+  left: freshZoomState(),
+  right: freshZoomState(),
+});
+
+// belle 09-07 — 첫 전체화면 진입 안내 pill 자동 소멸 시간(ms). 손가락을 대거나
+// 벌리면 즉시 사라지고, 아무것도 안 해도 이 시간 뒤 사라진다(영상 위 상시 문구
+// 금지 — quick-260705-r6v "재생 중 영상 위 텍스트 pill 을 없앤" 선례).
+const PINCH_HINT_AUTO_DISMISS_MS = 4000;
 
 // 29-CONTEXT D-11/D-12 — 진짜 가로 + 구빌드(27) 폴백. 정적 import = OTA 크래시 (RESEARCH Pitfall 3).
 // expo-screen-orientation 9.0.9 는 모듈 최상위에서 requireNativeModule('ExpoScreenOrientation')
@@ -433,6 +490,8 @@ export function VideoCompare({
   cueRefSnapSecs,
   audioAnalysisId,
   renderCueIllustration,
+  compareMode,
+  openFullscreenAtRef,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -527,6 +586,72 @@ export function VideoCompare({
   const fsBoxH = fsShort;
   const fsBoxW = Math.round(fsShort * VIDEO_ASPECT);
 
+  // ── belle 09-07 손가락 확대(핀치 줌) 상태 ─────────────────────────────────
+  // 자동 생성 확대 카드가 엉뚱한 부위를 가리키는 문제를 "카드를 더 똑똑하게" 로
+  // 풀지 않기로 했다 — 코칭이 결함을 짚는 순간 사용자가 직접 멈추고 손가락으로
+  // 확대해 본다(belle 원문 "손가락으로 영상을 멈추고 확대할 수 있게").
+  // 배율·팬 수학은 전부 순수 모듈 lib/pinchZoom.ts, 제스처 배선은
+  // components/ZoomPinchLayer.tsx 가 갖는다 — 여기는 상태 소유와 배치만.
+  // 이 슬라이스는 멈춤+확대까지. 캡처/공유는 네이티브 빌드가 필요한 다음 슬라이스라
+  // 신규 의존성 0 이 전제다(OTA 로 전달되어야 한다).
+  const [slotZoom, setSlotZoom] = useState<SlotZoom>(freshSlotZoom);
+
+  // 전체화면에서 뛰어들어간 순간의 기준 짝이 **인증된 짝**이었는가.
+  //   true  = target.refSec(또는 cueRefSnapSecs 짝)로 기준 패널을 세웠다.
+  //   false = 짝을 못 찾아 기준 패널이 시간 동기 위치에 그대로 있다 → 정직 문구.
+  //   null  = 순간으로 뛰어든 적 없음(그냥 전체화면을 연 경우) → 문구 없음.
+  // 짝이 없는데 "이 순간의 기준" 인 척 세우면 belle 규칙("양쪽이 같은 순간이어야")
+  // 위반이다 — 말하지 않는 대신 못 찾았다고 말한다.
+  const [momentPairCertified, setMomentPairCertified] = useState<boolean | null>(
+    null,
+  );
+
+  // 첫 진입 안내("두 손가락으로 벌리면 크게 보여요"). 낙관적 초기값 true(=이미 봄)
+  // 이라 AsyncStorage 읽기 전 한 프레임 깜빡이지 않는다. 읽기 실패도 true 로
+  // 수렴한다(coachmark.ts 계약 — 읽기 오류가 안내 재노출 루프를 만들면 안 된다).
+  const [pinchHintSeen, setPinchHintSeen] = useState(true);
+  const pinchHintSeenRef = useRef(true);
+  pinchHintSeenRef.current = pinchHintSeen;
+  const [pinchHintVisible, setPinchHintVisible] = useState(false);
+  const pinchHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    hasSeenFullscreenPinchHint()
+      .then((seen) => {
+        if (alive) setPinchHintSeen(seen);
+      })
+      .catch(() => {
+        /* graceful — 실패 시 초기값 true 유지(안내 미노출) */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // 안내 종료 = (a) 실제 핀치, (b) 영상 탭, (c) 4초 경과. 어느 경로든 "봤다"로
+  // 기록해 다음 진입부터 뜨지 않는다(쓰기는 fire-and-forget — coachmark.ts 계약).
+  const dismissPinchHint = useCallback(() => {
+    if (pinchHintTimerRef.current) {
+      clearTimeout(pinchHintTimerRef.current);
+      pinchHintTimerRef.current = null;
+    }
+    setPinchHintVisible(false);
+    if (!pinchHintSeenRef.current) {
+      pinchHintSeenRef.current = true;
+      setPinchHintSeen(true);
+      markFullscreenPinchHintSeen();
+    }
+  }, []);
+
+  // 언마운트 시 안내 타이머 정리 (offsetApplyingTimerRef 선례).
+  useEffect(
+    () => () => {
+      if (pinchHintTimerRef.current) clearTimeout(pinchHintTimerRef.current);
+    },
+    [],
+  );
+
   // 29-CONTEXT D-11 — 진짜 가로 lock. hasNativeOrientation === false(구빌드)면 no-op →
   // 기존 90° 회전 핵 폴백이 그대로 동작(D-12). lazy require 는 함수 스코프 — 정적 import
   // 금지(모듈 최상위 requireNativeModule 크래시, Pitfall 3). lockAsync 실패는 무해화
@@ -553,6 +678,15 @@ export function VideoCompare({
   const openFullscreen = () => {
     fullscreenRef.current = true;
     setFullscreen(true);
+    // belle 09-07 — 첫 진입에만 손가락 확대 안내. 4초 뒤 자동 소멸(핀치·탭이면 즉시).
+    if (!pinchHintSeenRef.current) {
+      setPinchHintVisible(true);
+      if (pinchHintTimerRef.current) clearTimeout(pinchHintTimerRef.current);
+      pinchHintTimerRef.current = setTimeout(() => {
+        pinchHintTimerRef.current = null;
+        dismissPinchHint();
+      }, PINCH_HINT_AUTO_DISMISS_MS);
+    }
     // 진입 lock 은 Modal 마운트(commit) 이후 effect 에서 — 마운트 전 lock 은 무효(Pattern 4).
   };
   const closeFullscreen = () => {
@@ -561,6 +695,16 @@ export function VideoCompare({
     lockPortrait();
     fullscreenRef.current = false;
     setFullscreen(false);
+    // belle 09-07 — 확대는 **닫으면 기본 프레이밍(1.35)으로 복귀**한다. 다음에 열었을 때
+    // 지난번 확대가 남아 있으면 "왜 이렇게 크게 나오지" 가 되고, 그 상태가 belle 승인
+    // 프레이밍이 아니다. 1.0 이 아니라 1.35 로 돌아가는 이유는 FULLSCREEN_ZOOM_DEFAULT 주석.
+    setSlotZoom(freshSlotZoom());
+    setMomentPairCertified(null);
+    if (pinchHintTimerRef.current) {
+      clearTimeout(pinchHintTimerRef.current);
+      pinchHintTimerRef.current = null;
+    }
+    setPinchHintVisible(false);
   };
 
   // 29-CONTEXT D-11 — 가로/세로 전환 부수효과. fullscreen 진입 시 Modal 마운트 이후(effect=
@@ -665,9 +809,16 @@ export function VideoCompare({
   // 짝 없는 record(맵 미등재 = refMatched false/legacy)는 스냅하지 않되, 체인이
   // 짝 없는 큐로 넘어가면 이전 큐의 스냅 프레임이 새 큐에 오귀속되지 않게 원위치
   // 복귀한다 (순간 날조 0).
-  const snapRightToCuePair = (recordId: string) => {
-    const sec = cueRefSnapSecsRef.current[recordId];
-    if (typeof sec !== 'number') {
+  //
+  // belle 09-07 — 짝 시각 쓰기의 **단일 초크 포인트**. 손가락 확대 뷰어가
+  // "이 순간으로 뛰어들어가기"를 할 때도 기준 패널을 짝 프레임에 세워야 하는데,
+  // 그 act 는 여기와 완전히 같다(복원 목표 보존 + 기준 도메인 초 대입). 새 자리에서
+  // rightPlayer.currentTime 을 또 쓰면 복원 규칙이 두 벌이 되므로 초를 인자로 받는
+  // 이 함수를 한 겹 꺼내고, 기존 큐 경로는 맵 조회만 얹어 그대로 경유한다.
+  // 주의 — sec 는 백엔드가 방출한 기준 영상 도메인 초(refVideoSec)만 — rep 프레임
+  // 인덱스에서 초를 재계산하는 경로는 이 파일에 없다(voiceSnap.ts 헤더).
+  const snapRightToSec = (sec: number | null | undefined) => {
+    if (typeof sec !== 'number' || !Number.isFinite(sec)) {
       unsnapRight();
       return;
     }
@@ -676,6 +827,9 @@ export function VideoCompare({
       voiceSnapRestoreSecRef.current = rightPlayer.currentTime;
     }
     rightPlayer.currentTime = sec;
+  };
+  const snapRightToCuePair = (recordId: string) => {
+    snapRightToSec(cueRefSnapSecsRef.current[recordId]);
   };
   // seek/scrub 경로 — 직후 setRightToStudentTime 재-seek 가 정렬을 재확립하므로
   // 상태만 정리한다(복원 seek 까지 하면 이중 seek 스터터).
@@ -1292,6 +1446,9 @@ export function VideoCompare({
     } else {
       // 33-13 — 사용자가 직접 재생 = 음성 멈춤 홀드 해제(자동 재개와 중복 방지).
       voicePauseRef.current = false;
+      // belle 09-07 — 재생 = 뛰어들어간 순간을 떠난다. 짝 미발견 문구도 함께 거둔다
+      // (seekBoth 와 같은 규칙 — 문구는 멈춰 선 그 순간에만 참이다).
+      setMomentPairCertified(null);
       // belle 08-07 (quick-260807-iwp) — 사용자 제스처 = 스냅 복원 (정렬 보존).
       unsnapRight();
       // 260806-usc — 사용자 재생도 제스처 — 관찰창을 닫는다.
@@ -1445,11 +1602,71 @@ export function VideoCompare({
       // 해제 (scrub 은 seekBoth 경유라 자동 포함).
       replaySettleTicksRef.current = null;
       setVoiceCueRecordId(null);
+      // belle 09-07 — 플레이헤드를 옮기면 "뛰어들어간 그 순간"을 벗어난다. 짝
+      // 미발견 문구는 그 순간에 대한 말이라 여기서 거둔다 (남겨 두면 다른 위치를
+      // 설명하는 문장이 된다). openFullscreenAt 은 이 seekBoth **뒤에** 자기 판정을
+      // 다시 세우므로 순서상 덮어써진다.
+      setMomentPairCertified(null);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setRightToStudentTime/
     // targetRefTime 은 alignmentRef 를 읽어 stale 클로저 무해(선행 tick ref 패턴 동일).
     [hasLeft, hasRight, leftPlayer, rightPlayer],
   );
+
+  // ── belle 09-07 "그 순간으로 뛰어들어가 직접 확대해 본다" ────────────────────
+  // 코칭이 결함을 짚는 순간에 전체화면을 열고 **양쪽을 멈춘 뒤** 학생 영상을 그
+  // 순간에 세운다. 멈춤이 먼저인 이유: 확대는 정지 화면에서만 의미가 있고(움직이는
+  // 그림을 손가락으로 뜯어볼 수 없다), belle 원문도 "멈추고 확대"다.
+  //
+  // 초의 출처는 target 이 들고 온 저장값 둘뿐이다 — userSec=atVideoSec,
+  // refSec=refVideoSec(voiceSnap 검증본). 이 파일은 초를 한 번도 계산하지 않는다
+  // (rep 프레임 인덱스 → 초 재계산 금지, docs/contract.md:1961-1962).
+  //
+  // 좌: seekBoth(기존 유일 seek 경로 — 상한 클램프·정렬 재확립·스냅 상태 정리를
+  //     전부 이미 갖고 있다) → 우측이 일단 시간 동기 위치로 따라온다.
+  // 우: 짝이 인증됐으면 그 위에 snapRightToSec(기존 짝 시각 초크 포인트)로 덮는다.
+  //     순서가 반대면 seekBoth 의 setRightToStudentTime 이 짝을 지운다.
+  const openFullscreenAt = (target: MomentTarget) => {
+    openFullscreen();
+    leftPlayer?.pause();
+    rightPlayer?.pause();
+    setPlaying(false);
+    seekBoth(target.userSec);
+    const paired =
+      target.certified &&
+      typeof target.refSec === 'number' &&
+      Number.isFinite(target.refSec);
+    if (paired) snapRightToSec(target.refSec);
+    setMomentPairCertified(paired);
+  };
+
+  // 호출측이 넘긴 ref 에 최신 핸들러를 꽂는다. deps 배열 없음이 의도 —
+  // openFullscreenAt 은 매 렌더 새로 만들어지는 클로저라(togglePlay/restart 관례)
+  // 매 렌더 갱신해야 stale 한 leftPlayer/seekBoth 를 붙잡지 않는다.
+  useEffect(() => {
+    const ref = openFullscreenAtRef;
+    if (!ref) return;
+    ref.current = openFullscreenAt;
+    return () => {
+      ref.current = null;
+    };
+  });
+
+  // 음성 큐가 말하는 동안(= 이미 그 순간에 멈춰 있는 상태) '크게 보기' 로 넘어가는
+  // 경로. 학생 영상은 **다시 seek 하지 않는다** — 이미 잰 순간(atVideoSec)에 서
+  // 있고, 재-seek 는 그 위치를 흔들 뿐이다(순간 날조 0). 기준 패널은 같은 record 의
+  // 짝으로 세우되, 짝이 없으면 손대지 않는다 — unsnap 은 발화 중 걸어 둔 스냅을
+  // 되돌려 오히려 짝을 지운다.
+  const openFullscreenAtCue = (recordId: string) => {
+    openFullscreen();
+    leftPlayer?.pause();
+    rightPlayer?.pause();
+    setPlaying(false);
+    const sec = cueRefSnapSecsRef.current[recordId];
+    const paired = typeof sec === 'number' && Number.isFinite(sec);
+    if (paired) snapRightToSec(sec);
+    setMomentPairCertified(paired);
+  };
 
   // 0.1s 앞/뒤 step. 현재 시각 = 둘 중 작은 값 (slower side 가 진짜 sync 위치).
   const stepBy = useCallback(
@@ -1669,6 +1886,11 @@ export function VideoCompare({
       prevResetKeyRef.current = resetKey;
       userAdjustedRef.current = false;
       setManualOffsetSec(0);
+      // belle 09-07 — 다른 분석으로 넘어가면 손가락 확대도 기본 프레이밍(1.35)으로.
+      // 이전 분석에서 확대해 둔 상태가 새 영상에 얹히면 엉뚱한 부위를 크게 보게 된다
+      // (수동 오프셋이 새는 것을 막는 것과 같은 이유).
+      setSlotZoom(freshSlotZoom());
+      setMomentPairCertified(null);
       return;
     }
     if (!userAdjustedRef.current && !alignmentActive && initialOffsetSec != null) {
@@ -1855,15 +2077,40 @@ export function VideoCompare({
         {activeCueText ? (
           <View
             style={fs ? styles.fsCueSubtitleWrap : styles.cueSubtitleWrap}
-            pointerEvents="none"
+            // belle 09-07 — 'none' → 'box-none'. 래퍼 자체는 여전히 탭을 통과시키고
+            // (영상/제스처 방해 0), 아래 '크게 보기' Pressable 만 탭을 받는다.
+            // 자막 Text 는 핸들러가 없어 통과 — resumeNoticeWrap 선례와 동일.
+            pointerEvents="box-none"
           >
-            {/* 33-13 (A-6, 승인 목업 ④ 컷 2) — 음성 중 정지 상태 표시 1줄. */}
+            {/* 33-13 (A-6, 승인 목업 ④ 컷 2) — 음성 중 정지 상태 표시 1줄.
+                belle 09-07 — 그 옆에 '크게 보기'. 코칭이 결함을 짚어 영상이 멈춘
+                **바로 그 순간**이 사용자가 직접 확대해 봐야 하는 순간이라, 진입
+                버튼을 그 자리에 둔다(카드 하단까지 스크롤해 찾게 하지 않는다).
+                전체화면(fs)에서는 미렌더 — 이미 열려 있어 문구가 거짓이 된다. */}
             {voiceCueRecordId != null && !playing ? (
-              <View style={styles.voicePausePill}>
-                <Ionicons name="pause" size={12} color={colors.textWhite} />
-                <Text
-                  style={[styles.voicePauseText, fs && styles.fsVoicePauseText]}
-                >음성 중 — 잠시 멈춤</Text>
+              <View style={styles.voicePauseRow}>
+                <View style={styles.voicePausePill}>
+                  <Ionicons name="pause" size={12} color={colors.textWhite} />
+                  <Text
+                    style={[styles.voicePauseText, fs && styles.fsVoicePauseText]}
+                  >음성 중 — 잠시 멈춤</Text>
+                </View>
+                {!fs ? (
+                  <Pressable
+                    onPress={() => openFullscreenAtCue(voiceCueRecordId)}
+                    accessibilityRole="button"
+                    accessibilityLabel="이 순간을 가로 전체화면으로 크게 보기"
+                    hitSlop={8}
+                    style={styles.voicePausePill}
+                  >
+                    <Ionicons
+                      name="expand"
+                      size={12}
+                      color={colors.textWhite}
+                    />
+                    <Text style={styles.voicePauseText}>크게 보기</Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null}
             <Text
@@ -1921,11 +2168,23 @@ export function VideoCompare({
   //   라벨은 박스 내부 상단 absolute — 각 영상 상단 중앙에 부착.
   //
   // quick-260705-k8y — 2겹 구조: 클리핑 래퍼(fsBoxW×fsBoxH, overflow hidden)
-  // + 내부 FULLSCREEN_ZOOM 배 확대 박스(중앙 정렬). VideoView·overlayContainer
-  // 를 내부 확대 박스로 이동 — overlayContainer 가 absoluteFill 이라 오버레이가
-  // 영상과 함께 확대·클리핑돼 마커 정합 자동 유지 (정합 기준 박스 = 내부 박스).
+  // + 내부 확대 박스(중앙 정렬). VideoView·overlayContainer 를 내부 확대 박스로
+  // 이동 — overlayContainer 가 absoluteFill 이라 오버레이가 영상과 함께 확대·
+  // 클리핑돼 마커 정합 자동 유지 (정합 기준 박스 = 내부 박스).
   // 확대/오프셋 수치는 전부 fsBoxW/fsBoxH 파생 (하드코딩 픽셀 0).
+  //
+  // belle 09-07 — 그 2겹을 ZoomPinchLayer 가 그대로 이어받는다(같은 클리핑 래퍼 +
+  // 같은 절대 확대 박스). 달라진 것은 확대 배율이 고정 1.35 가 아니라 손가락이
+  // 정하는 값이라는 것뿐이고, 인라인이던 zoomW/zoomH/zoomLeft/zoomTop 산식은
+  // lib/pinchZoom.clampZoom 한 곳으로 옮겨 회귀 테스트가 잠갔다(pinchZoom.test.ts —
+  // 배율 1.35·팬 0 이면 오늘 화면과 픽셀 동일).
+  //   · transform: scale 로 바꾸지 않는다 — expo-video 의 Android VideoView 는
+  //     SurfaceView 라 transform 이 영상 표면에 제대로 먹지 않는다(레이아웃 수치 유지).
+  //   · 마커 좌표를 다시 계산하지 않는다 — overlayContainer 가 확대 박스의
+  //     absoluteFill 이라 정합이 공짜로 따라온다.
   const renderFullscreenSlot = (
+    // belle 09-07 — 좌/우 확대 상태가 독립이라 어느 슬롯인지 알아야 한다.
+    slot: 'left' | 'right',
     label: string,
     url: string | undefined,
     player: VideoPlayer | null,
@@ -1938,18 +2197,40 @@ export function VideoCompare({
     slotIsPlaying?: boolean,
     slotActiveCueRecordId?: string | null,
   ) => {
-    const zoomW = Math.round(fsBoxW * FULLSCREEN_ZOOM);
-    const zoomH = Math.round(fsBoxH * FULLSCREEN_ZOOM);
-    const zoomLeft = -Math.round((zoomW - fsBoxW) / 2);
-    const zoomTop = -Math.round((zoomH - fsBoxH) / 2);
+    const zoom = slotZoom[slot];
+    // '원래대로' 노출 조건 = 기본 프레이밍에서 벗어났는가. 배율뿐 아니라 팬도 본다 —
+    // 1.35 그대로 옆으로만 밀어 둔 상태도 되돌릴 것이 있는 상태다.
+    const zoomTouched =
+      Math.abs(zoom.scale - FULLSCREEN_ZOOM_DEFAULT) > 0.001 ||
+      zoom.tx !== 0 ||
+      zoom.ty !== 0;
+    // belle 09-07 — 짝을 못 찾은 채 뛰어든 순간의 정직 문구. mode1 전용(mode3 는
+    // 기준 영상 자체가 없어 짝을 말하는 것이 무의미) + 기준(우) 패널에만.
+    const showPairMiss =
+      slot === 'right' &&
+      compareMode === 'mode1' &&
+      momentPairCertified === false;
     return (
-      <View style={[styles.fsVideoBox, { width: fsBoxW, height: fsBoxH }]}>
+      <View style={[styles.fsSlotStack, { width: fsBoxW, height: fsBoxH }]}>
         {url && player ? (
-          <View
-            style={[
-              styles.fsZoomBox,
-              { width: zoomW, height: zoomH, left: zoomLeft, top: zoomTop },
-            ]}
+          <ZoomPinchLayer
+            boxW={fsBoxW}
+            boxH={fsBoxH}
+            state={zoom}
+            onChange={(next) =>
+              setSlotZoom((prev) => ({ ...prev, [slot]: next }))
+            }
+            // 탭 = 재생/일시정지. 이 파일의 유일한 재생 토글(togglePlay)을 그대로
+            // 쓴다 — 슬롯 하나만 멈추는 분기를 새로 만들지 않는다. 두 영상은
+            // "함께 멈추고 함께 돈다"(D-13)가 불변식이고, 한쪽만 멈추면 다음 tick 의
+            // decidePlaybackInvariant 가 즉시 되돌려 놓아 탭이 먹지 않은 것처럼 보인다.
+            onTap={() => {
+              dismissPinchHint();
+              togglePlay();
+            }}
+            onPinchStart={dismissPinchHint}
+            style={styles.fsVideoBox}
+            accessibilityLabel="재생 또는 일시정지"
           >
             <VideoView
               player={player}
@@ -1958,6 +2239,7 @@ export function VideoCompare({
               nativeControls={false}
               allowsFullscreen={false}
               allowsPictureInPicture={false}
+              accessibilityLabel="동작 비교 영상 (가로)"
             />
             <View style={styles.overlayContainer} pointerEvents="box-none">
               {overlay?.(player, {
@@ -1967,22 +2249,49 @@ export function VideoCompare({
                 activeCueRecordId: slotActiveCueRecordId ?? null,
               })}
             </View>
-          </View>
+          </ZoomPinchLayer>
         ) : (
-          <View style={styles.slotEmpty}>
-            <Ionicons
-              name="videocam-outline"
-              size={22}
-              color={colors.textDisabled}
-            />
-            <Text style={styles.slotEmptyText}>준비 중</Text>
+          <View style={[styles.fsVideoBox, { width: fsBoxW, height: fsBoxH }]}>
+            <View style={styles.slotEmpty}>
+              <Ionicons
+                name="videocam-outline"
+                size={22}
+                color={colors.textDisabled}
+              />
+              <Text style={styles.slotEmptyText}>준비 중</Text>
+            </View>
           </View>
         )}
-        {/* 라벨 = 클리핑 래퍼 직속 absolute 상단 중앙 — 확대 박스 밖이라 잘리지
-            않는다 (하단은 공유 컨트롤이 차지) */}
+        {/* 라벨 = 클리핑 래퍼 밖 absolute 상단 중앙 — 확대해도 함께 커지거나
+            잘리지 않는다 (하단은 공유 컨트롤이 차지) */}
         <Text style={styles.fsSlotLabel} pointerEvents="none">
           {label}
         </Text>
+        {/* belle 09-07 — 기준 짝을 못 찾은 순간. 오른쪽 패널을 짝인 척 세우지 않고
+            무엇인지 밝힌다 (belle 규칙: "양쪽이 같은 순간이어야"). 라벨 바로 아래. */}
+        {showPairMiss ? (
+          <View style={styles.fsPairMissWrap} pointerEvents="none">
+            <Text style={styles.fsPairMissText} numberOfLines={2}>
+              이 순간의 기준 짝을 못 찾았어요 — 오른쪽은 시간만 맞춘 위치예요.
+            </Text>
+          </View>
+        ) : null}
+        {/* belle 09-07 — 손가락으로 벌린 뒤 승인 프레이밍(1.35)으로 되돌리는 길.
+            영상 위 pill 문법은 '음성 중 — 잠시 멈춤'(voicePausePill) 그대로. */}
+        {zoomTouched ? (
+          <Pressable
+            onPress={() =>
+              setSlotZoom((prev) => ({ ...prev, [slot]: freshZoomState() }))
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`${label} 확대 원래대로`}
+            hitSlop={8}
+            style={styles.fsZoomResetPill}
+          >
+            <Ionicons name="contract" size={12} color={colors.textWhite} />
+            <Text style={styles.fsZoomResetText}>원래대로</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   };
@@ -2218,16 +2527,23 @@ export function VideoCompare({
           진입 버튼. 세로 나란히 2개 레이아웃에선 각도 라벨이 판독 불가 → 탭 시
           두 영상을 좌우로 크게 보는 전체화면 뷰어. */}
       {hasAny && (
-        <Pressable
-          onPress={openFullscreen}
-          accessibilityRole="button"
-          accessibilityLabel="가로 전체화면으로 크게 보기"
-          hitSlop={8}
-          style={styles.fullscreenBtn}
-        >
-          <Ionicons name="expand" size={16} color={colors.brand} />
-          <Text style={styles.fullscreenBtnText}>가로로 크게 보기</Text>
-        </Pressable>
+        <View style={styles.fullscreenBtnGroup}>
+          <Pressable
+            onPress={openFullscreen}
+            accessibilityRole="button"
+            accessibilityLabel="가로 전체화면으로 크게 보기"
+            hitSlop={8}
+            style={styles.fullscreenBtn}
+          >
+            <Ionicons name="expand" size={16} color={colors.brand} />
+            <Text style={styles.fullscreenBtnText}>가로로 크게 보기</Text>
+          </Pressable>
+          {/* belle 09-07 — 전체화면 안에서 무엇을 할 수 있는지 미리 알린다. 안내를
+              한 번 겪고 나면(핀치·탭·4초) 사라진다 — 배운 사람에게 계속 말하지 않는다. */}
+          {!pinchHintSeen ? (
+            <Text style={styles.fullscreenBtnHint}>두 손가락으로 벌려 확대</Text>
+          ) : null}
+        </View>
       )}
 
       {hasAny ? (
@@ -2287,6 +2603,7 @@ export function VideoCompare({
               <View style={styles.fsVideoRow}>
                 {hasLeft &&
                   renderFullscreenSlot(
+                    'left',
                     leftLabel,
                     leftUrl,
                     leftPlayer,
@@ -2300,6 +2617,7 @@ export function VideoCompare({
                   )}
                 {hasRight &&
                   renderFullscreenSlot(
+                    'right',
                     rightLabel,
                     rightUrl,
                     rightPlayer,
@@ -2315,6 +2633,30 @@ export function VideoCompare({
                   fsControlsWrap 이 뒤에 렌더되므로 겹칠 땐 컨트롤이 위에 그려진다.
                   90° 회전 폴백(fsRotated)도 이 컨테이너 내부라 자동 회전. */}
               {renderCueOverlays(true)}
+              {/* belle 09-07 — 첫 진입 1회 안내. 손가락 확대는 화면에 단서가 없는
+                  제스처라 처음 한 번은 말해 준다. 핀치·탭·4초 중 무엇이든 오면
+                  사라지고 다시 뜨지 않는다(AsyncStorage 1회 플래그 — coachmark.ts).
+                  영상 위 상시 문구는 금지(quick-260705-r6v)라 자동 소멸이 필수. */}
+              {pinchHintVisible ? (
+                <View style={styles.fsPinchHintWrap} pointerEvents="box-none">
+                  <Pressable
+                    onPress={dismissPinchHint}
+                    accessibilityRole="button"
+                    accessibilityLabel="확대 안내 닫기"
+                    hitSlop={8}
+                    style={styles.fsPinchHintPill}
+                  >
+                    <Ionicons
+                      name="resize"
+                      size={12}
+                      color={colors.textWhite}
+                    />
+                    <Text style={styles.fsPinchHintText}>
+                      두 손가락으로 벌리면 크게 보여요
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
               <View style={styles.fsTopBar}>
                 {/* quick-260705-r6v — 검은 여백 좌측 고정 범례 (flex:1). 재생 중
                     영상 위 텍스트 pill 을 없앤 대신 "① 행동구 −감점" 을 여백에
@@ -2481,6 +2823,8 @@ const styles = StyleSheet.create({
   },
   // 33-13 (A-6, 승인 목업 ④ 컷 2) — "음성 중 — 잠시 멈춤" 상태 pill. 자막 위
   // 소형 표시. 토큰만: videoBg + textWhite (하드코딩 색 0).
+  // belle 09-07 — marginBottom 은 행(voicePauseRow)으로 옮겼다. pill 두 개가
+  // 나란히 설 때 각자 아래 여백을 갖고 있으면 행 높이가 흔들린다.
   voicePausePill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2489,6 +2833,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: radius.button,
     backgroundColor: colors.videoBg,
+  },
+  // belle 09-07 — "음성 중 — 잠시 멈춤" + "크게 보기" 한 줄. 자막 위 소형 표시라
+  // 기존 pill 아래 여백(4)을 그대로 승계한다.
+  voicePauseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 4,
   },
   voicePauseText: {
@@ -2781,6 +3132,16 @@ const styles = StyleSheet.create({
     color: colors.brand,
     fontWeight: '700',
   },
+  // belle 09-07 — 진입 pill + 그 아래 한 줄 안내. 카드 gap(12)과 별개로 둘을
+  // 한 덩어리로 묶는다.
+  fullscreenBtnGroup: {
+    gap: 4,
+  },
+  fullscreenBtnHint: {
+    ...typography.captionSmall,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   // 몰입형 영상 전체화면 배경 — videoFullscreenBg 토큰 (다크 배경 금지 원칙의
   // 의도적 예외, colors.ts 주석 참조).
   fsRoot: {
@@ -2906,10 +3267,79 @@ const styles = StyleSheet.create({
     backgroundColor: colors.videoFullscreenBg,
     overflow: 'hidden',
   },
-  // quick-260705-k8y — 내부 확대 박스 (FULLSCREEN_ZOOM 배, 중앙 정렬 오프셋은
-  // render 에서 fsBox 파생 숫자 주입). 오버레이 좌표 정합의 기준 박스.
-  fsZoomBox: {
+  // belle 09-07 — 슬롯 = 클리핑 래퍼(ZoomPinchLayer) + 그 위에 얹히는 라벨·정직
+  // 문구·'원래대로'. 확대 박스 밖이라 확대해도 함께 커지거나 잘리지 않는다.
+  // width/height 는 render 에서 fsBoxW/fsBoxH 숫자 주입(퍼센트 금지 근거는
+  // fsVideoBox 주석 — 회전 absolute 컨테이너 안에서 퍼센트가 축소 렌더된다).
+  fsSlotStack: {
+    position: 'relative',
+  },
+  // belle 09-07 — 기준 짝 미발견 정직 문구. 라벨(top 12) 바로 아래 줄에 앉도록
+  // top = 12 + 라벨 한 줄 높이(전체화면 배율 적용). 문구는 정직 고지라 자막·pill 과
+  // 같은 톤(videoBg + textWhite)을 쓰되 폭은 박스 안으로 제한한다.
+  fsPairMissWrap: {
     position: 'absolute',
+    top: 12 + typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE * 1.6,
+    left: 8,
+    right: 8,
+    alignItems: 'center',
+  },
+  fsPairMissText: {
+    ...typography.captionSmall,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    lineHeight: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE * 1.4,
+    color: colors.textWhite,
+    textAlign: 'center',
+    backgroundColor: colors.videoBg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.button,
+    overflow: 'hidden',
+  },
+  // belle 09-07 — '원래대로' pill. voicePausePill 문법 그대로(videoBg + textWhite
+  // + radius.button + Ionicons, 하드코딩 색 0) + 박스 우상단 고정. 라벨은 상단
+  // 중앙, 정직 문구는 그 아래 줄이라 세 표면이 서로 겹치지 않는다.
+  fsZoomResetPill: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.button,
+    backgroundColor: colors.videoBg,
+  },
+  fsZoomResetText: {
+    ...typography.captionSmall,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    color: colors.textWhite,
+    fontWeight: '700',
+  },
+  // belle 09-07 — 첫 진입 안내 pill. 상단 bar(닫기 버튼) 아래 중앙. 자동 소멸이라
+  // 상시 문구가 아니고, 탭하면 즉시 사라진다.
+  fsPinchHintWrap: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  fsPinchHintPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.button,
+    backgroundColor: colors.videoBg,
+  },
+  fsPinchHintText: {
+    ...typography.captionSmall,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    color: colors.textWhite,
+    fontWeight: '700',
   },
   // belle 실기기 2차 2026-07-05 — 라벨을 박스 내부 absolute 로 이동 (박스 기준
   // 상단 중앙). left/right 0 + textAlign center 로 박스 폭 전체에 중앙 정렬.

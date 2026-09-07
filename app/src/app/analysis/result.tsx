@@ -57,6 +57,10 @@ import type { ResultSectionKey, ResultSection } from '../../lib/resultSections';
 import { buildCueWindows } from '../../lib/cueTrack';
 import type { CueInput } from '../../lib/cueTrack';
 import { buildRefSnapSecs } from '../../lib/voiceSnap';
+// belle 09-07 — "코칭이 짚는 순간으로 뛰어들어가 손가락으로 확대해 본다" 진입점의
+// 데이터. 초의 출처는 저장값 둘뿐이고(atVideoSec / refVideoSec) 조인 규칙 신설은
+// 0 이다 — 상세는 lib/momentJump.ts 헤더.
+import { buildMomentTargets, type MomentTarget } from '../../lib/momentJump';
 import { normalizeMotionAlignment } from '../../lib/alignmentWarp';
 import { legacyOffsetFromCompareFrames } from '../../lib/manualOffset';
 import {
@@ -1405,8 +1409,16 @@ function AnalysisResultContent({
     return out;
   }, [records, markers, vetoFaultJoints, actionLabels]);
 
-  // quick-260705-r6v — 재생바 결함 시점 틱 (buildDeductionTicks — window median
-  // 시점 1개에 번호 병합). veto 미적용/legacy/mode3 면 빈 배열 (틱 생략).
+  // quick-260705-r6v — 재생바 결함 시점 틱 (buildDeductionTicks — 같은 프레임의
+  // 번호를 틱 1개로 병합).
+  //
+  // belle 09-07 정정 — 여기 있던 "veto 미적용/legacy/mode3 면 빈 배열"은 사실이
+  // 아니었다. buildDeductionTicks(deductionLabels.ts:434-474)에는 mode 분기가 한
+  // 줄도 없고 visionVeto 는 **atFrameIdx 없는 record 를 median 프레임에 얹는
+  // 폴백**에만 쓰인다. 즉 번호를 받은 record 중 하나라도 atFrameIdx 를 들고 있으면
+  // mode3 에서도 틱은 그려진다 — 실제로 mode3 의 상시 진입점이 이 틱이다.
+  // 빈 배열이 되는 경우는 하나뿐: 번호 받은 record 전부가 atFrameIdx 를 갖지
+  // 않고(비유한·음수·부재) veto median 폴백도 없을 때. 동작 변경 0 — 문서만 정정.
   const timelineTicks = useMemo(
     () =>
       buildDeductionTicks(records, markers.recordNumbers, result.visionVeto),
@@ -2231,6 +2243,68 @@ function AnalysisResultContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [records, result.faultZoomComparisons, vetoFaultJoints, hiddenRecordIds]);
 
+  // ── belle 09-07 "그 순간으로 뛰어들어가 직접 확대해 본다" 배선 ───────────────
+  //
+  // 왜 문 3개인가 (이 배선의 근거): 음성 멈춤 중에 뜨는 '크게 보기' pill 은 **오디오
+  // 를 켠 사람에게만** 보인다 — 음성 토글 초기값이 false 다(학원 소음, VideoCompare
+  // :622). belle 이 그 문을 한 번도 못 볼 수 있다는 뜻이다. 그래서 상시 열려 있는
+  // 문을 둘 더 연다: (1) 감점 상세 시트의 보조 버튼, (2) 이미 화면에 있는 재생바 틱
+  // → 시트 → 그 버튼. 틱은 mode 무관하게 그려진다(위 timelineTicks 주석 정정 참조).
+  //
+  // 데이터는 전부 momentJump.buildMomentTargets 가 만든다 — 이 화면이 이미 갖고 있는
+  // 파생물(정렬된 records / faultZoomComparisons / vetoFaultJoints)을 그대로 먹인다.
+  // 여기서 초를 계산하지도, 조인 규칙을 새로 만들지도 않는다
+  // (docs/contract.md:1961-1962 — rep 프레임 인덱스로 초 재계산 금지).
+  const momentTargets = useMemo(
+    () =>
+      buildMomentTargets(
+        records,
+        result.faultZoomComparisons ?? [],
+        cmp.mode,
+        vetoFaultJoints,
+      ),
+    [records, result.faultZoomComparisons, cmp.mode, vetoFaultJoints],
+  );
+  // recordId → 순간. 시트/틱 진입점이 조인 키 하나로 목표를 집는다.
+  const momentByRecordId = useMemo(() => {
+    const map = new Map<string, MomentTarget>();
+    for (const t of momentTargets) map.set(t.recordId, t);
+    return map;
+  }, [momentTargets]);
+
+  // VideoCompare 안의 명령(전체화면 열기 + 그 순간에 멈춰 세우기) 손잡이.
+  // ref 인 이유는 VideoCompareProps.openFullscreenAtRef 주석 참조 — 같은 순간을
+  // 두 번 눌러도 동작해야 하는 1회성 명령이라 상태 prop 으로 표현할 수 없다.
+  // 듀얼 플레이어 가지가 안 그려질 땐(합성 영상 가지) null 로 남는다.
+  const openFullscreenAtRef = useRef<((target: MomentTarget) => void) | null>(
+    null,
+  );
+
+  // 시트에서 그 순간으로 — 시트를 **먼저 닫고** 전체화면을 연다. 순서가 반대면
+  // 시트 Modal 위에 전체화면 Modal 이 얹혀 iOS 중첩 Modal 함정에 걸린다
+  // (onLegendPress/onTickPress 가 closeFullscreen 을 선행하는 것과 같은 이유,
+  // planner_findings 3 — 방향만 반대다).
+  const openMomentForRecord = (recordId: string) => {
+    const target = momentByRecordId.get(recordId);
+    setDetailRecordIndex(null);
+    if (!target) return; // 순간 미확정 record — 없는 초로 뛰지 않는다
+    openFullscreenAtRef.current?.(target);
+  };
+
+  // 시트 버튼이 가리킬 순간의 조인 키. 상단 크롭을 낳은 대표 record 기준
+  // (sheetPrimaryZoom 과 같은 record — 시트가 보여주고 있는 그 사진의 순간이다).
+  // 순간이 없으면 null → 시트가 버튼을 **비활성으로** 그린다(숨기지 않는다:
+  // 버튼이 사라졌다 나타났다 하면 "왜 어떤 항목엔 없지"가 된다).
+  const sheetMomentRecordId =
+    sheetView != null
+      ? (() => {
+          const rid = records[sheetView.primaryRecordIndex]?.recordId;
+          return typeof rid === 'string' && momentByRecordId.has(rid)
+            ? rid
+            : null;
+        })()
+      : null;
+
   // 32-12 (D-18 B안 재생 중 큐 오디오) — coachAudio mp3 가 준비된(status 'done' +
   // items 존재) 경우에만 VideoCompare 에 analysisId 를 넘겨 오디오 토글·재생을 켠다.
   // 'failed'(합성 실패 — 자막만)/부재(legacy doc)면 undefined → 오디오 표면 미렌더.
@@ -3019,6 +3093,12 @@ function AnalysisResultContent({
               // 32-12 (D-18 B안) — coachAudio mp3 준비 doc 에서만 오디오 토글·재생
               // 활성(cueId=recordId 조인). failed/legacy 면 undefined → 자막만.
               audioAnalysisId={coachAudioAnalysisId}
+              // belle 09-07 — 기준(우) 패널의 "짝을 못 찾았어요" 정직 문구를 켜는
+              // 유일한 신호. 라벨 문자열로 모드를 추정하지 않는다(라벨은 표시 카피).
+              compareMode={cmp.mode}
+              // belle 09-07 — 시트 보조 버튼이 부를 명령 손잡이. VideoCompare 가
+              // 자기 렌더에서 최신 핸들러를 꽂아 준다(이 가지가 그려질 때만).
+              openFullscreenAtRef={openFullscreenAtRef}
             />
             </>
             )}
@@ -3780,6 +3860,17 @@ function AnalysisResultContent({
         onZoomImageError={onZoomImageError}
         // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
+        // belle 09-07 — 상시 열려 있는 확대 진입점. 합성 비교 영상 가지에서는
+        // **버튼 자체를 내보내지 않는다**: 그 가지는 두 패널이 한 mp4 에 구워져
+        // 있어 학생 도메인 초가 없고(freezes[].outSec 는 출력 영상 시계다),
+        // openFullscreenAtRef 도 꽂히지 않는다. 눌러도 아무 일이 없는 버튼을
+        // 놓는 대신 없는 채로 둔다 (그 가지의 확대는 자체 전체화면이 담당).
+        onOpenMoment={
+          renderedCompareReady && !renderedUnavailable
+            ? undefined
+            : openMomentForRecord
+        }
+        momentRecordId={sheetMomentRecordId}
       />
       {/* 32-07 D-07 (32-11 배선) — 첫 진입 코치마크 1회. "오늘 고칠 건 하나만" +
           "자세히는 펼쳐요". hasSeenResultCoachmark 로 1회만, 탭 시 기록. */}

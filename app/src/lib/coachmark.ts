@@ -31,3 +31,28 @@ export function markResultCoachmarkSeen(): void {
     /* graceful — 쓰기 실패해도 현재 세션은 이미 진행 */
   });
 }
+
+// ── belle 09-07 — 가로 전체화면 손가락 확대 안내 1회 플래그 ──────────────────
+// why: 확대 카드가 엉뚱한 부위를 가리키는 문제를 "카드를 더 똑똑하게" 로 풀지 않고,
+// 코칭이 결함을 짚는 순간 사용자가 직접 멈추고 손가락으로 확대해 보게 했다
+// (belle 원문 "손가락으로 영상을 멈추고 확대할 수 있게"). 핀치 줌은 화면에 단서가
+// 남지 않는 제스처라 처음 한 번은 말해 줘야 하고, 그 뒤에는 말하지 않아야 한다
+// (영상 위 상시 문구 금지 — quick-260705-r6v).
+// 위 RESULT_COACHMARK_SEEN_KEY 와 같은 계약: '@sunity:' prefix, 읽기 실패 = true
+// (재노출 루프 금지), 쓰기 = fire-and-forget.
+const FULLSCREEN_PINCH_HINT_SEEN_KEY = '@sunity:fullscreen_pinch_hint_seen';
+
+export async function hasSeenFullscreenPinchHint(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(FULLSCREEN_PINCH_HINT_SEEN_KEY);
+    return v === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function markFullscreenPinchHintSeen(): void {
+  AsyncStorage.setItem(FULLSCREEN_PINCH_HINT_SEEN_KEY, 'true').catch(() => {
+    /* graceful — 쓰기 실패해도 현재 세션은 이미 안내를 닫았다 */
+  });
+}

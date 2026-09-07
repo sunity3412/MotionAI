@@ -89,6 +89,19 @@ interface Props {
   // quick-260824-q6p — Image 로드 실패 시 나이 무관 재발급 트리거 (시계 오차·
   // 조기 만료 커버, 훅이 mount 당 1회 single-flight 소유).
   onZoomImageError?: () => void;
+  // belle 09-07 — "영상에서 이 순간 크게 보기". 시트를 닫고 전체화면 비교 뷰어를
+  // 그 순간에 멈춰 세우는 명령 (caller 가 순서를 소유한다 — iOS 중첩 Modal 함정).
+  //
+  // **미전달 = 버튼 자체를 렌더하지 않는다**(fail-closed). 합성 비교 영상 가지처럼
+  // 뛰어갈 곳이 없는 화면에서 눌러도 아무 일 없는 버튼을 놓지 않기 위함이다.
+  onOpenMoment?: (recordId: string) => void;
+  // belle 09-07 — 위 버튼이 가리킬 순간의 조인 키(대표 record 의 recordId).
+  // null = 이 항목엔 뛰어갈 순간이 없다 → 버튼을 **숨기지 않고 비활성**으로 그린다.
+  // 순간이 없는 것은 예외가 아니라 설계다: 잰 순간을 신뢰 있게 정할 수 없는
+  // criterion(split_angle 의 vision 주입분·reach·whole-score 폴백)과 legacy doc 은
+  // atVideoSec 자체가 없다 (momentJump.ts 등재 조건 3). 없는 초를 지어내 뛰면
+  // 사용자가 엉뚱한 데를 확대하고 "확대해 봤는데 아무것도 없다"가 된다.
+  momentRecordId?: string | null;
 }
 
 // criterion → 심사 언어 용어(terminologyMap) 매핑. 미등록 criterion 은 null(용어줄 생략).
@@ -128,6 +141,10 @@ const USER_UNMARKED_NOTE = '왼쪽 사진에는 관절 위치를 확인하지 �
 const ESTIMATED_AREA_LABEL = '예상 부위';
 // IN-01 — 저신뢰 시 관절을 단정하지 않는 시트 제목(정확한 관절 assert 금지).
 const ESTIMATED_AREA_TITLE = '예상 부위 (참고)';
+// belle 09-07 — 손가락 확대 진입 버튼 라벨. "이 순간"이 무엇인지(영상의 그 시점)와
+// 무엇을 하게 되는지(크게 보기)를 한 줄에 담는다 — 제스처 설명은 전체화면 안의
+// 1회 안내가 맡는다(여기서 "두 손가락으로" 까지 말하면 버튼이 설명문이 된다).
+const MOMENT_BTN_LABEL = '영상에서 이 순간 크게 보기';
 
 export function DeductionDetailSheet({
   visible,
@@ -143,6 +160,8 @@ export function DeductionDetailSheet({
   rightLabel,
   freshZoomUrls,
   onZoomImageError,
+  onOpenMoment,
+  momentRecordId,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
   if (!view) return null;
@@ -387,6 +406,35 @@ export function DeductionDetailSheet({
               <Text style={styles.aiNoteText}>{AI_DISCLAIMER}</Text>
             </View>
           </ScrollView>
+
+          {/* belle 09-07 — 상시 열려 있는 확대 진입점. 자동 확대 카드가 맞는 부위를
+              가리키도록 만드는 대신, 사용자가 그 순간으로 가서 손가락으로 직접 본다
+              (belle 원문 "손가락으로 영상을 멈추고 확대할 수 있게"). 위계는 보조
+              액션 — 시트의 주 행동은 여전히 '닫기'(brand CTA)라 여기는 design.md §0
+              보조 문법(1px inputBorder 테두리 + 투명 배경 + textPrimary 라벨)을
+              쓴다. BodyProfilePromptModal.secondary 와 같은 문법 (신규 문법 0). */}
+          {onOpenMoment ? (
+            <Pressable
+              onPress={() => {
+                if (momentRecordId) onOpenMoment(momentRecordId);
+              }}
+              disabled={!momentRecordId}
+              accessibilityRole="button"
+              accessibilityLabel={MOMENT_BTN_LABEL}
+              // 순간이 없는 항목은 눌러도 갈 곳이 없다는 것을 보조기술에도 알린다.
+              accessibilityState={
+                momentRecordId ? undefined : { disabled: true }
+              }
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.momentBtn,
+                !momentRecordId && styles.momentBtnDisabled,
+                pressed && momentRecordId ? styles.ctaPressed : null,
+              ]}
+            >
+              <Text style={styles.momentBtnText}>{MOMENT_BTN_LABEL}</Text>
+            </Pressable>
+          ) : null}
 
           <Pressable
             onPress={onClose}
@@ -656,4 +704,20 @@ const styles = StyleSheet.create({
   },
   ctaPressed: { opacity: 0.85 },
   ctaText: { ...typography.button, color: colors.textWhite },
+  // belle 09-07 — 보조 액션 문법 (design.md §0, BodyProfilePromptModal.secondary
+  // 와 동일): 1px inputBorder 테두리 + 투명 배경 + textPrimary 라벨 + radius.button.
+  // 높이는 이 시트의 주 CTA 와 같은 값을 써서 두 버튼이 한 덩어리로 읽히게 한다.
+  momentBtn: {
+    marginTop: 16,
+    height: 50,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // 뛰어갈 순간이 없는 항목 — 버튼을 지우지 않고 눌리지 않는 상태로 남긴다.
+  momentBtnDisabled: { opacity: 0.4 },
+  momentBtnText: { ...typography.buttonSecondary, color: colors.textPrimary },
 });

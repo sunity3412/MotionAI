@@ -7,6 +7,14 @@
 작성 2026-09-07. 대상 = 09-06 라이브 6문서
 (uid `NdVZrpbmUbPMNMjASFwUgy8Fj9p1`).
 
+> **정오표 (2026-09-07, 측정 후 추가 — 본문은 고치지 않는다).**
+> §0 의 산문 집계 "ok 16 · not_center_anchored 15 · mismatch 5" 는 **틀렸다.**
+> 실제 `roster_corrected.json` = **ok 13 · not_center_anchored 18 · mismatch 5**.
+> 내가 정정 스크립트를 돌리기 전에 예상 수치를 본문에 적었다. 3면 차이는
+> `4e232c4a[04]ref` · `ea765def[00]ref` · `ea765def[00]user` 가 ok → not_center_anchored 로
+> 함께 뒤집힌 것이다. **대상 5면과 열거된 대조군 13면의 신원은 정확하고 두 측정이 쓴 것도
+> 그 명부다** — 판정에 영향 없음. 사전 박제의 본문을 사후에 고치지 않기 위해 여기 남긴다.
+
 ---
 
 ## 0. 대상 명부 — 8면이 아니라 5면 (자기 점검 결과)

@@ -1,0 +1,152 @@
+{
+ "user:21b1b7ed": {
+  "video_path": "/Users/kimtaesung/Downloads/정은지 선수 추가 영상/피터팬(잘못된예시).mp4",
+  "video_bytes": 31752746,
+  "n_frames_9fps": 62,
+  "saved": {
+   "48": {
+    "file": "user_21b1b7ed_f0048.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "user:4e232c4a": {
+  "video_path": "/Users/kimtaesung/Downloads/정은지 선수 추가 영상/pdshape(정확한명칭없음,잘못되예시).mp4",
+  "video_bytes": 93834785,
+  "n_frames_9fps": 182,
+  "saved": {
+   "25": {
+    "file": "user_4e232c4a_f0025.png",
+    "W": 360,
+    "H": 640
+   },
+   "56": {
+    "file": "user_4e232c4a_f0056.png",
+    "W": 360,
+    "H": 640
+   },
+   "89": {
+    "file": "user_4e232c4a_f0089.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "user:5ae210fa": {
+  "video_path": "/Users/kimtaesung/Downloads/정은지 선수 추가 영상/파워스핀(잘못된예시).mp4",
+  "video_bytes": 43322289,
+  "n_frames_9fps": 83,
+  "saved": {
+   "54": {
+    "file": "user_5ae210fa_f0054.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "user:a559705f": {
+  "video_path": "/Users/kimtaesung/Downloads/정은지 선수 추가 영상/클라임(잘못된예시).mp4",
+  "video_bytes": 31560025,
+  "n_frames_9fps": 62,
+  "saved": {
+   "19": {
+    "file": "user_a559705f_f0019.png",
+    "W": 360,
+    "H": 640
+   },
+   "53": {
+    "file": "user_a559705f_f0053.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "user:d213622a": {
+  "video_path": "/Users/kimtaesung/Downloads/정은지 선수 추가 영상/엘보트위스트시스터(잘못된예시).mp4",
+  "video_bytes": 92437315,
+  "n_frames_9fps": 180,
+  "saved": {
+   "110": {
+    "file": "user_d213622a_f0110.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "ref:21b1b7ed": {
+  "video_path": "/Users/Shared/sunity-ref-videos/ref-peter-pan.mp4",
+  "video_bytes": 2287963,
+  "n_frames_9fps": 87,
+  "saved": {
+   "64": {
+    "file": "ref_21b1b7ed_f0064.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "ref:4e232c4a": {
+  "video_path": "/Users/Shared/sunity-ref-videos/ref-pdshape.mp4",
+  "video_bytes": 4517365,
+  "n_frames_9fps": 159,
+  "saved": {
+   "15": {
+    "file": "ref_4e232c4a_f0015.png",
+    "W": 360,
+    "H": 640
+   },
+   "43": {
+    "file": "ref_4e232c4a_f0043.png",
+    "W": 360,
+    "H": 640
+   },
+   "131": {
+    "file": "ref_4e232c4a_f0131.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "ref:5ae210fa": {
+  "video_path": "/Users/Shared/sunity-ref-videos/ref-power-spin.mp4",
+  "video_bytes": 3127706,
+  "n_frames_9fps": 106,
+  "saved": {
+   "65": {
+    "file": "ref_5ae210fa_f0065.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "ref:a559705f": {
+  "video_path": "/Users/Shared/sunity-ref-videos/ref-climb.mp4",
+  "video_bytes": 40928589,
+  "n_frames_9fps": 80,
+  "saved": {
+   "61": {
+    "file": "ref_a559705f_f0061.png",
+    "W": 360,
+    "H": 640
+   },
+   "68": {
+    "file": "ref_a559705f_f0068.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ },
+ "ref:d213622a": {
+  "video_path": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/videos/ref-elbow-twist-sister.mp4",
+  "video_bytes": 6372808,
+  "n_frames_9fps": 220,
+  "saved": {
+   "120": {
+    "file": "ref_d213622a_f0120.png",
+    "W": 360,
+    "H": 640
+   }
+  }
+ }
+}

@@ -1,0 +1,110 @@
+[
+ {
+  "doc": "21b1b7ed",
+  "idx": "00",
+  "joint": "left_shoulder",
+  "ref_rep_idx": 48,
+  "ref_video_n": 87,
+  "rep_frames": 130,
+  "rep_fps": 18.0,
+  "recomputed": 64,
+  "roster": 64,
+  "match": true
+ },
+ {
+  "doc": "4e232c4a",
+  "idx": "00",
+  "joint": "left_elbow",
+  "ref_rep_idx": 11,
+  "ref_video_n": 159,
+  "rep_frames": 237,
+  "rep_fps": 18.0,
+  "recomputed": 15,
+  "roster": 15,
+  "match": true
+ },
+ {
+  "doc": "4e232c4a",
+  "idx": "02",
+  "joint": "left_shoulder",
+  "ref_rep_idx": 98,
+  "ref_video_n": 159,
+  "rep_frames": 237,
+  "rep_fps": 18.0,
+  "recomputed": 131,
+  "roster": 131,
+  "match": true
+ },
+ {
+  "doc": "4e232c4a",
+  "idx": "03",
+  "joint": "left_knee",
+  "ref_rep_idx": 32,
+  "ref_video_n": 159,
+  "rep_frames": 237,
+  "rep_fps": 18.0,
+  "recomputed": 43,
+  "roster": 43,
+  "match": true
+ },
+ {
+  "doc": "5ae210fa",
+  "idx": "01",
+  "joint": "left_shoulder",
+  "ref_rep_idx": 49,
+  "ref_video_n": 106,
+  "rep_frames": 159,
+  "rep_fps": 18.0,
+  "recomputed": 65,
+  "roster": 65,
+  "match": true
+ },
+ {
+  "doc": "a559705f",
+  "idx": "00",
+  "joint": "right_knee",
+  "ref_rep_idx": 46,
+  "ref_video_n": 80,
+  "rep_frames": 120,
+  "rep_fps": 18.0,
+  "recomputed": 61,
+  "roster": 61,
+  "match": true
+ },
+ {
+  "doc": "a559705f",
+  "idx": "01",
+  "joint": "right_hip",
+  "ref_rep_idx": 51,
+  "ref_video_n": 80,
+  "rep_frames": 120,
+  "rep_fps": 18.0,
+  "recomputed": 68,
+  "roster": 68,
+  "match": true
+ },
+ {
+  "doc": "a559705f",
+  "idx": "02",
+  "joint": "left_shoulder",
+  "ref_rep_idx": 46,
+  "ref_video_n": 80,
+  "rep_frames": 120,
+  "rep_fps": 18.0,
+  "recomputed": 61,
+  "roster": 61,
+  "match": true
+ },
+ {
+  "doc": "d213622a",
+  "idx": "00",
+  "joint": "left_hip",
+  "ref_rep_idx": 90,
+  "ref_video_n": 220,
+  "rep_frames": 329,
+  "rep_fps": 18.0,
+  "recomputed": 120,
+  "roster": 120,
+  "match": true
+ }
+]

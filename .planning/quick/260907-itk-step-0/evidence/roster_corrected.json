@@ -1,0 +1,1443 @@
+[
+  {
+    "doc": "21b1b7ed",
+    "idx": "00",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.55,
+    "ratio_v2": 0.3273,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 118,
+    "box_px_v1": 154,
+    "brand_frac": 0.0318,
+    "observed_marked": "shoulder",
+    "tokens_marked": [
+      "shoulder",
+      "shoulder",
+      "shoulder"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "shoulder",
+    "tokens_clean": [
+      "shoulder",
+      "shoulder",
+      "shoulder"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "ok",
+    "user_frame": 48,
+    "ref_rep_idx": 48,
+    "ref_video_idx": 64,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "21b1b7ed",
+    "idx": "00",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.55,
+    "ratio_v2": 0.3273,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 118,
+    "box_px_v1": 154,
+    "brand_frac": 0.0335,
+    "observed_marked": "armpit",
+    "tokens_marked": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "armpit",
+    "tokens_clean": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "ok",
+    "user_frame": 48,
+    "ref_rep_idx": 48,
+    "ref_video_idx": 64,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "21b1b7ed",
+    "idx": "01",
+    "crit": "right_elbow",
+    "joint": "right_elbow",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "hip",
+    "tokens_marked": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "hip",
+    "tokens_clean": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 23,
+    "ref_rep_idx": 50,
+    "ref_video_idx": 67,
+    "lookup": "region=joint,none",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "21b1b7ed",
+    "idx": "01",
+    "crit": "right_elbow",
+    "joint": "right_elbow",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "abdomen",
+    "tokens_marked": [
+      "abdomen",
+      "abdomen",
+      "abdomen"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "abdomen",
+    "tokens_clean": [
+      "abdomen",
+      "abdomen",
+      "abdomen"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 23,
+    "ref_rep_idx": 50,
+    "ref_video_idx": 67,
+    "lookup": "region=joint,none",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "21b1b7ed",
+    "idx": "02",
+    "crit": "right_knee",
+    "joint": "right_knee",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "knee",
+    "tokens_marked": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "knee",
+    "tokens_clean": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 23,
+    "ref_rep_idx": 50,
+    "ref_video_idx": 67,
+    "lookup": "region=joint,none",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "21b1b7ed",
+    "idx": "02",
+    "crit": "right_knee",
+    "joint": "right_knee",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0415,
+    "observed_marked": "knee",
+    "tokens_marked": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "knee",
+    "tokens_clean": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 23,
+    "ref_rep_idx": 50,
+    "ref_video_idx": 67,
+    "lookup": "region=joint,none",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "00",
+    "crit": "angle_vs_reference__left_elbow",
+    "joint": "left_elbow",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.4,
+    "ratio_v2": 0.45,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 162,
+    "box_px_v1": 154,
+    "brand_frac": 0.0193,
+    "observed_marked": "elbow",
+    "tokens_marked": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "elbow",
+    "tokens_clean": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "ok",
+    "user_frame": 25,
+    "ref_rep_idx": 11,
+    "ref_video_idx": 15,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "00",
+    "crit": "angle_vs_reference__left_elbow",
+    "joint": "left_elbow",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.4,
+    "ratio_v2": 0.45,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 162,
+    "box_px_v1": 154,
+    "brand_frac": 0.0174,
+    "observed_marked": "elbow",
+    "tokens_marked": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "elbow",
+    "tokens_clean": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "ok",
+    "user_frame": 25,
+    "ref_rep_idx": 11,
+    "ref_video_idx": 15,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "01",
+    "crit": "angle_vs_reference__right_elbow",
+    "joint": "right_elbow",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "thigh",
+    "tokens_marked": [
+      "thigh",
+      "thigh",
+      "thigh"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "thigh",
+    "tokens_clean": [
+      "thigh",
+      "thigh",
+      "thigh"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 127,
+    "ref_rep_idx": 91,
+    "ref_video_idx": 122,
+    "lookup": "region=joint,crit",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "01",
+    "crit": "angle_vs_reference__right_elbow",
+    "joint": "right_elbow",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "head",
+    "tokens_marked": [
+      "head",
+      "head",
+      "head"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "head",
+    "tokens_clean": [
+      "head",
+      "head",
+      "head"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 127,
+    "ref_rep_idx": 91,
+    "ref_video_idx": 122,
+    "lookup": "region=joint,crit",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "02",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.55,
+    "ratio_v2": 0.3273,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 118,
+    "box_px_v1": 154,
+    "brand_frac": 0.0335,
+    "observed_marked": "shoulder",
+    "tokens_marked": [
+      "shoulder",
+      "shoulder",
+      "shoulder"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "shoulder",
+    "tokens_clean": [
+      "shoulder",
+      "shoulder",
+      "shoulder"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "ok",
+    "user_frame": 89,
+    "ref_rep_idx": 98,
+    "ref_video_idx": 131,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "02",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.55,
+    "ratio_v2": 0.3273,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 118,
+    "box_px_v1": 154,
+    "brand_frac": 0.0307,
+    "observed_marked": "shoulder",
+    "tokens_marked": [
+      "shoulder",
+      "shoulder",
+      "shoulder"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "shoulder",
+    "tokens_clean": [
+      "armpit",
+      "shoulder",
+      "shoulder",
+      "armpit",
+      "shoulder"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "ok",
+    "user_frame": 89,
+    "ref_rep_idx": 98,
+    "ref_video_idx": 131,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "03",
+    "crit": "angle_vs_reference__left_knee",
+    "joint": "left_knee",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.5324,
+    "ratio_v2": 0.3381,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 122,
+    "box_px_v1": 154,
+    "brand_frac": 0.0334,
+    "observed_marked": "knee",
+    "tokens_marked": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "knee",
+    "tokens_clean": [
+      "elbow",
+      "elbow",
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "final": "ok",
+    "user_frame": 56,
+    "ref_rep_idx": 32,
+    "ref_video_idx": 43,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "03",
+    "crit": "angle_vs_reference__left_knee",
+    "joint": "left_knee",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.5324,
+    "ratio_v2": 0.3381,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 122,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "hand",
+    "tokens_marked": [
+      "hand",
+      "hand",
+      "hand"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "hand",
+    "tokens_clean": [
+      "hand",
+      "hand",
+      "hand"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "final": "mismatch",
+    "user_frame": 56,
+    "ref_rep_idx": 32,
+    "ref_video_idx": 43,
+    "lookup": "region=joint,crit",
+    "final_v2": "mismatch"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "04",
+    "crit": "left_shoulder",
+    "joint": "left_shoulder",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "armpit",
+    "tokens_marked": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "armpit",
+    "tokens_clean": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 72,
+    "ref_rep_idx": 56,
+    "ref_video_idx": 75,
+    "lookup": "bundle=arms",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "4e232c4a",
+    "idx": "04",
+    "crit": "left_shoulder",
+    "joint": "left_shoulder",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "neck",
+    "tokens_marked": [
+      "neck",
+      "neck",
+      "neck"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "neck",
+    "tokens_clean": [
+      "neck",
+      "neck",
+      "neck"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 72,
+    "ref_rep_idx": 56,
+    "ref_video_idx": 75,
+    "lookup": "bundle=arms",
+    "final_v2": "mismatch"
+  },
+  {
+    "doc": "5ae210fa",
+    "idx": "00",
+    "crit": "leg_extension",
+    "joint": "leg_extension",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "hip",
+    "tokens_marked": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "hip",
+    "tokens_clean": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "hip",
+      "knee",
+      "thigh"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 51,
+    "ref_rep_idx": 72,
+    "ref_video_idx": 96,
+    "lookup": "crit-only",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "5ae210fa",
+    "idx": "00",
+    "crit": "leg_extension",
+    "joint": "leg_extension",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "thigh",
+    "tokens_marked": [
+      "thigh",
+      "thigh",
+      "thigh"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "thigh",
+    "tokens_clean": [
+      "thigh",
+      "thigh",
+      "thigh"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "hip",
+      "knee",
+      "thigh"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 51,
+    "ref_rep_idx": 72,
+    "ref_video_idx": 96,
+    "lookup": "crit-only",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "5ae210fa",
+    "idx": "01",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.4,
+    "ratio_v2": 0.45,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 162,
+    "box_px_v1": 154,
+    "brand_frac": 0.0177,
+    "observed_marked": "armpit",
+    "tokens_marked": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "chest",
+    "tokens_clean": [
+      "chest",
+      "chest",
+      "chest"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "ok",
+    "user_frame": 54,
+    "ref_rep_idx": 49,
+    "ref_video_idx": 65,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "5ae210fa",
+    "idx": "01",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.4,
+    "ratio_v2": 0.45,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 162,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "thigh",
+    "tokens_marked": [
+      "thigh",
+      "thigh",
+      "thigh"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "thigh",
+    "tokens_clean": [
+      "thigh",
+      "thigh",
+      "thigh"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "mismatch",
+    "user_frame": 54,
+    "ref_rep_idx": 49,
+    "ref_video_idx": 65,
+    "lookup": "region=joint,crit",
+    "final_v2": "mismatch"
+  },
+  {
+    "doc": "5ae210fa",
+    "idx": "02",
+    "crit": "left_elbow",
+    "joint": "left_elbow",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "armpit",
+    "tokens_marked": [
+      "armpit",
+      "back_waist",
+      "armpit",
+      "back_waist",
+      "armpit"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "armpit",
+    "tokens_clean": [
+      "armpit",
+      "armpit",
+      "back_waist",
+      "back_waist",
+      "armpit"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 41,
+    "ref_rep_idx": 77,
+    "ref_video_idx": 103,
+    "lookup": "bundle=arms",
+    "final_v2": "mismatch"
+  },
+  {
+    "doc": "5ae210fa",
+    "idx": "02",
+    "crit": "left_elbow",
+    "joint": "left_elbow",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.016,
+    "observed_marked": "armpit",
+    "tokens_marked": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "armpit",
+    "tokens_clean": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 41,
+    "ref_rep_idx": 77,
+    "ref_video_idx": 103,
+    "lookup": "bundle=arms",
+    "final_v2": "mismatch"
+  },
+  {
+    "doc": "a559705f",
+    "idx": "00",
+    "crit": "angle_vs_reference__right_knee",
+    "joint": "right_knee",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.4,
+    "ratio_v2": 0.45,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 162,
+    "box_px_v1": 154,
+    "brand_frac": 0.0171,
+    "observed_marked": "knee",
+    "tokens_marked": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "knee",
+    "tokens_clean": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "final": "ok",
+    "user_frame": 53,
+    "ref_rep_idx": 46,
+    "ref_video_idx": 61,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "a559705f",
+    "idx": "00",
+    "crit": "angle_vs_reference__right_knee",
+    "joint": "right_knee",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.4,
+    "ratio_v2": 0.45,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 162,
+    "box_px_v1": 154,
+    "brand_frac": 0.0198,
+    "observed_marked": "knee",
+    "tokens_marked": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "knee",
+    "tokens_clean": [
+      "knee",
+      "knee",
+      "knee"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "foot",
+      "knee",
+      "thigh"
+    ],
+    "final": "ok",
+    "user_frame": 53,
+    "ref_rep_idx": 46,
+    "ref_video_idx": 61,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "a559705f",
+    "idx": "01",
+    "crit": "angle_vs_reference__right_hip",
+    "joint": "right_hip",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.4048,
+    "ratio_v2": 0.4447,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 160,
+    "box_px_v1": 154,
+    "brand_frac": 0.0188,
+    "observed_marked": "elbow",
+    "tokens_marked": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "elbow",
+    "tokens_clean": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "final": "mismatch",
+    "user_frame": 19,
+    "ref_rep_idx": 51,
+    "ref_video_idx": 68,
+    "lookup": "region=joint,crit",
+    "final_v2": "mismatch"
+  },
+  {
+    "doc": "a559705f",
+    "idx": "01",
+    "crit": "angle_vs_reference__right_hip",
+    "joint": "right_hip",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.4048,
+    "ratio_v2": 0.4447,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 160,
+    "box_px_v1": 154,
+    "brand_frac": 0.0196,
+    "observed_marked": "hip",
+    "tokens_marked": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "hip",
+    "tokens_clean": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "final": "ok",
+    "user_frame": 19,
+    "ref_rep_idx": 51,
+    "ref_video_idx": 68,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "a559705f",
+    "idx": "02",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.4,
+    "ratio_v2": 0.45,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 162,
+    "box_px_v1": 154,
+    "brand_frac": 0.0205,
+    "observed_marked": "knee",
+    "tokens_marked": [
+      "knee",
+      "elbow",
+      "knee",
+      "elbow",
+      "knee"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "elbow",
+    "tokens_clean": [
+      "chest",
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "mismatch",
+    "user_frame": 53,
+    "ref_rep_idx": 46,
+    "ref_video_idx": 61,
+    "lookup": "region=joint,crit",
+    "final_v2": "mismatch"
+  },
+  {
+    "doc": "a559705f",
+    "idx": "02",
+    "crit": "angle_vs_reference__left_shoulder",
+    "joint": "left_shoulder",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.4,
+    "ratio_v2": 0.45,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 162,
+    "box_px_v1": 154,
+    "brand_frac": 0.0193,
+    "observed_marked": "chest",
+    "tokens_marked": [
+      "chest",
+      "chest",
+      "chest"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "chest",
+    "tokens_clean": [
+      "chest",
+      "chest",
+      "chest"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "ok",
+    "user_frame": 53,
+    "ref_rep_idx": 46,
+    "ref_video_idx": 61,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "d213622a",
+    "idx": "00",
+    "crit": "angle_vs_reference__left_hip",
+    "joint": "left_hip",
+    "side": "ref",
+    "vertex_centered": true,
+    "card_frac": 0.55,
+    "ratio_v2": 0.3273,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 118,
+    "box_px_v1": 154,
+    "brand_frac": 0.0306,
+    "observed_marked": "back_waist",
+    "tokens_marked": [
+      "armpit",
+      "back_waist",
+      "back_waist",
+      "armpit",
+      "back_waist"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "armpit",
+    "tokens_clean": [
+      "armpit",
+      "armpit",
+      "armpit"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "final": "mismatch",
+    "user_frame": 110,
+    "ref_rep_idx": 90,
+    "ref_video_idx": 120,
+    "lookup": "region=joint,crit",
+    "final_v2": "mismatch"
+  },
+  {
+    "doc": "d213622a",
+    "idx": "00",
+    "crit": "angle_vs_reference__left_hip",
+    "joint": "left_hip",
+    "side": "user",
+    "vertex_centered": true,
+    "card_frac": 0.55,
+    "ratio_v2": 0.3273,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 118,
+    "box_px_v1": 154,
+    "brand_frac": 0.0311,
+    "observed_marked": "unclear",
+    "tokens_marked": [
+      "abdomen",
+      "back_waist",
+      "back_waist",
+      "hip",
+      "hip"
+    ],
+    "verdict_marked": "unreadable",
+    "observed_clean": "hip",
+    "tokens_clean": [
+      "back_waist",
+      "back_waist",
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "final": "ok",
+    "user_frame": 110,
+    "ref_rep_idx": 90,
+    "ref_video_idx": 120,
+    "lookup": "region=joint,crit",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "d213622a",
+    "idx": "01",
+    "crit": "right_elbow",
+    "joint": "right_elbow",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "hip",
+    "tokens_marked": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "hip",
+    "tokens_clean": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 74,
+    "ref_rep_idx": 161,
+    "ref_video_idx": 215,
+    "lookup": "region=joint,none",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "d213622a",
+    "idx": "01",
+    "crit": "right_elbow",
+    "joint": "right_elbow",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0403,
+    "observed_marked": "elbow",
+    "tokens_marked": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "elbow",
+    "tokens_clean": [
+      "elbow",
+      "elbow",
+      "elbow"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "elbow",
+      "hand",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 74,
+    "ref_rep_idx": 161,
+    "ref_video_idx": 215,
+    "lookup": "region=joint,none",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "d213622a",
+    "idx": "02",
+    "crit": "left_hip",
+    "joint": "left_hip",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "hip",
+    "tokens_marked": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "hip",
+    "tokens_clean": [
+      "hip",
+      "hip",
+      "hip"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 74,
+    "ref_rep_idx": 161,
+    "ref_video_idx": 215,
+    "lookup": "region=joint,none",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "d213622a",
+    "idx": "02",
+    "crit": "left_hip",
+    "joint": "left_hip",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0422,
+    "observed_marked": "back_waist",
+    "tokens_marked": [
+      "armpit",
+      "back_waist",
+      "back_waist",
+      "back_waist"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "chest",
+    "tokens_clean": [
+      "chest",
+      "chest",
+      "back_waist",
+      "chest"
+    ],
+    "verdict_clean": "mismatch",
+    "expected": [
+      "abdomen",
+      "back_waist",
+      "hip",
+      "thigh"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 74,
+    "ref_rep_idx": 161,
+    "ref_video_idx": 215,
+    "lookup": "region=joint,none",
+    "final_v2": "not_center_anchored"
+  },
+  {
+    "doc": "ea765def",
+    "idx": "00",
+    "crit": "left_shoulder",
+    "joint": "left_shoulder",
+    "side": "ref",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0,
+    "observed_marked": "back_waist",
+    "tokens_marked": [
+      "back_waist",
+      "back_waist",
+      "back_waist"
+    ],
+    "verdict_marked": "ok",
+    "observed_clean": "back_waist",
+    "tokens_clean": [
+      "back_waist",
+      "back_waist",
+      "back_waist"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 16,
+    "ref_rep_idx": 16,
+    "ref_video_idx": 21,
+    "lookup": "bundle=arms",
+    "final_v2": "ok"
+  },
+  {
+    "doc": "ea765def",
+    "idx": "00",
+    "crit": "left_shoulder",
+    "joint": "left_shoulder",
+    "side": "user",
+    "vertex_centered": false,
+    "card_frac": null,
+    "ratio_v2": 0.4286,
+    "ratio_v1": 0.4286,
+    "box_px_v2": 154,
+    "box_px_v1": 154,
+    "brand_frac": 0.0217,
+    "observed_marked": "neck",
+    "tokens_marked": [
+      "neck",
+      "neck",
+      "neck"
+    ],
+    "verdict_marked": "mismatch",
+    "observed_clean": "back_waist",
+    "tokens_clean": [
+      "back_waist",
+      "back_waist",
+      "back_waist"
+    ],
+    "verdict_clean": "ok",
+    "expected": [
+      "armpit",
+      "back_waist",
+      "chest",
+      "shoulder"
+    ],
+    "final": "not_center_anchored",
+    "user_frame": 16,
+    "ref_rep_idx": 16,
+    "ref_video_idx": 21,
+    "lookup": "bundle=arms",
+    "final_v2": "ok"
+  }
+]

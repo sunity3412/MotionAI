@@ -37,8 +37,9 @@ import {
 } from '../../components/result/ResultHeader';
 import { ResultScoreDial } from '../../components/result/ResultScoreDial';
 import { ResultSummaryCard } from '../../components/result/ResultSummaryCard';
+import { ResultMomentList } from '../../components/result/ResultMomentList';
 import { riskFlagCopy, topRiskFlag } from '../../components/InjuryRiskSection';
-import { buildSummaryChips } from '../../lib/resultSummary';
+import { buildSummaryChips, summaryChipLabel } from '../../lib/resultSummary';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
 import RenderedComparePlayer from '../../components/RenderedComparePlayer';
@@ -1181,6 +1182,25 @@ function AnalysisResultContent({
   // 노란 경고 박스 = 실재하는 안전 신호(safetyFlags)뿐. 시안의 '레벨 대비 무리한 동작
   // 가능성' 은 이미 앱에 있는 level_mismatch 카피와 **글자까지 같다** — 시안이 이
   // 카피에서 나왔다. 없는 경고를 지어내지 않으므로 flag 가 없으면 박스도 없다.
+  // 동작비교 탭 감점 목록 (시안 2). records 는 이미 시간순 정렬본이라 그대로 쓴다 —
+  // 시안도 초 오름차순이다. 초는 저장값(atVideoSec)만, 없으면 칸을 비운다.
+  const momentRows = useMemo(
+    () =>
+      records
+        .filter(
+          (r) => typeof r.points === 'number' && Number.isFinite(r.points) && r.points < 0,
+        )
+        .map((r) => ({
+          recordId: typeof r.recordId === 'string' && r.recordId ? r.recordId : null,
+          sec:
+            typeof r.atVideoSec === 'number' && Number.isFinite(r.atVideoSec)
+              ? r.atVideoSec
+              : null,
+          label: summaryChipLabel(r.criterion),
+          pointsText: `−${formatDeductionNumber(Math.abs(r.points))}`,
+        })),
+    [records],
+  );
   const summaryWarning = useMemo(() => {
     const flag = topRiskFlag(result.safetyFlags);
     const copy = flag ? riskFlagCopy(flag.flagType) : null;
@@ -2658,14 +2678,27 @@ function AnalysisResultContent({
             {/* 폴백 가지 (renderedCompare 부재 legacy·failed·URL 실패 강등) —
                 기존 듀얼 플레이어+라이브 동기 경로 그대로 (quick-260808-jix:
                 이 가지 내부 코드 diff 0). */}
-            <View style={styles.compareHeader}>
-              <Text style={styles.sectionTitle}>동작 비교</Text>
-              <KeypointOverlayToggle
-                value={overlayVisible}
-                onValueChange={handleToggleOverlay}
-              />
-            </View>
+            {/* belle 09-09 재디자인 — 섹션 제목('동작 비교')과 관절선 토글을 여기서
+                걷어냈다. 제목은 이제 탭 라벨이 대신하고(시안 2 에 섹션 제목이 없다),
+                토글은 시안대로 재생 컨트롤 옆 옵션 행의 '관절선 표시' 칩으로 내려간다.
+                상태(overlayVisible)의 소유는 여전히 이 화면이다 — 전체화면 헤더의
+                같은 토글과 한 상태를 공유해야 하므로 옮기지 않고 넘겨준다. */}
             <VideoCompare
+              // belle 09-09 재디자인 — 시안 2 는 감점 목록이 영상 카드 **안**, 옵션 행
+              // 바로 아래에 온다. 카드 밖에 두면 부가 컨트롤(음성 안내·미세조정)이
+              // 사이에 껴서 시안과 순서가 어긋난다.
+              renderBelowControls={() => (
+                <ResultMomentList
+                  flat
+                  rows={momentRows}
+                  onRowPress={(recordId) => {
+                    const idx = records.findIndex((r) => r.recordId === recordId);
+                    if (idx >= 0) setDetailRecordIndex(idx);
+                  }}
+                />
+              )}
+              overlayOn={overlayVisible}
+              onToggleOverlay={() => handleToggleOverlay(!overlayVisible)}
               // 29-CONTEXT D-06 — mode3 비교 = 본인 이전 영상 vs 이번 영상.
               // 좌/우 라벨을 지난/이번 쌍으로 명확히 (정은지 언급 없음). mode1 은
               // 좌 '내 영상' 유지.

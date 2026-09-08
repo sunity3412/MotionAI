@@ -213,6 +213,17 @@ export type VideoCompareProps = {
    *
    * quick-260702-t0v — 2번째 인자 opts.sizeScale 확장 (전체화면 뷰어가 2.0 전달).
    */
+  // belle 09-09 재디자인 — 시안 2 의 '관절선 표시' 칩. 종전에는 호출측 섹션 헤더의
+  // Switch 였다(result.tsx). 시안은 재생 컨트롤 옆 옵션 행에 두므로 상태를 그대로 받아
+  // 칩으로 그린다 — 상태 소유는 여전히 호출측(제어 컴포넌트). 미전달 시 칩 미렌더.
+  overlayOn?: boolean;
+  onToggleOverlay?: () => void;
+  /**
+   * belle 09-09 재디자인 — 옵션 행 **바로 아래** 슬롯. 시안 2 는 영상·컨트롤·옵션·
+   * 감점 목록이 **한 카드 안**에 순서대로 들어간다. 목록을 카드 밖에 두면 순서가
+   * 어긋나고(부가 컨트롤이 사이에 낀다) 카드가 두 개로 쪼개진다. 미전달 시 렌더 diff 0.
+   */
+  renderBelowControls?: () => React.ReactNode;
   leftOverlay?: OverlayRenderProp;
   rightOverlay?: OverlayRenderProp;
   /**
@@ -475,6 +486,9 @@ export function VideoCompare({
   rightLabel,
   leftUrl,
   rightUrl,
+  overlayOn,
+  onToggleOverlay,
+  renderBelowControls,
   leftOverlay,
   rightOverlay,
   fullscreenHeaderExtra,
@@ -569,6 +583,10 @@ export function VideoCompare({
   // 같은 leftPlayer/rightPlayer 인스턴스에 두 번째 VideoView 를 attach → 재생
   // 위치/상태 연속, drift 보정 tick·togglePlay·seekBoth 가 양 레이아웃을 그대로 제어.
   const [fullscreen, setFullscreen] = useState(false);
+  // belle 09-09 재디자인 — 시안 2 의 '0.5배속'. expo-video 의 playbackRate 를 두
+  // 플레이어에 같이 건다(한쪽만 걸면 D-13 "함께 멈추고 함께 돈다" 가 깨진다).
+  // 신규 의존성 0 — OTA 로 나간다.
+  const [slowMotion, setSlowMotion] = useState(false);
   // 전체화면 타임라인 track 은 폭이 다름 — scrubAtX 가 활성 레이아웃의 폭을 읽도록
   // ref 분리 (portrait track 은 Modal 뒤에 mount 유지라 onLayout 재발화 없음).
   const fullscreenRef = useRef(false);
@@ -710,6 +728,12 @@ export function VideoCompare({
   // 29-CONTEXT D-11 — 가로/세로 전환 부수효과. fullscreen 진입 시 Modal 마운트 이후(effect=
   // commit 이후) 가로 lock, 이탈/언마운트 시 세로 복원. closeFullscreen 이 선제 lockPortrait
   // 하므로 cleanup 은 다른 이탈 경로(언마운트, 화면 이탈) 안전망. 구빌드는 두 helper 가 no-op.
+  useEffect(() => {
+    const rate = slowMotion ? 0.5 : 1;
+    if (leftPlayer) leftPlayer.playbackRate = rate;
+    if (rightPlayer) rightPlayer.playbackRate = rate;
+  }, [slowMotion, leftPlayer, rightPlayer]);
+
   useEffect(() => {
     if (fullscreen) lockLandscape();
     return () => {
@@ -2420,6 +2444,81 @@ export function VideoCompare({
         {renderCueOverlays(false)}
       </View>
 
+      {hasAny ? (
+        renderControls(false)
+      ) : (
+        <Text style={styles.hint}>
+          분석 서버가 연결되면 두 영상을 동시에 재생하며 관절 차이를 비교할 수
+          있어요.
+        </Text>
+      )}
+
+      {/* belle 09-09 재디자인 — 시안 2 의 옵션 행. 시안은 [0.5배속][관절선 표시] 둘인데
+          '가로로 크게 보기' 를 한 칸 더 둔다: belle 판정 "시안대로 하되 확대 문은
+          남긴다" — 손가락 확대·멈춤(09-07 슬라이스)으로 들어가는 **유일한 문**이라
+          시안에 없다고 지우면 그 기능이 도달 불가가 된다. */}
+      {hasAny ? (
+        <View style={styles.optionRow}>
+          <Pressable
+            onPress={() => setSlowMotion((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: slowMotion }}
+            accessibilityLabel="0.5배속으로 보기"
+            hitSlop={8}
+            style={[styles.optionPill, slowMotion ? styles.optionPillOn : null]}
+          >
+            <Text
+              style={[
+                styles.optionPillText,
+                slowMotion ? styles.optionPillTextOn : null,
+              ]}
+            >
+              0.5배속
+            </Text>
+          </Pressable>
+          {onToggleOverlay ? (
+            <Pressable
+              onPress={onToggleOverlay}
+              accessibilityRole="button"
+              accessibilityState={{ selected: !!overlayOn }}
+              accessibilityLabel="관절선 표시"
+              hitSlop={8}
+              style={[styles.optionPill, overlayOn ? styles.optionPillOn : null]}
+            >
+              <Text
+                style={[
+                  styles.optionPillText,
+                  overlayOn ? styles.optionPillTextOn : null,
+                ]}
+              >
+                관절선 표시
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={openFullscreen}
+            accessibilityRole="button"
+            accessibilityLabel="가로 전체화면으로 크게 보기"
+            hitSlop={8}
+            style={styles.optionPill}
+          >
+            <Ionicons name="expand" size={13} color={colors.brand} />
+            <Text style={styles.optionPillText}>가로로 크게 보기</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {/* belle 09-07 — 전체화면 안에서 무엇을 할 수 있는지 미리 알린다. 안내를 한 번
+          겪고 나면(핀치·탭·4초) 사라진다 — 배운 사람에게 계속 말하지 않는다. */}
+      {hasAny && !pinchHintSeen ? (
+        <Text style={styles.fullscreenBtnHint}>두 손가락으로 벌려 확대</Text>
+      ) : null}
+
+      {renderBelowControls ? renderBelowControls() : null}
+
+      {/* belle 09-09 판정 "시안대로" — 시안 2 의 컨트롤은 재생·진행바·시간 + 0.5배속 +
+          관절선 표시 넷뿐이다. 음성 안내·자동 맞춤 배지·시작점 미세조정은 시안 프레임
+          **밖**(감점 목록 아래)으로 내렸다. 다른 탭으로는 옮길 수 없다 — 플레이어를
+          조작하는 컨트롤이라 플레이어와 같은 화면에 있어야 한다. 기능 손실 0. */}
       {/* 32-12 (D-18 B안 오디오 큐) — "음성 안내" 토글. coachAudio mp3 보유 doc
           (audioAnalysisId 전달) 에서만 노출. 기본 off(학원 소음) — 켜면 재생 중 자막
           큐 전환 시점에 같은 문장을 음성으로 안내한다. 소형 pill(토큰·accessibility). */}
@@ -2549,38 +2648,6 @@ export function VideoCompare({
             </Pressable>
           </View>
         </View>
-      )}
-
-      {/* quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 가로 전체화면
-          진입 버튼. 세로 나란히 2개 레이아웃에선 각도 라벨이 판독 불가 → 탭 시
-          두 영상을 좌우로 크게 보는 전체화면 뷰어. */}
-      {hasAny && (
-        <View style={styles.fullscreenBtnGroup}>
-          <Pressable
-            onPress={openFullscreen}
-            accessibilityRole="button"
-            accessibilityLabel="가로 전체화면으로 크게 보기"
-            hitSlop={8}
-            style={styles.fullscreenBtn}
-          >
-            <Ionicons name="expand" size={16} color={colors.brand} />
-            <Text style={styles.fullscreenBtnText}>가로로 크게 보기</Text>
-          </Pressable>
-          {/* belle 09-07 — 전체화면 안에서 무엇을 할 수 있는지 미리 알린다. 안내를
-              한 번 겪고 나면(핀치·탭·4초) 사라진다 — 배운 사람에게 계속 말하지 않는다. */}
-          {!pinchHintSeen ? (
-            <Text style={styles.fullscreenBtnHint}>두 손가락으로 벌려 확대</Text>
-          ) : null}
-        </View>
-      )}
-
-      {hasAny ? (
-        renderControls(false)
-      ) : (
-        <Text style={styles.hint}>
-          분석 서버가 연결되면 두 영상을 동시에 재생하며 관절 차이를 비교할 수
-          있어요.
-        </Text>
       )}
 
       {/* quick-260702-t0v — 가로 전체화면 뷰어. portrait 고정 유지 + 뷰 90° 회전
@@ -3168,6 +3235,32 @@ const styles = StyleSheet.create({
   },
   // belle 09-07 — 진입 pill + 그 아래 한 줄 안내. 카드 gap(12)과 별개로 둘을
   // 한 덩어리로 묶는다.
+  // belle 09-09 재디자인 — 시안 2 옵션 행. 알약이 가운데 정렬로 한 줄(넘치면 줄바꿈).
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  optionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.cardBg,
+  },
+  optionPillOn: {
+    borderColor: colors.brand,
+    backgroundColor: colors.resultChipBg,
+  },
+  optionPillText: { ...typography.caption, color: colors.textMid },
+  optionPillTextOn: { color: colors.brand, fontWeight: '700' },
   fullscreenBtnGroup: {
     gap: 4,
   },

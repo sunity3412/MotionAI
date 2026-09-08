@@ -2616,280 +2616,6 @@ function AnalysisResultContent({
                 if (idx >= 0) setDetailRecordIndex(idx);
               }}
             />
-            <View style={styles.header}>
-          <Text style={styles.sub}>
-            {cmp.mode === 'mode1'
-              ? `${cmp.athleteName} 선수 · ${cmp.referenceMotionName} 기준으로 분석했어요.`
-              : isScoreSuppressed
-                ? `${name ? `${name} · ` : ''}${suppressedHeaderCopy}`
-                : `${name ? `${name} · ` : ''}분석이 완료됐어요. 점수를 확인해보세요.`}
-          </Text>
-          {/* Phase 19 TRUST-03 → quick-260831-lcc (belle 2026-08-31 결과 화면
-              재구성 승인): 상단 참고 3줄을 1줄로 통합 — scoringBasisLabel 은 기본
-              미렌더. 단 isScoreSuppressed(reference-free) 경로에서만 유지 —
-              "기준 동작 없음" 라벨의 거짓 confident 차단 목적(TRUST-03) 잔존.
-              비억제 doc 의 채점 근거 정보 잔존 경로(정보 손실 0): ① 점수 계산
-              내역 breakdownBasisLine(composeScoringBasisKo — "세계챔피언 정은지
-              선수 시연 대비 편차…" 실측 확인) ② header sub("정은지 선수 · 동작
-              기준으로 분석했어요"). coachPositioning 이 상단 유일 면책 1줄. */}
-          {isScoreSuppressed && cmp.scoringBasisLabel ? (
-            <Text style={styles.scoringBasis}>{cmp.scoringBasisLabel}</Text>
-          ) : null}
-          {/* Phase 4 (04-02 D-08 / BLOCKER-3) — 정확도 제한 배지.
-              canonical surface = result.aiSynthesisMeta.warnings (top-level
-              result.warnings 아님). 합성 경고 없는 정상 분석에서는 visible=false
-              로 자동 미렌더 (블랙박스 R7 박제 — 사용자에게 내부 코드명 노출 X). */}
-          <AccuracyLimitBadge
-            visible={hasSynthesisWarning(result, 'ai_synthesis_failed')}
-          />
-          {/* [R1] 분석-당시 자가입력 SNAPSHOT 표기 — 채워진 필드만, 미입력이면
-              생략(graceful). weightKg 보조 ONLY 라 요약에서 제외 (D-05). */}
-          {bodyProfileSummary ? (
-            <View style={styles.bodyProfileRow}>
-              <Ionicons
-                name="body-outline"
-                size={14}
-                color={colors.textSecondary}
-              />
-              <Text style={styles.bodyProfileText}>{bodyProfileSummary}</Text>
-            </View>
-          ) : null}
-          {/* Phase 11 (Plan 11-02, FEED-03 / D-07) — AI = "강사 보조 도구"
-              포지셔닝 상단 1줄. 가볍게 한 줄만 (전용 강조 배너 채택 안 함 —
-              매 분석 반복 노출 거슬림, D-07). "강사에게 확인할 점" 섹션과 함께
-              AI 가 강사를 대체하지 않고 지도를 돕는 참고임을 명확히 한다. */}
-          <Text style={styles.coachPositioning}>
-            이 분석은 강사 지도를 돕는 참고예요.
-          </Text>
-        </View>
-
-        {/* ── 옥타곤 점수 카드 — 첫 화면(스크롤 0) 최상단 콘텐츠.
-            belle 2026-08-31 결과 화면 재구성 승인(요약 우선) — 구 D-01/D-09
-            "점수 게이지 상세 영역 강등" 배치 결정을 대체. 수치 규율(카드당 수치
-            1곳·본문 % 금지) 자체는 유지. suppressed 는 요약 카드가 담당하므로
-            여기선 비억제만. scoreCaption("100점은 잘 나오지 않아요…")은 하단
-            심사 카드 통합 면책(JUDGE_SIM_DISCLAIMER)에 병합·이동 (면책 축소:
-            상단 1줄 + 하단 1개 + 참고코너 유지). */}
-        {isScoreSuppressed ? null : (
-          <View style={styles.card}>
-            <OctagonScore score={result.overallScore} size={168} />
-            <View style={styles.gradeRow}>
-              <Text style={styles.gradeBadge}>{grade}</Text>
-              <Text style={styles.summary}>{summary}</Text>
-            </View>
-            <ScoreContext
-              score={result.overallScore}
-              mode={cmp.mode === 'mode1' ? 'mode1' : 'mode3'}
-              athleteName={cmp.mode === 'mode1' ? cmp.athleteName : null}
-              correctionPoint={correctionPoint}
-              cleanPass={cleanPass}
-              selfDelta={
-                cmp.mode === 'mode3' &&
-                !cmp.isFirst &&
-                prevDoc?.result?.overallScore != null
-                  ? result.overallScore - prevDoc.result.overallScore
-                  : null
-              }
-            />
-            {/* IN-01 — 역립 저신뢰 시 관절 단정(primaryFault) 표기 숨김. */}
-            {vetoPrimaryFault && !attributionUnreliable ? (
-              <Text style={styles.scoringBasis}>
-                AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
-              </Text>
-            ) : null}
-            {/* 점수 보정 안내 — 하단 통합 면책이 렌더되지 않는 doc 에서만.
-                병합 후 이 문장은 JUDGE_SIM_DISCLAIMER 안에만 있었는데, 그 카드는
-                감점 record 가 있을 때만 뜬다(resultSections judgeInfo = !suppressed
-                && hasRecords) + 저신뢰 시 숨김. 그래서 clean-pass(감점 0, 만점권)나
-                저신뢰 doc 은 "100점은 잘 안 나와요" 안내를 화면 어디에서도 못 봤다
-                (2026-08-31 앱 리뷰 — 정보 손실). 중복 없이 최소 1회를 보장한다. */}
-            {isVisible('judgeInfo') && !attributionUnreliable ? null : (
-              <Text style={styles.scoringBasis}>{SCORE_CALIBRATION_NOTE}</Text>
-            )}
-          </View>
-        )}
-
-        {/* ═══ 32-11 대배선 — D-02 확정 순서 (resultSections 뷰모델 단일 지점) ═══
-            요약 → 위험 → 오늘 고칠 것 top-1 → 동작 비교 → 상세(접힘) → 성장 →
-            보완 운동 → 강사 질문 → 심사 정보 → 참고하세요(31). 근거 = 32-GATE-
-            DECISIONS D-02. 순서·가시성은 sections(resultSections)가 단일 지점에서
-            결정하고, 카드 상호작용은 recordId 조인 맵(recordMaps)으로만 잇는다. */}
-
-        {/* ── 1. 요약 카드 (옥타곤 직하 — belle 2026-08-31 결과 화면 재구성:
-            구 D-01 "첫 콘텐츠" 배치를 대체, 옥타곤이 첫 카드가 되고 요약은 그
-            직하 '오늘 고칠 것' 리드). suppressed → '기준 없음', 아니면
-            SummaryCard(잘한 점 사람 말 헤드라인 + 오늘 고칠 것 + 자세히 보기).
-            점수 배지 제거(옥타곤이 바로 위에서 점수 표시 — 중복), nextAction
-            cuePill 제거(DeductionCard cueBox 와 verbatim 복제 — cueBox 유일본).
-            mode3 헤드라인=발전 델타 invariant 는 summaryPraise 가 담당(D-26). */}
-        {/* F-7 (33-G) — '자세히 보기'/'접기' 스크롤 앵커. 요약 카드 자신의 y 를
-            기록해 전환 후에도 누른 줄이 화면에 남게 한다(위 toggleDetailExpanded
-            주석 참조). 래퍼는 스타일 없는 View 1겹 — content 컨테이너의 flex 자식
-            수가 그대로(1개)라 gap/여백이 변하지 않는다. */}
-        <View
-          onLayout={(e) => setCardY('anchor:summaryCard', e.nativeEvent.layout.y)}
-        >
-          {variantOf('summary') === 'suppressed' ? (
-            <View style={styles.card}>
-              <Text style={styles.suppressedTitle}>기준 없음</Text>
-              <Text style={styles.suppressedBody}>{suppressedHeaderCopy}</Text>
-            </View>
-          ) : (
-            <SummaryCard
-              praise={summaryContent.praise}
-              // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 "오늘 고칠 것" 헤드라인을
-              // 관절명 없는 집계 문장으로 라우팅 (TODAY_NONE '고칠 것 없음' 폴백 금지 —
-              // clean 오인 방지). "다음 행동" 은 record cueLine(관절-행동)이라 숨김.
-              // praise/score 배지는 유지(확신 표면 — 리드). 신규 카피 0.
-              todayFix={
-                attributionUnreliable
-                  ? {
-                      headline:
-                        result.attributionReliability?.aggregateStatement ??
-                        ATTR_SCORE_AGGREGATE_FALLBACK,
-                      criterion: '',
-                      gameFrame: false,
-                    }
-                  : summaryContent.todayFix
-              }
-              onPressTodayFix={() => jumpToRecordKey(topFixKey)}
-              // 33-15 (D-17) + F-7 (33-G) — 자세히 보기/접기 = 요약 카드 앵커 토글.
-              onPressExpand={toggleDetailExpanded}
-              expanded={detailExpanded}
-            />
-          )}
-        </View>
-
-        {/* 32-12 (D-29 부분 실패 정직 고지) — 커버리지 갭이 있을 때만. 못 잰 부분을
-            정직하게 알리고(과장·감춤 금지) 다음 행동(촬영 가이드)을 1줄로 잇는다.
-            잰 범위 내 미션·질문은 32-09 방출이 담당 — 이 블록은 정직 고지 전담. */}
-        {hasCoverageGap ? (
-          <View style={styles.coverageCard}>
-            <Text style={styles.coverageTitle}>
-              이번엔 화면에 잘 잡힌 부분 위주로 분석했어요
-            </Text>
-            <Text style={styles.coverageBody}>
-              가려지거나 화면 밖으로 나간 부분은 이번 영상에서 정확히 재기 어려웠어요.
-              보이는 자세를 기준으로 확실히 잰 것만 짚었어요.
-            </Text>
-            <Pressable
-              onPress={() => router.push('/tutorial')}
-              accessibilityRole="button"
-              accessibilityLabel="촬영 가이드 보기"
-              hitSlop={8}
-              style={styles.coverageTipRow}
-            >
-              <Text style={styles.coverageTip}>
-                몸 전체가 화면에 들어오게 다시 촬영하면 더 많은 부분을 분석할 수 있어요.
-                촬영 가이드 보기 ›
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {/* ── 2. 위험 결함 (D-14 트리아지) — 요약 직후 승격, 있을 때만. 컴포넌트
-            self-null (플래그 0 → 미렌더). ── */}
-        {isVisible('risk') ? <InjuryRiskSection flags={result.safetyFlags} /> : null}
-
-        {/* ── 3. 오늘 고칠 것 top-1 (D-08 완결형 DeductionCard) ────────────────
-            미션 record 우선/최대 감점 1건을 상태→왜→게이지→행동→미션→물어보기로
-            완결 렌더. cleanPass 면 축하 카드가 대신(요약 clean variant). 확대 사진
-            쌍은 드릴다운 시트(D-17 자세 비교 카드) 진입점으로 잇는다. onLayout 으로
-            점프 y 기록(요약 '오늘 고칠 것' 탭 대상). */}
-        {/* IN-01 — 역립 저신뢰 시 topFix "오늘 고칠 것" per-joint 카드 억제 (관절
-            단정 방지). records 보유(cleanPass=false) 라 clean 카드 폴백도 미충족 →
-            null. 점수·안내는 ScoreBreakdownSection aggregate + 안내 1줄이 대신 전달. */}
-        {isVisible('topFix') && topFixRecord && !attributionUnreliable ? (
-          <View
-            onLayout={(e) =>
-              setCardY(topFixKey ?? 'topFix', e.nativeEvent.layout.y)
-            }
-          >
-            <DeductionCard
-              record={toCardRecord(topFixRecord)}
-              // quick-260903-f2w (표 3 행 4 결함) — 히스토리 전체에서 무배선이던
-              // 인라인 확대비교 사진을 여기서 처음 연결. 합성 PNG 1장을 fresh 재발급
-              // 맵 우선(7일 넘은 doc)·저장 imageUrl 폴백으로 조회 — 시트와 같은
-              // resolveZoomImageUrl 단일 출처. 로드 실패 = onZoomImageError 재발급.
-              zoom={
-                topFixZoom
-                  ? { imageUrl: resolveZoomImageUrl(topFixZoom, freshZoomUrls) }
-                  : undefined
-              }
-              onZoomImageError={onZoomImageError}
-              zoomPending={zoomPending}
-              mission={
-                result.mission
-                  ? { isMission: true, isSafety: result.mission.isSafety }
-                  : undefined
-              }
-              rightLabel={
-                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
-              }
-              expanded
-              onAskCoach={(rid) => addUserQuestion(rid)}
-            />
-            {topFixZoom || zoomPending ? (
-              <Pressable
-                onPress={() => setDetailRecordIndex(topFixIndex)}
-                accessibilityRole="button"
-                accessibilityLabel="확대 비교 자세히 보기"
-                hitSlop={8}
-                style={styles.tipMoreRow}
-              >
-                {/* IN-01 — 역립 저신뢰 시 "예상 부위" 라벨로 치환 (확정 결함 아님). */}
-                <Text style={styles.tipMore}>
-                  {attributionUnreliable
-                    ? `${ATTR_ZOOM_ESTIMATED_LABEL} 확대 비교 ›`
-                    : '확대 비교 자세히 보기 ›'}
-                </Text>
-              </Pressable>
-            ) : null}
-            {/* 33-15 (D-17) — 추가 감점 항목 스크롤 어포던스. 추가 항목이 동작
-                비교(긴 카드) 아래 있어 발견이 어렵다 — 개수 + 이동 링크 1줄.
-                표시 조건 = '다른 감점 항목' 섹션 렌더 조건 미러 (모순 링크 0). */}
-            {isVisible('collapsed') && otherVisibleRecordCount > 0 ? (
-              <Pressable
-                onPress={jumpToCollapsedList}
-                accessibilityRole="button"
-                accessibilityLabel={`다른 감점 항목 ${otherVisibleRecordCount}개로 이동`}
-                hitSlop={8}
-                style={styles.tipMoreRow}
-              >
-                <Text style={styles.tipMore}>
-                  {`아래에 다른 감점 항목 ${otherVisibleRecordCount}개 더 보기 ›`}
-                </Text>
-              </Pressable>
-            ) : null}
-            {/* quick-260831-lcc — '먼저 교정할 점' veto 카드 해체 (belle
-                2026-08-31 결과 화면 재구성). 고유 콘텐츠인 rootCauseHypotheses
-                ('가능한 원인' 가설 목록)만 topFix 직하 중립 카드로 이동 —
-                headline 재출현·vetoFixTip(코칭 팁 detail 복제)·vetoLeadNote
-                (면책류)는 제거 (각각 DeductionCard statusLine·코칭 팁 본문·
-                통합 면책이 유일본). topFix 미렌더 경로(attributionUnreliable·
-                cleanPass)에선 이 블록도 함께 미렌더. '~로 보임' 가설 어투
-                그대로 (측정 안 된 단정 금지 — quick-260704-fwb 승계). */}
-            {vetoRootCauses.length > 0 ? (
-              <View style={[styles.card, styles.tipCard, styles.rootCauseCard]}>
-                <Text style={styles.vetoCauseLabel}>가능한 원인</Text>
-                {vetoRootCauses.map((h, i) => (
-                  <Text key={i} style={styles.vetoCauseItem}>
-                    {`· ${h.text}`}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        ) : variantOf('summary') === 'clean' ? (
-          <View style={[styles.card, styles.cleanPassCard]}>
-            <Text style={styles.cleanPassTitle}>감점 항목이 없어요</Text>
-            <Text style={styles.cleanPassBody}>
-              {cmp.mode === 'mode3'
-                ? '측정한 자세 형태 기준을 모두 통과했어요. 이 자세를 유지하고 다음 영상과 비교해 발전을 확인해보세요.'
-                : '측정 기준을 모두 통과했어요. 이 자세를 그대로 유지하세요.'}
-            </Text>
-          </View>
-        ) : null}
 
           </>
         )}
@@ -3318,6 +3044,284 @@ function AnalysisResultContent({
         )}
         {resultTab === 'points' && (
           <>
+          {/* belle 09-09 판정 "시안대로 — 옆으로 옮기기": 요약 탭은 시안대로 점수 원 +
+              카드 + CTA 셋만 남기고, 시안에 없는 것들을 여기로 옮겼다. 지운 것은
+              옥타곤 점수 그래프 하나뿐이다 — 새 점수 원과 같은 것을 두 번 말한다.
+              나머지(분석 근거·면책 2줄·정확도 배지·자가입력 스냅샷·점수 맥락·커버리지
+              갭·위험 결함·오늘 고칠 것)는 한 줄도 지우지 않았다. */}
+            <View style={styles.header}>
+          <Text style={styles.sub}>
+            {cmp.mode === 'mode1'
+              ? `${cmp.athleteName} 선수 · ${cmp.referenceMotionName} 기준으로 분석했어요.`
+              : isScoreSuppressed
+                ? `${name ? `${name} · ` : ''}${suppressedHeaderCopy}`
+                : `${name ? `${name} · ` : ''}분석이 완료됐어요. 점수를 확인해보세요.`}
+          </Text>
+          {/* Phase 19 TRUST-03 → quick-260831-lcc (belle 2026-08-31 결과 화면
+              재구성 승인): 상단 참고 3줄을 1줄로 통합 — scoringBasisLabel 은 기본
+              미렌더. 단 isScoreSuppressed(reference-free) 경로에서만 유지 —
+              "기준 동작 없음" 라벨의 거짓 confident 차단 목적(TRUST-03) 잔존.
+              비억제 doc 의 채점 근거 정보 잔존 경로(정보 손실 0): ① 점수 계산
+              내역 breakdownBasisLine(composeScoringBasisKo — "세계챔피언 정은지
+              선수 시연 대비 편차…" 실측 확인) ② header sub("정은지 선수 · 동작
+              기준으로 분석했어요"). coachPositioning 이 상단 유일 면책 1줄. */}
+          {isScoreSuppressed && cmp.scoringBasisLabel ? (
+            <Text style={styles.scoringBasis}>{cmp.scoringBasisLabel}</Text>
+          ) : null}
+          {/* Phase 4 (04-02 D-08 / BLOCKER-3) — 정확도 제한 배지.
+              canonical surface = result.aiSynthesisMeta.warnings (top-level
+              result.warnings 아님). 합성 경고 없는 정상 분석에서는 visible=false
+              로 자동 미렌더 (블랙박스 R7 박제 — 사용자에게 내부 코드명 노출 X). */}
+          <AccuracyLimitBadge
+            visible={hasSynthesisWarning(result, 'ai_synthesis_failed')}
+          />
+          {/* [R1] 분석-당시 자가입력 SNAPSHOT 표기 — 채워진 필드만, 미입력이면
+              생략(graceful). weightKg 보조 ONLY 라 요약에서 제외 (D-05). */}
+          {bodyProfileSummary ? (
+            <View style={styles.bodyProfileRow}>
+              <Ionicons
+                name="body-outline"
+                size={14}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.bodyProfileText}>{bodyProfileSummary}</Text>
+            </View>
+          ) : null}
+          {/* Phase 11 (Plan 11-02, FEED-03 / D-07) — AI = "강사 보조 도구"
+              포지셔닝 상단 1줄. 가볍게 한 줄만 (전용 강조 배너 채택 안 함 —
+              매 분석 반복 노출 거슬림, D-07). "강사에게 확인할 점" 섹션과 함께
+              AI 가 강사를 대체하지 않고 지도를 돕는 참고임을 명확히 한다. */}
+          <Text style={styles.coachPositioning}>
+            이 분석은 강사 지도를 돕는 참고예요.
+          </Text>
+        </View>
+
+        {/* ── 옥타곤 점수 카드 — 첫 화면(스크롤 0) 최상단 콘텐츠.
+            belle 2026-08-31 결과 화면 재구성 승인(요약 우선) — 구 D-01/D-09
+            "점수 게이지 상세 영역 강등" 배치 결정을 대체. 수치 규율(카드당 수치
+            1곳·본문 % 금지) 자체는 유지. suppressed 는 요약 카드가 담당하므로
+            여기선 비억제만. scoreCaption("100점은 잘 나오지 않아요…")은 하단
+            심사 카드 통합 면책(JUDGE_SIM_DISCLAIMER)에 병합·이동 (면책 축소:
+            상단 1줄 + 하단 1개 + 참고코너 유지). */}
+        {isScoreSuppressed ? null : (
+          <View style={styles.card}>
+            <View style={styles.gradeRow}>
+              <Text style={styles.gradeBadge}>{grade}</Text>
+              <Text style={styles.summary}>{summary}</Text>
+            </View>
+            <ScoreContext
+              score={result.overallScore}
+              mode={cmp.mode === 'mode1' ? 'mode1' : 'mode3'}
+              athleteName={cmp.mode === 'mode1' ? cmp.athleteName : null}
+              correctionPoint={correctionPoint}
+              cleanPass={cleanPass}
+              selfDelta={
+                cmp.mode === 'mode3' &&
+                !cmp.isFirst &&
+                prevDoc?.result?.overallScore != null
+                  ? result.overallScore - prevDoc.result.overallScore
+                  : null
+              }
+            />
+            {/* IN-01 — 역립 저신뢰 시 관절 단정(primaryFault) 표기 숨김. */}
+            {vetoPrimaryFault && !attributionUnreliable ? (
+              <Text style={styles.scoringBasis}>
+                AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
+              </Text>
+            ) : null}
+            {/* 점수 보정 안내 — 하단 통합 면책이 렌더되지 않는 doc 에서만.
+                병합 후 이 문장은 JUDGE_SIM_DISCLAIMER 안에만 있었는데, 그 카드는
+                감점 record 가 있을 때만 뜬다(resultSections judgeInfo = !suppressed
+                && hasRecords) + 저신뢰 시 숨김. 그래서 clean-pass(감점 0, 만점권)나
+                저신뢰 doc 은 "100점은 잘 안 나와요" 안내를 화면 어디에서도 못 봤다
+                (2026-08-31 앱 리뷰 — 정보 손실). 중복 없이 최소 1회를 보장한다. */}
+            {isVisible('judgeInfo') && !attributionUnreliable ? null : (
+              <Text style={styles.scoringBasis}>{SCORE_CALIBRATION_NOTE}</Text>
+            )}
+          </View>
+        )}
+
+        {/* ═══ 32-11 대배선 — D-02 확정 순서 (resultSections 뷰모델 단일 지점) ═══
+            요약 → 위험 → 오늘 고칠 것 top-1 → 동작 비교 → 상세(접힘) → 성장 →
+            보완 운동 → 강사 질문 → 심사 정보 → 참고하세요(31). 근거 = 32-GATE-
+            DECISIONS D-02. 순서·가시성은 sections(resultSections)가 단일 지점에서
+            결정하고, 카드 상호작용은 recordId 조인 맵(recordMaps)으로만 잇는다. */}
+
+        {/* ── 1. 요약 카드 (옥타곤 직하 — belle 2026-08-31 결과 화면 재구성:
+            구 D-01 "첫 콘텐츠" 배치를 대체, 옥타곤이 첫 카드가 되고 요약은 그
+            직하 '오늘 고칠 것' 리드). suppressed → '기준 없음', 아니면
+            SummaryCard(잘한 점 사람 말 헤드라인 + 오늘 고칠 것 + 자세히 보기).
+            점수 배지 제거(옥타곤이 바로 위에서 점수 표시 — 중복), nextAction
+            cuePill 제거(DeductionCard cueBox 와 verbatim 복제 — cueBox 유일본).
+            mode3 헤드라인=발전 델타 invariant 는 summaryPraise 가 담당(D-26). */}
+        {/* F-7 (33-G) — '자세히 보기'/'접기' 스크롤 앵커. 요약 카드 자신의 y 를
+            기록해 전환 후에도 누른 줄이 화면에 남게 한다(위 toggleDetailExpanded
+            주석 참조). 래퍼는 스타일 없는 View 1겹 — content 컨테이너의 flex 자식
+            수가 그대로(1개)라 gap/여백이 변하지 않는다. */}
+        <View
+          onLayout={(e) => setCardY('anchor:summaryCard', e.nativeEvent.layout.y)}
+        >
+          {variantOf('summary') === 'suppressed' ? (
+            <View style={styles.card}>
+              <Text style={styles.suppressedTitle}>기준 없음</Text>
+              <Text style={styles.suppressedBody}>{suppressedHeaderCopy}</Text>
+            </View>
+          ) : (
+            <SummaryCard
+              praise={summaryContent.praise}
+              // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 "오늘 고칠 것" 헤드라인을
+              // 관절명 없는 집계 문장으로 라우팅 (TODAY_NONE '고칠 것 없음' 폴백 금지 —
+              // clean 오인 방지). "다음 행동" 은 record cueLine(관절-행동)이라 숨김.
+              // praise/score 배지는 유지(확신 표면 — 리드). 신규 카피 0.
+              todayFix={
+                attributionUnreliable
+                  ? {
+                      headline:
+                        result.attributionReliability?.aggregateStatement ??
+                        ATTR_SCORE_AGGREGATE_FALLBACK,
+                      criterion: '',
+                      gameFrame: false,
+                    }
+                  : summaryContent.todayFix
+              }
+              onPressTodayFix={() => jumpToRecordKey(topFixKey)}
+              // 33-15 (D-17) + F-7 (33-G) — 자세히 보기/접기 = 요약 카드 앵커 토글.
+              onPressExpand={toggleDetailExpanded}
+              expanded={detailExpanded}
+            />
+          )}
+        </View>
+
+        {/* 32-12 (D-29 부분 실패 정직 고지) — 커버리지 갭이 있을 때만. 못 잰 부분을
+            정직하게 알리고(과장·감춤 금지) 다음 행동(촬영 가이드)을 1줄로 잇는다.
+            잰 범위 내 미션·질문은 32-09 방출이 담당 — 이 블록은 정직 고지 전담. */}
+        {hasCoverageGap ? (
+          <View style={styles.coverageCard}>
+            <Text style={styles.coverageTitle}>
+              이번엔 화면에 잘 잡힌 부분 위주로 분석했어요
+            </Text>
+            <Text style={styles.coverageBody}>
+              가려지거나 화면 밖으로 나간 부분은 이번 영상에서 정확히 재기 어려웠어요.
+              보이는 자세를 기준으로 확실히 잰 것만 짚었어요.
+            </Text>
+            <Pressable
+              onPress={() => router.push('/tutorial')}
+              accessibilityRole="button"
+              accessibilityLabel="촬영 가이드 보기"
+              hitSlop={8}
+              style={styles.coverageTipRow}
+            >
+              <Text style={styles.coverageTip}>
+                몸 전체가 화면에 들어오게 다시 촬영하면 더 많은 부분을 분석할 수 있어요.
+                촬영 가이드 보기 ›
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {/* ── 2. 위험 결함 (D-14 트리아지) — 요약 직후 승격, 있을 때만. 컴포넌트
+            self-null (플래그 0 → 미렌더). ── */}
+        {isVisible('risk') ? <InjuryRiskSection flags={result.safetyFlags} /> : null}
+
+        {/* ── 3. 오늘 고칠 것 top-1 (D-08 완결형 DeductionCard) ────────────────
+            미션 record 우선/최대 감점 1건을 상태→왜→게이지→행동→미션→물어보기로
+            완결 렌더. cleanPass 면 축하 카드가 대신(요약 clean variant). 확대 사진
+            쌍은 드릴다운 시트(D-17 자세 비교 카드) 진입점으로 잇는다. onLayout 으로
+            점프 y 기록(요약 '오늘 고칠 것' 탭 대상). */}
+        {/* IN-01 — 역립 저신뢰 시 topFix "오늘 고칠 것" per-joint 카드 억제 (관절
+            단정 방지). records 보유(cleanPass=false) 라 clean 카드 폴백도 미충족 →
+            null. 점수·안내는 ScoreBreakdownSection aggregate + 안내 1줄이 대신 전달. */}
+        {isVisible('topFix') && topFixRecord && !attributionUnreliable ? (
+          <View
+            onLayout={(e) =>
+              setCardY(topFixKey ?? 'topFix', e.nativeEvent.layout.y)
+            }
+          >
+            <DeductionCard
+              record={toCardRecord(topFixRecord)}
+              // quick-260903-f2w (표 3 행 4 결함) — 히스토리 전체에서 무배선이던
+              // 인라인 확대비교 사진을 여기서 처음 연결. 합성 PNG 1장을 fresh 재발급
+              // 맵 우선(7일 넘은 doc)·저장 imageUrl 폴백으로 조회 — 시트와 같은
+              // resolveZoomImageUrl 단일 출처. 로드 실패 = onZoomImageError 재발급.
+              zoom={
+                topFixZoom
+                  ? { imageUrl: resolveZoomImageUrl(topFixZoom, freshZoomUrls) }
+                  : undefined
+              }
+              onZoomImageError={onZoomImageError}
+              zoomPending={zoomPending}
+              mission={
+                result.mission
+                  ? { isMission: true, isSafety: result.mission.isSafety }
+                  : undefined
+              }
+              rightLabel={
+                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
+              }
+              expanded
+              onAskCoach={(rid) => addUserQuestion(rid)}
+            />
+            {topFixZoom || zoomPending ? (
+              <Pressable
+                onPress={() => setDetailRecordIndex(topFixIndex)}
+                accessibilityRole="button"
+                accessibilityLabel="확대 비교 자세히 보기"
+                hitSlop={8}
+                style={styles.tipMoreRow}
+              >
+                {/* IN-01 — 역립 저신뢰 시 "예상 부위" 라벨로 치환 (확정 결함 아님). */}
+                <Text style={styles.tipMore}>
+                  {attributionUnreliable
+                    ? `${ATTR_ZOOM_ESTIMATED_LABEL} 확대 비교 ›`
+                    : '확대 비교 자세히 보기 ›'}
+                </Text>
+              </Pressable>
+            ) : null}
+            {/* 33-15 (D-17) — 추가 감점 항목 스크롤 어포던스. 추가 항목이 동작
+                비교(긴 카드) 아래 있어 발견이 어렵다 — 개수 + 이동 링크 1줄.
+                표시 조건 = '다른 감점 항목' 섹션 렌더 조건 미러 (모순 링크 0). */}
+            {isVisible('collapsed') && otherVisibleRecordCount > 0 ? (
+              <Pressable
+                onPress={jumpToCollapsedList}
+                accessibilityRole="button"
+                accessibilityLabel={`다른 감점 항목 ${otherVisibleRecordCount}개로 이동`}
+                hitSlop={8}
+                style={styles.tipMoreRow}
+              >
+                <Text style={styles.tipMore}>
+                  {`아래에 다른 감점 항목 ${otherVisibleRecordCount}개 더 보기 ›`}
+                </Text>
+              </Pressable>
+            ) : null}
+            {/* quick-260831-lcc — '먼저 교정할 점' veto 카드 해체 (belle
+                2026-08-31 결과 화면 재구성). 고유 콘텐츠인 rootCauseHypotheses
+                ('가능한 원인' 가설 목록)만 topFix 직하 중립 카드로 이동 —
+                headline 재출현·vetoFixTip(코칭 팁 detail 복제)·vetoLeadNote
+                (면책류)는 제거 (각각 DeductionCard statusLine·코칭 팁 본문·
+                통합 면책이 유일본). topFix 미렌더 경로(attributionUnreliable·
+                cleanPass)에선 이 블록도 함께 미렌더. '~로 보임' 가설 어투
+                그대로 (측정 안 된 단정 금지 — quick-260704-fwb 승계). */}
+            {vetoRootCauses.length > 0 ? (
+              <View style={[styles.card, styles.tipCard, styles.rootCauseCard]}>
+                <Text style={styles.vetoCauseLabel}>가능한 원인</Text>
+                {vetoRootCauses.map((h, i) => (
+                  <Text key={i} style={styles.vetoCauseItem}>
+                    {`· ${h.text}`}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : variantOf('summary') === 'clean' ? (
+          <View style={[styles.card, styles.cleanPassCard]}>
+            <Text style={styles.cleanPassTitle}>감점 항목이 없어요</Text>
+            <Text style={styles.cleanPassBody}>
+              {cmp.mode === 'mode3'
+                ? '측정한 자세 형태 기준을 모두 통과했어요. 이 자세를 유지하고 다음 영상과 비교해 발전을 확인해보세요.'
+                : '측정 기준을 모두 통과했어요. 이 자세를 그대로 유지하세요.'}
+            </Text>
+          </View>
+        ) : null}
         {/* ══ 5. 나머지 감점(접힘) + 상세 영역 (D-02 #5 collapsed) ══════════════
             점수 게이지는 D-01/D-09 로 헤드라인에서 이 상세 영역으로 강등(요약 카드가
             점수 소형 배지를 담당). 투명 감점 내역(수치 삭제 금지)·구간 점수 유지. */}

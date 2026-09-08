@@ -72,6 +72,35 @@ const FLAG_COPY: Record<
 // 심각도 높은 순 정렬 (high → medium → low).
 const SEVERITY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
+/**
+ * flagType → 승인된 카피. belle 09-08 재디자인의 요약 카드 경고 박스가 **같은 문장**을
+ * 써야 해서 꺼낸다 (사본 금지 — 두 표면이 같은 위험을 다르게 말하면 안 된다).
+ * 미지의 flagType 은 null (계약 외 값 방어 — 카드 렌더와 동일 규칙).
+ */
+export function riskFlagCopy(
+  flagType: SafetyFlag['flagType'],
+): { title: string; why: string; recommendation: string } | null {
+  return FLAG_COPY[flagType] ?? null;
+}
+
+/** 심각도가 가장 높은 flag 하나. 요약 카드는 한 칸뿐이라 대표 하나만 쓴다. */
+export function topRiskFlag(
+  flags: readonly SafetyFlag[] | null | undefined,
+): SafetyFlag | null {
+  if (!Array.isArray(flags) || flags.length === 0) return null;
+  let best: SafetyFlag | null = null;
+  let bestRank = -1;
+  for (const f of flags) {
+    if (f == null || !riskFlagCopy(f.flagType)) continue;
+    const rank = SEVERITY_RANK[f.severity] ?? 0;
+    if (rank > bestRank) {
+      best = f;
+      bestRank = rank;
+    }
+  }
+  return best;
+}
+
 function InjuryRiskFlagCard({ flag }: { flag: SafetyFlag }) {
   const copy = FLAG_COPY[flag.flagType];
   if (!copy) return null; // 미지의 flagType — graceful skip (계약 외 값 방어).

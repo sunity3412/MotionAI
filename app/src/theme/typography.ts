@@ -91,4 +91,13 @@ export const typography = {
   resultTabIdle: { fontSize: 15, fontWeight: '400', fontFamily: fontFamily.regular },
   resultDialScore: { fontSize: 74, fontWeight: '700', fontFamily: fontFamily.bold },
   resultDialLabel: { fontSize: 22, fontWeight: '400', fontFamily: fontFamily.regular },
+  // 요약 카드 (시안 글자당 advance 역산):
+  //   헤드라인 309.2px/14.7em → 17.6pt · 서브 195.4/16.2 → 10.1pt
+  //   칩 116.6/9.1 → 10.7pt · 경고 제목 196.7/14.2 → 11.6pt · CTA 218.7/11.3 → 16.2pt
+  resultHeadline: { fontSize: 18, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultSub: { fontSize: 10, fontWeight: '400', fontFamily: fontFamily.regular },
+  resultChip: { fontSize: 11, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultWarnTitle: { fontSize: 12, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultWarnBody: { fontSize: 10, fontWeight: '400', fontFamily: fontFamily.regular },
+  resultCta: { fontSize: 16, fontWeight: '700', fontFamily: fontFamily.bold },
 } as const;

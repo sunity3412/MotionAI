@@ -36,6 +36,9 @@ import {
   useResultTopDelta,
 } from '../../components/result/ResultHeader';
 import { ResultScoreDial } from '../../components/result/ResultScoreDial';
+import { ResultSummaryCard } from '../../components/result/ResultSummaryCard';
+import { riskFlagCopy, topRiskFlag } from '../../components/InjuryRiskSection';
+import { buildSummaryChips } from '../../lib/resultSummary';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
 import RenderedComparePlayer from '../../components/RenderedComparePlayer';
@@ -483,6 +486,8 @@ const RESULT_TABS = [
 // 점수 원 아래 한 줄 — 시안 문구 그대로("Today"). 한글 앱이지만 이 자리는 시안이
 // 영문으로 고정했고 belle 지시가 "완전 동일하게" 다.
 const DIAL_LABEL = 'Today';
+// 요약 카드 헤드라인 아래 한 줄 — 시안 문구 그대로.
+const SUMMARY_SUBLINE = '90점 이상이면 기준 자세에 가까워요';
 // 탭별 콘텐츠 시작 y (safe-area 상단 기준 pt, 시안 실측). 탭 밑줄 아랫변이 125.6 이라
 // 그보다 아래여야 한다 — 그 위로 올라오면 타이틀·탭에 가린다.
 const RESULT_TAB_TOP: Record<ResultTabKey, number> = {
@@ -1170,6 +1175,17 @@ function AnalysisResultContent({
       sortDeductionRecordsByMoment(result.deductionBreakdown?.records ?? []),
     [result.deductionBreakdown],
   );
+
+  // 요약 카드 — 감점 칩은 '점수 계산 내역'과 **같은 라벨·수치 소스**를 쓴다(사본 0).
+  const summaryChips = useMemo(() => buildSummaryChips(records), [records]);
+  // 노란 경고 박스 = 실재하는 안전 신호(safetyFlags)뿐. 시안의 '레벨 대비 무리한 동작
+  // 가능성' 은 이미 앱에 있는 level_mismatch 카피와 **글자까지 같다** — 시안이 이
+  // 카피에서 나왔다. 없는 경고를 지어내지 않으므로 flag 가 없으면 박스도 없다.
+  const summaryWarning = useMemo(() => {
+    const flag = topRiskFlag(result.safetyFlags);
+    const copy = flag ? riskFlagCopy(flag.flagType) : null;
+    return copy ? { title: copy.title, lines: [copy.why] } : null;
+  }, [result.safetyFlags]);
   const hasRecords = records.length > 0;
   // belle 08-07 #1 — ScoreBreakdownSection 정합. 그 컴포넌트는 breakdown.records 를
   // 내부 순회하며 recordNumbers 와 index 평행 조인하므로, 정렬 records 로 재조립한
@@ -2588,6 +2604,18 @@ function AnalysisResultContent({
                 accessibilityLabel={`종합 ${Math.round(result.overallScore)}점`}
               />
             </View>
+            <ResultSummaryCard
+              total={summaryChips.total}
+              chips={summaryChips.chips}
+              overflow={summaryChips.overflow}
+              subline={SUMMARY_SUBLINE}
+              warning={summaryWarning}
+              onSeePoints={() => setResultTab('points')}
+              onChipPress={(recordId) => {
+                const idx = records.findIndex((r) => r.recordId === recordId);
+                if (idx >= 0) setDetailRecordIndex(idx);
+              }}
+            />
             <View style={styles.header}>
           <Text style={styles.sub}>
             {cmp.mode === 'mode1'

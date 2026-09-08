@@ -11,6 +11,12 @@ export const radius = {
   // quick-260720-hn8 — 실패 알림창 카드/버튼 (Figma node 1:499 실측 30.33 / 9.175)
   dialog: 30,
   dialogButton: 9,
+  // belle 09-08 분석 결과 재디자인 — 시안 실측 (벡터 원문 / 렌더 코너 스캔).
+  //   요약 카드 22.898px → 19.1pt   ·   경고·유지 박스 13px → 10.9pt
+  // CTA 는 12px → 10.0pt 로 재졌는데 design.md §5-3 의 button(13)과 측정 오차 안이라
+  // 새 토큰을 만들지 않고 button 을 쓴다 (토큰 증식 금지).
+  resultCard: 19,
+  resultBox: 11,
 } as const;
 
 export const spacing = {

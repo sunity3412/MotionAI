@@ -29,6 +29,13 @@ import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
 import { PartChipsRow } from '../../components/PartChipsRow';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
+import {
+  ResultHeaderBackdrop,
+  ResultHeaderBar,
+  useResultScale,
+  useResultTopDelta,
+} from '../../components/result/ResultHeader';
+import { ResultScoreDial } from '../../components/result/ResultScoreDial';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
 import RenderedComparePlayer from '../../components/RenderedComparePlayer';
@@ -465,6 +472,26 @@ function actionPhraseForRecord(
   return null;
 }
 
+// belle 09-08 재디자인 — 상단 4탭. key 는 화면 내부용, label 은 시안 문구 그대로.
+type ResultTabKey = 'summary' | 'compare' | 'points' | 'exercise';
+const RESULT_TABS = [
+  { key: 'summary', label: '요약' },
+  { key: 'compare', label: '동작비교' },
+  { key: 'points', label: '교정포인트' },
+  { key: 'exercise', label: '보완운동' },
+] as const;
+// 점수 원 아래 한 줄 — 시안 문구 그대로("Today"). 한글 앱이지만 이 자리는 시안이
+// 영문으로 고정했고 belle 지시가 "완전 동일하게" 다.
+const DIAL_LABEL = 'Today';
+// 탭별 콘텐츠 시작 y (safe-area 상단 기준 pt, 시안 실측). 탭 밑줄 아랫변이 125.6 이라
+// 그보다 아래여야 한다 — 그 위로 올라오면 타이틀·탭에 가린다.
+const RESULT_TAB_TOP: Record<ResultTabKey, number> = {
+  summary: 150.1, // 점수 원 윗변
+  compare: 165.3, // 영상 카드 윗변
+  points: 150.0,
+  exercise: 150.0,
+};
+
 // 분석 결과 화면 (plan.md #8, design.md §8, ia AC-RES-001).
 // 미설계 화면 → design.md §0 결정 트리로 자체 설계. 흰 배경(§5-1),
 // 브랜드 포인트(colors.brand), 스피너/이모지 없음, 토큰만 사용.
@@ -686,6 +713,14 @@ function AnalysisResultContent({
   const router = useRouter();
   // 33-15 (D-17) — safe-area 실측 inset (본문 컨테이너 상단 패딩, wrapper 와 동일).
   const insets = useSafeAreaInsets();
+  // belle 09-08 재디자인 — 4탭 셸. 기존 섹션은 한 줄도 지우지 않고 탭으로 나눠 담았다
+  // (요약/동작비교/교정포인트/보완운동). 탭별 첫 요소가 곡선 헤더 아래 어디서
+  // 시작하는지는 시안 실측값이다 — RESULT_TAB_TOP.
+  const [resultTab, setResultTab] = useState<ResultTabKey>('summary');
+  const headerScale = useResultScale();
+  // 곡선은 화면 상단 고정, 글자·콘텐츠만 상태바를 피해 내린다 (useResultTopDelta).
+  const contentTop =
+    useResultTopDelta() + RESULT_TAB_TOP[resultTab] * headerScale;
   const grade = scoreGrade(result.overallScore);
   const cmp = result.comparison;
 
@@ -2537,14 +2572,23 @@ function AnalysisResultContent({
   const judgeFinal = result.deductionBreakdown?.final ?? result.overallScore;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
+      <ResultHeaderBackdrop />
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: contentTop }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>분석 결과</Text>
+        {resultTab === 'summary' && (
+          <>
+            <View style={styles.dialWrap}>
+              <ResultScoreDial
+                score={result.overallScore}
+                label={DIAL_LABEL}
+                accessibilityLabel={`종합 ${Math.round(result.overallScore)}점`}
+              />
+            </View>
+            <View style={styles.header}>
           <Text style={styles.sub}>
             {cmp.mode === 'mode1'
               ? `${cmp.athleteName} 선수 · ${cmp.referenceMotionName} 기준으로 분석했어요.`
@@ -2819,6 +2863,10 @@ function AnalysisResultContent({
           </View>
         ) : null}
 
+          </>
+        )}
+        {resultTab === 'compare' && (
+          <>
         {/* ── 영역 2: 영상 + 키포인트 오버레이 (D-12-A1 #2 / D-12-C1 mode 분기) ─
             mode1 = 사용자 + 정은지 split (둘 다 오버레이 박제).
             mode3 second+ = 사용자 + 지난 분석 split (오버레이는 사용자 측만).
@@ -3238,6 +3286,10 @@ function AnalysisResultContent({
           </Pressable>
         ) : null}
 
+          </>
+        )}
+        {resultTab === 'points' && (
+          <>
         {/* ══ 5. 나머지 감점(접힘) + 상세 영역 (D-02 #5 collapsed) ══════════════
             점수 게이지는 D-01/D-09 로 헤드라인에서 이 상세 영역으로 강등(요약 카드가
             점수 소형 배지를 담당). 투명 감점 내역(수치 삭제 금지)·구간 점수 유지. */}
@@ -3498,6 +3550,10 @@ function AnalysisResultContent({
           </Text>
         ) : null}
 
+          </>
+        )}
+        {resultTab === 'exercise' && (
+          <>
         {/* ── 6. 성장·지난 미션 (D-26/D-27, mode3) — 미션→연습→확인 루프 상세.
             헤드라인은 요약 카드가 담당하므로 여기는 상세. coach_card(3회 미개선) 시
             코치 카드 전면 승격("혼자 안 되는 건 방법 문제일 수 있어요"). improved
@@ -3819,7 +3875,16 @@ function AnalysisResultContent({
         >
           <Text style={styles.link}>다시 분석하기</Text>
         </Pressable>
+          </>
+        )}
       </ScrollView>
+      <ResultHeaderBar
+        title="분석결과"
+        tabs={RESULT_TABS}
+        activeKey={resultTab}
+        onTabPress={(k) => setResultTab(k as ResultTabKey)}
+        onBack={() => router.back()}
+      />
       {/* (구 DimensionDetailModal 제거 — D-03/D-12. 차원 세부 점수 모달 폐기.) */}
       {/* Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달. tip=null 시 닫힘. */}
       <CoachingTipDetailModal
@@ -3899,6 +3964,9 @@ const styles = StyleSheet.create({
     paddingBottom: layout.safeAreaBottom + 24,
     gap: 14,
   },
+  // belle 09-08 — 점수 원은 곡선 헤더에 걸치는 요소라 가운데 정렬만 한다
+  // (세로 위치는 contentContainerStyle 의 paddingTop 이 정한다).
+  dialWrap: { alignItems: 'center' },
   header: { marginTop: 16, marginBottom: 2 },
   title: { ...typography.heading, color: colors.textPrimary },
   sub: {

@@ -124,6 +124,23 @@ export const colors = {
   // brand #FF4B33 변경 0 (CLAUDE.md §4). sns 토큰은 이미 있고 Figma 실측과 일치해 재사용.
   authLoginBg: '#FFEDEA',
   introCtaBorder: 'rgba(255,255,255,0.4)',
+
+  // ── 분석 결과 재디자인 (belle 09-08 지시, 피그마 '분석 디자인 업데이트' 시안) ──
+  //
+  // 값은 시안 렌더에서 **픽셀로 실측**했다. 이 피그마 섹션은 노드 706개가 전부
+  // vector/group 이고 텍스트 레이어도 변수(디자인 토큰)도 0개라, 색을 API 로 읽을
+  // 방법이 없다 — 렌더 샘플링이 유일한 계기다.
+  //
+  // ★ 시안의 브랜드 빨강은 #E94D37 이었으나 **쓰지 않는다**. 같은 이미지 안의
+  // '레퍼런스'(현재 앱 스크린샷)가 #FF4B3A 로 나와 프로파일 변환 아티팩트가 아님을
+  // 확인했고(디자이너가 실제로 다른 빨강을 썼다), CLAUDE.md §4 는 #FF4B33 을 잠근다.
+  // belle 09-08 판정: "빨강은 #FF4B33 유지, 나머지는 시안대로" — 결과 화면만 다른
+  // 빨강을 쓰면 홈·탭바와 앱 안에 빨강이 두 종류가 된다.
+  resultCardTint: '#FEF8F7', // 카드·펼침 행 배경 (아주 옅은 핑크)
+  resultChipBg: '#FCEFED', // 감점 칩 배경
+  resultWarnBg: '#FCF4D9', // 레벨 대비 무리한 동작 경고 박스
+  resultKeptBg: '#EDF6F2', // '유지된점' 박스
+  resultCoachGreen: '#6E9985', // '강사에게 확인할 점' 헤더
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

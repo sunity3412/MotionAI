@@ -77,4 +77,18 @@ export const typography = {
   // fontFamily 만 Pretendard 정합(시스템 폰트 잔재 해소).
   scoreGaugeLg: { fontSize: 52, fontWeight: '700', fontFamily: fontFamily.bold },
   scoreGaugeSm: { fontSize: 36, fontWeight: '700', fontFamily: fontFamily.bold },
+
+  // ── 분석 결과 재디자인 (피그마 시안 실측) ──────────────────────────────────
+  //
+  // 크기는 벡터 바운딩 박스에서 역산했다. 한글은 글자 폭 ≈ 1em 이라 **글자당 advance**
+  // 로 재는 것이 신뢰할 수 있고(높이는 라인박스가 섞여 과대추정된다), 숫자는 폭·높이
+  // 두 방법이 74pt 로 일치해 방법 자체가 검증됐다.
+  //   '분석결과' 4자 102.2px → 25.6px/자 → 21pt
+  //   탭 '교정포인트' 5자 86.5px → 17.3px/자 → 14.5pt
+  //   '75' 98.5×63.4px → 폭 74pt · 높이 73.5pt
+  resultTitle: { fontSize: 21, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultTabActive: { fontSize: 15, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultTabIdle: { fontSize: 15, fontWeight: '400', fontFamily: fontFamily.regular },
+  resultDialScore: { fontSize: 74, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultDialLabel: { fontSize: 22, fontWeight: '400', fontFamily: fontFamily.regular },
 } as const;

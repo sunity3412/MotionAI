@@ -145,6 +145,14 @@ const ESTIMATED_AREA_TITLE = '예상 부위 (참고)';
 // 무엇을 하게 되는지(크게 보기)를 한 줄에 담는다 — 제스처 설명은 전체화면 안의
 // 1회 안내가 맡는다(여기서 "두 손가락으로" 까지 말하면 버튼이 설명문이 된다).
 const MOMENT_BTN_LABEL = '영상에서 이 순간 크게 보기';
+// belle 09-07 감사 수리 — 비활성 이유 한 줄. 순간이 없는 것은 예외가 아니라 **계약**이다:
+// models.py 가 atVideoSec 을 fail-closed 로 빼는 criterion 3종(body_relative_reach /
+// dimension_overall_fallback / split_angle)을 박제했고, quick-260801-gbk 이전 doc 은
+// records 전부에 키가 없어 그 분석의 모든 시트가 같은 회색 버튼을 단다. 이유를 안 적으면
+// belle 은 "버튼이 안 눌린다 = 앱 버그" 로 읽는다(실제로는 설계된 fail-closed).
+// 문형은 REF_UNMARKED_NOTE 선례 — [이유] + [그래서 이렇게 했다] + `-요`, 단정·사과 금지.
+const MOMENT_BTN_DISABLED_NOTE =
+  '이 항목은 영상에서 잰 순간이 없어 크게 보기를 열 수 없어요';
 
 export function DeductionDetailSheet({
   visible,
@@ -422,8 +430,13 @@ export function DeductionDetailSheet({
               accessibilityRole="button"
               accessibilityLabel={MOMENT_BTN_LABEL}
               // 순간이 없는 항목은 눌러도 갈 곳이 없다는 것을 보조기술에도 알린다.
+              // 라벨이 아니라 hint 로 붙이는 이유: 라벨은 버튼의 이름이고, 왜 지금
+              // 못 누르는지는 상태 설명이다(화면의 한 줄과 같은 문장을 읽어 준다).
               accessibilityState={
                 momentRecordId ? undefined : { disabled: true }
+              }
+              accessibilityHint={
+                momentRecordId ? undefined : MOMENT_BTN_DISABLED_NOTE
               }
               hitSlop={8}
               style={({ pressed }) => [
@@ -434,6 +447,12 @@ export function DeductionDetailSheet({
             >
               <Text style={styles.momentBtnText}>{MOMENT_BTN_LABEL}</Text>
             </Pressable>
+          ) : null}
+          {/* 비활성일 때만 이유 한 줄. 버튼을 지우지 않는 이유(항목마다 버튼이
+              사라졌다 나타나면 "왜 어떤 항목엔 없지"가 된다)의 짝 — 남겨 두되
+              왜 안 눌리는지는 말한다. */}
+          {onOpenMoment && !momentRecordId ? (
+            <Text style={styles.momentBtnNote}>{MOMENT_BTN_DISABLED_NOTE}</Text>
           ) : null}
 
           <Pressable
@@ -720,4 +739,12 @@ const styles = StyleSheet.create({
   // 뛰어갈 순간이 없는 항목 — 버튼을 지우지 않고 눌리지 않는 상태로 남긴다.
   momentBtnDisabled: { opacity: 0.4 },
   momentBtnText: { ...typography.buttonSecondary, color: colors.textPrimary },
+  // 비활성 이유 한 줄 — refMatchNote 와 같은 문법(정직 고지 톤), 버튼 바로 아래 중앙.
+  momentBtnNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 8,
+    textAlign: 'center',
+  },
 });

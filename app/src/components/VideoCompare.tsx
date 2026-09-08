@@ -1123,6 +1123,10 @@ export function VideoCompare({
           // 원위치로 복원 (정렬 보존). 복원 후 아래 기존 재개 로직(백오프 관찰창
           // + nudge)이 그대로 이어진다 — 별도 지연 금지.
           unsnapRight();
+          // belle 09-07 감사 수리 — 재개 = 뛰어들어간 순간을 떠난다. 짝 미발견 문구는
+          // **멈춰 선 그 순간**에 대한 진술이라(togglePlay/seekBoth 와 같은 규칙)
+          // 여기서도 거둔다. 남겨 두면 흐르는 영상 위에서 다른 위치를 설명한다.
+          setMomentPairCertified(null);
           leftPlayer?.play();
           rightPlayer?.play();
           setPlaying(true);
@@ -1666,6 +1670,21 @@ export function VideoCompare({
     const paired = typeof sec === 'number' && Number.isFinite(sec);
     if (paired) snapRightToSec(sec);
     setMomentPairCertified(paired);
+    // ★ belle 09-07 감사 수리 — 이 멈춤의 **소유권을 사용자에게 넘긴다**.
+    //
+    // 이 경로는 정의상 음성 큐가 걸어 둔 멈춤(voicePauseRef=true) 위에서만 열린다
+    // ('크게 보기' pill 이 voiceCueRecordId != null && !playing 일 때만 뜬다).
+    // 홀드를 내리지 않으면 mp3 가 끝나는 순간 tick 의 자동 재개 분기가 unsnapRight()
+    // + play() 를 쏜다 — 확대하려고 들어온 그 순간이 1~2초 만에 흘러가고, 방금 세운
+    // 짝 프레임도 지워진다(belle 규칙 "양쪽이 같은 순간이어야" 위반).
+    //
+    // 발화 자체는 끊지 않는다(stopCue 안 함) — 코칭 문장은 끝까지 들려야 하고,
+    // 강조 해제는 tick 의 "멈춤 없던 발화 종료" 분기가 자연히 처리한다. seekBoth 를
+    // 경유하는 시트 경로(openFullscreenAt)는 이미 같은 해제를 하고 있었다 — 두
+    // 진입점의 동작을 맞춘 것이지 새 규칙이 아니다.
+    voicePauseRef.current = false;
+    resumeWatchTicksRef.current = null;
+    replaySettleTicksRef.current = null;
   };
 
   // 0.1s 앞/뒤 step. 현재 시각 = 둘 중 작은 값 (slower side 가 진짜 sync 위치).
@@ -2077,10 +2096,16 @@ export function VideoCompare({
         {activeCueText ? (
           <View
             style={fs ? styles.fsCueSubtitleWrap : styles.cueSubtitleWrap}
-            // belle 09-07 — 'none' → 'box-none'. 래퍼 자체는 여전히 탭을 통과시키고
-            // (영상/제스처 방해 0), 아래 '크게 보기' Pressable 만 탭을 받는다.
-            // 자막 Text 는 핸들러가 없어 통과 — resumeNoticeWrap 선례와 동일.
-            pointerEvents="box-none"
+            // belle 09-07 — 세로는 'box-none': 래퍼는 탭을 통과시키고 아래 '크게 보기'
+            // Pressable 만 받는다(자막 Text 는 핸들러가 없어 통과 — resumeNoticeWrap 선례).
+            //
+            // ★ 전체화면은 'none' 이라야 한다 (감사 수리). fs 에서는 '크게 보기' 가
+            // 애초에 미렌더라(!fs 게이트) box-none 으로 얻는 것이 하나도 없는 반면,
+            // fsCueSubtitleWrap 은 top0/bottom0 전면 absolute 이고 그 자식(자막 Text·
+            // '음성 중' pill)은 pointerEvents 기본 'auto' 라 **히트 타깃이 된다**.
+            // 핸들러가 없으니 터치는 조상으로 버블링하다 소멸하고, 형제로 아래 깔린
+            // ZoomPinchLayer 에는 닿지 않는다 — 영상 하단 자막 띠에서 핀치·탭이 죽는다.
+            pointerEvents={fs ? 'none' : 'box-none'}
           >
             {/* 33-13 (A-6, 승인 목업 ④ 컷 2) — 음성 중 정지 상태 표시 1줄.
                 belle 09-07 — 그 옆에 '크게 보기'. 코칭이 결함을 짚어 영상이 멈춘
@@ -2204,12 +2229,15 @@ export function VideoCompare({
       Math.abs(zoom.scale - FULLSCREEN_ZOOM_DEFAULT) > 0.001 ||
       zoom.tx !== 0 ||
       zoom.ty !== 0;
-    // belle 09-07 — 짝을 못 찾은 채 뛰어든 순간의 정직 문구. mode1 전용(mode3 는
-    // 기준 영상 자체가 없어 짝을 말하는 것이 무의미) + 기준(우) 패널에만.
-    const showPairMiss =
-      slot === 'right' &&
-      compareMode === 'mode1' &&
-      momentPairCertified === false;
+    // belle 09-07 — 짝을 못 찾은 채 뛰어든 순간의 정직 문구. 오른쪽 패널에만.
+    //
+    // 감사 수리 — 종전에는 `compareMode === 'mode1'` 로 묶여 mode3 에서 침묵했다.
+    // 근거로 적은 "mode3 는 기준 영상 자체가 없다"가 틀렸다(momentJump.ts 헤더 참조):
+    // mode3 의 오른쪽은 '지난 영상' 패널이고 짝도 실재한다. 그래서 mode3 에서도
+    // 짝을 못 세운 그 경우가 생기는데, 고지 없이 두면 시트가 인쇄한 초와 화면이
+    // 어긋난 채 두 패널이 같은 순간인 척 나란히 선다. 문구도 '기준' 을 빼
+    // 두 모드에서 다 참인 말로 바꿨다.
+    const showPairMiss = slot === 'right' && momentPairCertified === false;
     return (
       <View style={[styles.fsSlotStack, { width: fsBoxW, height: fsBoxH }]}>
         {url && player ? (
@@ -2272,7 +2300,7 @@ export function VideoCompare({
         {showPairMiss ? (
           <View style={styles.fsPairMissWrap} pointerEvents="none">
             <Text style={styles.fsPairMissText} numberOfLines={2}>
-              이 순간의 기준 짝을 못 찾았어요 — 오른쪽은 시간만 맞춘 위치예요.
+              이 순간의 짝을 못 찾았어요 — 오른쪽은 시간만 맞춘 위치예요.
             </Text>
           </View>
         ) : null}
@@ -2657,7 +2685,13 @@ export function VideoCompare({
                   </Pressable>
                 </View>
               ) : null}
-              <View style={styles.fsTopBar}>
+              {/* belle 09-07 감사 수리 — box-none. fsTopBar 는 배경 없는 전폭
+                  absolute 띠(y 0~46)인데 pointerEvents 기본값이 'auto' 라, 영상
+                  위쪽 46px 에 닿은 터치가 여기서 끝나고 아래 ZoomPinchLayer 로
+                  내려가지 않았다(핸들러가 없어 그대로 소멸). 영상을 확대하는
+                  화면에서 영상 상단이 죽은 띠가 되면 안 된다. box-none 이면
+                  실제 버튼(닫기·토글·범례)만 계속 터치를 받는다. */}
+              <View style={styles.fsTopBar} pointerEvents="box-none">
                 {/* quick-260705-r6v — 검은 여백 좌측 고정 범례 (flex:1). 재생 중
                     영상 위 텍스트 pill 을 없앤 대신 "① 행동구 −감점" 을 여백에
                     가로 나열(여백 좁으면 flexWrap). 탭 = closeFullscreen 선행 후
@@ -3301,7 +3335,13 @@ const styles = StyleSheet.create({
   // 중앙, 정직 문구는 그 아래 줄이라 세 표면이 서로 겹치지 않는다.
   fsZoomResetPill: {
     position: 'absolute',
-    top: 8,
+    // belle 09-07 감사 수리 — top 8 → 56. 슬롯 top 은 컨테이너 top(0)과 같은데
+    // fsTopBar 가 y 0~46 을 덮는다. top 8 이면 pill(높이 ~27 + hitSlop 8)이 그
+    // 띠 안에 통째로 들어가 **한 번도 눌리지 않았고**, 좌측 슬롯 pill 은 하필
+    // fsLegend 위라 오탭 시 전체화면이 닫히고 엉뚱한 감점 시트가 열렸다.
+    // 56 = 첫 진입 안내(fsPinchHintWrap)와 같은 기준선 — 그 안내는 핀치 시작에
+    // 사라지고 이 pill 은 핀치 뒤에 뜨므로 둘이 같은 화면에 겹치지 않는다.
+    top: 56,
     right: 8,
     flexDirection: 'row',
     alignItems: 'center',

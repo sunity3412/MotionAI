@@ -43,10 +43,15 @@ import {
   type ZoomState,
 } from '../lib/pinchZoom';
 
-// 탭(=멈춤/재생) 판정 — RenderedComparePlayer 의 탭 토글 선례와 같은 역할이지만,
-// 여기는 같은 표면이 팬·핀치도 받으므로 "움직이지 않은 짧은 접촉"만 탭으로 본다.
+// 탭(=멈춤/재생) 판정 — RenderedComparePlayer 가 걷어낸 Pressable 의 자리를 그대로
+// 잇는다. 그래서 판정 기준도 **Pressable 과 같아야** 한다: 움직이지 않았으면 탭이고,
+// 얼마나 오래 대고 있었는지는 묻지 않는다.
+//
+// belle 09-07 감사 수리 — 종전에는 여기에 250ms 상한이 있었다. Pressable 의 onPress
+// 에는 시간 상한이 없어서(손가락을 1초 대고 떼도 발동) 실사용 탭 250~400ms 가 그대로
+// 삼켜졌다 — "탭이 씹힌다". 상한을 없애도 팬·핀치와 섞이지 않는다: 팬은 이동량
+// (TAP_MAX_MOVE_PX)으로, 핀치는 손가락 수(multiTouchSeen)로 이미 배제된다.
 const TAP_MAX_MOVE_PX = 8;
-const TAP_MAX_MS = 250;
 
 // 팬 표본 폐기 임계 — 한 프레임에 박스 절반을 넘는 이동은 손가락이 아니라 좌표계가
 // 바뀐 것(아래 '좌표계 주의' 참조)이므로 버린다.
@@ -80,9 +85,40 @@ export interface ZoomPinchLayerProps {
   accessibilityLabel?: string;
 }
 
-function toTouchPoints(touches: readonly NativeTouchEvent[] | undefined): TouchPoint[] {
-  if (!Array.isArray(touches)) return [];
-  return touches.map((t) => ({ pageX: t.pageX, pageY: t.pageY }));
+type TouchPair = readonly [NativeTouchEvent, NativeTouchEvent];
+// RN 은 identifier 를 string 으로 선언한다(런타임 값은 숫자여도). 직접 적지 않고
+// RN 선언에서 끌어와 타입이 갈라지지 않게 한다.
+type TouchId = NativeTouchEvent['identifier'];
+
+/**
+ * 핀치에 쓸 두 손가락을 **identifier 로 고정해서** 고른다.
+ *
+ * belle 09-07 감사 수리 — 종전에는 매 프레임 touches[0]/[1] 을 그냥 읽었다. RN 의
+ * nativeEvent.touches 는 손가락이 빠지면 배열이 재압축되므로, 세 손가락 중 하나를
+ * 떼면 배열 위치 0/1 이 **다른 손가락 쌍**을 가리킨다. 그러면 시작 거리(|엄지−검지|)와
+ * 현재 거리(|검지−중지|)를 비교하게 되어, 손을 전혀 움직이지 않았는데 배율이 즉시
+ * 점프한다. ids 가 있는데 못 찾으면 null 을 돌려 호출측이 기준을 다시 잡게 한다.
+ */
+function pickPair(
+  touches: readonly NativeTouchEvent[] | undefined,
+  ids: readonly [TouchId, TouchId] | null,
+): TouchPair | null {
+  if (!Array.isArray(touches) || touches.length < 2) return null;
+  if (ids) {
+    const a = touches.find((t) => t.identifier === ids[0]);
+    const b = touches.find((t) => t.identifier === ids[1]);
+    return a && b ? [a, b] : null;
+  }
+  const a = touches[0];
+  const b = touches[1];
+  return a && b ? [a, b] : null;
+}
+
+function toTouchPoints(pair: TouchPair): TouchPoint[] {
+  return [
+    { pageX: pair[0].pageX, pageY: pair[0].pageY },
+    { pageX: pair[1].pageX, pageY: pair[1].pageY },
+  ];
 }
 
 /**
@@ -91,21 +127,25 @@ function toTouchPoints(touches: readonly NativeTouchEvent[] | undefined): TouchP
  * 좌표계 주의: 전체화면은 90° 회전 컨테이너 안이라(t0v 패턴) page 좌표축과 박스의
  * 로컬 축이 다르다. 거리(핀치 배율)는 회전에 불변이라 pageX/pageY 로 재도 되지만,
  * **초점과 팬은 로컬 좌표라야** 한다 — 그래서 locationX/locationY 를 쓴다(RN 이
- * transform 을 반영해 매핑, VideoCompare.tsx:1492 선례). 다만 locationX 는 터치의
- * 타깃 뷰 기준이라 자식 뷰가 타깃이면 원점이 어긋날 수 있어, 결과를 박스 안으로
- * 클램프해 초점이 화면 밖으로 튀지 않게 막는다.
+ * transform 을 반영해 매핑, VideoCompare.tsx:1492 선례).
+ *
+ * ★ locationX 는 **히트 타깃 뷰** 기준이다(iOS RCTSurfaceTouchHandler 의
+ * locationInView:, Android JSTouchDispatcher 는 ACTION_MOVE 마다 재계산). 클리핑
+ * 박스 안은 확대 박스가 100% 덮고 그 안 VideoView 가 다시 '100%' 라, 아무 조치 없이
+ * 두면 타깃이 **움직이는 확대 박스**가 되어 locationX = clipX − zoomLeft 가 된다 —
+ * applyPinch 가 요구하는 클리핑 박스 좌표계와 어긋난다(초점이 밀리고, 팬은
+ * dx_n = 이동 − 직전 팬 으로 자기상쇄해 손가락 절반 속도로 덜컥거린다).
+ * 그래서 클리핑 박스에 `pointerEvents="box-only"` 를 걸어 **타깃을 클리핑 박스로
+ * 못박는다**(아래 렌더 참조). 이 레이어의 자식은 영상과 pointerEvents 없는
+ * 오버레이뿐이라 잃는 조작이 없다.
  */
 function localFocal(
-  touches: readonly NativeTouchEvent[] | undefined,
+  pair: TouchPair,
   boxW: number,
   boxH: number,
 ): { x: number; y: number } | null {
-  if (!Array.isArray(touches) || touches.length < 2) return null;
-  const a = touches[0];
-  const b = touches[1];
-  if (!a || !b) return null;
-  const x = (a.locationX + b.locationX) / 2;
-  const y = (a.locationY + b.locationY) / 2;
+  const x = (pair[0].locationX + pair[1].locationX) / 2;
+  const y = (pair[0].locationY + pair[1].locationY) / 2;
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return {
     x: Math.max(0, Math.min(boxW, x)),
@@ -114,10 +154,13 @@ function localFocal(
 }
 
 interface GestureBook {
-  startedAt: number;
   movedPx: number;
   pinching: boolean;
   pinchNotified: boolean;
+  /** 이 접촉에서 손가락이 2개 이상이었던 적이 있는가 — 탭 배제용. */
+  multiTouchSeen: boolean;
+  /** 지금 배율을 재고 있는 두 손가락의 identifier. 배열 위치가 아니다(pickPair 주석). */
+  pinchIds: readonly [TouchId, TouchId] | null;
   pinchStartDist: number;
   pinchStartState: ZoomState;
   hasPanSample: boolean;
@@ -127,10 +170,11 @@ interface GestureBook {
 
 function freshBook(state: ZoomState): GestureBook {
   return {
-    startedAt: 0,
     movedPx: 0,
     pinching: false,
     pinchNotified: false,
+    multiTouchSeen: false,
+    pinchIds: null,
     pinchStartDist: 0,
     pinchStartState: state,
     hasPanSample: false,
@@ -195,13 +239,16 @@ export function ZoomPinchLayer({
 
       onPanResponderGrant: (evt: GestureResponderEvent) => {
         const book = freshBook(liveRef.current);
-        book.startedAt = Date.now();
         bookRef.current = book;
         // 두 손가락이 동시에 닿는 드문 경우까지 여기서 시작점을 잡아둔다.
         // (보통은 한 손가락 → 두 손가락 순이라 아래 move 에서 잡힌다.)
-        const dist = pinchDistance(toTouchPoints(evt.nativeEvent.touches));
+        const pair = pickPair(evt.nativeEvent.touches, null);
+        if (!pair) return;
+        book.multiTouchSeen = true;
+        const dist = pinchDistance(toTouchPoints(pair));
         if (dist > 0) {
           book.pinching = true;
+          book.pinchIds = [pair[0].identifier, pair[1].identifier];
           book.pinchStartDist = dist;
           book.pinchStartState = liveRef.current;
         }
@@ -221,12 +268,23 @@ export function ZoomPinchLayer({
         );
 
         if (active >= 2) {
-          const dist = pinchDistance(toTouchPoints(touches));
+          book.multiTouchSeen = true;
+          // 잡고 있던 두 손가락을 identifier 로 다시 찾는다. 못 찾으면(3개 이상에서
+          // 하나를 뗀 경우 — numberActiveTouches 는 여전히 2 이상이라 팬 분기로도
+          // 안 빠진다) 남은 손가락으로 기준을 **다시 잡는다**.
+          const held = pickPair(touches, book.pinchIds);
+          const rebase = book.pinchIds !== null && held === null;
+          const pair = held ?? pickPair(touches, null);
+          if (!pair) return;
+          const dist = pinchDistance(toTouchPoints(pair));
           if (dist <= 0) return;
-          if (!book.pinching) {
+          if (!book.pinching || rebase) {
             // 핀치 시작 프레임 — grant 가 아니라 **두 번째 손가락이 닿은 이 순간**의
-            // 상태를 기준으로 잡아야 앞선 한 손가락 팬 결과가 유지된다.
+            // 상태를 기준으로 잡아야 앞선 한 손가락 팬 결과가 유지된다. 손가락 쌍이
+            // 바뀐 프레임(rebase)도 같은 처분 — 옛 시작거리를 새 쌍에 견주면 손을
+            // 움직이지 않았는데 배율이 튄다.
             book.pinching = true;
+            book.pinchIds = [pair[0].identifier, pair[1].identifier];
             book.pinchStartDist = dist;
             book.pinchStartState = liveRef.current;
             book.hasPanSample = false;
@@ -235,7 +293,7 @@ export function ZoomPinchLayer({
             book.pinchNotified = true;
             cbRef.current.onPinchStart?.();
           }
-          const focal = localFocal(touches, w, h);
+          const focal = localFocal(pair, w, h);
           emit(
             applyPinch({
               startState: book.pinchStartState,
@@ -254,6 +312,7 @@ export function ZoomPinchLayer({
         // 손가락 하나 — 팬. 핀치에서 넘어온 첫 프레임은 기준 표본을 다시 잡는다.
         if (book.pinching) {
           book.pinching = false;
+          book.pinchIds = null;
           book.hasPanSample = false;
         }
         const live = liveRef.current;
@@ -283,12 +342,12 @@ export function ZoomPinchLayer({
       onPanResponderRelease: (_evt: GestureResponderEvent, g: PanResponderGestureState) => {
         const book = bookRef.current;
         const moved = Math.max(book.movedPx, Math.hypot(g.dx, g.dy));
-        const heldMs = Date.now() - book.startedAt;
+        // 손가락이 둘 이상이었던 접촉은 탭이 아니다 — 핀치를 알리기 전(움직이지 않은
+        // 두 손가락 터치)도 포함한다. 시간은 묻지 않는다(TAP_MAX_MOVE_PX 주석).
         const wasTap =
-          !book.pinchNotified &&
+          !book.multiTouchSeen &&
           Number.isFinite(moved) &&
-          moved < TAP_MAX_MOVE_PX &&
-          heldMs < TAP_MAX_MS;
+          moved < TAP_MAX_MOVE_PX;
         bookRef.current = freshBook(liveRef.current);
         if (wasTap) cbRef.current.onTap?.();
       },
@@ -309,6 +368,12 @@ export function ZoomPinchLayer({
       // 알리지 않는다. 라벨은 호출측 소유(위 prop 주석).
       accessibilityRole={onTap ? 'button' : undefined}
       accessibilityLabel={accessibilityLabel}
+      // ★ 초점·팬 좌표계의 전제 (localFocal 주석). box-only = "이 뷰는 터치 타깃이
+      // 되지만 자식은 되지 않는다" — locationX/Y 가 **클리핑 박스** 기준으로 오게
+      // 못박는다. 자식은 영상과 pointerEvents 없는 오버레이뿐이라 잃는 조작 0
+      // (전체화면 KeypointOverlay 는 onMarkerPress 미전달 → pointerEvents 'none',
+      // result.tsx:3006).
+      pointerEvents="box-only"
       {...panResponder.panHandlers}
     >
       <View

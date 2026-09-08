@@ -12,7 +12,7 @@
 //     (reach·whole-score fallback·vision 주입 split) 또는 legacy doc → 그 record 는
 //     목록에서 **통째로 빠진다**. 없는 순간을 지어내 보내면 사용자가 엉뚱한 곳을
 //     확대하고 "확대해 봤는데 아무것도 없다"가 된다 (fabricate 0).
-//   - 기준 측 초 = FaultZoomComparison.refVideoSec 을 voiceSnap.buildRefSnapSecs 가
+//   - 오른쪽 패널 초 = FaultZoomComparison.refVideoSec 을 voiceSnap.buildRefSnapSecs 가
 //     검증해 낸 값. ⚠ `refFrameIdx / keypointReport.fps` 로 초를 **재계산하지 말 것** —
 //     rep 프레임 공간과 영상 초 공간이 다르다 (docs/contract.md:1961-1962,
 //     types/analysis.ts:518-529). 엘보 fixture 가 그 오차의 크기를 보여준다:
@@ -23,7 +23,6 @@
 // .buildDeductionMarkers 를 그대로 소비한다 (규칙 사본 금지, 33-12 A-5 seam #1).
 
 import type {
-  AnalysisMode,
   DeductionRecord,
   FaultZoomComparison,
   KeypointName,
@@ -42,7 +41,7 @@ import { buildRefSnapSecs } from './voiceSnap.ts';
  * - `number` — 감점 표시 번호. 재생바 틱(buildDeductionTicks)·내역 행 원문자와
  *   **같은 축**이다 (아래 buildMomentTargets 주석의 입력 순서 규약 참조).
  * - `userSec` — 학생 영상에서 뛰어갈 초 (저장된 atVideoSec 그대로).
- * - `refSec` — 기준(정은지) 영상에서 뛰어갈 초. null = 짝을 못 찾았거나 mode3.
+ * - `refSec` — 오른쪽 패널 영상에서 뛰어갈 초. null = 그 카드가 짝을 못 찾았다.
  * - `certified` — refSec 이 실제 매칭된 짝인가. false 면 화면은 기준 패널을 짝인
  *   척 세우지 말고 정직 문구를 대신 보여준다 (belle 규칙: 양쪽이 같은 순간이어야).
  */
@@ -71,9 +70,16 @@ export type MomentTarget = {
  *      음수는 재생 위치가 될 수 없다 (buildRefSnapSecs 의 sec>=0 선례).
  * 중복 recordId 는 first-wins (결정성 — buildRefSnapSecs 와 같은 규칙).
  *
- * mode3 는 기준 영상 자체가 없다 (본인 영상 2개 비교). 카드가 refVideoSec 을
- * 들고 있어도 refSec 은 항상 null·certified 는 항상 false — 없는 기준을 세우지
- * 않는다 ([[mode3-progress-not-similarity]]).
+ * **mode 분기 없음** (belle 09-07 감사 수리). 종전에는 mode3 에서 refSnapSecs 를
+ * 통째로 버렸고, 근거로 "mode3 는 기준 영상 자체가 없다"고 적었다. 그 전제가 코드와
+ * 어긋난다 — mode3 의 오른쪽 패널은 지난 분석 영상이고(result.tsx rightUrl =
+ * prev myVideoUrl, 라벨 '지난 영상'), 백엔드도 mode3 카드를 mode1 과 **같은 코어**로
+ * 만들어 refVideoSec 을 싣는다(pipeline `_build_mode3_fault_zoom_comparisons` →
+ * `_render_fault_zoom`). 무엇보다 같은 화면의 음성 큐 경로(result.tsx cueRefSnapSecs
+ * → VideoCompare snapRightToCuePair)에는 mode 게이트가 **한 줄도 없어** 이미 mode3
+ * 에서 오른쪽을 짝 프레임에 세우고 있었다. 여기만 버리면 같은 감점을 시트로 여느냐
+ * 음성 pill 로 여느냐에 따라 오른쪽 프레임이 달라진다 — 한 항목에 두 개의 답.
+ * 그래서 게이트를 걷어내고 **두 진입점을 같은 규칙으로** 맞춘다.
  *
  * @param faultJoints - visionVeto.faultJoints. source='vision' record 의 카드 조인에
  *   쓰인다 (matchZoomForDeductionRecord 계약). 부재면 vision record 는 criterion 키
@@ -82,7 +88,6 @@ export type MomentTarget = {
 export function buildMomentTargets(
   records: readonly DeductionRecord[] | null | undefined,
   zooms: readonly FaultZoomComparison[] | null | undefined,
-  mode: AnalysisMode,
   faultJoints?: readonly KeypointName[],
 ): MomentTarget[] {
   if (!Array.isArray(records) || records.length === 0) return [];
@@ -97,18 +102,16 @@ export function buildMomentTargets(
   // readonly 계약을 유지하려고 복제본을 넘긴다.
   const { recordNumbers } = buildDeductionMarkers([...list], faultJoints);
 
-  // 기준 초 맵: recordId → refVideoSec. mode3 는 기준 영상이 없어 맵 자체를 안 만든다.
-  // entries 조립은 result.tsx cueRefSnapSecs 와 동형 (조인 규칙 신설 0).
-  const refSnapSecs =
-    mode === 'mode3'
-      ? {}
-      : buildRefSnapSecs(
-          list.map((rec) => ({
-            recordId: rec.recordId,
-            refVideoSec: matchZoomForDeductionRecord(rec, faultJoints, zooms)
-              ?.refVideoSec,
-          })),
-        );
+  // 기준 초 맵: recordId → refVideoSec.
+  // entries 조립은 result.tsx cueRefSnapSecs 와 **동형**이다 (조인 규칙 신설 0).
+  // 두 진입점이 같은 맵을 만들어야 같은 감점에서 같은 오른쪽 프레임이 나온다.
+  const refSnapSecs = buildRefSnapSecs(
+    list.map((rec) => ({
+      recordId: rec.recordId,
+      refVideoSec: matchZoomForDeductionRecord(rec, faultJoints, zooms)
+        ?.refVideoSec,
+    })),
+  );
 
   const out: MomentTarget[] = [];
   const seen = new Set<string>();

@@ -2260,10 +2260,9 @@ function AnalysisResultContent({
       buildMomentTargets(
         records,
         result.faultZoomComparisons ?? [],
-        cmp.mode,
         vetoFaultJoints,
       ),
-    [records, result.faultZoomComparisons, cmp.mode, vetoFaultJoints],
+    [records, result.faultZoomComparisons, vetoFaultJoints],
   );
   // recordId → 순간. 시트/틱 진입점이 조인 키 하나로 목표를 집는다.
   const momentByRecordId = useMemo(() => {
@@ -3860,13 +3859,21 @@ function AnalysisResultContent({
         onZoomImageError={onZoomImageError}
         // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
-        // belle 09-07 — 상시 열려 있는 확대 진입점. 합성 비교 영상 가지에서는
-        // **버튼 자체를 내보내지 않는다**: 그 가지는 두 패널이 한 mp4 에 구워져
-        // 있어 학생 도메인 초가 없고(freezes[].outSec 는 출력 영상 시계다),
-        // openFullscreenAtRef 도 꽂히지 않는다. 눌러도 아무 일이 없는 버튼을
-        // 놓는 대신 없는 채로 둔다 (그 가지의 확대는 자체 전체화면이 담당).
+        // belle 09-07 — 상시 열려 있는 확대 진입점. **VideoCompare 가 안 그려지는
+        // 가지에서는 버튼 자체를 내보내지 않는다**. 눌러도 아무 일이 없는 버튼을
+        // 놓지 않기 위해서다(openFullscreenAtRef 가 null 이면 옵셔널 체이닝이
+        // 조용히 삼켜 시트만 닫힌다).
+        //
+        // 그런 가지가 둘이다 — 종전에는 첫째만 막고 있었다(belle 09-07 감사 수리):
+        //   1) 합성 비교 영상 가지: 두 패널이 한 mp4 에 구워져 학생 도메인 초가
+        //      없고(freezes[].outSec 는 출력 영상 시계다) ref 도 안 꽂힌다.
+        //   2) mode3 첫 분석: 비교 대상이 없어 **섹션 전체가 미렌더**다(D-07,
+        //      아래 `!(cmp.mode === 'mode3' && cmp.isFirst)` 게이트). 그런데
+        //      momentTargets 는 atVideoSec 만 있으면 목표를 만들어 버튼이 활성으로
+        //      그려졌다 — 누르면 시트만 닫히고 끝.
         onOpenMoment={
-          renderedCompareReady && !renderedUnavailable
+          (renderedCompareReady && !renderedUnavailable) ||
+          (cmp.mode === 'mode3' && cmp.isFirst)
             ? undefined
             : openMomentForRecord
         }

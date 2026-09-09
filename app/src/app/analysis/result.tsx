@@ -43,9 +43,6 @@ import RenderedComparePlayer from '../../components/RenderedComparePlayer';
 import { ZoomCompositeImage } from '../../components/ZoomCompositeImage';
 import { ResultCoachmarks } from '../../components/ResultCoachmarks';
 import { hasSeenResultCoachmark, markResultCoachmarkSeen } from '../../lib/coachmark';
-import {
-  selectEstimatedZoomEntries,
-} from '../../lib/resultSections';
 import { buildCueWindows } from '../../lib/cueTrack';
 import type { CueInput } from '../../lib/cueTrack';
 import { buildRefSnapSecs } from '../../lib/voiceSnap';
@@ -82,7 +79,6 @@ import {
   resolveZoomImageUrl,
   resolveZoomPlainImageUrl,
   useFreshFaultZoomUrls,
-  zoomCardKey,
 } from '../../lib/faultZoomUrls';
 import {
   requestPlaybackUrl,
@@ -131,15 +127,6 @@ const ATTR_GUIDANCE_MODE3_PROGRESS =
   '점수 기준으로 이전보다 발전하고 있어요. 거꾸로 자세 세부 관절은 AI가 아직 공부 중이에요.';
 const ATTR_GUIDANCE_MODE3_FIRST =
   '첫 분석이에요 — 다음부터 발전을 비교해드려요. 거꾸로 자세 세부는 AI가 공부 중이에요.';
-// IN-01 (quick-260724-q6b) — 역립 저신뢰 시 확대비교 진입점 라벨. topFix 카드가
-// 억제돼 확대비교가 도달 불가한 gap 을 메운다 (belle: "예상 부위"로 도달 가능해야
-// 함). "AI 공부 중" 안내줄이 맥락을 주므로 추정임이 전달됨 — 확정 결함 단정 아님.
-const ATTR_ZOOM_ESTIMATED_ENTRY_LABEL = '예상 부위 확대 비교 보기';
-// quick-260903-ftg — IN-01 경로 예상 부위 사진 카드 제목. 시트 제목
-// (DeductionDetailSheet ESTIMATED_AREA_TITLE)과 문자 동일하게 두어 카드→시트가
-// 같은 hedge 로 읽힌다. 관절명 없음(IN-01 per-joint 단정 강등 락 — 260724-q6b).
-// 접근성 라벨은 종전 ATTR_ZOOM_ESTIMATED_ENTRY_LABEL 을 계속 쓴다.
-const ATTR_ZOOM_ESTIMATED_CARD_TITLE = '예상 부위 (참고)';
 
 
 // 32-11 (D-17 확정 밀도 = 결함 구간당 1개) — 재생 중 자막 큐 윈도우 폭(초)과 상한.
@@ -862,30 +849,6 @@ function AnalysisResultContent({
     return bestKp ? [bestKp] : [];
   }, [attributionUnreliable, records, result.visionVeto]);
 
-  // IN-01 (quick-260724-q6b) — 예상 부위 확대비교 진입점이 열 record 의 index.
-  // estimatedAreaKeypoints 의 record 경로(angle_vs_reference + keypoint 매핑, |points|
-  // 최대)와 동일 선택 로직이므로 진입점과 오버레이 주황 점이 같은 관절을 가리킨다.
-  // windowMedian 폴백 경로는 대응 record 가 없어 index 없음 → null(진입점 미렌더 —
-  // graceful: 안내줄 + 정은지 비교는 그대로). false/부재 시 null.
-  const estimatedAreaRecordIndex = useMemo<number | null>(() => {
-    if (!attributionUnreliable) return null;
-    let bestIdx: number | null = null;
-    let bestAbs = -1;
-    const recs = records;
-    for (let i = 0; i < recs.length; i++) {
-      const r = recs[i];
-      if (!r.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) continue;
-      const jk = r.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
-      const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
-      if (!kp) continue;
-      const abs = Math.abs(r.points);
-      if (abs > bestAbs) {
-        bestAbs = abs;
-        bestIdx = i;
-      }
-    }
-    return bestIdx;
-  }, [attributionUnreliable, records]);
 
   // quick-260705-o0s — 영상 점 번호 ↔ 내역 행 번호 단일 소스 (buildDeductionMarkers).
   // 오버레이 markerNumbers 와 ScoreBreakdownSection recordNumbers 가 같은 결과물을
@@ -1404,34 +1367,6 @@ function AnalysisResultContent({
     );
 
 
-  // quick-260903-ftg — IN-01 저신뢰 경로의 예상 부위 사진 카드 목록(확정 카드 전부).
-  // 종전 진입 링크는 estimatedAreaRecordIndex 1건의 시트만 열어 확정 카드가 2장이어도
-  // 두 번째가 도달 불가였다 (09-03 시뮬 실측, belle pdshape 60점 doc). 선택 규칙
-  // (primary 맨 앞·숨김 제외·같은 카드 dedupe)은 selectEstimatedZoomEntries 단일
-  // 지점, 매칭은 recordMaps/cueWindows 와 같은 matchZoomForRecord 단일 출처(신규
-  // 조인 규칙 0). 저신뢰가 아니면 빈 배열 — 그 경로 렌더 diff 0.
-  const estimatedZoomEntries = useMemo(
-    () =>
-      attributionUnreliable
-        ? selectEstimatedZoomEntries(
-            records,
-            (rec) => matchZoomForRecord(rec),
-            zoomCardKey,
-            isRecordHidden,
-            estimatedAreaRecordIndex,
-          )
-        : [],
-    // matchZoomForRecord/isRecordHidden 은 아래 deps 파생 (recordMaps memo 관례).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      attributionUnreliable,
-      records,
-      result.faultZoomComparisons,
-      vetoFaultJoints,
-      hiddenRecordIds,
-      estimatedAreaRecordIndex,
-    ],
-  );
 
   // 33-13 (A-6, D-13 대표 UX) — 음성 큐 recordId → 강조 부위 투영. cue 는
   // records 에서 태어나므로(cueWindows 조립) 항상 짝이 있다 — 못 찾으면 빈 배열
@@ -2026,75 +1961,12 @@ function AnalysisResultContent({
           </Text>
         ) : null}
 
-        {/* IN-01 (quick-260724-q6b) — 역립 저신뢰 시 확대비교 진입점. topFix 카드·
-            '다른 감점 항목' 목록이 억제돼(아래 !attributionUnreliable 게이트) 확대비교가
-            도달 불가한 gap 을 메운다 (belle 07-24: "예상 부위라도 보여줘야").
-            quick-260903-ftg (09-03 시뮬 실측, belle pdshape 60점 doc): 확정 카드가
-            2장(왼팔꿈치·왼엉덩이)인데 종전 링크 1개는 |points| 최대 record 의 시트만
-            열어 두 번째가 도달 불가였다 (belle 09-02 "왜 확대비교 사진이 하나밖에
-            없어"). 지금은 확정 카드 **전부**를 "예상 부위 (참고)" 사진 카드로 인라인
-            렌더한다 — 선택 규칙은 selectEstimatedZoomEntries 단일 지점.
-            IN-01 락 유지(260724-q6b): 카드에 관절명·statusLine·감점 수치 없음 — 제목은
-            시트 제목과 문자 동일한 hedge 라벨 1줄뿐. 탭 = 종전과 같은 시트(estimatedArea
-            hedge). 매칭 카드 0 + pending 이면 placeholder 카드 1개(done 도착 시 onSnapshot
-            으로 사진 카드로 교체), 둘 다 아니면 미렌더(빈 시트 열지 않음) — 안내줄 +
-            정은지 비교는 그대로. false/부재 시 diff 0. */}
-        {attributionUnreliable && estimatedZoomEntries.length > 0 ? (
-          estimatedZoomEntries.map((entry) => (
-            <Pressable
-              key={zoomCardKey(entry.zoom)}
-              onPress={() => setDetailRecordIndex(entry.recordIndex)}
-              accessibilityRole="button"
-              accessibilityLabel={ATTR_ZOOM_ESTIMATED_ENTRY_LABEL}
-              hitSlop={8}
-              style={({ pressed }) => [
-                styles.estimatedZoomCard,
-                pressed && styles.estimatedZoomEntryPressed,
-              ]}
-            >
-              <View style={styles.estimatedZoomTitleRow}>
-                <Text style={styles.estimatedZoomEntryText}>
-                  {ATTR_ZOOM_ESTIMATED_CARD_TITLE}
-                </Text>
-                <Text style={styles.estimatedZoomEntryChevron}>›</Text>
-              </View>
-              <ZoomCompositeImage
-                imageUrl={resolveZoomImageUrl(entry.zoom, freshZoomUrls)}
-                rightLabel={
-                  cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
-                }
-                onError={onZoomImageError}
-                accessibilityLabel={`${ATTR_ZOOM_ESTIMATED_CARD_TITLE} 확대 비교 이미지`}
-              />
-            </Pressable>
-          ))
-        ) : attributionUnreliable &&
-          zoomPending &&
-          estimatedAreaRecordIndex != null ? (
-          <Pressable
-            onPress={() => setDetailRecordIndex(estimatedAreaRecordIndex)}
-            accessibilityRole="button"
-            accessibilityLabel={ATTR_ZOOM_ESTIMATED_ENTRY_LABEL}
-            hitSlop={8}
-            style={({ pressed }) => [
-              styles.estimatedZoomCard,
-              pressed && styles.estimatedZoomEntryPressed,
-            ]}
-          >
-            <View style={styles.estimatedZoomTitleRow}>
-              <Text style={styles.estimatedZoomEntryText}>
-                {ATTR_ZOOM_ESTIMATED_CARD_TITLE}
-              </Text>
-              <Text style={styles.estimatedZoomEntryChevron}>›</Text>
-            </View>
-            <ZoomCompositeImage
-              pending
-              rightLabel={
-                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
-              }
-            />
-          </Pressable>
-        ) : null}
+        {/* 260909-ji1 — 동작비교 하단의 "예상 부위 (참고)" 확대 카드 목록을 뺐다.
+            belle 09-09: "피그마 그대로 구현하라니까 왜 이걸 유지시키고 있어".
+            시안 2 는 영상 카드 · 재생바 · 옵션 칩 · 감점 목록에서 끝난다.
+            belle 07-24 "예상 부위라도 보여줘야" 는 죽지 않는다 — 확대 짝 사진의
+            도달 경로가 교정포인트 탭(행을 펼치면 사진+설명)과 시안 5 모달로
+            남아 있고, 그 둘은 attributionUnreliable 게이트를 타지 않는다. */}
 
           </>
         )}
@@ -2409,31 +2281,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
-  },
-  // IN-01 (quick-260724-q6b) — 역립 저신뢰 예상 부위 카드. advisoryOrange 톤
-  // (확정 결함 아님 — "예상" 강조), 신규 색 금지. 토큰만.
-  // quick-260903-ftg — 링크 1줄 → 제목 행 + 합성 PNG 인라인 카드. 카드 간 간격은
-  // content 의 gap(14) 이 준다(종전 marginTop 4 제거).
-  estimatedZoomCard: {
-    backgroundColor: colors.advisoryOrangeBg,
-    borderRadius: radius.card,
-    padding: spacing.cardPadding,
-    gap: 10,
-  },
-  estimatedZoomTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  estimatedZoomEntryPressed: { opacity: 0.85 },
-  estimatedZoomEntryText: {
-    ...typography.bodyMdBold,
-    color: colors.advisoryOrange,
-    flexShrink: 1,
-  },
-  estimatedZoomEntryChevron: {
-    ...typography.bodyMdBold,
-    color: colors.advisoryOrange,
   },
   // Phase 20 TRUST-07 — 점수 억제 시 '기준 없음' state 카피. 토큰만 (하드코딩 금지).
   suppressedTitle: {

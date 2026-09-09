@@ -181,6 +181,20 @@ export function ResultHeaderBar({
 
   return (
     <View style={[styles.bar, { top: topDelta }]} pointerEvents="box-none">
+      {/* 타이틀·탭 뒤를 불투명 빨강으로 막는다 (260909-ji1).
+          스크롤 콘텐츠는 곡선(뒤 층)보다 앞에 있어야 시안처럼 카드가 곡선을 덮는데,
+          그러면 스크롤을 올렸을 때 그 콘텐츠가 타이틀·탭 자리까지 올라와 글자가
+          서로 겹친다 (belle 09-09 캡처: '거꾸로 자세는…' 안내문이 '분석결과' 위에).
+          이 띠는 밑줄 아랫변까지만 덮으므로, 그 아래에서 카드가 곡선을 덮는
+          시안의 겹침은 그대로 남는다. 화면 최상단부터 덮어야 해서 topDelta 만큼
+          위로 끌어올린다. */}
+      <View
+        style={[
+          styles.barScrim,
+          { top: -topDelta, height: topDelta + RESULT_HEADER.barBottom * s },
+        ]}
+        pointerEvents="none"
+      />
       <View
         style={[
           styles.titleRow,
@@ -301,6 +315,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+  },
+  barScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: colors.brand,
   },
   titleRow: {
     justifyContent: 'center',

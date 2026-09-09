@@ -60,6 +60,7 @@ import { DEFAULT_ZOOM, type ZoomState } from '../lib/pinchZoom';
 import type { MomentTarget } from '../lib/momentJump';
 import { ZoomPinchLayer } from './ZoomPinchLayer';
 import { colors, layout, radius, spacing, typography } from '../theme';
+import { compareCardControls } from '../theme/compareControls';
 import type { AnalysisMode, MotionAlignment } from '../types/analysis';
 
 type SlotProps = {
@@ -419,11 +420,13 @@ const THUMB_DIAMETER = 14;
 
 // 260909-ji1 — 세로 카드(시안 2) 컨트롤 치수. 전체화면은 종전 값(playBtn 36 · 트랙 4 ·
 // THUMB_DIAMETER 14) 그대로 — 아래는 renderControls 의 !dark 분기에만 얹는다.
-const CARD_PLAY_DIA = 22.4; // 시안 재생 원 지름
-const CARD_PLAY_ICON = 12; // 20 × 22.4/36
-const CARD_TRACK_H = 4.8; // 시안 진행바 두께
-const CARD_THUMB_D = 10; // 시안엔 손잡이가 없다 — 끌 수 있음을 알리는 용도라 줄여서 남긴다
-const CARD_CONTROLS_INSET = 42.8; // 카드 바깥변에서 컨트롤 행까지 (시안)
+// 값의 출처는 theme/compareControls — 합성 경로(RenderedComparePlayer)와 한 벌을
+// 공유한다. 여기서 숫자를 다시 박으면 두 경로가 조용히 어긋난다.
+const CARD_PLAY_DIA = compareCardControls.playDiameter;
+const CARD_PLAY_ICON = compareCardControls.playIcon;
+const CARD_TRACK_H = compareCardControls.trackHeight;
+const CARD_THUMB_D = compareCardControls.thumbDiameter;
+const CARD_CONTROLS_INSET = compareCardControls.controlsInset;
 
 // 32-02 (D-16) — 수동 시작점 미세조정 슬라이더. 범위 ±3초·스냅 0.1초는 재량(D-16).
 // legacy 자동 오프셋이 ±3초를 넘으면 sliderBound 를 그 크기까지 확장해 썸이 항상
@@ -449,7 +452,7 @@ const ILLU_FLOAT_INSET_RATIO = 10 / 360;
 // 종전 8 은 시안에 없던 여백.
 const ROW_PANEL_GAP = 1.7;  // 시안 이음매 잉크 실측 ≈1.65pt (260909-ji1)
 /** 시안 2 영상 블록의 카드 안쪽 좌우 여백 (블록 57.6 − 카드 36.7 = 20.9pt 실측). */
-const VIDEO_BLOCK_INSET = 20.9;
+const VIDEO_BLOCK_INSET = compareCardControls.blockInset;
 
 // 32-08 (실기기 피드백 #1) — 음수 오프셋 시작 홀드 임계. 목표시각(unclamped)이 음수인
 // 구간에서 정은지(right)를 0 프레임에 세우되, 이미 ~0 이면 재대입을 생략한다(불필요한

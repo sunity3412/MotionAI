@@ -74,6 +74,7 @@ import {
 import { MIN_ZOOM, type ZoomState } from '../lib/pinchZoom';
 import type { RenderedCompareFreeze } from '../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../theme';
+import { compareCardControls } from '../theme/compareControls';
 import { ZoomPinchLayer } from './ZoomPinchLayer';
 
 // 정지 직전 여유 — 틱 탭이 정지 화면이 아니라 그 직전 재생부터 보이게
@@ -790,7 +791,7 @@ const styles = StyleSheet.create({
   // 가지와 같은 값이라 두 가지가 같은 크기로 보인다.
   frame: {
     width: '100%',
-    marginHorizontal: 20.9 - spacing.cardPadding,
+    marginHorizontal: compareCardControls.blockInset - spacing.cardPadding,
     borderRadius: 12,
     overflow: 'hidden',
     justifyContent: 'center',
@@ -832,12 +833,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginHorizontal: 42.8 - spacing.cardPadding,
+    marginHorizontal: compareCardControls.controlsInset - spacing.cardPadding,
   },
   playBtn: {
-    width: 22.4,
-    height: 22.4,
-    borderRadius: 11.2,
+    width: compareCardControls.playDiameter,
+    height: compareCardControls.playDiameter,
+    borderRadius: compareCardControls.playDiameter / 2,
     backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
@@ -857,18 +858,18 @@ const styles = StyleSheet.create({
   },
   timelineRail: {
     position: 'absolute',
-    top: (14 - 4.8) / 2,
+    top: (compareCardControls.trackRowHeight - compareCardControls.trackHeight) / 2,
     left: 0,
     right: 0,
-    height: 4.8,
+    height: compareCardControls.trackHeight,
     backgroundColor: colors.divider,
     borderRadius: 2,
   },
   timelineFill: {
     position: 'absolute',
-    top: (14 - 4.8) / 2,
+    top: (compareCardControls.trackRowHeight - compareCardControls.trackHeight) / 2,
     left: 0,
-    height: 4.8,
+    height: compareCardControls.trackHeight,
     backgroundColor: colors.brand,
     borderRadius: 2,
   },

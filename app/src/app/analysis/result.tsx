@@ -1642,18 +1642,34 @@ function AnalysisResultContent({
                  금지 — mp4 에 음성·자막이 이미 구워져 있다). 오버레이 토글도
                  의미가 없어(구운 영상) 헤더에서 제외. PartChipsRow(감점 시트
                  진입점)·정렬 upsell 배너는 발화 없음 — 분기 밖 현행 유지. */
-              <>
-                <View style={styles.compareHeader}>
-                  <Text style={styles.sectionTitle}>동작 비교</Text>
-                </View>
-                <RenderedComparePlayer
-                  analysisId={analysisId}
-                  onUnavailable={() => setRenderedUnavailable(true)}
-                  // UI 라운드 — 정지 틱 데이터 (contract.md §12.9 freezes,
-                  // 부재 구버전 doc = 틱 없이 재생만).
-                  freezes={result.renderedCompare?.freezes}
-                />
-              </>
+              /* 260909-ji1 — 이 가지도 시안 2 로 맞춘다. 섹션 제목('동작 비교')은
+                 탭 라벨이 대신하므로 뺐고(시안에 섹션 제목이 없다), 역할 알약·옵션
+                 칩·감점 목록을 플레이어 안으로 넣었다. belle 09-09: "시안이 있는데도
+                 왜 삭제만하고 반영을 안해" — 시안 작업이 듀얼 플레이어 가지에만
+                 들어가 있었고 belle 의 doc 은 이 가지를 탄다. */
+              <RenderedComparePlayer
+                analysisId={analysisId}
+                onUnavailable={() => setRenderedUnavailable(true)}
+                // UI 라운드 — 정지 틱 데이터 (contract.md §12.9 freezes,
+                // 부재 구버전 doc = 틱 없이 재생만).
+                freezes={result.renderedCompare?.freezes}
+                leftLabel={cmp.mode === 'mode3' ? '이번 영상' : '내 영상'}
+                rightLabel={
+                  cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
+                }
+                renderBelowControls={() => (
+                  <ResultMomentList
+                    flat
+                    rows={momentRows}
+                    // 이 가지는 학생 도메인 초로 뛰어들 수단이 없다(파일 헤더 한계 2 —
+                    // freezes 는 출력 mp4 시계다). 그래서 seek 없이 상세 시트만 연다.
+                    onRowPress={(recordId) => {
+                      const idx = records.findIndex((r) => r.recordId === recordId);
+                      if (idx >= 0) setDetailRecordIndex(idx);
+                    }}
+                  />
+                )}
+              />
             ) : (
             <>
             {/* 폴백 가지 (renderedCompare 부재 legacy·failed·URL 실패 강등) —

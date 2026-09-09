@@ -74,7 +74,7 @@ import {
 import { circledNumberKo } from '../lib/deductionLabels';
 import { MIN_ZOOM, type ZoomState } from '../lib/pinchZoom';
 import type { RenderedCompareFreeze } from '../types/analysis';
-import { colors, radius, spacing, typography } from '../theme';
+import { colors, layout, radius, spacing, typography } from '../theme';
 import { ZoomPinchLayer } from './ZoomPinchLayer';
 
 // 정지 직전 여유 — 틱 탭이 정지 화면이 아니라 그 직전 재생부터 보이게
@@ -125,13 +125,24 @@ export default function RenderedComparePlayer({
   analysisId,
   onUnavailable,
   freezes,
+  leftLabel,
+  rightLabel,
+  renderBelowControls,
 }: {
   analysisId: string;
   onUnavailable: () => void;
   // doc renderedCompare.freezes — 부재(구버전 doc) = 틱 없이 재생만 (fail-open).
   freezes?: RenderedCompareFreeze[];
+  /** 영상 좌상단 역할 알약 — 합성 mp4 의 왼쪽 패널이 학생이다 (시안 2). */
+  leftLabel: string;
+  /** 영상 우상단 역할 알약. 없으면 그 알약을 그리지 않는다 (문구를 지어내지 않는다). */
+  rightLabel?: string | null;
+  /** 시안 2 — 감점 목록은 옵션 행 바로 아래, 카드 **안**에 온다. */
+  renderBelowControls?: () => React.ReactNode;
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  // 시안 2 옵션 칩 — 이 가지에서 앱이 통제할 수 있는 유일한 옵션.
+  const [slowMotion, setSlowMotion] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   // onUnavailable 는 보통 인라인 콜백(매 렌더 새 참조)이라 effect deps 에 넣으면
   // 렌더마다 재발급이 돈다 — ref 로 최신 참조만 유지 (deps = analysisId 만).
@@ -161,6 +172,12 @@ export default function RenderedComparePlayer({
   const player = useVideoPlayer(url, (p) => {
     p.loop = false;
   });
+
+  // 시안 2 '0.5배속' — 듀얼 플레이어와 같은 규약(VideoCompare:782).
+  useEffect(() => {
+    if (player) player.playbackRate = slowMotion ? 0.5 : 1;
+  }, [slowMotion, player]);
+
 
   // ── 재생 상태 폴링 (커스텀 컨트롤의 유일한 상태원) ────────────────────────
   const [playing, setPlaying] = useState(false);
@@ -363,37 +380,8 @@ export default function RenderedComparePlayer({
         />
       </Pressable>
       <View style={styles.timeline}>
-        {/* 정지 틱 — 트랙 위 별도 줄. 번호는 감점 카드 번호와 같은 문법(①②③)
-            이라 "몇 번 지적이 여기서 멈춘다"가 읽힌다. 탭 = 정지 직전으로 이동. */}
-        {validFreezes.length > 0 && duration > 0 && (
-          <View style={styles.tickRow} pointerEvents="box-none">
-            {validFreezes.map((f) => {
-              const leftPct = Math.max(0, Math.min(100, (f.outSec / duration) * 100));
-              const n = freezeNumber(f.rid);
-              return (
-                <Pressable
-                  key={f.rid}
-                  onPress={() => seekTo(Math.max(0, f.outSec - TICK_JUMP_LEAD_S))}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    n != null
-                      ? `${n}번 지적 지점으로 이동`
-                      : '지적 지점으로 이동'
-                  }
-                  hitSlop={8}
-                  style={[styles.tick, { left: `${leftPct}%` }]}
-                >
-                  {n != null && (
-                    <Text style={styles.tickLabel} numberOfLines={1}>
-                      {circledNumberKo(n)}
-                    </Text>
-                  )}
-                  <View style={styles.tickMark} />
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+        {/* 260909-ji1 — 번호 틱(①②③) 줄을 뺐다. 시안 2 의 진행바는 트랙 하나뿐이다.
+            그 순간으로 가는 길은 아래 감점 목록의 행이 대신한다. */}
         <View
           style={styles.timelineTrack}
           onLayout={dark ? onFsTrackLayout : onTrackLayout}
@@ -416,23 +404,11 @@ export default function RenderedComparePlayer({
           {`${fmtTimeDecimal(currentTime)} / ${fmtTime(duration)}`}
         </Text>
       </View>
-      <Pressable
-        onPress={restart}
-        accessibilityRole="button"
-        accessibilityLabel="처음으로"
-        hitSlop={8}
-      >
-        <Ionicons
-          name="refresh"
-          size={20}
-          color={dark ? colors.textWhite : colors.textSecondary}
-        />
-      </Pressable>
     </View>
   );
 
   return (
-    <View>
+    <View style={styles.card}>
       <View style={styles.frame}>
         {url ? (
           <>
@@ -440,6 +416,7 @@ export default function RenderedComparePlayer({
               accessibilityRole="button"
               accessibilityLabel="재생 또는 일시정지"
               onPress={togglePlay}
+              style={styles.videoBox}
             >
               <VideoView
                 player={player}
@@ -453,16 +430,25 @@ export default function RenderedComparePlayer({
                 accessibilityLabel="동작 비교 영상"
               />
             </Pressable>
-            {/* 가로 크게 보기 진입 — 카드 우상단 (t0v 진입 버튼 관례) */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="가로로 크게 보기"
-              hitSlop={10}
-              onPress={openFullscreen}
-              style={styles.expandBtn}
-            >
-              <Ionicons name="expand" size={16} color={colors.textWhite} />
-            </Pressable>
+            {/* 260909-ji1 — 시안 2 의 역할 라벨. 합성 mp4 는 좌=학생 / 우=기준으로
+                구워져 있으므로(contract.md §12.9) 그 위에 알약을 얹는다. 이게 없으면
+                어느 쪽이 자기 영상인지 알 수 없다 — 듀얼 플레이어 가지에는 있었는데
+                이 가지에만 없었다. */}
+            <View style={[styles.slotPill, styles.slotPillLeft]} pointerEvents="none">
+              <Text style={styles.slotPillText} numberOfLines={1}>
+                {leftLabel}
+              </Text>
+            </View>
+            {rightLabel ? (
+              <View
+                style={[styles.slotPill, styles.slotPillRight]}
+                pointerEvents="none"
+              >
+                <Text style={styles.slotPillText} numberOfLines={1}>
+                  {rightLabel}
+                </Text>
+              </View>
+            ) : null}
           </>
         ) : (
           <View style={styles.placeholder}>
@@ -471,6 +457,34 @@ export default function RenderedComparePlayer({
         )}
       </View>
       {url ? <View style={styles.controlsWrap}>{renderControls(false)}</View> : null}
+      {/* 260909-ji1 — 시안 2 의 옵션 칩 행. 이 가지에서 쓸 수 있는 것은 배속뿐이다:
+          관절선은 mp4 에 이미 구워져 있어 앱이 켜고 끌 수 없고, '가로로 크게 보기' 는
+          시안에 없다(영상을 탭하면 전체화면이 열린다 — 아래 onPress). */}
+      {url ? (
+        <View style={styles.optionRow}>
+          <Pressable
+            onPress={() => setSlowMotion((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: slowMotion }}
+            accessibilityLabel="0.5배속으로 보기"
+            hitSlop={8}
+            style={[styles.optionPill, slowMotion ? styles.optionPillOn : null]}
+          >
+            <Text
+              style={[
+                styles.optionPillText,
+                slowMotion ? styles.optionPillTextOn : null,
+              ]}
+            >
+              0.5배속
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {/* 260909-ji1 — 시안 2 는 감점 목록이 영상 카드 **안**, 옵션 행 바로 아래다.
+          듀얼 플레이어 가지에는 이미 그렇게 들어가 있었는데 이 가지에만 없었다
+          (belle 09-09: "시안이 있는데도 왜 삭제만하고 반영을 안해"). */}
+      {renderBelowControls?.()}
 
       {/* 가로 전체화면 — 260702-t0v 90° 회전 Modal 패턴 (portrait 고정 유지).
           같은 player 인스턴스에 두 번째 VideoView attach — 재생 위치·상태 공유
@@ -581,18 +595,76 @@ export default function RenderedComparePlayer({
 }
 
 const styles = StyleSheet.create({
+  // 260909-ji1 — 시안 2 의 흰 카드. 듀얼 플레이어 가지(VideoCompare.card)와 같은
+  // 규약이라 두 가지가 같은 화면으로 읽힌다.
+  card: {
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.resultVideoCard,
+    borderWidth: layout.cardBorderWidth,
+    borderColor: colors.resultCardBorder,
+    padding: spacing.cardPadding,
+    gap: 12,
+    width: '100%',
+  },
+  // 시안 2 — 영상 블록은 카드 안쪽 좌우 20.9pt.
+  slotPill: {
+    position: 'absolute',
+    top: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  slotPillLeft: { left: 13.83, backgroundColor: colors.brand },
+  slotPillRight: { right: 13.77, backgroundColor: colors.videoBg },
+  slotPillText: {
+    ...typography.captionSmall,
+    fontWeight: '700',
+    color: colors.textWhite,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 5,
+  },
+  optionPill: {
+    minWidth: 86,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: layout.cardBorderWidth,
+    borderColor: colors.resultDivider,
+  },
+  optionPillOn: { borderColor: colors.brand, backgroundColor: colors.resultChipBg },
+  optionPillText: { ...typography.resultChip, color: colors.textPrimary },
+  optionPillTextOn: { color: colors.brand },
+  // 260909-ji1 — 블록 비는 시안 2 실측(276.04 x 177.90 = 1.5517). 듀얼 플레이어
+  // 가지와 같은 값이라 두 가지가 같은 크기로 보인다.
   frame: {
     width: '100%',
-    borderRadius: radius.card,
+    marginHorizontal: 20.9 - spacing.cardPadding,
+    borderRadius: 12,
     overflow: 'hidden',
+    justifyContent: 'center',
     // 영상 카드 배경 — design.md §5-1 다크 예외 토큰 (영상 콘텐츠 자체의 어두움).
     backgroundColor: colors.videoBg,
+    aspectRatio: 276.04 / 177.9,
+  },
+  // 합성 mp4 는 세로 패널 2장 나란히(약 1224x1080)라 시안 블록보다 세로로 길다.
+  // 그 비율 그대로의 박스를 블록 안에 두고 폭을 100% 로 편 뒤 블록이 위아래를 자른다
+  // — `contain` 으로 두면 좌우에 띠가 생겨 시안처럼 꽉 차지 않는다. 듀얼 플레이어
+  // 가지(VideoCompare.slotVideoBox)와 같은 수법.
+  videoBox: {
+    width: '100%',
+    aspectRatio: 1224 / 1080,
   },
   video: {
     width: '100%',
-    // 렌더러 출력 = 세로 패널 2장 나란히 (PANEL_H 1080, 파일럿 세로 영상 기준
-    // 약 1224x1080). 비율이 다른 소스는 contain 이 videoBg 위에 레터박스.
-    aspectRatio: 1224 / 1080,
+    height: '100%',
   },
   expandBtn: {
     position: 'absolute',

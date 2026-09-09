@@ -725,6 +725,11 @@ function AnalysisResultContent({
               : null,
             cue: r.cueLine ?? null,
             basis: formatDeductionRecord(r).detailText,
+            // 확대 짝 사진 오른쪽 반쪽에 얹는 역할 라벨 (시안 5 — 260909-ji1).
+            // 시안은 좌우에 '내 영상' / '정은지 선수' 두 알약을 둔다. 이것이 없으면
+            // 어느 쪽이 자기 영상인지 알 수 없다. 문형은 동작비교 rightLabel 과 같다.
+            referenceLabel:
+              cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상',
           };
         }),
     [
@@ -733,6 +738,7 @@ function AnalysisResultContent({
       result.faultZoomComparisons,
       freshZoomUrls,
       freshZoomPlainUrls,
+      cmp,
     ],
   );
   // '강사에게 공유' 문구 (시안 4). 화면에 이미 보이는 값만 옮겨 담는다 — 새 문장을

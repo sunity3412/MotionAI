@@ -154,12 +154,37 @@ export function ResultHeaderBar({
   const s = useResultScale();
   const topDelta = useResultTopDelta();
 
+  // ── 행 높이는 잉크가 아니라 라인박스다 (260909-ji1) ────────────────────────
+  //
+  // RESULT_HEADER.titleH(22.2) / tabsH(15.3) 은 시안 벡터의 **잉크** 높이다.
+  // 그 값을 행 `height` 로 쓰면 라인박스가 행을 넘쳐 **받침이 잘린다** — 글자를
+  // 시안 크기(21→25, 15→18)로 키우자 '보완운동' 이 '보와우동' 으로 렌더됐다.
+  //
+  // 그래서 행 높이는 라인박스로 두고, 잉크가 시안 앵커(titleTop/tabsTop)에
+  // 그대로 앉도록 marginTop 에서 잉크 오프셋만큼 당긴다. 번들 Pretendard 의
+  // 한글 잉크 높이는 약 0.87em 이고 라인박스를 1.2em 으로 두므로, 잉크 상단은
+  // 라인박스 상단에서 (1.2 - 0.87) / 2 = 0.165em 아래에 온다.
+  const LINE = 1.2;
+  const INK_OFFSET = (LINE - 0.87) / 2;
+
+  const titleFs = typography.resultTitle.fontSize * s;
+  const titleLh = titleFs * LINE;
+  const titleMt = RESULT_HEADER.titleTop * s - titleFs * INK_OFFSET;
+
+  // 활성/비활성 탭은 굵기만 다르고 크기가 같다 — 어느 쪽을 써도 같은 값이다.
+  const tabFs = typography.resultTabActive.fontSize * s;
+  const tabLh = tabFs * LINE;
+  const tabMt = RESULT_HEADER.tabsTop * s - tabFs * INK_OFFSET - (titleMt + titleLh);
+
+  const underlineMt =
+    RESULT_HEADER.underlineTop * s - (titleMt + titleLh + tabMt + tabLh);
+
   return (
     <View style={[styles.bar, { top: topDelta }]} pointerEvents="box-none">
       <View
         style={[
           styles.titleRow,
-          { height: RESULT_HEADER.titleH * s, marginTop: RESULT_HEADER.titleTop * s },
+          { height: titleLh, marginTop: titleMt },
         ]}
         pointerEvents="box-none"
       >
@@ -179,7 +204,7 @@ export function ResultHeaderBar({
           </Pressable>
         ) : null}
         <Text
-          style={[styles.title, { fontSize: typography.resultTitle.fontSize * s }]}
+          style={[styles.title, { fontSize: titleFs, lineHeight: titleLh }]}
           numberOfLines={1}
         >
           {title}
@@ -209,9 +234,8 @@ export function ResultHeaderBar({
         style={[
           styles.tabs,
           {
-            marginTop:
-              (RESULT_HEADER.tabsTop - RESULT_HEADER.titleTop - RESULT_HEADER.titleH) * s,
-            height: RESULT_HEADER.tabsH * s,
+            marginTop: tabMt,
+            height: tabLh,
             paddingHorizontal: RESULT_HEADER.tabsInset * s,
           },
         ]}
@@ -235,6 +259,7 @@ export function ResultHeaderBar({
                       (active
                         ? typography.resultTabActive.fontSize
                         : typography.resultTabIdle.fontSize) * s,
+                    lineHeight: tabLh,
                   },
                 ]}
               >
@@ -249,8 +274,7 @@ export function ResultHeaderBar({
         style={[
           styles.underline,
           {
-            marginTop:
-              (RESULT_HEADER.underlineTop - RESULT_HEADER.tabsTop - RESULT_HEADER.tabsH) * s,
+            marginTop: underlineMt,
             marginHorizontal: RESULT_HEADER.underlineInset * s,
             height: Math.max(StyleSheet.hairlineWidth, RESULT_HEADER.underlineH * s),
           },

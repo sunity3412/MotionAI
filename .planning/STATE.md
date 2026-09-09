@@ -1055,6 +1055,7 @@ belle 결정 (mirror 검색 path) → HuggingFace anonymous mirror 활용 우회
 ### 남은 작업
 
 - [ ] **TestFlight 튕김 fix** (별개 blocker, [Phase 15 — iOS] letterSpacing SIGABRT 후보) — belle 가 진짜 E2E 검증할 channel 필요
+- [ ] **belle 실기기 캡처 (3차)** — 합성 비교 영상 경로: 행 시간이 재생기 시계, 관절선 온오프, 자막 표시. OTA `preview` 채널 배포본 확인
 - [ ] **belle 진짜 E2E 검증** — Expo Go QR 또는 빌드 10 ship 후 TestFlight 재시도. mock 가 동일 path PASS 확인.
 - [ ] Phase 5 close-out (ROADMAP Phase 5 ✓) — belle 진짜 E2E 통과 후
 - [ ] Phase 6 진입 — Phase 5 close-out 후

@@ -637,8 +637,6 @@ export function VideoCompare({
   // 플레이어에 같이 건다(한쪽만 걸면 D-13 "함께 멈추고 함께 돈다" 가 깨진다).
   // 신규 의존성 0 — OTA 로 나간다.
   const [slowMotion, setSlowMotion] = useState(false);
-  // belle 09-09 — 시작점 맞추기 접기. 기본 닫힘(자동 정렬이 이미 되어 있다).
-  const [alignOpen, setAlignOpen] = useState(false);
   // 전체화면 타임라인 track 은 폭이 다름 — scrubAtX 가 활성 레이아웃의 폭을 읽도록
   // ref 분리 (portrait track 은 Modal 뒤에 mount 유지라 onLayout 재발화 없음).
   const fullscreenRef = useRef(false);
@@ -2576,43 +2574,9 @@ export function VideoCompare({
               </Text>
             </Pressable>
           ) : null}
-          {/* belle 09-09 — '음성 안내'도 같은 종류의 토글이라 옵션 행으로 올렸다.
-              종전에는 목록 아래 별도 블록이었고, 그것이 시안에 없는 세 덩어리 중
-              하나였다(탭이 한 화면에 안 들어가던 원인). */}
-          {audioAvailable ? (
-            <Pressable
-              onPress={handleToggleAudio}
-              accessibilityRole="switch"
-              accessibilityLabel="재생 중 음성 안내"
-              accessibilityState={{ checked: audioEnabled }}
-              hitSlop={8}
-              style={[styles.optionPill, audioEnabled ? styles.optionPillOn : null]}
-            >
-              <Ionicons
-                name={audioEnabled ? 'volume-high' : 'volume-mute'}
-                size={13}
-                color={audioEnabled ? colors.brand : colors.textMid}
-              />
-              <Text
-                style={[
-                  styles.optionPillText,
-                  audioEnabled ? styles.optionPillTextOn : null,
-                ]}
-              >
-                음성 안내
-              </Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            onPress={openFullscreen}
-            accessibilityRole="button"
-            accessibilityLabel="가로 전체화면으로 크게 보기"
-            hitSlop={8}
-            style={styles.optionPill}
-          >
-            <Ionicons name="expand" size={13} color={colors.brand} />
-            <Text style={styles.optionPillText}>가로로 크게 보기</Text>
-          </Pressable>
+          {/* 260909-ji1 — 시안 2 의 옵션 칩은 [0.5배속][관절선 표시] **둘**이다.
+              여기 있던 '음성 안내'·'가로로 크게 보기' 를 뺐다
+              (belle 09-09 "피그마랑 똑같이 하라고"). */}
         </View>
       ) : null}
       {/* belle 09-07 — 전체화면 안에서 무엇을 할 수 있는지 미리 알린다. 안내를 한 번
@@ -2632,136 +2596,10 @@ export function VideoCompare({
           관절선 표시 넷뿐이다. 음성 안내·자동 맞춤 배지·시작점 미세조정은 시안 프레임
           **밖**(감점 목록 아래)으로 내렸다. 다른 탭으로는 옮길 수 없다 — 플레이어를
           조작하는 컨트롤이라 플레이어와 같은 화면에 있어야 한다. 기능 손실 0. */}
-      {/* belle 09-09 — 시작점 맞추기(자동 맞춤 배지 + 수동 미세조정)는 시안에 없다.
-          지우지는 않는다: belle 08-07 이 "끄지 않는다"고 못박은 컨트롤이고, 시작점이
-          어긋난 영상을 손으로 맞출 길이 사라지면 비교 자체가 무의미해진다. 대신
-          **접어서 한 줄**로 둔다 — 필요할 때만 펼치면 되고, 탭은 시안처럼 한 화면에
-          들어온다(약 160pt → 30pt). 전체화면으로 옮기지 않은 이유: 가로 모달은
-          영상이 화면을 채워 슬라이더를 놓을 자리가 없다.
-          기본 접힘 — 자동 정렬이 이미 되어 있어 대부분은 손댈 일이 없다. */}
-      {hasLeft && hasRight ? (
-        <Pressable
-          onPress={() => setAlignOpen((v) => !v)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: alignOpen }}
-          accessibilityLabel="시작점 맞추기"
-          hitSlop={8}
-          style={styles.alignDisclosure}
-        >
-          <Text style={styles.alignDisclosureText}>시작점 맞추기</Text>
-          <Ionicons
-            name={alignOpen ? 'chevron-up' : 'chevron-down'}
-            size={13}
-            color={colors.textMid}
-          />
-        </Pressable>
-      ) : null}
-      {alignOpen ? (
-        <>
-      {/* Phase 20 (UI A4) — "자동 구간 맞춤" 신뢰 배지.
-          belle 가 서로 다른 시작점의 두 영상을 자동 정렬한 점을 호평 → 이 정렬이
-          의도된 것임을 사용자에게 정직하게 알린다. 두 영상이 모두 있을 때만 노출
-          (단일 영상은 정렬 대상 없음).
-
-          Phase 28 해소 — tier 실데이터 기반: alignment prop 이 있으면 tier 사다리
-          3단(warped/trim_only/disabled)을 정직하게 고지(alignBadgeCopy). 부재(legacy
-          doc)면 기존 정적 카피 유지. 수치(DTW distance)는 표기 안 함 — 사용자 의미
-          없는 원값(가짜/무의미 수치 금지, Phase 20 A4). */}
-      {hasLeft && hasRight && (
-        <View style={styles.alignBadgeRow}>
-          <View style={styles.alignBadge}>
-            <Ionicons
-              name="git-compare-outline"
-              size={12}
-              color={colors.brand}
-            />
-            <Text style={styles.alignBadgeText}>
-              {alignBadgeCopy ? alignBadgeCopy.title : '자동 구간 맞춤'}
-            </Text>
-          </View>
-          <Text style={styles.alignBadgeHint}>
-            {alignBadgeCopy
-              ? alignBadgeCopy.hint
-              : '서로 다른 시작점을 핵심 구간 기준으로 자동 정렬했어요.'}
-          </Text>
-        </View>
-      )}
-
-      {/* 32-02 (D-16) — 수동 시작점 미세조정 슬라이더. "끄지 않는다": 전 tier 공통
-          노출(warped/trim_only/disabled/legacy 모두). 드래그 = 두 영상 시작 오프셋
-          ±조정, 리셋 = 자동 제안값 복귀. 접근성: adjustable + increment/decrement.
-          단일 warp 경유 지점(clampRefTarget)에서 composeRefTarget 합성돼 재생·seek 에
-          자동 반영. 세션 상태만(영속화는 실물 게이트 후 — D-17). */}
-      {hasLeft && hasRight && (
-        <View style={styles.offsetTuner}>
-          <View style={styles.offsetTunerHeader}>
-            <Text style={styles.offsetTunerLabel}>시작점 미세조정</Text>
-            <View style={styles.offsetValueRow}>
-              {/* 32-11 피드백 #2 — 추천 지점 도달 시 "정렬됨" 배지. */}
-              {atRecommendedOffset ? (
-                <View style={styles.offsetAlignedBadge}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={13}
-                    color={colors.brand}
-                  />
-                  <Text style={styles.offsetAlignedText}>정렬됨</Text>
-                </View>
-              ) : null}
-              <Text style={styles.offsetTunerValue}>
-                {fmtOffsetLabel(manualOffsetSec)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.offsetTunerRow}>
-            <View
-              style={styles.offsetTrack}
-              onLayout={onOffsetTrackLayout}
-              accessibilityRole="adjustable"
-              accessibilityLabel="두 영상 시작점 오프셋"
-              accessibilityValue={{
-                text: atRecommendedOffset
-                  ? `${fmtOffsetLabel(manualOffsetSec)} · 추천 정렬 지점`
-                  : fmtOffsetLabel(manualOffsetSec),
-              }}
-              accessibilityActions={[
-                { name: 'increment' },
-                { name: 'decrement' },
-              ]}
-              onAccessibilityAction={onOffsetAccessibilityAction}
-              {...offsetPanResponder.panHandlers}
-            >
-              <View style={styles.offsetRail} pointerEvents="none" />
-              <View style={styles.offsetCenterMark} pointerEvents="none" />
-              {/* 32-11 피드백 #2 — 자동 추천(정렬) 지점 틱. 브랜드색으로 "여기가
-                  맞춰지는 지점"을 상시 표시. 도달 시 굵게(atRecommended). */}
-              <View
-                style={[
-                  styles.offsetRecommendMark,
-                  { left: `${recommendedThumbPct}%` },
-                  atRecommendedOffset && styles.offsetRecommendMarkActive,
-                ]}
-                pointerEvents="none"
-              />
-              <View
-                style={[styles.offsetThumb, { left: `${offsetThumbPct}%` }]}
-                pointerEvents="none"
-              />
-            </View>
-            <Pressable
-              onPress={resetOffset}
-              accessibilityRole="button"
-              accessibilityLabel="시작점 미세조정 초기화"
-              hitSlop={8}
-              style={styles.offsetResetBtn}
-            >
-              <Ionicons name="refresh" size={14} color={colors.brand} />
-            </Pressable>
-          </View>
-        </View>
-      )}
-        </>
-      ) : null}
+      {/* 260909-ji1 — 시작점 맞추기(자동 맞춤 배지 + 수동 미세조정)를 뺐다.
+          시안 2 에 없다 (belle 09-09 "피그마랑 똑같이 하라고"). 08-07 의
+          "끄지 않는다" 를 이 지시가 덮는다. 자동 정렬 자체는 그대로 돌아간다 —
+          사라진 것은 손으로 미세조정하는 UI 뿐이다. */}
 
       {/* quick-260702-t0v — 가로 전체화면 뷰어. portrait 고정 유지 + 뷰 90° 회전
           (검증된 가로 시뮬레이트 패턴). 조건부 렌더 — 닫힌 동안 native 리소스 0

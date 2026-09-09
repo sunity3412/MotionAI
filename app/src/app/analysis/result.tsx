@@ -1937,29 +1937,9 @@ function AnalysisResultContent({
           </>
         )}
 
-        {/* 29-CONTEXT D-07 — mode3 첫 분석(이전 영상 없음)은 비교 섹션 전체 숨김
-            (위 게이트) + 그 자리에 안내 1줄. 정은지 폴백 금지(mode1 혼동 + 미보유
-            동작 reference 부재 — D-07 기각 사유). D-05 고지와 톤 통일("~해요" 체,
-            전진형). mode1/mode3 second+ 무회귀. */}
-        {cmp.mode === 'mode3' && cmp.isFirst ? (
-          <Text style={styles.mode3LimitNotice}>
-            다음 분석부터 이전 영상과 비교해 발전을 확인해 드려요.
-          </Text>
-        ) : null}
-
-        {/* IN-01 (quick-260724-q6b) — 역립 저신뢰 "AI 공부 중" 안내 1줄 (유일 인스턴스).
-            동작비교 header 게이트 밖 top-level 이라 mode1/mode3-progress/mode3-first
-            세 경로 모두에서 정확히 1회 렌더된다. mode-aware. 이 표현은 화면 전체에서
-            이 한 곳에만 존재 — 다른 곳 추가 금지. false/부재 시 미렌더(diff 0). */}
-        {attributionUnreliable ? (
-          <Text style={styles.mode3LimitNotice}>
-            {cmp.mode === 'mode1'
-              ? ATTR_GUIDANCE_MODE1
-              : cmp.isFirst
-                ? ATTR_GUIDANCE_MODE3_FIRST
-                : ATTR_GUIDANCE_MODE3_PROGRESS}
-          </Text>
-        ) : null}
+        {/* 260909-ji1 — 시안 2 는 영상 카드 · 재생바 · 옵션 칩 · 감점 목록에서 끝난다.
+            여기 있던 안내 2줄(mode3 첫 분석 / IN-01 "AI 공부 중")을 뺐다
+            (belle 09-09 "피그마랑 똑같이 하라고"). */}
 
         {/* 260909-ji1 — 동작비교 하단의 "예상 부위 (참고)" 확대 카드 목록을 뺐다.
             belle 09-09: "피그마 그대로 구현하라니까 왜 이걸 유지시키고 있어".
@@ -2010,45 +1990,11 @@ function AnalysisResultContent({
           ) : null}
 
 
-          {/* ── 시안에 자리가 없지만 남기는 정직 표면 3개 (belle 09-09 판정) ────────
-              belle: "중복만 없애고 정직 표면 3개는 남김". 시안이 대체한 것(점수 맥락
-              카드·기존 요약 카드·나머지 감점 목록·오늘 고칠 것·점수 계산 내역·코칭 팁·
-              기준 모션 메타·콤보 부분 점수)은 **전부 삭제**했다 — 시안은 중복을 덜어낸
-              결과물이라 그 앞에 옛 목차를 끼워 두면 시안을 되돌리는 것이다.
-              남기는 셋은 시안이 대체하지 않았고, 없으면 화면이 사용자에게 거짓이 된다:
-                · 정확도 제한 배지 — 합성이 실패한 분석을 성공처럼 보이게 두지 않는다
-                · 커버리지 갱 고지 — 못 잰 부분이 있는데 다 쟀다고 말하지 않는다
-                · 강사 보조 1줄 — AI 가 강사를 대체하지 않는다는 포지셔닝(Phase 11 D-07)
-              자리는 이 탭 맨 아래 — 시안 프레임 밖이라 조판을 건드리지 않는다. */}
-          <AccuracyLimitBadge
-            visible={hasSynthesisWarning(result, 'ai_synthesis_failed')}
-          />
-          {hasCoverageGap ? (
-            <View style={styles.coverageCard}>
-              <Text style={styles.coverageTitle}>
-                이번엔 화면에 잘 잡힌 부분 위주로 분석했어요
-              </Text>
-              <Text style={styles.coverageBody}>
-                가려지거나 화면 밖으로 나간 부분은 이번 영상에서 정확히 재기 어려웠어요.
-                보이는 자세를 기준으로 확실히 잰 것만 짚었어요.
-              </Text>
-              <Pressable
-                onPress={() => router.push('/tutorial')}
-                accessibilityRole="button"
-                accessibilityLabel="촬영 가이드 보기"
-                hitSlop={8}
-                style={styles.coverageTipRow}
-              >
-                <Text style={styles.coverageTip}>
-                  몸 전체가 화면에 들어오게 다시 촬영하면 더 많은 부분을 분석할 수 있어요.
-                  촬영 가이드 보기 ›
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
-          <Text style={styles.coachPositioning}>
-            이 분석은 강사 지도를 돕는 참고예요.
-          </Text>
+        {/* 260909-ji1 — 시안에 없는 것은 남기지 않는다 (belle 09-09 "피그마랑 똑같이 하라고").
+            여기서 뺀 것: 정확도 배지 · 커버리지 갱 카드 · 강사 보조 1줄.
+            시안 3 은 카드(기준 100 → 행 → 종합)와 초록 '유지된점' 박스에서 끝난다.
+            '교정 방법 자세히 보기' 만 남긴다 — 시안 5 모달로 가는 유일한 문이다
+            (디자이너 확인 2026-09-08: 교정포인트 1번 자세히보기 → 교정포인트 2번). */}
 
           </>
         )}

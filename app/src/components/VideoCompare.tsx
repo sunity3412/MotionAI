@@ -414,6 +414,14 @@ const START_SYNC_THRESHOLD_S = 0.05;
 const STEP_SECONDS = 0.1;
 const THUMB_DIAMETER = 14;
 
+// 260909-ji1 — 세로 카드(시안 2) 컨트롤 치수. 전체화면은 종전 값(playBtn 36 · 트랙 4 ·
+// THUMB_DIAMETER 14) 그대로 — 아래는 renderControls 의 !dark 분기에만 얹는다.
+const CARD_PLAY_DIA = 22.4; // 시안 재생 원 지름
+const CARD_PLAY_ICON = 12; // 20 × 22.4/36
+const CARD_TRACK_H = 4.8; // 시안 진행바 두께
+const CARD_THUMB_D = 10; // 시안엔 손잡이가 없다 — 끌 수 있음을 알리는 용도라 줄여서 남긴다
+const CARD_CONTROLS_INSET = 42.8; // 카드 바깥변에서 컨트롤 행까지 (시안)
+
 // 32-02 (D-16) — 수동 시작점 미세조정 슬라이더. 범위 ±3초·스냅 0.1초는 재량(D-16).
 // legacy 자동 오프셋이 ±3초를 넘으면 sliderBound 를 그 크기까지 확장해 썸이 항상
 // 표현 가능하게 한다(렌더 계산부). 접근성 increment/decrement 도 이 스냅 1단위.
@@ -433,8 +441,10 @@ const OFFSET_SNAP_SEC = 0.1;
 // 가로지르는 레이아웃 사정이지 기준면 근거가 아니다.
 const ILLU_FLOAT_WIDTH_RATIO = 104 / 360;
 const ILLU_FLOAT_INSET_RATIO = 10 / 360;
-// `styles.row` 의 gap(8)과 한 쌍 — 둘이 어긋나면 float 이 패널 경계를 벗어난다.
-const ROW_PANEL_GAP = 8;
+// `styles.row` 의 gap 과 한 쌍 — 둘이 어긋나면 float 이 패널 경계를 벗어난다(row 는 이
+// 상수를 직접 쓴다). 260909-ji1 — 시안 2 는 두 칸이 구분선 하나(2.5pt)로 맞닿아 있다.
+// 종전 8 은 시안에 없던 여백.
+const ROW_PANEL_GAP = 2.5;
 
 // 32-08 (실기기 피드백 #1) — 음수 오프셋 시작 홀드 임계. 목표시각(unclamped)이 음수인
 // 구간에서 정은지(right)를 0 프레임에 세우되, 이미 ~0 이면 재대입을 생략한다(불필요한
@@ -471,10 +481,11 @@ const FULLSCREEN_OVERLAY_SCALE = 2.0;
 // 시간 라벨이 과대해져 0.75 계수로 완화 (captionSmall 10pt → 15pt).
 const FULLSCREEN_TEXT_SCALE = FULLSCREEN_OVERLAY_SCALE * 0.75;
 
-// 폴스포츠 = 세로 영상 위주 (design.md §10-4) — 세로 카드 slotFrame 의 9:16
-// 가정과 동일. 전체화면 슬롯 안 영상 박스를 같은 비율로 잡아 KeypointOverlay
-// (viewBox 0 0 1 1, preserveAspectRatio "none") 가 영상 표시 영역과 정확히 겹침
-// (박스가 임의 비율이면 오버레이 좌표가 letterbox 포함 영역으로 늘어나 어긋남).
+// 폴스포츠 = 세로 영상 위주 (design.md §10-4). 전체화면 슬롯 안 영상 박스를 이 비율로
+// 잡아 KeypointOverlay (viewBox 0 0 1 1, preserveAspectRatio "none") 가 영상 표시
+// 영역과 정확히 겹침 (박스가 임의 비율이면 오버레이 좌표가 letterbox 포함 영역으로
+// 늘어나 어긋남). 260909-ji1 — 세로 카드 slotFrame 은 시안 2 비율(138.02/177.90)로
+// 바뀌어 더는 이 가정을 공유하지 않는다(styles.slotFrame 주석 참조).
 const VIDEO_ASPECT = 9 / 16;
 
 // quick-260705-k8y — 전체화면 **기본** 줌. belle 실기기 3차 2026-07-05 승인 —
@@ -2004,18 +2015,21 @@ export function VideoCompare({
   // quick-260702-t0v — 컨트롤 공유 (로직 중복 0). 세로 카드와 가로 전체화면이
   // 같은 핸들러(togglePlay/stepBy/seekBoth/restart/panResponder)와 같은 JSX 를
   // 공유. dark=true(전체화면)면 어두운 배경 위 색만 토큰 분기.
+  // 260909-ji1 — 세로 카드(dark=false)는 시안 2 치수(재생 Ø22.4 · 트랙 4.8 · 한 줄 시간)로,
+  // 전체화면은 종전 치수 그대로. *Card 스타일은 그 분기에만 얹는다(전체화면 회귀 0).
+  // 재생 원이 작아진 만큼 hitSlop 을 키워 터치 영역 44pt 를 지킨다.
   const renderControls = (dark: boolean) => (
-    <View style={styles.controls}>
+    <View style={[styles.controls, !dark && styles.controlsCard]}>
       <Pressable
         onPress={togglePlay}
         accessibilityRole="button"
         accessibilityLabel={playing ? '일시정지' : '재생'}
-        hitSlop={8}
-        style={styles.playBtn}
+        hitSlop={dark ? 8 : 11}
+        style={[styles.playBtn, !dark && styles.playBtnCard]}
       >
         <Ionicons
           name={playing ? 'pause' : 'play'}
-          size={20}
+          size={dark ? 20 : CARD_PLAY_ICON}
           color={colors.textWhite}
         />
       </Pressable>
@@ -2044,7 +2058,7 @@ export function VideoCompare({
           </Pressable>
         </>
       ) : null}
-      <View style={styles.timeline}>
+      <View style={[styles.timeline, !dark && styles.timelineCard]}>
         {/* quick-260705-r6v — 결함 측정 시점 틱 (track 위 별도 줄, panResponder 와
             겹치지 않게 분리). 29 리뷰 WR-01 — sec = frameIndex * leftDuration /
             tickFrameCount: frameIndex 는 좌측(사용자) 영상 9fps angles 도메인이라
@@ -2099,34 +2113,55 @@ export function VideoCompare({
         {/* Phase 12 후속 B — track 자체가 PanResponder. drag 시 양쪽 동시
             seek + scrubbingRef 가 drift 보정 우회 (tick 가드). */}
         <View
-          style={styles.timelineTrack}
+          style={[styles.timelineTrack, !dark && styles.timelineTrackCard]}
           onLayout={dark ? onFsTrackLayout : onTrackLayout}
           {...panResponder.panHandlers}
         >
-          <View style={styles.timelineRail} pointerEvents="none" />
           <View
-            style={[styles.timelineFill, { width: `${progressPct}%` }]}
+            style={[styles.timelineRail, !dark && styles.timelineBarCard]}
             pointerEvents="none"
           />
           <View
-            style={[styles.timelineThumb, { left: `${progressPct}%` }]}
+            style={[
+              styles.timelineFill,
+              !dark && styles.timelineBarCard,
+              { width: `${progressPct}%` },
+            ]}
+            pointerEvents="none"
+          />
+          <View
+            style={[
+              styles.timelineThumb,
+              !dark && styles.timelineThumbCard,
+              { left: `${progressPct}%` },
+            ]}
             pointerEvents="none"
           />
         </View>
         {/* 12-deferred §12-C — 두 영상 timeline 분리 표시.
             progress bar 는 단일 (짧은 쪽 기준), 시간 라벨은 좌·우 분리.
-            Phase 12 후속 B — 0.1s 정밀 표시(소수 1자리). */}
+            Phase 12 후속 B — 0.1s 정밀 표시(소수 1자리).
+            260909-ji1 — 세로 카드는 시안 2 대로 진행바 **오른쪽 한 줄**이다. 그 자리엔
+            좌·우 두 벌(라벨 포함 ~30자)이 들어가지 않아, 진행바와 같은 정의역(current /
+            duration — 정렬·오프셋 활성 시 master, 아니면 짧은 쪽)의 시간 한 벌만 적는다.
+            좌·우 분리 표시는 전체화면(dark)에 그대로 남는다. */}
         <Text
           style={[styles.timeText, dark && styles.timeTextDark]}
           numberOfLines={1}
         >
-          {hasLeft
-            ? `${leftLabel} ${fmtTimeDecimal(leftCurrent)} / ${fmtTime(leftDuration)}`
-            : ''}
-          {hasLeft && hasRight ? '  ·  ' : ''}
-          {hasRight
-            ? `${rightLabel} ${fmtTimeDecimal(rightCurrent)} / ${fmtTime(rightDuration)}`
-            : ''}
+          {dark ? (
+            <>
+              {hasLeft
+                ? `${leftLabel} ${fmtTimeDecimal(leftCurrent)} / ${fmtTime(leftDuration)}`
+                : ''}
+              {hasLeft && hasRight ? '  ·  ' : ''}
+              {hasRight
+                ? `${rightLabel} ${fmtTimeDecimal(rightCurrent)} / ${fmtTime(rightDuration)}`
+                : ''}
+            </>
+          ) : (
+            `${fmtTimeDecimal(current)} / ${fmtTime(duration)}`
+          )}
         </Text>
       </View>
       {/* belle 09-09 재디자인 — 세로(탭) 컨트롤은 시안 2 대로 재생·진행바·시간 셋뿐이다.
@@ -2882,33 +2917,41 @@ export function VideoCompare({
 }
 
 const styles = StyleSheet.create({
+  // 260909-ji1 시안 대조 — 반경 27.3 → resultVideoCard(27), 테두리는 결과 화면 카드
+  // 공통(resultCardBorder, 페이지 배경 위 4.78:1).
   card: {
     backgroundColor: colors.cardBg,
-    borderRadius: radius.card,
+    borderRadius: radius.resultVideoCard,
     borderWidth: layout.cardBorderWidth,
-    borderColor: colors.divider,
+    borderColor: colors.resultCardBorder,
     padding: spacing.cardPadding,
     gap: 12,
     width: '100%',
   },
   row: {
     flexDirection: 'row',
-    gap: 8,
+    gap: ROW_PANEL_GAP,
   },
   slot: {
     flex: 1,
     gap: 6,
   },
-  // 폴스포츠 = 세로 영상 위주(design.md §10-4). 9:16 비율 슬롯에 contain 으로
-  // 가로/세로 모두 안전하게 들어옴.
+  // 260909-ji1 — 시안 2 영상 블록은 276.04 × 177.90pt 한 덩어리, 두 칸이 각각
+  // 138.02 × 177.90 이라 칸 비율 = 0.7758 (종전 9:16 = 0.5625).
+  // ★ 원본이 9:16 세로 영상이면 이 칸보다 좁다 — contentFit="contain" 이라 영상은 칸
+  //   높이를 채우고 **좌우에 빈 띠**가 생긴다(cover 였다면 위아래가 잘렸을 것이다).
+  //   그리고 overlayContainer 가 칸 전체(absoluteFill)라 KeypointOverlay 좌표가 그
+  //   띠까지 늘어나 9:16 원본에선 관절선이 가로로 어긋날 수 있다. contentFit 은
+  //   지시대로 유지 — belle 이 실기기 캡처로 판단할 항목(260909-ji1).
+  //   구분선(칸 테두리)은 resultDivider + cardBorderWidth.
   slotFrame: {
     width: '100%',
-    aspectRatio: 9 / 16,
+    aspectRatio: 138.02 / 177.9,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: colors.divider,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    borderWidth: layout.cardBorderWidth,
+    borderColor: colors.resultDivider,
   },
   video: {
     width: '100%',
@@ -3089,17 +3132,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  // 시안 2 — 영상 위 라벨 pill. 좌상단 고정(양쪽 같은 자리라 두 패널이 나란히 읽힌다).
+  // 시안 2 — 영상 위 라벨 pill. 왼쪽('내 영상')은 좌상단, 오른쪽(기준)은 **우상단**
+  // (SlotProps 주석과 같은 말 — 종전 이 자리 주석은 '좌상단 고정' 이라 반대로 적혀
+  // 있었고 구현도 그랬다, 260909-ji1 정정). 좌우 인셋은 시안 실측 13.83 / 13.77.
   slotLabelPill: {
     position: 'absolute',
     top: 8,
-    left: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
-  slotLabelPillAccent: { backgroundColor: colors.brand },
-  slotLabelPillMuted: { backgroundColor: colors.videoBg },
+  slotLabelPillAccent: { left: 13.83, backgroundColor: colors.brand },
+  slotLabelPillMuted: { right: 13.77, backgroundColor: colors.videoBg },
   slotLabelPillText: {
     ...typography.captionSmall,
     fontWeight: '700',
@@ -3110,6 +3154,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  // 260909-ji1 — 세로 카드 컨트롤 행은 카드 안 가운데(시안 좌우 인셋 42.8pt). 카드
+  // padding 이 이미 있으니 그 차만 margin 으로.
+  controlsCard: {
+    marginHorizontal: CARD_CONTROLS_INSET - spacing.cardPadding,
+  },
   playBtn: {
     width: 36,
     height: 36,
@@ -3117,6 +3166,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  playBtnCard: {
+    width: CARD_PLAY_DIA,
+    height: CARD_PLAY_DIA,
+    borderRadius: CARD_PLAY_DIA / 2,
   },
   // Phase 12 후속 B — 0.1s 앞/뒤 step 버튼.
   // quick-260706-sis (D3): divider(회색) 배경 + textSecondary 아이콘이라 비활성
@@ -3133,6 +3187,30 @@ const styles = StyleSheet.create({
   timeline: {
     flex: 1,
     gap: 6,
+  },
+  // 260909-ji1 — 세로 카드: 진행바와 시간이 **한 줄**(시안 2). 트랙이 남는 폭을 다 갖고
+  // 시간은 오른쪽. 트랙 두께 4.8, 손잡이는 시안에 없어 10 으로 줄였다(드래그 hit 은
+  // 트랙 높이 14 가 받으므로 손잡이 크기와 무관). 전체화면은 아래 종전 값 그대로.
+  timelineCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timelineTrackCard: {
+    flex: 1,
+    width: 'auto',
+  },
+  timelineBarCard: {
+    top: (14 - CARD_TRACK_H) / 2,
+    height: CARD_TRACK_H,
+    borderRadius: CARD_TRACK_H / 2,
+  },
+  timelineThumbCard: {
+    top: (14 - CARD_THUMB_D) / 2,
+    width: CARD_THUMB_D,
+    height: CARD_THUMB_D,
+    borderRadius: CARD_THUMB_D / 2,
+    marginLeft: -CARD_THUMB_D / 2,
   },
   // Phase 12 후속 B — track 이 PanResponder 박힘 site. 두께 12 로 키워 drag hit
   // area 확보 (시각 트랙 4 + 손잡이 14 가 안쪽에 박힘). overflow 'visible' 가
@@ -3333,13 +3411,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 5, // 시안 칩 간격 5 (260909-ji1)
     marginTop: 10,
   },
+  // 260909-ji1 — 시안 2 칩은 고정폭 86 이라 minWidth 로 맞추고 글자를 가운데 둔다
+  // (내용폭이면 '0.5배속'·'관절선 표시' 폭이 달라 줄이 들쭉날쭉했다). 칩 4개 2줄은
+  // belle 승인 — 개수·줄수는 그대로.
   optionPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+    minWidth: 86,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: radius.button,

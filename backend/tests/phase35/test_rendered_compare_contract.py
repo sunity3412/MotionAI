@@ -63,7 +63,8 @@ def test_validator_accepts_canonical_shapes():
     )
     firestore_admin._validate_rendered_compare(
         {"status": "done", "key": KEY,
-         "freezes": [{"rid": "r00", "outSec": 0.47}, {"rid": "r01", "outSec": 14.4}]}
+         "freezes": [{"rid": "r00", "outSec": 0.47, "freezeS": 2.1},
+                     {"rid": "r01", "outSec": 14.4, "freezeS": 1.8}]}
     )
 
 
@@ -71,12 +72,12 @@ def test_validator_accepts_canonical_shapes():
     "bad_freezes",
     [
         [{"rid": "r00"}],  # outSec 누락
-        [{"rid": "r00", "outSec": 1.0, "x": 1}],  # 여분 키
-        [{"rid": "", "outSec": 1.0}],  # 빈 rid
-        [{"rid": "r00", "outSec": -0.1}],  # 음수
-        [{"rid": "r00", "outSec": float("nan")}],  # 비유한
-        [{"rid": "r00", "outSec": True}],  # bool
-        [{"rid": "r00", "outSec": [1.0]}],  # nested
+        [{"rid": "r00", "outSec": 1.0, "freezeS": 1.0, "x": 1}],  # 여분 키
+        [{"rid": "", "outSec": 1.0, "freezeS": 1.0}],  # 빈 rid
+        [{"rid": "r00", "outSec": -0.1, "freezeS": 1.0}],  # 음수
+        [{"rid": "r00", "outSec": float("nan"), "freezeS": 1.0}],  # 비유한
+        [{"rid": "r00", "outSec": True, "freezeS": 1.0}],  # bool
+        [{"rid": "r00", "outSec": [1.0], "freezeS": 1.0}],  # nested
         "not-a-list",
     ],
 )
@@ -107,10 +108,11 @@ def test_update_helper_freezes_passthrough(monkeypatch):
 
     firestore_admin.update_analysis_rendered_compare(
         UID, ANALYSIS_ID, KEY, status="done",
-        freezes=[{"rid": "r00", "outSec": 1.5}],
+        freezes=[{"rid": "r00", "outSec": 1.5, "freezeS": 2.0}],
     )
     assert calls[0]["result.renderedCompare"] == {
-        "status": "done", "key": KEY, "freezes": [{"rid": "r00", "outSec": 1.5}],
+        "status": "done", "key": KEY,
+        "freezes": [{"rid": "r00", "outSec": 1.5, "freezeS": 2.0}],
     }
     firestore_admin.update_analysis_rendered_compare(UID, ANALYSIS_ID, KEY, status="done")
     assert "freezes" not in calls[1]["result.renderedCompare"]  # None = 생략

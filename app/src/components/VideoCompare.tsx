@@ -444,7 +444,7 @@ const ILLU_FLOAT_INSET_RATIO = 10 / 360;
 // `styles.row` 의 gap 과 한 쌍 — 둘이 어긋나면 float 이 패널 경계를 벗어난다(row 는 이
 // 상수를 직접 쓴다). 260909-ji1 — 시안 2 는 두 칸이 구분선 하나(2.5pt)로 맞닿아 있다.
 // 종전 8 은 시안에 없던 여백.
-const ROW_PANEL_GAP = 2.5;
+const ROW_PANEL_GAP = 1.7;  // 시안 이음매 잉크 실측 ≈1.65pt (260909-ji1)
 /** 시안 2 영상 블록의 카드 안쪽 좌우 여백 (블록 57.6 − 카드 36.7 = 20.9pt 실측). */
 const VIDEO_BLOCK_INSET = 20.9;
 
@@ -2160,7 +2160,10 @@ export function VideoCompare({
                 : ''}
             </>
           ) : (
-            `${fmtTimeDecimal(current)} / ${fmtTime(duration)}`
+            // 260909-ji1 — 카드에서는 소수 1자리를 뺀다. '0:00.0 / 0:00' 이
+            // '0:05 / 0:14' 보다 넓어 진행바를 25pt 잡아먹었다(시안 트랙 길이
+            // 165.2pt 예상 대비 140.3pt 실측). 0.1초 정밀은 전체화면(dark)에 그대로.
+            `${fmtTime(current)} / ${fmtTime(duration)}`
           )}
         </Text>
       </View>
@@ -2799,6 +2802,8 @@ const styles = StyleSheet.create({
     borderWidth: layout.cardBorderWidth,
     borderColor: colors.resultCardBorder,
     padding: spacing.cardPadding,
+    // 시안은 상하 여백도 좌우와 같은 20.9pt 다 (260909-ji1).
+    paddingTop: VIDEO_BLOCK_INSET,
     gap: 12,
     width: '100%',
   },
@@ -2812,7 +2817,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: ROW_PANEL_GAP,
     marginHorizontal: VIDEO_BLOCK_INSET - spacing.cardPadding,
-    borderRadius: 12,
+    borderRadius: 17,  // 시안 좌상단 호 적합 r≈17.1 (260909-ji1)
     overflow: 'hidden',
     backgroundColor: colors.videoBg,
   },
@@ -3033,7 +3038,7 @@ const styles = StyleSheet.create({
   // 있었고 구현도 그랬다, 260909-ji1 정정). 좌우 인셋은 시안 실측 13.83 / 13.77.
   slotLabelPill: {
     position: 'absolute',
-    top: 8,
+    top: 12.9,  // 시안 위 인셋 실측 (좌우 13.83/13.77 과 같은 계열)
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
@@ -3311,7 +3316,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   // 260909-ji1 — 시안 2 칩은 고정폭 86 이라 minWidth 로 맞추고 글자를 가운데 둔다
-  // (내용폭이면 '0.5배속'·'관절선 표시' 폭이 달라 줄이 들쭉날쭉했다). 칩 4개 2줄은
   // belle 승인 — 개수·줄수는 그대로.
   // belle 09-09 — 컨트롤 4개를 **한 줄에 작게**.
   //

@@ -1697,14 +1697,16 @@ def update_analysis_coach_text(
 def _validate_rendered_compare(payload, *, path: str = "renderedCompare") -> None:  # noqa: ANN001
     """renderedCompare scoped validator (Phase 35 quick-260808-jix — contract.md §12.9).
 
-    형상: {status: 'done'|'failed', key: str, freezes?: [{rid, outSec}]}.
+    형상: {status: 'done'|'failed', key: str, keyPlain?: str,
+           freezes?: [{rid, outSec, freezeS}]}.
     coachAudio validator 선례 — 키 화이트리스트 + enum + 상태별 불변식 (T-35J-02):
       · 최상위 키 = RENDERED_COMPARE_KEYS(필수 정확히) + OPTIONAL_KEYS(허용)
       · status ∈ models.RENDERED_COMPARE_STATUSES
       · done → key 는 'results/' prefix + '.mp4' suffix 비어있지 않은 str
         (H-02 — 오염 key 가 doc 에 실리는 것 자체를 차단)
       · failed → key == '' (stale key 잔존 금지) + freezes 금지 (표현물 부재)
-      · freezes(UI 라운드) → list[{rid: 비어있지 않은 str, outSec: 유한 수 ≥0}]
+      · freezes(UI 라운드) → list[{rid: 비어있지 않은 str, outSec: 유한 수 ≥0,
+        freezeS: 유한 수 >0 — 정지 지속 초, 합성 경로 활성 행 표식의 근거}]
         정확 키 집합 + scalar-only (nested 거부 — safetyFlags 선례)
     실패 시 TypeError/ValueError raise (caller 가 graceful 처리).
     """
@@ -1747,6 +1749,22 @@ def _validate_rendered_compare(payload, *, path: str = "renderedCompare") -> Non
             raise ValueError(
                 f"{path}.freezes: failed 에는 허용 안 됨 (표현물 부재 — done 전용)"
             )
+        if "keyPlain" in payload:
+            raise ValueError(
+                f"{path}.keyPlain: failed 에는 허용 안 됨 (표현물 부재 — done 전용)"
+            )
+    if "keyPlain" in payload:
+        # '관절선 끄기' 영상판. done 전용이고 본 key 와 같은 규율을 따른다.
+        key_plain = payload["keyPlain"]
+        if not isinstance(key_plain, str):
+            raise TypeError(
+                f"{path}.keyPlain: str 만 허용. got={type(key_plain).__name__}"
+            )
+        if not key_plain or not key_plain.startswith("results/") or not key_plain.endswith(".mp4"):
+            raise ValueError(
+                f"{path}.keyPlain: 'results/' prefix + '.mp4' suffix 의 비어있지 않은 "
+                f"str 이어야 함 (H-02). got={key_plain!r}"
+            )
     if "freezes" in payload:
         freezes = payload["freezes"]
         if not isinstance(freezes, list):
@@ -1770,6 +1788,12 @@ def _validate_rendered_compare(payload, *, path: str = "renderedCompare") -> Non
                 raise ValueError(
                     f"{item_path}.outSec: 0 이상 유한 수여야 함. got={out_sec!r}"
                 )
+            freeze_s = item["freezeS"]
+            if not isinstance(freeze_s, (int, float)) or isinstance(freeze_s, bool) \
+                    or not math.isfinite(float(freeze_s)) or float(freeze_s) <= 0:
+                raise ValueError(
+                    f"{item_path}.freezeS: 0 보다 큰 유한 수여야 함. got={freeze_s!r}"
+                )
 
 
 def update_analysis_rendered_compare(
@@ -1778,6 +1802,7 @@ def update_analysis_rendered_compare(
     key: str,
     status: str,
     freezes: list[dict] | None = None,
+    key_plain: str = "",
 ) -> None:
     """renderedCompare 사후 부분 업데이트 (Phase 35 quick-260808-jix — coach_audio 뼈대 복제).
 
@@ -1803,6 +1828,10 @@ def update_analysis_rendered_compare(
     payload = {"status": status, "key": key}
     if freezes is not None:
         payload["freezes"] = list(freezes)
+    # 빈 문자열 = 표시 없는 판 부재 → 필드 자체를 안 싣는다 (앱이 토글 미노출로
+    # 폴백. 확대 사진 imageKeyPlain 과 같은 fail-open 규율).
+    if key_plain:
+        payload["keyPlain"] = key_plain
     _validate_rendered_compare(payload)
     _doc(models.analysis_doc_path(uid, analysis_id)).update(
         {

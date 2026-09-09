@@ -133,14 +133,21 @@ def parse_result_key_from_presigned_url(url: str) -> str | None:
 RENDERED_COMPARE_RENDER_VERSION = 1
 
 
-def build_rendered_compare_key(uid: str, analysis_id: str) -> str:
+def build_rendered_compare_key(uid: str, analysis_id: str, *, plain: bool = False) -> str:
     """합성 비교 영상 mp4 의 canonical S3 키 (Phase 35, quick-260808-jix).
 
     **단일 출처** — pipeline(compare_render 스테이지 저장)과 playback-url(서버
     구성 canonical key + doc 저장 key exact 비교, H-02)이 이 함수 하나를 공유해
     drift 를 차단한다 (build_coach_audio_key 선례).
+
+    plain=True 는 belle 09-09 '관절선 끄기' 의 영상판이다 — 정지 프레임의 표시
+    (관절 원·각도선·호·수치·폴 축선·몸 중심선)를 그리지 않은 두 번째 mp4.
+    확대 사진의 `__plain` 규약(build_fault_zoom_key)과 **같은 접미사·같은 함수**를
+    쓴다: 접미사만 다르므로 기존 키는 byte-불변이고(기본값 False), 재서명측도
+    같은 함수로 구성해 단일 출처가 유지된다.
     """
+    suffix = "__plain" if plain else ""
     return (
         f"{RESULT_PREFIX}/{uid}/{analysis_id}/"
-        f"compare_v{RENDERED_COMPARE_RENDER_VERSION}.mp4"
+        f"compare_v{RENDERED_COMPARE_RENDER_VERSION}{suffix}.mp4"
     )

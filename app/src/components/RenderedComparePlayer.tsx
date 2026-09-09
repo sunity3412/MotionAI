@@ -66,12 +66,11 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 
-import { fetchVisualAssetUrl } from '../lib/api';
+import { fetchVisualAssetUrls } from '../lib/api';
 import {
   hasSeenFullscreenPinchHint,
   markFullscreenPinchHintSeen,
 } from '../lib/coachmark';
-import { circledNumberKo } from '../lib/deductionLabels';
 import { MIN_ZOOM, type ZoomState } from '../lib/pinchZoom';
 import type { RenderedCompareFreeze } from '../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../theme';
@@ -112,14 +111,6 @@ function fmtTimeDecimal(s: number): string {
   return `${m}:${sec.toFixed(1).padStart(4, '0')}`;
 }
 
-// rid("r00") → 감점 카드 번호(1-base). 계약 §12.3 recordId 콜론 앞 축약이라
-// 뒤 숫자가 곧 레코드 인덱스. 형식이 달라지면 번호 없이 마커만 (fail-open).
-function freezeNumber(rid: string): number | null {
-  const m = /(\d+)\s*$/.exec(rid);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return Number.isFinite(n) ? n + 1 : null;
-}
 
 export default function RenderedComparePlayer({
   analysisId,
@@ -141,11 +132,18 @@ export default function RenderedComparePlayer({
   renderBelowControls?: (api: {
     /** 감점 행 → 그 정지 지점으로 이동. 짝 없으면 false. */
     seekToRecord: (recordId: string) => boolean;
+    /** 지금 재생 중인 정지의 rid (없으면 null) — 그 행을 켠다. */
+    activeRid: string | null;
   }) => React.ReactNode;
 }) {
   const [url, setUrl] = useState<string | null>(null);
-  // 시안 2 옵션 칩 — 이 가지에서 앱이 통제할 수 있는 유일한 옵션.
   const [slowMotion, setSlowMotion] = useState(false);
+  // belle 09-09 '관절선' — 이 가지의 표시는 mp4 픽셀에 구워져 있어 앱이 지울 수
+  // 없다. 그래서 서버가 **표시 없는 판**을 함께 굽고(contract §12.9 keyPlain)
+  // 토글은 두 소스를 갈아끼운다. plain 이 없는 doc(구버전·업로드 실패)에서는
+  // 칩 자체를 그리지 않는다 — 눌러도 아무 일 없는 버튼을 두지 않는다.
+  const [urlPlain, setUrlPlain] = useState<string | null>(null);
+  const [overlayOn, setOverlayOn] = useState(true);
   // belle 09-09 '음성 온오프'. 이 mp4 의 오디오가 코칭 음성 그 자체라(파일 헤더)
   // player.muted 가 곧 음성 스위치다 — 앱이 따로 재생하는 음성이 없다.
   const [audioOn, setAudioOn] = useState(true);
@@ -158,9 +156,12 @@ export default function RenderedComparePlayer({
   useEffect(() => {
     let cancelled = false;
     setUrl(null); // 분석 전환 시 이전 영상 잔상 방지
-    fetchVisualAssetUrl(analysisId, 'renderedCompare')
-      .then((playbackUrl) => {
-        if (!cancelled) setUrl(playbackUrl);
+    setUrlPlain(null);
+    fetchVisualAssetUrls(analysisId, 'renderedCompare')
+      .then(({ url: playbackUrl, urlPlain: plain }) => {
+        if (cancelled) return;
+        setUrl(playbackUrl);
+        setUrlPlain(plain);
       })
       .catch((err) => {
         // 404(부재/failed/stale) 포함 전부 폴백 강등 — 조용한 실패 금지.
@@ -183,6 +184,37 @@ export default function RenderedComparePlayer({
   useEffect(() => {
     if (player) player.playbackRate = slowMotion ? 0.5 : 1;
   }, [slowMotion, player]);
+
+  // '관절선' 토글 — 표시 있는 판 ↔ 없는 판 소스 교체 (belle 09-09).
+  //
+  // 재생 위치와 재생 상태를 **그대로 이어받는다**. 그러지 않으면 관절선을 끄는
+  // 순간 영상이 처음으로 돌아가 "무엇이 달라졌는지"를 비교할 수 없다 — 이 토글의
+  // 목적 자체가 같은 순간을 표시 유무로 견주는 것이다.
+  // urlPlain 이 없으면 이 효과는 아무것도 하지 않는다(칩도 안 그려진다).
+  const overlayOnRef = useRef(overlayOn);
+  useEffect(() => {
+    if (overlayOnRef.current === overlayOn) return;
+    overlayOnRef.current = overlayOn;
+    const next = overlayOn ? url : urlPlain;
+    if (!player || !next) return;
+    let at = 0;
+    let wasPlaying = false;
+    try {
+      at = player.currentTime ?? 0;
+      wasPlaying = player.playing;
+    } catch {
+      // 해제 직후 접근 — 0 부터 시작해도 토글 자체는 성립한다.
+    }
+    void (async () => {
+      try {
+        await player.replaceAsync(next);
+        player.currentTime = at;
+        if (wasPlaying) player.play();
+      } catch {
+        // 교체 실패 = 현재 소스 유지 (조용한 정지보다 낫다).
+      }
+    })();
+  }, [overlayOn, url, urlPlain, player]);
 
   useEffect(() => {
     if (player) player.muted = !audioOn;
@@ -216,11 +248,6 @@ export default function RenderedComparePlayer({
   const togglePlay = () => {
     if (player.playing) player.pause();
     else player.play();
-  };
-  const restart = () => {
-    player.currentTime = 0;
-    setCurrentTime(0);
-    player.play();
   };
   const seekTo = (sec: number) => {
     const clamped = Math.max(0, duration > 0 ? Math.min(sec, duration) : sec);
@@ -307,6 +334,21 @@ export default function RenderedComparePlayer({
     for (const f of validFreezes) if (!m.has(f.rid)) m.set(f.rid, f.outSec);
     return m;
   }, [validFreezes]);
+
+  /**
+   * 지금 재생 위치가 들어 있는 정지의 rid — 그 감점 행이 켜진다 (belle 09-09 f7e9da4e).
+   * 듀얼 경로에만 있던 표식을 이 경로에도 준다. 근거는 doc 의 freezes[outSec, freezeS]
+   * 구간뿐이라 지어내는 값이 0 이다. 어느 구간에도 없으면 null(아무 행도 안 켠다).
+   */
+  const activeRid = useMemo(() => {
+    for (const f of validFreezes) {
+      const s0 = f.outSec;
+      const s1 = s0 + (typeof f.freezeS === 'number' ? f.freezeS : 0);
+      if (currentTime >= s0 && currentTime < s1) return f.rid;
+    }
+    return null;
+  }, [validFreezes, currentTime]);
+
 
   // ── belle 09-07 손가락 확대 (파일 헤더의 한계 3건과 함께 읽을 것) ────────────
   //
@@ -412,7 +454,7 @@ export default function RenderedComparePlayer({
       >
         <Ionicons
           name={playing ? 'pause' : 'play'}
-          size={20}
+          size={12}
           color={colors.textWhite}
         />
       </Pressable>
@@ -516,6 +558,25 @@ export default function RenderedComparePlayer({
               0.5배속
             </Text>
           </Pressable>
+          {urlPlain ? (
+            <Pressable
+              onPress={() => setOverlayOn((v) => !v)}
+              accessibilityRole="switch"
+              accessibilityLabel="관절선 표시"
+              accessibilityState={{ checked: overlayOn }}
+              hitSlop={10}
+              style={[styles.optionPill, overlayOn ? styles.optionPillOn : null]}
+            >
+              <Text
+                style={[
+                  styles.optionPillText,
+                  overlayOn ? styles.optionPillTextOn : null,
+                ]}
+              >
+                관절선
+              </Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={() => setAudioOn((v) => !v)}
             accessibilityRole="switch"
@@ -550,7 +611,7 @@ export default function RenderedComparePlayer({
       {/* 260909-ji1 — 시안 2 는 감점 목록이 영상 카드 **안**, 옵션 행 바로 아래다.
           듀얼 플레이어 가지에는 이미 그렇게 들어가 있었는데 이 가지에만 없었다
           (belle 09-09: "시안이 있는데도 왜 삭제만하고 반영을 안해"). */}
-      {renderBelowControls?.({ seekToRecord })}
+      {renderBelowControls?.({ seekToRecord, activeRid })}
 
       {/* 가로 전체화면 — 260702-t0v 90° 회전 Modal 패턴 (portrait 고정 유지).
           같은 player 인스턴스에 두 번째 VideoView attach — 재생 위치·상태 공유
@@ -701,9 +762,10 @@ const styles = StyleSheet.create({
     gap: 3,
     paddingHorizontal: 9,
     paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: layout.cardBorderWidth,
-    borderColor: colors.resultDivider,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.cardBg,
   },
   optionPillOn: { borderColor: colors.brand, backgroundColor: colors.resultChipBg },
   optionPillText: { ...typography.caption, color: colors.textMid },
@@ -732,14 +794,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  expandBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    padding: 6,
-    borderRadius: radius.listItem,
-    backgroundColor: colors.brandOverlay,
-  },
   placeholder: {
     width: '100%',
     aspectRatio: 1224 / 1080,
@@ -753,6 +807,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // ── 컨트롤 (VideoCompare 세트 이식 — 정렬 미세조정 버튼만 제외) ────────────
+  // 260909-ji1 — 시안 2 컨트롤 치수. 듀얼 플레이어와 같은 값이라 두 경로가
+  // 같은 화면으로 읽힌다 (재생 원 22.4 · 트랙 4.8 · 행 좌우 인셋 42.8).
   controlsWrap: {
     paddingTop: 10,
   },
@@ -760,38 +816,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginHorizontal: 42.8 - spacing.cardPadding,
   },
   playBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 22.4,
+    height: 22.4,
+    borderRadius: 11.2,
     backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // 시안은 [재생] [트랙] [시간] 이 **한 줄**이다. gap 세로 배치면 시간이 아래로
+  // 떨어져 시안과 다른 조판이 된다 (260909-ji1).
   timeline: {
     flex: 1,
-    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   timelineTrack: {
-    width: '100%',
+    flex: 1,
     height: 14,
     justifyContent: 'center',
   },
   timelineRail: {
     position: 'absolute',
-    top: 5,
+    top: (14 - 4.8) / 2,
     left: 0,
     right: 0,
-    height: 4,
+    height: 4.8,
     backgroundColor: colors.divider,
     borderRadius: 2,
   },
   timelineFill: {
     position: 'absolute',
-    top: 5,
+    top: (14 - 4.8) / 2,
     left: 0,
-    height: 4,
+    height: 4.8,
     backgroundColor: colors.brand,
     borderRadius: 2,
   },
@@ -814,31 +875,6 @@ const styles = StyleSheet.create({
     color: colors.textWhite,
     fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
     lineHeight: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE * 1.3,
-  },
-  tickRow: {
-    width: '100%',
-    height: 20,
-    position: 'relative',
-    justifyContent: 'flex-end',
-  },
-  tick: {
-    position: 'absolute',
-    bottom: 0,
-    width: 44,
-    marginLeft: -22,
-    alignItems: 'center',
-  },
-  tickLabel: {
-    ...typography.captionSmall,
-    color: colors.brand,
-    fontWeight: '700',
-  },
-  tickMark: {
-    width: 2,
-    height: 6,
-    borderRadius: 1,
-    marginTop: 1,
-    backgroundColor: colors.brand,
   },
   // ── 가로 전체화면 (t0v 90° 회전 패턴) ──────────────────────────────────
   fsRoot: {

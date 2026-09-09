@@ -1657,10 +1657,20 @@ function AnalysisResultContent({
                 rightLabel={
                   cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
                 }
-                renderBelowControls={({ seekToRecord }) => (
+                renderBelowControls={({ seekToRecord, activeRid }) => (
                   <ResultMomentList
                     flat
                     rows={momentRows}
+                    // belle 09-09 — 재생이 그 순간에 닿으면 그 행이 켜진다.
+                    // 듀얼 경로와 같은 표식. rid 는 recordId 의 콜론 앞 축약이라
+                    // 목록의 recordId 로 되짚어 넘긴다.
+                    activeRecordId={
+                      activeRid == null
+                        ? null
+                        : (momentRows.find(
+                            (r) => r.recordId?.split(':')[0] === activeRid,
+                          )?.recordId ?? null)
+                    }
                     // belle 09-09 "유튜브 스크립트처럼" — 행을 누르면 그 지점으로
                     // 이동한다. 좌표는 doc 의 freezes(rid↔outSec, contract §12.9)이고
                     // 듀얼 플레이어 가지의 행 탭과 같은 약속이다(이동 + 상세 시트).

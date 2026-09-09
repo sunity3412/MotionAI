@@ -369,8 +369,17 @@ RENDERED_COMPARE_KEYS = ("status", "key")
 # D-di7-05 (quick-260814-di7): discover 정지 틱은 rid 에 ':discover' 접미
 # (예: 'r04:discover') — 앱 freezeNumber 가 형식 불일치 시 무번호 틱 fail-open
 # 분기 + React key(rid) 중복 회피. 앱 코드 무접촉.
-RENDERED_COMPARE_OPTIONAL_KEYS = ("freezes",)
-RENDERED_COMPARE_FREEZE_KEYS = ("rid", "outSec")
+# belle 09-09 '관절선 끄기' 영상판 — keyPlain = 표시(관절 원·각도선·호·수치·폴 축선·
+# 몸 중심선)를 그리지 않은 두 번째 mp4 의 canonical 키(s3keys.build_rendered_compare_key
+# plain=True, 확대 사진 imageKeyPlain 과 같은 __plain 규약). **done 전용 optional** —
+# 부재(구버전 doc·업로드 실패) = 앱이 '관절선' 토글을 그리지 않는다(fail-open,
+# imageUrlPlain 선례와 같은 규율). URL 비저장 — 재생 URL 은 playback-url 재서명.
+RENDERED_COMPARE_OPTIONAL_KEYS = ("freezes", "keyPlain")
+# freezeS = 그 정지가 지속되는 초 (렌더 리포트 freezeS = 음성 길이 + 0.4s).
+# belle 09-09 — 재생이 그 순간에 닿으면 감점 행이 켜지는 표식(f7e9da4e)이 듀얼
+# 경로에만 있었다. 합성 경로는 outSec 만으로는 "언제까지 그 순간인지"를 몰라
+# 행을 켤 수 없었다. 스칼라라 nested-array 금지 규율에 걸리지 않는다.
+RENDERED_COMPARE_FREEZE_KEYS = ("rid", "outSec", "freezeS")
 RENDERED_COMPARE_STATUS_DONE = "done"
 RENDERED_COMPARE_STATUS_FAILED = "failed"
 RENDERED_COMPARE_STATUSES = (

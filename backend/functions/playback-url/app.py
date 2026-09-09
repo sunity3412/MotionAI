@@ -225,10 +225,26 @@ def _handle_rendered_compare(uid: str, analysis_id: str) -> dict:
     if url is None:
         return responses.error("server_error", "서명 실패", status=500)
 
+    payload = {"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES}
+
+    # belle 09-09 '관절선 끄기' 영상판 — 같은 응답에 함께 싣는다 (확대 사진
+    # playbackUrlPlain 선례, :298-309). 별도 asset 종류를 만들지 않는 이유: 앱은
+    # 토글 한 번에 두 소스를 즉시 갈아끼워야 하는데 요청을 두 번 하면 그 지연이
+    # 토글에 그대로 얹힌다. 가드는 본 key 와 동일 — canonical 구성 + exact 비교.
+    stored_plain = rendered.get("keyPlain")
+    canonical_plain = build_rendered_compare_key(uid, analysis_id, plain=True)
+    if isinstance(stored_plain, str) and stored_plain == canonical_plain:
+        url_plain = _sign_get(
+            canonical_plain, expires=_ASSET_EXPIRES, content_type=_ASSET_CONTENT_TYPE["mp4"]
+        )
+        if url_plain is not None:
+            payload["playbackUrlPlain"] = url_plain
+
     log.info(
-        "playback-url 발급(renderedCompare) uid=%s analysis_id=%s", uid, analysis_id
+        "playback-url 발급(renderedCompare) uid=%s analysis_id=%s plain=%s",
+        uid, analysis_id, "playbackUrlPlain" in payload,
     )
-    return responses.ok({"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES})
+    return responses.ok(payload)
 
 
 def _handle_fault_zoom(uid: str, analysis_id: str) -> dict:

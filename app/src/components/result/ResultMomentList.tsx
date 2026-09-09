@@ -191,7 +191,10 @@ export function ResultMomentList({
 
 const styles = StyleSheet.create({
   // 감싼 카드 안에 들어갈 때 — VideoCompare 카드의 padding 16 만큼 좌우로 물린다.
-  flat: { marginHorizontal: -16, marginTop: 10 },
+  // 260909-ji1 — 시안 2 는 감점 목록이 **카드 바닥에 붙는다**(마지막 행 아래 변이
+  // 곧 카드 아래 테두리). 좌우와 같은 문법으로 카드 padding 16 을 되물린다.
+  // marginTop 은 시안 칩 행 하단 → 첫 구분선 27.5pt 를 맞춘 값(card gap 12 + 15.5).
+  flat: { marginHorizontal: -16, marginTop: 15.5, marginBottom: -16 },
   card: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.resultCard,

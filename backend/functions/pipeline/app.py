@@ -4818,6 +4818,9 @@ def _run_deferred_compare_render(
             }
         doc_like = {"result": _result_for_doc}
         out_mp4 = workdir / "compare.mp4"
+        # belle 09-09 '관절선 끄기' 영상판 — 정지 프레임의 표시를 그리지 않은 두 번째 판.
+        # 확대 사진의 __plain 규약과 같은 뜻·같은 접미사 (s3keys 단일 출처).
+        out_mp4_plain = workdir / "compare__plain.mp4"
         report = compare_render.render(
             doc_like,
             Path(local_video_path),
@@ -4826,6 +4829,7 @@ def _run_deferred_compare_render(
             workdir / "render",
             out_mp4,
             align_json=align,
+            out_plain=out_mp4_plain,
         )
         try:
             with open(workdir / "report.json", "w") as fh:
@@ -4897,16 +4901,34 @@ def _run_deferred_compare_render(
             _s3.put_object(
                 Bucket=bucket, Key=key, Body=fh, ContentType="video/mp4"
             )
+        # '관절선 끄기' 영상판. 업로드 실패는 **비차단** — 표시 있는 판은 이미 올라갔고
+        # 앱은 key_plain 부재 시 토글을 그리지 않는다(확대 사진 imageKeyPlain 선례).
+        key_plain = ""
+        if out_mp4_plain.exists():
+            try:
+                kp = build_rendered_compare_key(uid, analysis_id, plain=True)
+                with open(out_mp4_plain, "rb") as fh:
+                    _s3.put_object(
+                        Bucket=bucket, Key=kp, Body=fh, ContentType="video/mp4"
+                    )
+                key_plain = kp
+            except Exception:  # noqa: BLE001 - 부가 산출물, 본 판을 막지 않는다
+                log.warning(
+                    "compare_render plain 업로드 실패 (토글 미노출로 폴백) analysis_id=%s",
+                    analysis_id,
+                )
         # 정지 틱 데이터 (UI 라운드, contract.md §12.9 freezes) — 앱 씬 바 틱 +
         # 탭 점프 시크의 근거. outSec = 렌더 리포트의 정지 시작 출력 시각.
         freezes_payload = [
-            {"rid": fz["rid"], "outSec": fz["voiceStartOutS"]}
+            {"rid": fz["rid"], "outSec": fz["voiceStartOutS"],
+             "freezeS": fz["freezeS"]}
             for fz in report.get("freezes") or []
         ]
         firestore_admin.update_analysis_rendered_compare(
             uid, analysis_id, key,
             status=models.RENDERED_COMPARE_STATUS_DONE,
             freezes=freezes_payload,
+            key_plain=key_plain,
         )
         log.info(
             "compare_render done uid=%s analysis_id=%s key=%s freezes=%s",

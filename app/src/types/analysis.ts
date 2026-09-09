@@ -728,12 +728,21 @@ export interface CoachAudio {
 export interface RenderedCompareFreeze {
   rid: string; // §12.3 recordId 콜론 앞 축약 (r00 등)
   outSec: number; // 정지 시작 초 (출력 타임라인 — 렌더 리포트 voiceStartOutS)
+  /** 그 정지가 지속되는 초. 재생이 [outSec, outSec+freezeS) 안이면 그 감점 행이 켜진다. */
+  freezeS: number;
 }
 
 export interface RenderedCompare {
   status: 'done' | 'failed';
   key: string; // S3 key (results/{uid}/{analysisId}/compare_v{N}.mp4). URL 아님. failed 는 ''.
   freezes?: RenderedCompareFreeze[]; // done 전용 optional (contract.md §12.9)
+  /**
+   * belle 09-09 '관절선 끄기' 영상판 — 정지 프레임의 표시(관절 원·각도선·호·수치·
+   * 폴 축선·몸 중심선)를 그리지 않은 두 번째 mp4 의 S3 key. done 전용 optional.
+   * 부재(구버전 doc·업로드 실패) = 앱이 '관절선' 토글을 그리지 않는다 (fail-open,
+   * 확대 사진 imageKeyPlain 과 같은 규율). URL 아님 — 재서명은 playback-url.
+   */
+  keyPlain?: string;
 }
 
 // Phase 32 (Plan 32-13 — D-22/D-23) — 문장↔영상 일치 스팟체크 판정 결과.

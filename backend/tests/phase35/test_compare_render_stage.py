@@ -133,10 +133,13 @@ def rc_updates(monkeypatch):
     """update_analysis_rendered_compare 캡처 — 실 validator 경유."""
     captured: list[dict] = []
 
-    def _update(uid, analysis_id, key, status, freezes=None):
+    def _update(uid, analysis_id, key, status, freezes=None, key_plain=""):
         payload = {"status": status, "key": key}
         if freezes is not None:
             payload["freezes"] = list(freezes)
+        # 실 함수와 같은 규율 — 빈 문자열이면 필드를 싣지 않는다 (fail-open).
+        if key_plain:
+            payload["keyPlain"] = key_plain
         firestore_admin._validate_rendered_compare(payload)
         captured.append({"uid": uid, "analysis_id": analysis_id, **payload})
 
@@ -166,7 +169,7 @@ def stage_env(papp, monkeypatch, tmp_path):
         return {"outDurationS": 9.0, "expectedFreezes": 1,
                 "freezes": [{"rid": "r00", "userSec": 1.0, "refSec": 2.0,
                              "pairSrc": "align", "freezeS": 5.0,
-                             "voiceStartOutS": 1.0, "text": "t"}]}
+                             "voiceStartOutS": 1.0, "freezeS": 1.5, "text": "t"}]}
 
     monkeypatch.setattr(compare_render, "render", _fake_render)
     monkeypatch.setattr(
@@ -434,7 +437,7 @@ def test_success_uploads_canonical_key_and_marks_done(
     # done 마킹 + 정지 틱 데이터 (UI 라운드 — 렌더 리포트 voiceStartOutS 각인).
     assert rc_updates == [
         {"uid": UID, "analysis_id": ANALYSIS_ID, "key": KEY, "status": "done",
-         "freezes": [{"rid": "r00", "outSec": 1.0}]}
+         "freezes": [{"rid": "r00", "outSec": 1.0, "freezeS": 1.5}]}
     ]
     # mp3 회수 파일명 계약 — recordId 콜론 앞 r{NN}.mp3 (build_timeline 이 읽는 이름).
     assert len(stage_env["s3"].downloads) == 1
@@ -504,7 +507,7 @@ def test_doc_like_carries_coach_audio_so_rig_h4_joins(
         return {"outDurationS": 9.0, "expectedFreezes": 1,
                 "freezes": [{"rid": "r00", "userSec": 1.0, "refSec": 2.0,
                              "pairSrc": "align", "freezeS": 5.0,
-                             "voiceStartOutS": 1.0, "text": "t"}]}
+                             "voiceStartOutS": 1.0, "freezeS": 1.5, "text": "t"}]}
 
     monkeypatch.setattr(compare_render, "render", _capturing_render)
 
@@ -523,7 +526,7 @@ def test_doc_like_carries_coach_audio_so_rig_h4_joins(
             {"outDurationS": 9.0, "expectedFreezes": 1,
              "freezes": [{"rid": "r00", "userSec": 1.0, "refSec": 2.0,
                           "pairSrc": "align", "freezeS": 5.0,
-                          "voiceStartOutS": 1.0, "text": "t"}]},
+                          "voiceStartOutS": 1.0, "freezeS": 1.5, "text": "t"}]},
             doc,
         )
         if name.startswith("H4")
@@ -661,7 +664,7 @@ def disc_env(papp, stage_env, monkeypatch):
             "freezes": [
                 {"rid": f["rid"], "userSec": f["ut"], "refSec": f["rt"],
                  "pairSrc": f["pair_src"], "freezeS": f["dur"],
-                 "voiceStartOutS": 1.0, "text": f["text"]}
+                 "voiceStartOutS": 1.0, "freezeS": 1.5, "text": f["text"]}
                 for f in freezes
             ],
             "excludedFreezes": excluded,

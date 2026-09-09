@@ -160,10 +160,25 @@ export function fetchVisualAssetUrl(
   analysisId: string,
   asset: 'correctedPose' | 'rotation' | 'renderedCompare',
 ): Promise<string> {
-  return authedJson<{ playbackUrl?: unknown }>('/playback-url', {
-    method: 'POST',
-    body: { analysisId, asset },
-  }).then((res) => {
+  return fetchVisualAssetUrls(analysisId, asset).then((r) => r.url);
+}
+
+/**
+ * 같은 재서명이지만 '관절선 끄기' 판까지 함께 받는다 (belle 09-09).
+ *
+ * 서버가 한 응답에 `playbackUrl` + `playbackUrlPlain` 을 같이 싣는다(확대 사진
+ * playbackUrlPlain 선례). 요청을 두 번 하면 그 왕복이 토글 지연으로 그대로
+ * 얹히므로 한 번에 받아 둔다. plain 은 **optional** — 없으면 앱이 토글을
+ * 그리지 않는다(구버전 doc·업로드 실패 fail-open).
+ */
+export function fetchVisualAssetUrls(
+  analysisId: string,
+  asset: 'correctedPose' | 'rotation' | 'renderedCompare',
+): Promise<{ url: string; urlPlain: string | null }> {
+  return authedJson<{ playbackUrl?: unknown; playbackUrlPlain?: unknown }>(
+    '/playback-url',
+    { method: 'POST', body: { analysisId, asset } },
+  ).then((res) => {
     if (typeof res.playbackUrl !== 'string' || res.playbackUrl.length === 0) {
       throw new ApiError(
         'POST /playback-url: playbackUrl 필드 부재/형식 오류',
@@ -171,7 +186,11 @@ export function fetchVisualAssetUrl(
         'malformed_response',
       );
     }
-    return res.playbackUrl;
+    const plain =
+      typeof res.playbackUrlPlain === 'string' && res.playbackUrlPlain.length > 0
+        ? res.playbackUrlPlain
+        : null;
+    return { url: res.playbackUrl, urlPlain: plain };
   });
 }
 

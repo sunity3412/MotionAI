@@ -1428,7 +1428,8 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
            text_override_json: Path | dict | None = None,
            probe: bool = False,
            pair_override_json: Path | dict | None = None,
-           zoom_dir: Path | None = None) -> dict:
+           zoom_dir: Path | None = None,
+           out_plain: Path | None = None) -> dict:
     doc = _as_dict(doc_json)
     moments = _as_dict(moments_json)
     align = _as_dict(align_json)
@@ -1443,6 +1444,9 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
 
     tag = f"{int(FPS_OUT)}_{PANEL_H}"
     udir, rdir, odir = workdir / f"u{tag}", workdir / f"r{tag}", workdir / f"compose{tag}"
+    # belle 09-09 '관절선 끄기' 영상판 — 표시를 그리지 않은 두 번째 프레임 시퀀스.
+    # out_plain 미지정 시 이 경로는 통째로 잠들고 기존 산출은 byte-불변이다.
+    odir_plain = workdir / f"compose{tag}_plain" if out_plain is not None else None
     # 추출을 build_timeline 앞으로 — 폴 감지가 사전 추출 프레임을 읽는다 (캐시 멱등).
     nu = extract_frames(user_video, udir)
     nr = extract_frames(ref_video, rdir)
@@ -1466,6 +1470,8 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
         return {"probe": True, "freezes": len(freezes)}
 
     odir.mkdir(parents=True, exist_ok=True)
+    if odir_plain is not None:
+        odir_plain.mkdir(parents=True, exist_ok=True)
     for f in odir.glob("*.jpg"):
         f.unlink()
 
@@ -1558,6 +1564,9 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
         canvas = Image.new("RGB", (W, PANEL_H), (20, 18, 17))
         canvas.paste(a, (0, 0))
         canvas.paste(b, (a.width + GAP, 0))
+        # 표시를 그리기 **전** 상태를 한 장 떠 둔다 ('관절선 끄기' 영상판).
+        # 정지 프레임에서만 필요하다 — 재생 프레임은 표시가 없어 두 판이 같다.
+        plain_canvas = canvas.copy() if (odir_plain is not None and fz is not None) else None
         if fz is not None:
             d = ImageDraw.Draw(canvas, "RGBA")
             lv = fz.get("legs_viz")
@@ -1665,6 +1674,15 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
                 d.text((pad, PANEL_H - band_h + round(10 * S) + line_h * li),
                        line, font=font, fill=(255, 255, 255))
         canvas.save(odir / f"{i + 1:06d}.jpg", quality=92)
+        if odir_plain is not None:
+            # 표시는 정지 프레임(fz)에만 그려지므로 재생 프레임은 두 판이 동일하다
+            # → 다시 인코딩하지 않고 **하드링크**로 재사용한다(디스크·시간 0).
+            # 정지 프레임만 위에서 떠 둔 표시 전 캔버스를 따로 저장한다.
+            dst = odir_plain / f"{i + 1:06d}.jpg"
+            if plain_canvas is not None:
+                plain_canvas.save(dst, quality=92)
+            else:
+                os.link(odir / f"{i + 1:06d}.jpg", dst)
 
     # 확대 비교 사진 — 영상 프레임을 자르지 않고 **원본에서 다시 뽑는다**(해상도
     # 보존). 영상 산출과는 완전히 분리된 후처리라 zoom_dir 미지정 시 무영향.
@@ -1673,30 +1691,43 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
         zoom_made = zoom_cards(freezes, user_video, ref_video, align,
                                zoom_dir, workdir / "zoom_src")
 
-    silent = out.with_suffix(".video.mp4")
-    subprocess.run([FF, "-y", "-loglevel", "error", "-framerate", str(FPS_OUT),
-                    "-i", str(odir / "%06d.jpg"), "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                    "-crf", "20", "-g", str(int(FPS_OUT)), "-movflags", "+faststart", str(silent)], check=True)
+    def _encode_and_mux(frame_dir: Path, dest: Path) -> None:
+        """프레임 시퀀스 → mp4(+코칭 음성). 표시 있는 판과 없는 판이 이 함수를 공유한다.
 
-    if audio_plan:
-        cmd = [FF, "-y", "-loglevel", "error", "-i", str(silent)]
-        for mp3, _ in audio_plan:
-            cmd += ["-i", str(mp3)]
-        parts, labels = [], []
-        for idx, (_, at) in enumerate(audio_plan):
-            ms = int(round(at * 1000))
-            parts.append(f"[{idx + 1}]adelay={ms}|{ms}[a{idx}]")
-            labels.append(f"[a{idx}]")
-        fc = ";".join(parts) + f";{''.join(labels)}amix=inputs={len(labels)}:normalize=0[aout]"
-        cmd += ["-filter_complex", fc, "-map", "0:v", "-map", "[aout]",
-                "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out)]
-        subprocess.run(cmd, check=True)
-        silent.unlink()
-    else:
-        silent.rename(out)
+        음성 먹싱은 `-c:v copy` remux 라 비디오 재인코딩이 없다 — 두 판의 증분은
+        x264 인코딩 1회뿐이다 (belle 09-09 '관절선 끄기' 영상판).
+        """
+        silent = dest.with_suffix(".video.mp4")
+        subprocess.run([FF, "-y", "-loglevel", "error", "-framerate", str(FPS_OUT),
+                        "-i", str(frame_dir / "%06d.jpg"), "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        "-crf", "20", "-g", str(int(FPS_OUT)), "-movflags", "+faststart",
+                        str(silent)], check=True)
+        if audio_plan:
+            cmd = [FF, "-y", "-loglevel", "error", "-i", str(silent)]
+            for mp3, _ in audio_plan:
+                cmd += ["-i", str(mp3)]
+            parts, labels = [], []
+            for idx, (_, at) in enumerate(audio_plan):
+                ms = int(round(at * 1000))
+                parts.append(f"[{idx + 1}]adelay={ms}|{ms}[a{idx}]")
+                labels.append(f"[a{idx}]")
+            fc = ";".join(parts) + f";{''.join(labels)}amix=inputs={len(labels)}:normalize=0[aout]"
+            cmd += ["-filter_complex", fc, "-map", "0:v", "-map", "[aout]",
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+                    str(dest)]
+            subprocess.run(cmd, check=True)
+            silent.unlink()
+        else:
+            silent.rename(dest)
+
+    _encode_and_mux(odir, out)
+    if odir_plain is not None and out_plain is not None:
+        _encode_and_mux(odir_plain, out_plain)
 
     report = {
         "out": str(out),
+        # '관절선 끄기' 영상판 — 미요청 시 None (기존 소비처 diff 0).
+        "outPlain": str(out_plain) if out_plain is not None else None,
         "outDurationS": round(len(frames) / FPS_OUT, 2),
         "userDurationS": round(dur_user, 2),
         "expectedFreezes": len(freezes),

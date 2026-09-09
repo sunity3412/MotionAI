@@ -1,10 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,18 +14,14 @@ import {
 // SafeAreaProvider 는 expo-router 루트가 제공 (inquiry.tsx 선례).
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccuracyLimitBadge } from '../../components/AccuracyLimitBadge';
-import { InjuryRiskSection } from '../../components/InjuryRiskSection';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
 import { RecommendedExerciseModal } from '../../components/RecommendedExerciseModal';
-import { CORRECTIVE_LIBRARY_HAS_ITEMS } from '../../data/correctiveExercises';
 import {
   KeypointOverlay,
   KEYPOINT_DELTA_HIGHLIGHT_DEG,
 } from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
-import { PartChipsRow } from '../../components/PartChipsRow';
-import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import {
   ResultHeaderBackdrop,
   ResultHeaderBar,
@@ -43,31 +36,15 @@ import { ResultPointModal } from '../../components/result/ResultPointModal';
 import { ResultExerciseTab } from '../../components/result/ResultExerciseTab';
 import { riskFlagCopy, topRiskFlag } from '../../components/InjuryRiskSection';
 import { buildSummaryChips, summaryChipLabel } from '../../lib/resultSummary';
-import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
 import RenderedComparePlayer from '../../components/RenderedComparePlayer';
-import { ReferenceCornerSection } from '../../components/ReferenceCornerSection';
-import type {
-  ReferenceCardState,
-  RotationCardState,
-} from '../../components/ReferenceCornerSection';
 // ── 32-11 대배선 — 32-07/32-08/32-10 산출 컴포넌트·뷰모델 배선 ──────────────
-import { SummaryCard } from '../../components/SummaryCard';
-import { DeductionCard } from '../../components/DeductionCard';
-import type { DeductionCardRecord } from '../../components/DeductionCard';
 import { ZoomCompositeImage } from '../../components/ZoomCompositeImage';
 import { ResultCoachmarks } from '../../components/ResultCoachmarks';
 import { hasSeenResultCoachmark, markResultCoachmarkSeen } from '../../lib/coachmark';
-import { deriveSummaryContent } from '../../lib/summarySource';
-import type { SummaryInput } from '../../lib/summarySource';
 import {
-  deriveResultSections,
-  buildRecordMaps,
-  pickExpandAnchorY,
-  recordKeyForIndex,
   selectEstimatedZoomEntries,
 } from '../../lib/resultSections';
-import type { ResultSectionKey, ResultSection } from '../../lib/resultSections';
 import { buildCueWindows } from '../../lib/cueTrack';
 import type { CueInput } from '../../lib/cueTrack';
 import { buildRefSnapSecs } from '../../lib/voiceSnap';
@@ -79,30 +56,24 @@ import { normalizeMotionAlignment } from '../../lib/alignmentWarp';
 import { legacyOffsetFromCompareFrames } from '../../lib/manualOffset';
 import {
   ANGLE_VS_REFERENCE_PREFIX,
-  JOINT_LABEL_KO,
   KEYPOINT_FROM_ANGLE_KEY,
   buildDeductionMarkers,
   buildDeductionTicks,
-  composeScoringBasisKo,
   composeShortActionLabelKo,
   criterionLabelKo,
   formatDeductionNumber,
   formatDeductionRecord,
-  isCleanPass,
   matchZoomForDeductionRecord,
   projectDeductionRecordKeypoints,
   sortDeductionRecordsByMoment,
 } from '../../lib/deductionLabels';
 import {
-  buildPartChips,
   buildPartGroups,
   buildRegionSheetView,
   composeCueSubtitleKo,
 } from '../../lib/deductionSheet';
-import { reshapePose3dData } from '../../lib/joints';
 import {
   useReferenceMotion,
-  useReferenceMotionDoc,
 } from '../../lib/referenceMotions';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
@@ -113,21 +84,10 @@ import {
   zoomCardKey,
 } from '../../lib/faultZoomUrls';
 import {
-  fetchVisualAssetUrl,
   requestPlaybackUrl,
   requestReferencePlaybackUrl,
-  requestRotationVideo,
 } from '../../lib/api';
 import {
-  CORRECTED_POSE_PENDING_TIMEOUT_MS,
-  ROTATION_PENDING_TIMEOUT_MS,
-  isDailyLimit,
-  mapFrameIdx,
-  pickCompareFrames,
-  visualCardState,
-} from '../../lib/visualCards';
-import {
-  DIMENSION_ORDER,
   DOMINANT_HAND_LABEL_KO,
   EXPERIENCE_LABEL_KO,
   PAIN_AREA_LABEL_KO,
@@ -142,9 +102,6 @@ import type {
   JointDirection,
   JointScore,
   KeypointName,
-  KeypointReport,
-  SegmentScores,
-  SkillLevel,
   SynthesisWarningCode,
 } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
@@ -159,27 +116,8 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 // — 정상 pending 을 조기 숨김하지 않음.
 const FAULT_ZOOM_PENDING_TIMEOUT_MS = 180_000;
 
-// quick-260901-wbo — 코칭 문장 사후 도착의 pending 고아 방어 상한 (FAULT_ZOOM 상수
-// 미러 — T-27-21 무한 pending 고아 방지 동형). coach_text 사후 스테이지가
-// coachStatus 'pending' → 'done'/'failed' 로 부분 업데이트한다. done/failed 가
-// 끝내 도착하지 않으면(스테이지 크래시·write 유실) 코칭 섹션이 무한 "작성 중"에
-// 빠질 수 있다 — doc.updatedAt 기준 경과가 이 상한을 넘으면 placeholder 를 접고
-// 수치 폴백 tips 를 그대로 렌더한다 (tips 는 required 필드라 항상 유효).
-// 값 근거: 실측 coach_dual 43.1s + hook ~14s + writer 재시도 여유 — 최장 예상을
-// 크게 상회하는 보수값(180s). 정상 pending 을 조기 숨김하지 않음 (FAULT_ZOOM
-// 상수와 같은 보수 규율). contract.md coachStatus 절.
-const COACH_PENDING_TIMEOUT_MS = 180_000;
 
-// 코칭 작성 중 placeholder 카피 (한국어 — 이모지 금지, design.md 라이트 톤).
-const COACH_PENDING_COPY = 'AI 코치가 교정 문장을 작성하고 있어요';
 
-// 29-CONTEXT D-05 — mode3 한계 고지 (belle 승인 뼈대, 세부만 재량). 측정 범위
-// (카메라로 잰 자세 형태 기준) + 다음 행동 유도(새 영상 발전 비교 / 코치님 비교)를
-// 결합한 1줄. mode3 결과에는 breakdown 유/무 무관 항상 1곳에 도달한다. belle 이
-// 지적한 D-05 금지어(사용자 미이해 + mode3 angle 차원 용어 충돌 + 강사 철학 충돌)를
-// 배제 — "자세 형태" 로 대체. mode1 은 이 상수를 소비하지 않는다 (렌더 diff 0).
-const MODE3_LIMIT_NOTICE =
-  '카메라로 잰 자세 형태 기준이에요. 같은 동작을 새 영상으로 다시 올리면 이전 영상과 비교한 발전 분석이 본격 시작돼요. 그립·디테일 점검은 코치님 비교 분석을 이용해보세요.';
 
 // IN-01 (quick-260724-q6b) — 역립/자기가림 저신뢰(attributionReliability.unreliable)
 // 시 per-joint 단정을 강등하고 동작비교 영역에 "AI 공부 중" 안내 1줄을 정확히 1회
@@ -192,11 +130,6 @@ const ATTR_GUIDANCE_MODE3_PROGRESS =
   '점수 기준으로 이전보다 발전하고 있어요. 거꾸로 자세 세부 관절은 AI가 아직 공부 중이에요.';
 const ATTR_GUIDANCE_MODE3_FIRST =
   '첫 분석이에요 — 다음부터 발전을 비교해드려요. 거꾸로 자세 세부는 AI가 공부 중이에요.';
-// 점수 계산 내역 집계 문장 폴백 (백엔드 aggregateStatement 부재 시). 관절명 없음.
-const ATTR_SCORE_AGGREGATE_FALLBACK =
-  '거꾸로 자세라 관절별 감점 위치는 추정이에요. 종합 점수는 그대로예요.';
-// 확대비교 크롭 "예상 부위" 배지 (확정 결함 아님 — 표시 전용).
-const ATTR_ZOOM_ESTIMATED_LABEL = '예상 부위';
 // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 확대비교 진입점 라벨. topFix 카드가
 // 억제돼 확대비교가 도달 불가한 gap 을 메운다 (belle: "예상 부위"로 도달 가능해야
 // 함). "AI 공부 중" 안내줄이 맥락을 주므로 추정임이 전달됨 — 확정 결함 단정 아님.
@@ -207,47 +140,15 @@ const ATTR_ZOOM_ESTIMATED_ENTRY_LABEL = '예상 부위 확대 비교 보기';
 // 접근성 라벨은 종전 ATTR_ZOOM_ESTIMATED_ENTRY_LABEL 을 계속 쓴다.
 const ATTR_ZOOM_ESTIMATED_CARD_TITLE = '예상 부위 (참고)';
 
-const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
-  basic: '기본기',
-  intermediate: '중급',
-  advanced: '고급',
-};
 
 // 32-11 (D-17 확정 밀도 = 결함 구간당 1개) — 재생 중 자막 큐 윈도우 폭(초)과 상한.
 // 결함 순간 전후 CUE_WINDOW_SEC/2 동안 자막 유지. maxCues 는 record 수로 두되(각
 // record 1윈도우), 겹칠 땐 activeCue 가 시작 늦은(더 정확한) 큐를 우선한다.
 const CUE_WINDOW_SEC = 1.6;
 
-// 32-11 (D-03 확정 = 개인화 심사 시뮬레이션) — 지식전달형 금지. 내 실제 결함들에
-// IPSF 감점 규칙(실존 규칙 곱셈)을 적용해 "실제 심사였다면" 을 보여주는 카피 상수.
-const JUDGE_SIM_TITLE = '내 수행이 실제 심사였다면';
-const JUDGE_SIM_INTRO =
-  '국제 폴스포츠(IPSF) 심사 기준으로 내 자세를 채점하면, 위에서 짚은 결함들이 이렇게 감점으로 환산돼요.';
-// quick-260831-lcc (belle 2026-08-31 결과 화면 재구성 — 면책 통합): 구 옥타곤
-// 카드 scoreCaption("촬영 노이즈… 100점은 잘 나오지 않아요. 90점 이상이면 정상
-// 자세에 가깝습니다")의 의미를 이 하단 면책 1개에 병합. 두 승인 문장의 접합 —
-// 신규 창작 최소. 화면 면책 = 상단 1줄(coachPositioning) + 이 1개(+참고코너
-// '점수에는 들어가지 않아요' — 오해 방지 기능이라 유지).
-const JUDGE_SIM_DISCLAIMER =
-  'AI가 추정한 감점 시뮬레이션이에요. 촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요 (90점 이상이면 정상 자세에 가깝습니다). 실제 심사·강사 평가와 함께 확인하면 가장 정확해요.';
 
-// 위 통합 면책 중 **점수 보정** 부분만 떼어낸 문장. 심사 카드가 렌더되지 않는
-// doc(clean-pass = 감점 record 0, 저신뢰)에서 옥타곤 카드가 대신 1회 보여준다 —
-// 병합만 하고 끝냈더니 그 doc 들이 안내를 통째로 잃었다(2026-08-31 앱 리뷰).
-const SCORE_CALIBRATION_NOTE =
-  '촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요 (90점 이상이면 정상 자세에 가깝습니다).';
 
-// 32-11 (D-13) — 보완 운동 개편 카피. 전면 1개 + 이유 1줄, '다른 운동 보기' 가로 최대 3.
-const EXERCISE_DETOUR_HEADLINE = '이 운동부터 해보면 쉬워져요';
-const EXERCISE_DETOUR_BODY =
-  '같은 부분이 두 번째도 잘 안 됐어요. 자세를 더 밀어붙이기보다, 먼저 이 보완 운동으로 필요한 힘·가동범위를 만들어봐요.';
-const EXERCISE_MAX_ALT = 3;
 
-// 32-11 (D-27 3회차) — 코치 카드 전면 승격 카피. "혼자 안 되는 건 자세가 아니라
-// 방법 문제일 수 있어요" 톤.
-const COACH_CARD_HEADLINE = '혼자 안 되는 건 자세가 아니라 방법 문제일 수 있어요';
-const COACH_CARD_BODY =
-  '같은 부분이 세 번째도 개선되지 않았어요. 이쯤이면 혼자 반복보다 강사님과 한 번 점검하는 게 빠를 수 있어요. 아래 질문을 그대로 가져가 보세요.';
 
 // [R1] BodyProfile snapshot 요약 — 결과 화면은 분석-당시 SNAPSHOT(storedDoc.
 // bodyProfile)을 source-of-truth 로 표기(재현성, live useBodyProfile 아님).
@@ -268,15 +169,6 @@ function summarizeBodyProfile(profile: BodyProfile | null | undefined): string |
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
-// 백엔드 direction → 한국어 코칭 동사. 동적 큐(회전력)는 CoachingTip.detail 문장.
-const DIRECTION_LABEL: Record<JointDirection, string> = {
-  extend: '더 펴주세요',
-  flex: '더 굽혀주세요',
-  raise: '더 올려주세요',
-  lower: '더 내려주세요',
-  open: '더 열어주세요',
-  close: '더 모아주세요',
-};
 
 // kismam.JOINT_DIRECTION_PAIRS 동일 (계약 일치). signed delta < 0 → 첫 라벨.
 //   delta = currentAngle - targetAngle.
@@ -297,37 +189,7 @@ function directionFor(jointKey: string, signedDelta: number): JointDirection | u
   return signedDelta < 0 ? pair[0] : pair[1];
 }
 
-// quick-260831-lcc — 백엔드 유래 발견 문자열의 '없음' 삽입 버그 단일 지점 소독.
-// 백엔드가 primaryFault/tips[0].title 에 '없음'(또는 공백) 문자열을 주면 표시
-// 레이어가 "없음 보완하면 더 올라가요" / "AI 영상 분석에서 발견한 점: 없음" 을
-// 조립했다 (before-screens 실증). trim 후 빈 문자열·'없음' 이면 undefined 로
-// 강등해 폴백 카피 경로로 보낸다 — 표시 레이어 폴백 강등이며 백엔드 데이터
-// 무변형 (T-lcc-01: Text 렌더라 injection 표면 없음).
-function sanitizeFinding(text: string | null | undefined): string | undefined {
-  if (typeof text !== 'string') return undefined;
-  const t = text.trim();
-  if (t.length === 0 || t === '없음') return undefined;
-  return t;
-}
 
-// 박제 (2026-06-06 belle) → quick-260831-lcc (belle 2026-08-31 결과 화면 재구성
-// 승인 — 빨강 규율): 본문 문단 안 수치는 브랜드색 대신 fontWeight 강조만 남긴다.
-// 본문 빨강 남용의 기계 원인이 이 함수였다 (모든 tip.detail/guide.line 수치가
-// 빨강). 브랜드색 허용처 = 점수·감점 수치(-N)·주 CTA·활성 상태만 — 감점 수치는
-// judgeDeduction 등 별도 스타일이라 영향 없음. 구 D-09 계열 배치 결정을 대체,
-// 수치 규율 자체는 유지.
-function highlightNumbers(text: string): React.ReactNode[] {
-  const parts = text.split(/(\d+(?:\.\d+)?\s*(?:°|점|%|초|kg)?)/g);
-  return parts.map((part, i) =>
-    /\d/.test(part) ? (
-      <Text key={i} style={{ color: colors.textPrimary, fontWeight: '600' }}>
-        {part}
-      </Text>
-    ) : (
-      part
-    ),
-  );
-}
 
 // 결과 화면용 joint 보강: reference doc 의 실측 평균 각도(meanAngles)가 있으면
 // JointScore.targetAngle/deltaDeg/direction 을 실측 기준으로 덮어쓴다.
@@ -358,94 +220,11 @@ function enrichJoints(
   });
 }
 
-// 구조화 가이드 한 줄. 데이터 부족하면 null → UI 가 노출 생략(폴백은 issue 텍스트).
-function angleGuide(j: Pick<JointScore, 'currentAngle' | 'targetAngle' | 'deltaDeg' | 'direction'>):
-  | { line: string; cue: string | null }
-  | null {
-  if (j.currentAngle == null || j.targetAngle == null) return null;
-  const cue = j.direction ? DIRECTION_LABEL[j.direction] : null;
-  return {
-    line: `현재 ${Math.round(j.currentAngle)}° → 기준 ${Math.round(j.targetAngle)}°`,
-    cue,
-  };
-}
 
-// mode1 similarity 점수대별 요약 카피. 시연 시 점수 임팩트 강조용.
-// 박제 (2026-06-06 belle): similarity = 관절각 차원 박제 (overall 박제 X — 모든
-// 차원 평균). belle 의문 "94 vs 95% 갭" → label 박제 명확화 "관절각" 박제.
-// quick-260705-o0s (belle 추가 피드백 #1): cleanPass(감점 0 = 100점 정타)면
-// "거의 다 왔어요!" 류 보완 카피 금지 → 축하·유지 카피. 순수 함수 유지
-// (cleanPass 를 파라미터로 받음 — isCleanPass 단일 신호 소비).
-function mode1Summary(
-  athleteName: string,
-  similarity: number,
-  cleanPass: boolean,
-): string {
-  if (cleanPass) {
-    return `${athleteName} 선수와 동일한 수준이에요. 이 자세를 유지하세요!`;
-  }
-  const head = `${athleteName} 선수와 관절각 ${similarity}% 일치해요.`;
-  if (similarity >= 75) return `${head} 거의 다 왔어요!`;
-  if (similarity >= 50) return `${head} 핵심 구간을 다듬어 보세요.`;
-  return `${head} 천천히 자세부터 잡아볼까요?`;
-}
 
-// Phase 20 (UI A1) — 비전 거부권으로 종합점수가 하향됐을 때의 Mode1 요약.
-// 모순 차단(belle 디바이스 발견): 관절각 100% 일치인데 octagon 75 → "100% 일치/거의
-// 다 왔어요" 가 점수와 충돌한다. veto applied 면 similarity 가 아니라 FINAL overallScore 를
-// 반영하고 "교정할 점이 보인다"로 전환한다. similarity 수치 헤드라인 미노출.
-function mode1VetoSummary(athleteName: string): string {
-  return `${athleteName} 선수 기준으로 자세에서 교정할 점이 보여요.`;
-}
 
-// mode3 두 번째+ 요약 — '몇 % 일치'가 아니라 발전(progress)을 강조 (belle 피드백).
-// 절대 차원 평균(overall)이 같은 척도라 지난 분석 대비 증감이 진짜 성장이다.
-function mode3Summary(current: number, previous: number | undefined): string {
-  if (previous == null) return '지난 분석과 비교했어요.';
-  const d = current - previous;
-  if (d > 0) return `지난 분석보다 ${d}점 발전했어요!`;
-  if (d < 0)
-    return `지난 분석보다 ${-d}점 내려갔어요. 아래 차원별 변화를 확인해보세요.`;
-  return '지난 분석과 같은 수준을 유지했어요.';
-}
 
-// Phase 12 Wave 2 (Plan 12-03 T3) — D-12-D1/D2/D3 박제.
-//
-// joint 단위 평균 confidence — keypointReport.confidence flat (T × J) 의 j 열 평균.
-// joint 가 KeypointName 인 경우 직접 lookup, JointScore.key (예: 'left_elbow') 인
-// 경우 KeypointName 으로 매핑하지 않고 직접 매칭 시 indexOf=-1 → null 반환.
-// 손 (kismam left_elbow) ↔ keypoint (left_hand) 매핑은 caller (각도 가이드 row)
-// 가 책임. 본 helper 는 keypointReport.joints 의 KeypointName 만 받음.
-function jointConfidenceFromReport(
-  report: KeypointReport | null | undefined,
-  keypointName: string,
-): number | null {
-  if (!report) return null;
-  const j = report.joints.indexOf(keypointName as never);
-  if (j < 0) return null;
-  const J = report.joints.length;
-  if (J <= 0 || report.frames <= 0) return null;
-  let sum = 0;
-  let count = 0;
-  for (let t = 0; t < report.frames; t += 1) {
-    const v = report.confidence[t * J + j];
-    if (typeof v === 'number' && Number.isFinite(v)) {
-      sum += v;
-      count += 1;
-    }
-  }
-  return count > 0 ? sum / count : null;
-}
 
-// reliability == 'low' frame 비율. D-12-D2 (≥ 0.20) / D-12-D1 (≥ 0.30) 분기 source.
-function lowReliabilityRatio(report: KeypointReport | null | undefined): number {
-  if (!report || report.frames <= 0) return 0;
-  let low = 0;
-  for (const r of report.reliability) {
-    if (r === 'low') low += 1;
-  }
-  return low / report.frames;
-}
 
 // Phase 4 (04-02 BLOCKER-3 / MEDIUM-4 4차 게이트 리뷰) — 합성 경고 helper.
 // canonical surface = result.aiSynthesisMeta.warnings (top-level
@@ -514,65 +293,6 @@ const RESULT_TAB_TOP: Record<ResultTabKey, number> = {
 // 훅 순서를 보장한다 (wrapper/Content 분리, 리뷰 HIGH-1). 실 분석 경로는
 // loading.tsx 가 status='uploading' 부터 doc 를 쓴다.
 
-// Phase 20 (UI ④) — 가짜 입문/중급/고급 65/78/88 티어 표시 제거 (belle 결정).
-// 픽스처 평균치(구 lib/levels.ts)는 누적 데이터가 없어 의미가 없어 제거. 대신
-// 점수에 의미를 주는 맥락을 보여준다:
-//   Mode1: "정은지 기준 {score}점 — {교정 포인트} 보완하면 더 올라가요."
-//          교정 포인트 = 비전 결함(primaryFault) 우선, 없으면 top 코칭 포인트.
-//   self delta(지난 분석 대비 +N)는 데이터가 이미 손에 있을 때만(추가 fetch 0).
-function ScoreContext({
-  score,
-  mode,
-  athleteName,
-  correctionPoint,
-  selfDelta,
-  cleanPass,
-}: {
-  score: number;
-  mode: 'mode1' | 'mode3';
-  athleteName: string | null;
-  correctionPoint: string | null;
-  selfDelta: number | null;
-  // quick-260705-o0s (belle 추가 피드백 #1) — 감점 0(isCleanPass)이면 "보완하면
-  // 더 올라가요" 조립 금지 (100점에 보완하라는 모순). correctionPoint 소스는
-  // 무변경 — 카피 조립 단계에서만 게이트 (belle: "텍스트는 분석마다 달라져야지").
-  cleanPass: boolean;
-}) {
-  // Mode1 1차 카피 — 정은지 기준 거리 + 교정 포인트. 교정 포인트 없으면 일반 격려.
-  // cleanPass 면 correctionPoint 무시하고 통과 카피 (보완 카피는 감점 record 있을 때만).
-  const primary =
-    mode === 'mode1'
-      ? cleanPass
-        ? `${athleteName ?? '정은지'} 기준 ${score}점 — 감점 항목 없이 통과했어요.`
-        : correctionPoint
-          ? `${athleteName ?? '정은지'} 기준 ${score}점 — ${correctionPoint} 보완하면 더 올라가요.`
-          : `${athleteName ?? '정은지'} 기준 ${score}점이에요.`
-      : correctionPoint
-        ? `이번 분석 ${score}점 — ${correctionPoint} 보완하면 더 올라가요.`
-        : `이번 분석 ${score}점이에요.`;
-  // self delta — 데이터가 손에 있을 때만 (지난 분석 doc 이미 구독 중). 없으면 생략.
-  const deltaLine =
-    selfDelta != null && selfDelta !== 0
-      ? selfDelta > 0
-        ? `지난 분석 대비 +${selfDelta}`
-        : `지난 분석 대비 ${selfDelta}`
-      : null;
-  return (
-    <View style={styles.bench}>
-      <Text style={styles.benchSummary}>{highlightNumbers(primary)}</Text>
-      {deltaLine && (
-        <Text
-          style={[
-            styles.scoreDelta,
-            { color: (selfDelta ?? 0) > 0 ? colors.brand : colors.textSecondary },
-          ]}
-        >
-          {deltaLine}
-        </Text>
-      )}
-    </View>
-  );
-}
 
 // (구 DimensionScoreRow 제거 — D-03/D-12. 세부 점수 행/자세히 모달 폐기, 차원 수치는
 //  감점 카드 게이지·심사 정보 코너로 흐른다.)
@@ -580,43 +300,8 @@ function ScoreContext({
 // (구 DIAGNOSIS_LABEL_KO / DimensionDiagnosisRow 제거 — D-03/D-12. 추상 지표
 //  '동작 흐름'/'안정성' 나열 폐기, 심사 정보 코너로 대체.)
 
-// 콤보 부분 점수 행 (베이스/확장). PartScoreRow 와 트랙 바를 공유하되 델타 없음.
-function SegmentRow({ label, score }: { label: string; score: number }) {
-  return (
-    <View style={styles.partRow}>
-      <View style={styles.partHead}>
-        <Text style={styles.partLabel}>{label}</Text>
-        <Text style={styles.partScore}>{score}</Text>
-      </View>
-      <View style={styles.track}>
-        <View
-          style={[
-            styles.trackFill,
-            { width: `${Math.max(0, Math.min(100, score))}%` },
-          ]}
-        />
-      </View>
-    </View>
-  );
-}
 
-// 베이스/확장 점수 차이로 학습 경로 한 줄 안내 (reference-motions.md §7).
-function segmentHint(seg: SegmentScores): string {
-  if (seg.base < 65) {
-    return `${seg.baseMotionName} 베이스가 아직 약해요. 베이스 동작을 먼저 다지면 이 콤보가 한결 안정됩니다.`;
-  }
-  if (seg.base - seg.extension >= 10) {
-    return '베이스는 안정적이에요. 확장 구간에서 점수가 떨어지니 후반 동작을 집중해서 연습해보세요.';
-  }
-  return '베이스와 확장 구간이 고르게 나왔어요. 전체 흐름을 이어서 다듬어보세요.';
-}
 
-// Wrapper (default export) — 담당은 4가지: 파라미터 읽기, doc 구독, body profile
-// 폴백 상태, 로딩/미보유 UI. doc.result 가 non-null 일 때만 자식을 마운트하므로
-// 자식(AnalysisResultContent)의 훅 순서가 렌더 간 안정하다 (리뷰 HIGH-1).
-// [2026-07-20] 회전 영상 기능 플래그. 백엔드 생성 Lambda 미배포 상태라 false.
-// 되살릴 때 true 로 바꾸고 visual-worker/dispatch/request 를 함께 배포할 것.
-const ROTATION_FEATURE_ENABLED = false;
 
 export default function AnalysisResult() {
   const router = useRouter();
@@ -722,8 +407,6 @@ function AnalysisResultContent({
   analysisId: string;
 }) {
   const router = useRouter();
-  // 33-15 (D-17) — safe-area 실측 inset (본문 컨테이너 상단 패딩, wrapper 와 동일).
-  const insets = useSafeAreaInsets();
   // belle 09-08 재디자인 — 4탭 셸. 기존 섹션은 한 줄도 지우지 않고 탭으로 나눠 담았다
   // (요약/동작비교/교정포인트/보완운동). 탭별 첫 요소가 곡선 헤더 아래 어디서
   // 시작하는지는 시안 실측값이다 — RESULT_TAB_TOP.
@@ -732,28 +415,8 @@ function AnalysisResultContent({
   // 곡선은 화면 상단 고정, 글자·콘텐츠만 상태바를 피해 내린다 (useResultTopDelta).
   const contentTop =
     useResultTopDelta() + RESULT_TAB_TOP[resultTab] * headerScale;
-  const grade = scoreGrade(result.overallScore);
   const cmp = result.comparison;
 
-  // Phase 20 TRUST-07 — Mode3 미보유/저신뢰 점수 억제 (점수카드 전체 대체).
-  // iter3 HIGH-2: STRICTLY result.scoreSuppressed === true 단독 신호 — scoringBasis
-  // 폴백 금지 (scoringBasis 는 source 라벨, suppression 은 display/trust 정책).
-  // backend producer-contract 가 reference_free_absolute↔scoreSuppressed 를 fail-loud 로
-  // 보장하므로 UI 는 이 플래그만 믿는다.
-  const isScoreSuppressed =
-    cmp.mode === 'mode3' && result.scoreSuppressed === true;
-  // iter3 MEDIUM-1 / iter4 MEDIUM-1 — 억제 헤더 카피는 reason 이 소유 (reason-owns-copy).
-  // reason 누락 시 default '기준 없음' 폴백 금지 — 중립 카피 (오라벨 방지).
-  // 29-CONTEXT D-03 — "제공 불가" 단독 통보가 아니라 행동 유도(코치님 비교 /
-  // 같은 동작 새 영상으로 이전 연습 비교)로 전진시킨다. belle 원문: "더 연습하고
-  // 새로운 영상으로 같은 자세를 비교하면 본격 분석이 시작된다". D-05 금지어 배제.
-  const suppressedHeaderCopy = isScoreSuppressed
-    ? result.scoreSuppressedReason === 'recognition_low_confidence'
-      ? '동작 인식 신뢰도가 낮아 기준을 확정하지 못했어요. 같은 동작을 더 또렷하게 담아 새 영상으로 다시 올려보세요.'
-      : result.scoreSuppressedReason === 'unheld'
-        ? '아직 이 동작의 기준 데이터가 없어요. 코치님(정은지) 영상과 비교하거나, 같은 동작을 새 영상으로 올려 이전 연습과 비교해보세요.'
-        : '아직 이 동작의 기준을 확정하지 못했어요. 코치님 영상과 비교하거나, 같은 동작을 새 영상으로 올려 이전 연습과 비교해보세요.'
-    : null;
 
   // mode1 메타 카드용 풀데이터. 시드 전이거나 로딩 중이면 motion=null →
   // 화면은 cmp.referenceMotionName / cmp.athleteName 으로 폴백 표시.
@@ -761,249 +424,14 @@ function AnalysisResultContent({
     cmp.mode === 'mode1' ? cmp.referenceMotionId : undefined,
   );
 
-  // ── Phase 31 참고코너 (D-06/D-08/D-09/D-10) ────────────────────────────
-  // 훅은 전부 무조건 호출한다 (리뷰 M-04) — mode 분기 안에서 훅을 부르면 mode1↔mode3
-  // 사이에서 훅 순서가 달라져 React 가 상태를 잘못 연결한다. 분기는 훅에 넘기는
-  // '인자'로만 표현한다.
-  //
-  // 신규 setInterval/폴링 0 (D-06 amended, belle option B) — 카드 갱신은 전적으로
-  // useAnalysisDoc 의 onSnapshot 재렌더가 담당한다. 백그라운드 푸시 알림은 이번
-  // phase 범위 밖이며, 사용자는 결과 화면을 다시 열어 완료를 확인한다.
-  const nowMs = Date.now();
 
-  // 교정 자세 이미지: 상태는 전용 correctedPoseUpdatedAtMs 로만 판정한다 (리뷰 H-06).
-  // 공용 updatedAt 은 무관한 write 로도 갱신돼 pending 수명을 잘못 늘린다.
-  const correctedPoseDerived = visualCardState(
-    result.correctedPoseStatus,
-    result.correctedPoseUpdatedAtMs,
-    nowMs,
-    CORRECTED_POSE_PENDING_TIMEOUT_MS,
-  );
-  const rotationDerived = visualCardState(
-    result.rotationStatus,
-    result.rotationUpdatedAtMs,
-    nowMs,
-    ROTATION_PENDING_TIMEOUT_MS,
-  );
 
-  // 표시 URL 은 Firestore 문서가 아니라 매번 재서명으로 받는다 (리뷰 H-02).
-  // nonce 를 올리면 effect 가 다시 돌아 새 URL 을 발급한다 (만료 복구 경로).
-  const [correctedPoseUrl, setCorrectedPoseUrl] = useState<string | null>(null);
-  const [correctedPoseNonce, setCorrectedPoseNonce] = useState(0);
-  const [correctedPoseRetried, setCorrectedPoseRetried] = useState(false);
-  const [rotationUrl, setRotationUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (correctedPoseDerived !== 'done') {
-      setCorrectedPoseUrl(null);
-      return;
-    }
-    let alive = true;
-    fetchVisualAssetUrl(analysisId, 'correctedPose')
-      .then((url) => {
-        if (alive) setCorrectedPoseUrl(url);
-      })
-      // 조용한 폴백 (D-08): 재서명 실패는 사용자에게 노출하지 않는다. URL 이 없으면
-      // 카드가 로딩 자리표시로 남고 에러 문구는 뜨지 않는다.
-      .catch(() => {
-        if (alive) setCorrectedPoseUrl(null);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [correctedPoseDerived, analysisId, correctedPoseNonce]);
 
-  useEffect(() => {
-    if (rotationDerived !== 'done') {
-      setRotationUrl(null);
-      return;
-    }
-    let alive = true;
-    fetchVisualAssetUrl(analysisId, 'rotation')
-      .then((url) => {
-        if (alive) setRotationUrl(url);
-      })
-      .catch(() => {
-        if (alive) setRotationUrl(null);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [rotationDerived, analysisId]);
 
-  // 만료/403 복구는 1회로 제한한다. 상한이 없으면 영구 실패하는 URL 에서
-  // onError → 재발급 → onError 무한 루프가 돈다.
-  const onCorrectedPoseImageError = () => {
-    if (correctedPoseRetried) return;
-    setCorrectedPoseRetried(true);
-    setCorrectedPoseNonce((n) => n + 1);
-  };
 
-  // 회전 영상 온디맨드 요청 (D-06).
-  const [rotationBusy, setRotationBusy] = useState(false);
-  const [rotationJustRequested, setRotationJustRequested] = useState(false);
-  const [rotationLimitNotice, setRotationLimitNotice] = useState<
-    string | undefined
-  >(undefined);
 
-  const onRequestRotation = async () => {
-    if (rotationBusy) return;
-    setRotationBusy(true);
-    setRotationLimitNotice(undefined);
-    try {
-      await requestRotationVideo(analysisId);
-      // 낙관적 pending — 실제 동기화는 onSnapshot 이 한다.
-      setRotationJustRequested(true);
-    } catch (e) {
-      // 한도 초과만 사용자에게 알린다 (인라인 1줄). code 로만 분기 —
-      // message 문자열 파싱 금지 (리뷰 M-05).
-      if (isDailyLimit(e)) {
-        setRotationLimitNotice(
-          '오늘 만들 수 있는 참고 영상을 모두 사용했어요. 내일 다시 시도할 수 있어요.',
-        );
-      }
-      // feature_disabled / 네트워크 / 기타 → 조용히 버튼만 원복 (D-08).
-      // "기능이 불안하다"는 인상을 남기지 않는다.
-    } finally {
-      setRotationBusy(false);
-    }
-  };
 
-  const correctedPoseState: ReferenceCardState =
-    correctedPoseDerived === 'hidden'
-      ? 'hidden'
-      : correctedPoseDerived === 'pending'
-        ? 'pending'
-        : correctedPoseUrl
-          ? 'ready'
-          : 'loading';
-
-  const rotationState: RotationCardState = !ROTATION_FEATURE_ENABLED
-    ? // [2026-07-20 belle 결정] 회전 영상은 이번 릴리스에서 끈다. 백엔드 생성
-      // Lambda 3종을 배포하지 않았으므로 버튼을 누르면 실패한다 — 앱은 서버 flag 를
-      // 알 수 없어 'requestable' 로 떨어지고 **없는 기능의 버튼이 노출됐다**(실기기 확인).
-      //
-      // 끈 이유는 품질이다: 실측 2건에서 sliding-spin 이 봉을 잡은 자세를 봉에서
-      // 떨어진 다른 자세로 바꾸고 화면 자막까지 환각했다(`Sliding spin`→`Stafing spin`).
-      // 회전 영상의 위험은 교정 이미지와 다르다 — **사용자가 그것을 자기 자세로
-      // 착각한다.** 없는 결함을 만들어내는 시각물이라 미노출이 맞다.
-      // 되살릴 때는 이 상수만 true 로 (31-CLOSEOUT.md §3).
-      'hidden'
-    : result.rotationStatus === undefined
-      ? // 아직 요청 전 (legacy/미요청) — 온디맨드 기능의 진입점이므로 버튼을 보여준다.
-        'requestable'
-      : result.rotationStatus === 'failed'
-        ? // 실패는 숨김. 모더레이션 차단은 재시도해도 대개 다시 막히고 과금만 든다 (D-08).
-          'hidden'
-        : rotationDerived === 'hidden'
-          ? // pending 타임아웃 — 'failed' 와 달리 잡이 유실됐을 뿐이므로 다시 요청할 수
-            // 있게 둔다. 여기서 'hidden' 으로 두면 이 분석 건에서 회전 영상 기능이
-            // 영구히 사라진다 (서버가 dedupe 하므로 중복 과금 위험은 낮다).
-            'requestable'
-          : rotationDerived === 'pending' || rotationJustRequested
-            ? 'pending'
-            : rotationUrl
-              ? 'ready'
-              : 'pending';
-
-  // 비교 뷰어 데이터 — mode3 는 targetRefId=null 로 내려 뷰어가 자연히 숨겨진다.
-  // 정직한 강등(Pitfall 6): DTW 대응은 mode1 reference 에만 성립하므로, 학생 자세만
-  // 그려놓고 "비교"라 부르지 않는다.
-  const targetRefId = cmp.mode === 'mode1' ? cmp.referenceMotionId : null;
-  const refDoc = useReferenceMotionDoc(targetRefId);
-
-  const compareFrames = useMemo(
-    () => pickCompareFrames(result.faultZoomComparisons),
-    [result.faultZoomComparisons],
-  );
-
-  const userJoints3d = useMemo(
-    () =>
-      reshapePose3dData(
-        result.joints3d,
-        result.joints3dKeys,
-        result.joints3dFrames,
-      ),
-    [result.joints3d, result.joints3dKeys, result.joints3dFrames],
-  );
-
-  // 프레임 인덱스는 keypointReport 프레임 공간이라 joints3d 공간으로 환산한다.
-  // 원 공간 = keypointReport.frames. 부재/0 인 구 doc 은 anglesFrames, 그것도 없으면
-  // 항등 매핑 폴백.
-  const { viewerUserPose, viewerRefPose, viewerJointKeys } = useMemo(() => {
-    const empty = {
-      viewerUserPose: null as number[][] | null,
-      viewerRefPose: null as number[][] | null,
-      viewerJointKeys: [] as string[],
-    };
-    if (!compareFrames || !userJoints3d || userJoints3d.length === 0) return empty;
-    const refFrames = refDoc.joints3d;
-    if (!refFrames || refFrames.length === 0) return empty;
-
-    const userKeys = result.joints3dKeys ?? refDoc.jointKeys;
-    const refKeys = refDoc.jointKeys ?? result.joints3dKeys;
-    if (!userKeys || !refKeys) return empty;
-    // 두 문서의 keypoint 순서가 다르면 같은 인덱스가 다른 관절을 가리킨다 —
-    // 뼈대가 엉뚱하게 이어진 스켈레톤을 그리느니 숨긴다 (31-08 reshape 강등과 동일 철학).
-    if (
-      userKeys.length !== refKeys.length ||
-      userKeys.some((k, i) => k !== refKeys[i])
-    ) {
-      return empty;
-    }
-
-    // [fix 2026-07-20] 사용자/기준은 **서로 다른 프레임 공간**이다. 기준 인덱스를
-    // 사용자 프레임 수로 환산하던 버그가 있었다: refFrameIdx(기준 keypointReport
-    // 공간)를 srcFrames(사용자 anglesFrames)로 나누면, 기준 영상이 사용자보다 길 때
-    // `idx >= fromFrames` 에 걸려 mapFrameIdx 가 null 을 반환하고 뷰어가 통째로
-    // 숨는다. 실측: 사용자 anglesFrames 83 / refFrameIdx 90 → null → 미표시.
-    // 기준(정은지)이 사용자 영상보다 긴 것은 흔하므로 대부분의 분석에서 재현됐다.
-    //
-    // 기준 측 원본 공간은 reference 문서의 keypointReport 프레임 수인데, 앱은 그
-    // 값을 따로 들고 있지 않다. reference 의 joints3d 프레임 수(refFrames.length)가
-    // 같은 공간이므로(둘 다 기준 영상 전체를 같은 샘플링으로 덮는다) 그것을 src 로
-    // 쓴다 — 결과적으로 기준은 항등 매핑이 되고, 범위 검사만 유효하게 남는다.
-    // [fix 2026-07-20 #2] faultZoom 인덱스의 원 공간 = **keypointReport 프레임 공간**.
-    // 사용자 문서는 keypointReport 18fps(실측 frames=166) / joints3d·angles 9fps(83)
-    // 로 두 공간이 갈라져 있는데, 종전 코드는 anglesFrames 를 원 공간으로 가정해
-    // 항등 통과시켰다 — 뷰어가 2배 뒤 시점의 자세를 그렸다(실기기 2026-07-20,
-    // 뭉개진 삼각형). reference 11건은 kr==joints3d==angles 단일 공간(전수 실측)이라
-    // 아래 ref 쪽 항등 매핑은 무결. kr 부재/0 구 문서는 종전대로 anglesFrames 폴백.
-    const krFrames = result.keypointReport?.frames;
-    const userSrcFrames =
-      (typeof krFrames === 'number' && krFrames > 0 ? krFrames : undefined) ??
-      anglesFrames ??
-      userJoints3d.length;
-    const uIdx = mapFrameIdx(
-      compareFrames.userIdx,
-      userSrcFrames,
-      userJoints3d.length,
-    );
-    const rIdx = mapFrameIdx(
-      compareFrames.refIdx,
-      refFrames.length,
-      refFrames.length,
-    );
-    if (uIdx === null || rIdx === null) return empty;
-
-    return {
-      viewerUserPose: userJoints3d[uIdx] ?? null,
-      viewerRefPose: refFrames[rIdx] ?? null,
-      viewerJointKeys: userKeys,
-    };
-  }, [
-    compareFrames,
-    userJoints3d,
-    refDoc.joints3d,
-    refDoc.jointKeys,
-    result.joints3dKeys,
-    result.keypointReport,
-    anglesFrames,
-  ]);
-
-  const correctedPoseJointLabel = result.correctedPoseJoint
-    ? JOINT_LABEL_KO[result.correctedPoseJoint]
-    : undefined;
 
   // refMotion.meanAngles 가 있으면 result.joints 의 targetAngle 을 정은지 실측
   // 평균으로 덮어쓴다 (예: 168° → 153.74°). 코칭팁 angleGuide 가 자동으로 정밀치
@@ -1153,18 +581,6 @@ function AnalysisResultContent({
   // visionVeto.status==='applied' 가 1차 신호. 안전망: overallScore < similarity 면(어떤
   // 이유든) similarity 헤드라인이 octagon 과 모순되므로 절대 노출하지 않는다.
   const vetoApplied = result.visionVeto?.status === 'applied';
-  const mode1Contradiction =
-    cmp.mode === 'mode1' &&
-    (vetoApplied || result.overallScore < cmp.similarity);
-  // applied 시 결함 사유(자연어 DESCRIPTION). legacy doc 호환 — optional chaining.
-  // quick-260831-lcc — sanitizeFinding 단일 지점 소독: 백엔드가 '없음'/공백을 주면
-  // undefined 강등 → ①ScoreContext "없음 보완하면…" ②'먼저 교정할 점: 없음'
-  // ③"AI 발견한 점: 없음" 3면 동시 수리 (조립 상류 차단).
-  const vetoPrimaryFault = sanitizeFinding(
-    result.visionVeto?.status === 'applied'
-      ? result.visionVeto.primaryFault
-      : undefined,
-  );
   // #3 (2026-06-21) — Gemini 가 식별한 실제 결함 keypoint(backend 매핑). 있으면
   // 마커를 각도편차 최대 관절이 아니라 진짜 결함 관절에 찍는다 (legacy doc=undefined).
   const vetoFaultJoints =
@@ -1297,18 +713,6 @@ function AnalysisResultContent({
     const copy = flag ? riskFlagCopy(flag.flagType) : null;
     return copy ? { title: copy.title, lines: [copy.why] } : null;
   }, [result.safetyFlags]);
-  const hasRecords = records.length > 0;
-  // belle 08-07 #1 — ScoreBreakdownSection 정합. 그 컴포넌트는 breakdown.records 를
-  // 내부 순회하며 recordNumbers 와 index 평행 조인하므로, 정렬 records 로 재조립한
-  // breakdown 객체를 전달해야 행 ↔ 번호가 일치한다 (컴포넌트 무수정 해결).
-  // records 외 필드(final/coverageGaps 등)는 spread 그대로 — 값 byte 동일.
-  const sortedBreakdown = useMemo(
-    () =>
-      result.deductionBreakdown != null
-        ? { ...result.deductionBreakdown, records }
-        : result.deductionBreakdown,
-    [result.deductionBreakdown, records],
-  );
 
   // quick-260704-fz4 — 2단 시각 언어 set 단일 조립 (표·마커·카드가 같은 소스 사용).
   // 빨강 = 확정 결함(감점 근거): deductionBreakdown records 의
@@ -1353,14 +757,6 @@ function AnalysisResultContent({
     [confirmedKeypoints],
   );
 
-  // quick-260705-o0s → 29-CONTEXT D-01 — 감점 0 게이트 단일 신호 (belle 추가
-  // 피드백 #2). 요약 카피·문제-계열 섹션 숨김·축하 섹션이 전부 이 값 하나를
-  // 소비한다 (분기 산개 금지). 29-04: mode 무관화 — 29-02 가 mode3 등록 동작에
-  // breakdown(records 0 + final 100)을 방출하므로 mode3 clean 도 축하 대상이다
-  // (mode1 한정 제거). legacy/미등록/빈 criteria doc(breakdown 부재)은 여전히
-  // false → 기존 렌더 무회귀. 감점 0 이면 veto applied 일 수 없지만(감점 record
-  // 가 tally 의 실체) 각 소비처에 방어 게이트로 명시한다.
-  const cleanPass = isCleanPass(result.deductionBreakdown);
 
   // IN-01 (quick-260724-q6b) — 역립/자기가림 저신뢰 게이트 단일 신호 (Task 3/4 공용).
   // unreliable 이면 per-joint 단정 표면(오버레이 마커·점수 내역·코칭 팁·확대비교 라벨·
@@ -1447,31 +843,7 @@ function AnalysisResultContent({
     () => buildPartGroups(records, markers.recordNumbers, vetoFaultJoints),
     [records, markers.recordNumbers, vetoFaultJoints],
   );
-  // 부위 칩 — 입력은 전부 기존 판정 재사용 (새 게이트 신설 0): attentionKeypoints memo
-  // (주황 = 감점 아님), attributionUnreliable (IN-01 저신뢰).
-  const partChips = useMemo(
-    () =>
-      buildPartChips({
-        records,
-        recordNumbers: markers.recordNumbers,
-        faultJoints: vetoFaultJoints,
-        attentionKeypoints,
-        estimatedArea: attributionUnreliable,
-      }),
-    [
-      records,
-      markers.recordNumbers,
-      vetoFaultJoints,
-      attentionKeypoints,
-      attributionUnreliable,
-    ],
-  );
 
-  // quick-260705-o0s — 점수 계산 내역 상단 채점 기준 1줄 (deviationSource 자동 조립).
-  const breakdownBasisLine = useMemo(
-    () => composeScoringBasisKo(records),
-    [records],
-  );
 
   // quick-260705-o0s/r6v — 문제 관절 행동 지시 문구 조립. quick-260705-r6v 부터
   // 소비처가 "영상 위 pill"(제거됨) → "전체화면 여백 범례 + 드릴다운 시트 행동구"
@@ -1664,44 +1036,10 @@ function AnalysisResultContent({
   // 재논의 건이지 이 수리의 결함이 아니다.
   const overlayTimelineTicks = timelineTicks;
 
-  // quick-260702-q8q → 29-CONTEXT D-01 — "점수 계산 내역" 섹션 렌더 가드.
-  // 29-04: mode 무관화 — deductionBreakdown 보유 doc 만 (29-02 가 mode3 등록 동작
-  // md 보유 시에만 방출하므로 미등록/legacy/빈 criteria 동작은 필드 부재 → 섹션
-  // 자연 숨김, normalize 가 malformed 를 undefined 로 접음 — 크래시 0). mode1 전용
-  // 조건 제거 근거 = 29-CONTEXT D-01 (mode3 투명 감점-합산 소비).
-  const showBreakdownSection = result.deductionBreakdown != null;
 
-  // 33-15 (D-16) — 각도 수치 이동 게이트. 점수 계산 내역 카드가 있을 때만 코칭 팁
-  // 카드에서 각도 수치를 걷어낸다 (이동, 삭제 아님). legacy doc(내역 카드 부재)은
-  // 코칭 팁의 각도 줄이 수치의 유일한 거처라 종전 렌더 유지 — 이동 불가 시 삭제
-  // 금지 ([[scoring-must-be-transparent-deduction-tally]] 투명 공개 원칙).
-  const angleNumbersRelocated = showBreakdownSection;
 
-  // Phase 20 (UI ④) — 점수 맥락 카드의 "교정 포인트". 비전 결함(primaryFault)
-  // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
-  // 일반 격려 카피. 추가 fetch 0 (이미 result 에 있는 데이터만 사용).
-  // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 헤드라인에 관절명이 새지 않도록 null.
-  // quick-260831-lcc — tips[0].title 에도 sanitizeFinding 동일 소독 ('없음' 강등).
-  // quick-260901-wbo — coachStatus pending 이어도 무접촉: title 은 결정론 산출
-  // (kismam.top_issues + COACHING_FOCUS)이라 pending 동안에도 최종값과 동일.
-  const correctionPoint = attributionUnreliable
-    ? null
-    : (vetoPrimaryFault ?? sanitizeFinding(result.tips[0]?.title) ?? null);
 
-  const summary =
-    cmp.mode === 'mode1'
-      ? cleanPass
-        ? mode1Summary(cmp.athleteName, cmp.similarity, true)
-        : mode1Contradiction
-          ? mode1VetoSummary(cmp.athleteName)
-          : mode1Summary(cmp.athleteName, cmp.similarity, false)
-      : cmp.isFirst
-        ? '첫 분석이에요. 다음 분석부터 발전을 비교해드려요.'
-        : mode3Summary(result.overallScore, prevDoc?.result?.overallScore);
 
-  // 표시할 차원 = 결과에 존재하는 차원만 (mode1=3, mode3 first=2 또는 1, mode3 second+=3).
-  // 재설계 이전 문서(옛 partScores·dimensionScores 없음)는 빈 객체로 폴백 — 크래시 방지.
-  const dimensionScores = result.dimensionScores ?? {};
   // (구 dims/dimensionExplanation/detailDim/DimensionDetailModal 제거 — D-03/D-12.
   //  차원 수치는 summaryContent 칭찬 적격 판정·심사 정보 코너로만 흐른다.)
   // Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달 state. tip null = 닫힘.
@@ -1816,22 +1154,6 @@ function AnalysisResultContent({
   // 부분 업데이트가 updatedAt 을 갱신)마다 타이머 재무장. 상한 초과·'failed'·부재
   // (legacy doc)·'done' 은 전부 기존 tips 렌더 그대로 — placeholder 만 숨고 섹션은
   // 비지 않는다 (tips 는 required 필드, pending 동안에도 수치 폴백이 실려 있음).
-  const [coachPendingTimedOut, setCoachPendingTimedOut] = useState(false);
-  useEffect(() => {
-    setCoachPendingTimedOut(false);
-    if (result.coachStatus !== 'pending') return;
-    const elapsed = Date.now() - (updatedAt ?? 0);
-    const remaining = COACH_PENDING_TIMEOUT_MS - elapsed;
-    if (remaining <= 0) {
-      // 이미 상한 초과(예: 앱을 오래 뒤에 다시 열었을 때) — 즉시 수치 폴백 렌더.
-      setCoachPendingTimedOut(true);
-      return;
-    }
-    const t = setTimeout(() => setCoachPendingTimedOut(true), remaining);
-    return () => clearTimeout(t);
-  }, [result.coachStatus, updatedAt]);
-  const coachPending =
-    result.coachStatus === 'pending' && !coachPendingTimedOut;
 
   // 28-CONTEXT D-01 — malformed/legacy → null = 현행 절대시계 (ASVS V5 방어 소비).
   // result.motionAlignment 를 소비측 normalizeMotionAlignment 로 재검증 후 VideoCompare
@@ -1961,13 +1283,6 @@ function AnalysisResultContent({
     return map;
   }, [joints]);
 
-  // Phase 12 Wave 2 (Plan 12-03 T3) — confidence/occlusion 표기 (D-12-D1/D2 박제).
-  // 영상 전체 low reliability frame 비율 — 차원 카드 ⚠ badge (≥ 0.20) +
-  // 코칭 팁 row 추정 표기 (≥ 0.30) 분기 source.
-  const lowReliabilityRatioVal = useMemo(
-    () => lowReliabilityRatio(userKeypointReport),
-    [userKeypointReport],
-  );
   // (구 참고 지표 occlusion badge 제거 — D-03/D-12. 가림 신호는 코칭 팁 추정
   //  표기(isAngleEstimated)로만 노출. lowReliabilityRatioVal 은 그 경로에서 소비.)
 
@@ -1977,141 +1292,11 @@ function AnalysisResultContent({
   // 카메라각 합성 API 는 현재 없음(생성형=환각, in-house 메시=라이선스 차단) →
   // belle 방향 결정 대기. 그동안 깨진 뷰어는 즉시 제거(미루기 금지 원칙).
 
-  // 코칭 팁 row 의 각도 표시 분기 = (joint 평균 confidence < 0.5) 또는
-  // (low reliability frame 비율 ≥ 0.30). 추정 표기 + ⓘ tap → Alert.
-  const isAngleEstimated = (jointKey: string): boolean => {
-    if (lowReliabilityRatioVal >= 0.3) return true;
-    const kpName = KEYPOINT_FROM_ANGLE_KEY[jointKey];
-    if (!kpName) return false;
-    const c = jointConfidenceFromReport(userKeypointReport, kpName);
-    if (c == null) return false;
-    return c < 0.5;
-  };
 
-  const showEstimateTooltip = () => {
-    Alert.alert(
-      '추정값',
-      '이 구간은 가림 또는 측정 불확실로 추정값입니다.',
-    );
-  };
 
-  // Phase 20 (UI ①) — 비전 거부권 적용 시 "거의 동일/일치도 100/거의 다 왔어요"
-  // 류 모순 카피를 코칭 팁에서도 제거한다 (헤드라인은 mode1VetoSummary 로 이미
-  // 차단됨). backend tip 본문이 75 헤드라인과 충돌하지 않도록 방어. veto 미적용
-  // (정타) 영상은 원본 tips 그대로 — 정상 칭찬 카피 보존.
-  const displayTips = useMemo(() => {
-    const CONTRADICTORY = ['거의 동일', '일치도 100', '거의 다 왔'];
-    const base = !vetoApplied
-      ? result.tips
-      : result.tips.filter((tip) => {
-          const text = `${tip.title} ${tip.detail}`;
-          return !CONTRADICTORY.some((phrase) => text.includes(phrase));
-        });
-    // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 per-joint 팁(tip.joint != null) 제거
-    // (관절 단정 금지). generic 팁만 남긴다. false/부재 시 base 그대로.
-    return attributionUnreliable
-      ? base.filter((tip) => tip.joint == null)
-      : base;
-  }, [result.tips, vetoApplied, attributionUnreliable]);
 
-  // quick-260831-lcc — 백엔드 생성 반복 면책 접기 (belle 2026-08-31 결과 화면
-  // 재구성 — 면책 통합). "정확한 자세는 강사와 함께 영상 확인 권고드립니다" 류
-  // 말미 문장이 팁마다 붙는 것은 **백엔드 생성 문장**(app 코드에 해당 문자열
-  // 없음 — 플래너 grep 실측)이라 표시 레이어에서만 접는다: 말미 면책 문장
-  // ("강사와" + "확인"/"권고" 포함)으로 끝나는 팁이 2개 이상이면 각 팁에서 그
-  // 말미 문장을 잘라내고 섹션 말미 1줄로 통합. 패턴 미매치/1개뿐인 doc 은 원문
-  // 그대로 (무회귀). doc 원문은 무변형 — 렌더 표시만 접는다.
-  const tipDetailFold = useMemo(() => {
-    const splitTrailingDisclaimer = (
-      detail: string,
-    ): { body: string; disclaimer: string | null } => {
-      const trimmed = detail.trimEnd();
-      const withoutFinalPeriod = trimmed.endsWith('.')
-        ? trimmed.slice(0, -1)
-        : trimmed;
-      // 마지막 문장 경계 — '. ' 기준. 단일 문장 detail 은 접지 않는다
-      // (본문 전체 소실 방지).
-      const lastBoundary = withoutFinalPeriod.lastIndexOf('. ');
-      if (lastBoundary < 0) return { body: detail, disclaimer: null };
-      const lastSentence = withoutFinalPeriod.slice(lastBoundary + 2);
-      if (
-        lastSentence.includes('강사와') &&
-        (lastSentence.includes('확인') || lastSentence.includes('권고'))
-      ) {
-        return {
-          body: trimmed.slice(0, lastBoundary + 1),
-          disclaimer: lastSentence,
-        };
-      }
-      return { body: detail, disclaimer: null };
-    };
-    const parsed = displayTips.map((tip) => splitTrailingDisclaimer(tip.detail));
-    const disclaimerCount = parsed.filter((p) => p.disclaimer != null).length;
-    if (disclaimerCount < 2) {
-      return {
-        details: displayTips.map((t) => t.detail),
-        merged: false,
-      };
-    }
-    return {
-      details: parsed.map((p, i) =>
-        p.disclaimer != null ? p.body : displayTips[i].detail,
-      ),
-      merged: true,
-    };
-  }, [displayTips]);
 
-  // 33-15 (D-16) — 코칭 팁 카드에서 걷어낸 각도 수치의 새 거처 행 조립. 소스는
-  // 종전 팁 각도 줄과 동일(displayTips 관절의 angleGuide) — 모순 카피 필터·IN-01
-  // 저신뢰 per-joint 억제가 그대로 승계되므로 저신뢰 시 자연히 빈 배열(관절 단정 0).
-  // 관절 라벨 = JOINT_LABEL_KO 데이터 키잉 (동작명 하드코딩 0, 10동작 공통).
-  // isAngleEstimated 는 lowReliabilityRatioVal/userKeypointReport 파생.
-  const angleReferenceRows = useMemo(() => {
-    const out: {
-      key: string;
-      label: string;
-      line: string;
-      estimated: boolean;
-    }[] = [];
-    for (const tip of displayTips) {
-      if (!tip.joint) continue;
-      if (out.some((r) => r.key === tip.joint)) continue;
-      const joint = joints.find((j) => j.key === tip.joint);
-      if (!joint) continue;
-      const guide = angleGuide(joint);
-      if (!guide || joint.currentAngle == null || joint.targetAngle == null) {
-        continue;
-      }
-      const estimated = isAngleEstimated(tip.joint);
-      out.push({
-        key: tip.joint,
-        label: JOINT_LABEL_KO[tip.joint] ?? tip.joint,
-        line: `${estimated ? '추정' : '현재'} ${Math.round(joint.currentAngle)}° → 기준 ${Math.round(joint.targetAngle)}°`,
-        estimated,
-      });
-    }
-    return out;
-    // isAngleEstimated 는 아래 deps 파생 (lowReliabilityRatioVal/userKeypointReport).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayTips, joints, lowReliabilityRatioVal, userKeypointReport]);
 
-  // quick-260704-fwb — '먼저 교정할 점' 카드 처방 구조. 상태(primaryFault) 아래
-  // 원인 기전(rootCauseHypotheses 상위 2건, supportCount 내림차순, '~로 보임' 가설
-  // 어투 그대로 — 측정 안 된 단정 금지) + 처방 연결(결함 관절 매칭 첫 팁 detail).
-  // 전부 저장된 값만 사용 — 부재 시 섹션 생략/폴백 한 줄 (legacy doc 크래시 0).
-  const vetoRootCauses = useMemo(() => {
-    if (result.visionVeto?.status !== 'applied') return [];
-    const hyps = result.visionVeto.rootCauseHypotheses ?? [];
-    return hyps
-      .filter((h) => typeof h.text === 'string' && h.text.length > 0)
-      .slice()
-      .sort(
-        (a, b) =>
-          (typeof b.supportCount === 'number' ? b.supportCount : 0) -
-          (typeof a.supportCount === 'number' ? a.supportCount : 0),
-      )
-      .slice(0, 2);
-  }, [result.visionVeto]);
   // (구 vetoFixTip 제거 — quick-260831-lcc veto 카드 해체. "이렇게 교정해 보세요"
   //  줄은 코칭 팁 detail 의 verbatim 재출현이었다 — 코칭 팁 본문이 유일본.)
 
@@ -2144,42 +1329,7 @@ function AnalysisResultContent({
   const isRecordHidden = (rec: DeductionRecord): boolean =>
     rec.recordId != null && hiddenRecordIds.has(rec.recordId);
 
-  // top-1 감점 record index — 미션 record 우선(result.mission.recordId), 없으면 최대
-  // 감점(points 가장 음수). cleanPass/legacy 면 -1. 스팟체크 숨김 record 는 top-1
-  // 후보에서 제외 (숨긴 문장을 요약·완결형 카드로 되살리지 않음 — D-23).
-  // 정렬 무관: 히어로 = mission 우선 + 최대 감점 명시 선택 (belle 08-07 #1 주의 a 확인).
-  const topFixIndex = useMemo(() => {
-    if (records.length === 0) return -1;
-    const mid = result.mission?.recordId;
-    if (mid && !hiddenRecordIds.has(mid)) {
-      const i = records.findIndex((r) => r.recordId === mid);
-      if (i >= 0) return i;
-    }
-    let best = -1;
-    for (let i = 0; i < records.length; i += 1) {
-      const rid = records[i].recordId;
-      if (rid != null && hiddenRecordIds.has(rid)) continue;
-      if (best < 0 || records[i].points < records[best].points) best = i;
-    }
-    return best;
-  }, [records, result.mission?.recordId, hiddenRecordIds]);
-  const topFixRecord = topFixIndex >= 0 ? records[topFixIndex] : null;
-  const topFixKey =
-    topFixIndex >= 0 ? recordKeyForIndex(records, topFixIndex) : null;
 
-  // DeductionRecord(계약) → DeductionCardRecord(카드 로컬 모양) 매핑.
-  const toCardRecord = (rec: DeductionRecord): DeductionCardRecord => ({
-    recordId: rec.recordId,
-    label: criterionLabelKo(rec.criterion),
-    statusLine: rec.statusLine,
-    whyLine: rec.whyLine,
-    cueLine: rec.cueLine,
-    points: rec.points,
-    measured: rec.measuredValue,
-    target: rec.baselineValue,
-    unit: rec.unit,
-    tolerance: rec.tolerance,
-  });
 
   // 결함 zoom(userFrameIdx 보유) 조인 매처 — selectedZoom 과 동일 단일 출처
   // (deductionLabels.matchZoomForDeductionRecord — 33-12 A-5 criterion 키 일치
@@ -2191,10 +1341,6 @@ function AnalysisResultContent({
       result.faultZoomComparisons ?? [],
     );
 
-  // quick-260903-f2w (표 3 행 4) — topFix 카드의 확정 확대비교. 카드 인라인 이미지와
-  // "확대 비교 자세히 보기" 링크가 같은 매칭 결과를 쓴다 (렌더마다 계산 — 다른
-  // 호출부와 동일, 비용 미미). 매칭 규칙 자체(advisory 제외 등)는 무접촉.
-  const topFixZoom = topFixRecord ? matchZoomForRecord(topFixRecord) : null;
 
   // quick-260903-ftg — IN-01 저신뢰 경로의 예상 부위 사진 카드 목록(확정 카드 전부).
   // 종전 진입 링크는 estimatedAreaRecordIndex 1건의 시트만 열어 확정 카드가 2장이어도
@@ -2243,8 +1389,7 @@ function AnalysisResultContent({
   };
 
   // 강사 질문 — 자동 수집(result.coachQuestions, D-28) + legacy 폴백
-  // (openQuestionsForCoach, coachQuestions 부재 doc만) + 사용자 담기(source 'user').
-  const [userQuestions, setUserQuestions] = useState<CoachQuestion[]>([]);
+  // (openQuestionsForCoach, coachQuestions 부재 doc만).
   const autoQuestions = useMemo<CoachQuestion[]>(() => {
     const out: CoachQuestion[] = [];
     const seen = new Set<string>();
@@ -2264,71 +1409,7 @@ function AnalysisResultContent({
     }
     return out;
   }, [result.coachQuestions, openQuestionsForCoach]);
-  const combinedCoachQuestions = useMemo<CoachQuestion[]>(() => {
-    const seen = new Set(autoQuestions.map((q) => q.text));
-    const extra = userQuestions.filter((q) => !seen.has(q.text));
-    return [...autoQuestions, ...extra];
-  }, [autoQuestions, userQuestions]);
-  // quick-260831-lcc — 렌더용 dedup (belle 2026-08-31 결과 화면 재구성: generic
-  // 중복 축소). 같은 recordId 질문은 첫 1개만, recordId 없는 generic 질문은
-  // **텍스트 정확 일치만** 제거한다. 사용자가 직접 담은 질문(source 'user')은
-  // 필터하지 않는다. combinedCoachQuestions(수집 원본)는 무변형 — 표시 축소만.
-  //
-  // ★2026-08-31 앱 리뷰 수정: 초기 구현이 generic 을 **1개로 잘랐다**(genericCount).
-  // 그런데 legacy doc(result.coachQuestions 부재)은 openQuestionsForCoach 폴백이
-  // 전부 recordId 없이 들어와, 서로 다른 미측정 영역 질문 3개가 1개로 줄었다 =
-  // 정보 손실. 중복 제거(같은 문장)와 축소(다른 문장 버리기)는 다른 일이다.
-  const displayCoachQuestions = useMemo<CoachQuestion[]>(() => {
-    const out: CoachQuestion[] = [];
-    const seenRecordIds = new Set<string>();
-    const seenGenericTexts = new Set<string>();
-    for (const q of combinedCoachQuestions) {
-      if (q.source === 'user') {
-        out.push(q);
-        continue;
-      }
-      if (q.recordId) {
-        if (seenRecordIds.has(q.recordId)) continue;
-        seenRecordIds.add(q.recordId);
-        out.push(q);
-        continue;
-      }
-      if (seenGenericTexts.has(q.text)) continue;
-      seenGenericTexts.add(q.text);
-      out.push(q);
-    }
-    return out;
-  }, [combinedCoachQuestions]);
-  // '강사님께 물어보기' 담기 — recordId 로 완성문(record.coachQuestion) 또는 라벨 기반.
-  const addUserQuestion = (recordId: string | null) => {
-    const rec =
-      recordId != null ? records.find((r) => r.recordId === recordId) : undefined;
-    const text =
-      rec?.coachQuestion ??
-      (rec
-        ? `${criterionLabelKo(rec.criterion)} 어떻게 교정하면 좋을지 강사님께 여쭤보고 싶어요`
-        : '이 부분 어떻게 교정하면 좋을지 강사님께 여쭤보고 싶어요');
-    setUserQuestions((prev) =>
-      prev.some((q) => q.text === text)
-        ? prev
-        : [...prev, { text, source: 'user', recordId: recordId ?? undefined }],
-    );
-  };
 
-  // recordId 조인 맵 — record→{questions, zoomPair, index, key}. 카드 점프·질문
-  // 연결이 전부 이 맵의 안정 키를 쓴다(배열 index 조인 금지 — 리뷰 반영).
-  const recordMaps = useMemo(
-    () =>
-      buildRecordMaps<DeductionRecord, FaultZoomComparison, CoachQuestion>(
-        records,
-        result.faultZoomComparisons ?? [],
-        combinedCoachQuestions,
-        (rec) => matchZoomForRecord(rec),
-      ),
-    // matchZoomForRecord 는 result.faultZoomComparisons/vetoFaultJoints 파생.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [records, result.faultZoomComparisons, combinedCoachQuestions, vetoFaultJoints],
-  );
 
   // 재생 중 자막 큐 (D-18 자막 + D-17 밀도) — record 의 cueLine(부재 legacy=행동구
   // 폴백) + record 의 **인증된 측정 순간**(atVideoSec)으로 윈도우 산출.
@@ -2484,123 +1565,7 @@ function AnalysisResultContent({
   const hasCoverageGap =
     (result.deductionBreakdown?.coverageGaps?.length ?? 0) > 0;
 
-  // 요약 카드 3요소 (deriveSummaryContent — 32-07). mode3 헤드라인=발전 델타 invariant
-  // 는 summaryPraise(백엔드 사람 말)가 담당(D-26). 수치는 카드가 소형 배지 1곳만.
-  const summaryContent = useMemo(() => {
-    const gaps = (result.deductionBreakdown?.coverageGaps ?? []).map(
-      (g) => g.faultType,
-    );
-    const dimSignals = DIMENSION_ORDER.filter(
-      (d) => dimensionScores[d] != null,
-    ).map((d) => ({
-      key: d as string,
-      score: dimensionScores[d] as number,
-      // 감점 record 가 있으면 clean 칭찬 폴백 차단(모순 칭찬 0 — D-06). 백엔드
-      // summaryPraise 가 있으면 이 폴백은 미사용(단일 원천 우선).
-      hasDeduction: hasRecords,
-      metCriteria: (dimensionScores[d] as number) >= 90,
-    }));
-    const input: SummaryInput = {
-      mode: cmp.mode === 'mode1' ? 'mode1' : 'mode3',
-      summaryPraise: result.summaryPraise ?? null,
-      // 32-13 (D-22 잘한 점 교차검증) — 스팟체크가 headline 불일치를 판정하면
-      // doc praise 를 강등하고 로컬 폴백 체인의 다음 소스로 (32-07 selectPraise).
-      spotCheckPraiseMismatch: result.spotCheck?.praiseMismatch === true,
-      missionOutcome: result.missionOutcome
-        ? {
-            improved: result.missionOutcome.improved,
-            deltaPoints: result.missionOutcome.deltaPoints,
-            criterion: result.missionOutcome.criterion,
-          }
-        : null,
-      mission: result.mission
-        ? {
-            criterion: result.mission.criterion,
-            recordId: result.mission.recordId,
-            isSafety: result.mission.isSafety,
-          }
-        : null,
-      dimensionScores: dimSignals,
-      coverageGaps: gaps,
-      // 32-13 — 숨김 record 는 요약 파생(오늘 고칠 것 헤드라인·다음 행동 문구)
-      // 에서도 제외 (불일치 문장을 요약 카드로 되살리지 않음 — 카드 표면의 일부).
-      deductionRecords: records
-        .filter((r) => !isRecordHidden(r))
-        .map((r) => ({
-          criterion: r.criterion,
-          points: r.points,
-          recordId: r.recordId,
-          statusLine: r.statusLine,
-          cueLine: r.cueLine,
-          exerciseReason: r.exerciseReason,
-          coachQuestion: r.coachQuestion,
-        })),
-      safetyFlagCount: result.safetyFlags?.length ?? 0,
-    };
-    return deriveSummaryContent(input);
-    // isRecordHidden 은 hiddenRecordIds 파생.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    result.summaryPraise,
-    result.spotCheck,
-    result.missionOutcome,
-    result.mission,
-    result.deductionBreakdown,
-    result.safetyFlags,
-    records,
-    dimensionScores,
-    hasRecords,
-    cmp.mode,
-    hiddenRecordIds,
-  ]);
 
-  // 섹션 순서·가시성 — resultSections 뷰모델 단일 결정 지점(node --test 고정).
-  const sections = useMemo(
-    () =>
-      deriveResultSections({
-        mode: cmp.mode === 'mode1' ? 'mode1' : 'mode3',
-        isCleanPass: cleanPass,
-        isScoreSuppressed,
-        safetyFlagCount: result.safetyFlags?.length ?? 0,
-        hasRecords,
-        hasMission: result.mission != null,
-        escalation: result.mission?.escalation ?? null,
-        hasMissionOutcome: result.missionOutcome != null,
-        hasPhrases: records.some(
-          (r) => r.statusLine != null || r.cueLine != null,
-        ),
-        isMode3First: cmp.mode === 'mode3' && cmp.isFirst,
-        hasQuestions: combinedCoachQuestions.length > 0,
-        // belle 2026-08-31 빈 상태 규칙 — "매핑이 없어요" **카드**는 없앤다.
-        // 단 도달성은 유지한다(belle 조건 = 정보 손실 0): 개인화 운동이 없어도
-        // ① exercise_detour 격상 카피(D-27 2회차 미개선)와 ② 정적 보완운동
-        // 라이브러리 진입점은 살아 있어야 한다 — 개인화 존재만으로 게이트하면
-        // 그 둘이 앱 어디에서도 도달 불가가 된다(2026-08-31 앱 리뷰 지적).
-        hasExercise:
-          (result.recommendedExercises?.length ?? 0) > 0 ||
-          result.mission?.escalation === 'exercise_detour' ||
-          CORRECTIVE_LIBRARY_HAS_ITEMS,
-      }),
-    [
-      cmp,
-      cleanPass,
-      isScoreSuppressed,
-      result.safetyFlags,
-      hasRecords,
-      result.mission,
-      result.missionOutcome,
-      result.recommendedExercises,
-      records,
-      combinedCoachQuestions,
-    ],
-  );
-  const sectionMap = useMemo(() => {
-    const m = new Map<ResultSectionKey, ResultSection>();
-    for (const s of sections) m.set(s.key, s);
-    return m;
-  }, [sections]);
-  const isVisible = (k: ResultSectionKey) => sectionMap.get(k)?.visible === true;
-  const variantOf = (k: ResultSectionKey) => sectionMap.get(k)?.variant;
 
   // 첫 진입 코치마크 1회 (32-07 D-07) — hasSeenResultCoachmark 체크 후 표시/기록.
   const [coachmarkVisible, setCoachmarkVisible] = useState(false);
@@ -2621,82 +1586,10 @@ function AnalysisResultContent({
   // 카드 점프 — ScrollView ref + record 카드 y 기록(onLayout). 요약 '오늘 고칠 것'
   // 탭·질문 탭이 recordId 안정 키로 해당 카드 위치로 스크롤한다.
   const scrollRef = useRef<ScrollView>(null);
-  const cardYRef = useRef<Map<string, number>>(new Map());
-  const setCardY = (key: string, y: number) => {
-    cardYRef.current.set(key, y);
-  };
-  const jumpToRecordKey = (key: string | null) => {
-    if (!key) return;
-    const y = cardYRef.current.get(key);
-    if (typeof y === 'number') {
-      scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
-    }
-  };
-  // 질문의 recordId → 안정 키 (records 에서 index 역산 폴백 포함).
-  const jumpToQuestion = (recordId: string | undefined) => {
-    if (!recordId) return;
-    const idx = records.findIndex((r) => r.recordId === recordId);
-    jumpToRecordKey(
-      idx >= 0 ? recordKeyForIndex(records, idx) : recordId,
-    );
-  };
 
-  // 33-15 (D-17) — 요약 카드 '자세히 보기' 토글. 종전엔 topFix 카드로만 점프해
-  // (요약 바로 아래라 거의 안 움직임 + 재탭 무반응) belle 가 "재탭 안 접힘 /
-  // 스크롤 오정지"로 지적. 토글 + '접기' 라벨 + chevron 방향으로 해소했다.
-  // 앵커 키는 전용 setCardY 슬롯 — record 키와 충돌 없음.
-  // quick-260831-lcc — 옥타곤 게이지가 header 직후(요약 카드 위)로 이동해
-  // 'anchor:scoreGauge' 는 목적지로 부적합(위로 튐). '자세히 보기'의 목적지 =
-  // 점수 상세 = 계산 내역(anchor:scoreBreakdown) 단일.
-  const DETAIL_ANCHOR_KEYS = ['anchor:scoreBreakdown'];
-  // F-7 (33-G, quick-260731-cum) — 그 뒤 belle 이 "자세히 보기가 확 내려간다"로 재반려.
-  // 원인: 펼치는 즉시 **펼치기 전에 측정된** scoreGauge/scoreBreakdown y 로 점프해
-  // 요약 카드에서 한참 아래로 내려갔고, 그 y 자체도 stale 이었다(펼침이 레이아웃을
-  // 바꾸는데 갱신 전 값으로 스크롤). 앵커를 **요약 카드 자신**으로 옮긴다 — 누른 줄이
-  // 화면에 남고 그 아래에 새 내용이 나타나면 "펼쳐졌다"가 자명하다(D-05 ②).
-  // 부수 효과로 요약 카드 y 는 펼침으로 **변하지 않으므로**(펼침 콘텐츠는 전부 그
-  // 아래) layout 대기가 필요 없고 stale-y 경합도 같이 사라진다.
-  // 접기도 같은 앵커를 쓴다 — 종전 "최상단 복귀"는 승인 스펙이 아니라 구현 선택이었고,
-  // F-7 이 지적한 "확 튐"과 같은 성질이다.
-  const EXPAND_ANCHOR_KEYS = ['anchor:summaryCard', ...DETAIL_ANCHOR_KEYS];
-  const [detailExpanded, setDetailExpanded] = useState(false);
-  const toggleDetailExpanded = () => {
-    const next = !detailExpanded;
-    setDetailExpanded(next);
-    const y = pickExpandAnchorY(cardYRef.current, EXPAND_ANCHOR_KEYS, 12);
-    if (y != null) {
-      scrollRef.current?.scrollTo({ y, animated: true });
-      return;
-    }
-    // 앵커 전무(억제 + 내역 부재 등) — 기존 폴백 체인 그대로 유지.
-    if (next) scrollRef.current?.scrollToEnd({ animated: true });
-    else scrollRef.current?.scrollTo({ y: 0, animated: true });
-  };
 
-  // 33-15 (D-17) — '오늘 고칠 것' 외 추가 감점 항목 스크롤 어포던스. 추가 항목은
-  // 동작 비교(긴 영상 카드) 아래 '다른 감점 항목' 목록이라 발견이 어렵다 — top-1
-  // 카드 아래에 개수 + 이동 링크를 제공한다 (표시 조건 = 목록 섹션과 동일 미러).
-  const otherVisibleRecordCount = records.filter(
-    (r, i) => i !== topFixIndex && !isRecordHidden(r),
-  ).length;
-  const jumpToCollapsedList = () => {
-    const y = cardYRef.current.get('anchor:collapsedList');
-    if (typeof y === 'number') {
-      scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
-    }
-  };
 
-  // 보완 운동 (D-13) — 전면 1개(개인화 추천 top) + 이유 1줄(top-1 record.exerciseReason
-  // 우선, 부재 시 운동 purpose) + 나머지 가로 최대 3.
-  const recommendedExercises = result.recommendedExercises ?? [];
-  const frontExercise = recommendedExercises[0] ?? null;
-  const frontExerciseReason =
-    topFixRecord?.exerciseReason ?? frontExercise?.purpose ?? null;
-  const altExercises = recommendedExercises.slice(1, 1 + EXERCISE_MAX_ALT);
-  const exerciseDetour = result.mission?.escalation === 'exercise_detour';
 
-  // 심사 시뮬레이션 (D-03) — 내 실제 감점 record 를 IPSF 규칙 감점으로 환산.
-  const judgeFinal = result.deductionBreakdown?.final ?? result.overallScore;
 
   return (
     <View style={styles.container}>
@@ -3236,7 +2129,7 @@ function AnalysisResultContent({
             // 기존 섹션과 **같은 소스**. result.coachQuestions 가 없는 doc 은
             // legacy 폴백(openQuestionsForCoach)이 채우고 사용자가 담은 질문도
             // 합쳐진다 — 두 표면이 다른 질문을 보여주면 안 된다.
-            questions={combinedCoachQuestions}
+            questions={autoQuestions}
             onSeeAllExercises={() => setExerciseModalOpen(true)}
             onReanalyze={() => router.replace('/(tabs)/analyze')}
             shareMessage={shareMessage}

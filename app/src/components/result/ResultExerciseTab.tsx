@@ -26,6 +26,10 @@ import type { CoachQuestion, RecommendedExercise } from '../../types/analysis';
 
 const K = 390 / 467.206;
 
+// belle 09-09 — 시안 4 는 운동 카드가 **3개**다. 백엔드는 3~5개를 내려주므로
+// (exercise_map 산출) 넘치는 것은 아래 화살표(전체 보완 운동 보기)가 맡는다.
+const MAX_ROWS = 3;
+
 const D = {
   cardPad: 19.1,
   rowH: 97.4 * K, // 81.3
@@ -61,7 +65,7 @@ export function ResultExerciseTab({
     <>
       {exercises.length > 0 ? (
         <View style={styles.card}>
-          {exercises.map((ex, i) => {
+          {exercises.slice(0, MAX_ROWS).map((ex, i) => {
             const badge = exerciseBadgeLabel(ex.name, CORRECTIVE_EXERCISES);
             return (
               <View

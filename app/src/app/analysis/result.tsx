@@ -2778,10 +2778,14 @@ function AnalysisResultContent({
               // belle 09-09 재디자인 — 시안 2 는 감점 목록이 영상 카드 **안**, 옵션 행
               // 바로 아래에 온다. 카드 밖에 두면 부가 컨트롤(음성 안내·미세조정)이
               // 사이에 껴서 시안과 순서가 어긋난다.
-              renderBelowControls={({ seekTo }) => (
+              renderBelowControls={({ seekTo, activeRecordId }) => (
                 <ResultMomentList
                   flat
                   rows={momentRows}
+                  // belle 09-09 — 재생이 그 순간에 닿으면 그 행이 켜진다. 판정 값은
+                  // VideoCompare 가 이미 갖고 있는 것(영상 위 색 반전과 같은 값)이라
+                  // 목록과 영상이 같은 행을 짚는다 — 새 시간 규칙 0.
+                  activeRecordId={activeRecordId}
                   // belle 09-09 — 진행바 틱이 하던 일을 행이 이어받는다: 그 초로 두
                   // 영상을 **함께** 옮기고(seekTo) 상세 시트를 연다. 초는 행에 이미
                   // 적혀 있어 눌렀을 때 어디로 가는지가 눈에 보인다.

@@ -249,6 +249,17 @@ export type VideoCompareProps = {
   renderBelowControls?: (api: {
     /** 두 영상을 그 초로 **함께** 옮긴다 (D-13 "함께 멈추고 함께 돈다"). */
     seekTo: (sec: number) => void;
+    /**
+     * belle 09-09 — 지금 코칭이 짚고 있는 감점 record. 감점 목록이 그 행을 표시한다.
+     *
+     * 값은 **새로 만들지 않는다**: 발화 중이면 그 record(voiceCueRecordId), 아니면
+     * 큐 윈도우가 가리키는 record(activeCueWindowRecordId). 후자는 "발화 여부와
+     * 무관한 윈도우 도메인 신호"라 오디오를 꺼도 성립하고(학원 소음으로 기본 꺼짐),
+     * 영상 위 색 반전이 이미 그 값을 쓴다 — 목록과 영상이 **같은 행**을 짚는다.
+     * `playing` 게이트는 걸지 않는다: 행을 눌러 그 초로 이동하면 정지 상태가 되는데
+     * (seekBoth 는 재생을 켜지 않는다) 그때도 그 행이 표시돼 있어야 한다.
+     */
+    activeRecordId: string | null;
   }) => React.ReactNode;
   leftOverlay?: OverlayRenderProp;
   rightOverlay?: OverlayRenderProp;
@@ -2545,7 +2556,10 @@ export function VideoCompare({
       ) : null}
 
       {renderBelowControls
-        ? renderBelowControls({ seekTo: (sec: number) => seekBoth(sec) })
+        ? renderBelowControls({
+            seekTo: (sec: number) => seekBoth(sec),
+            activeRecordId: voiceCueRecordId ?? activeCueWindowRecordId,
+          })
         : null}
 
       {/* belle 09-09 판정 "시안대로" — 시안 2 의 컨트롤은 재생·진행바·시간 + 0.5배속 +

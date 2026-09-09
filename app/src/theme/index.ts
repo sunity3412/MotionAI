@@ -17,6 +17,11 @@ export const radius = {
   // 새 토큰을 만들지 않고 button 을 쓴다 (토큰 증식 금지).
   resultCard: 19,
   resultBox: 11,
+  // 260909-ji1 시안 대조 — 결과 화면 전용. card(15)·modal(20)은 다른 화면이 쓰므로
+  // 값을 건드리지 않고 전용 토큰을 둔다 (PLAN §3).
+  resultVideoCard: 27, // 동작비교 영상 카드 (이전 radius.card 15)
+  resultSheet: 38, // 교정포인트 모달 시트 윗모서리 (이전 radius.modal 20)
+  resultModalBox: 18, // 모달 안 카드 (이전 radius.resultBox 11)
 } as const;
 
 export const spacing = {

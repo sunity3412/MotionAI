@@ -141,6 +141,27 @@ export const colors = {
   resultWarnBg: '#FCF4D9', // 레벨 대비 무리한 동작 경고 박스
   resultKeptBg: '#EDF6F2', // '유지된점' 박스
   resultCoachGreen: '#6E9985', // '강사에게 확인할 점' 헤더
+
+  // ── 260909-ji1 시안 대조 — 시안 중심 + WCAG AA (belle 09-09 판정) ─────────────
+  //
+  // 규칙: 시안 값이 AA(텍스트 4.5:1 · 비텍스트 3:1)를 통과하면 그대로, 미달이면 색상(hue)
+  // 은 두고 **명도만 낮춰** AA 를 만족하는 가장 밝은(=시안에 가장 가까운) 값을 쓴다
+  // (WCAG 2.1 상대휘도 계산). 대비비는 그 토큰이 실제로 놓이는 시안 배경 기준이다 —
+  // 서브·페이저·구분선·손잡이는 흰 카드, 카드 테두리는 페이지 배경 #F6F6F6, 경고 제목·
+  // 본문은 resultWarnBg(#FCF4D9), '+2' 칩은 resultChipBg(#FCEFED), 메타는 모달 박스 배경.
+  // 브랜드 #FF4B33 에서 비롯된 미달 2건(감점 칩 글자 2.97:1 · 흰 글자 on 빨강 3.33:1)은
+  // CLAUDE.md §4 로 못 고쳐 belle 보고로 남긴다(260909-ji1 PLAN §7).
+  resultPageBg: '#F6F6F6', // 시안 #F6F6F6 그대로 — 페이지 배경 (구현 #FFFFFF 에서 교체)
+  resultCardBorder: '#6D6D6E', // 시안 #6D6D6E 그대로 (페이지 배경 위 4.78:1) — 카드 테두리
+  resultDivider: '#949494', // 시안 #A2A2A2(2.55:1) — 비텍스트 3:1 미달이라 명도만 낮췄다. 흰 배경 3.03:1 — 행 구분선
+  resultTextSub: '#767676', // 시안 #D6D6D6(1.45:1) — AA 미달이라 명도만 낮췄다. 흰 배경 4.54:1 — 요약·모달 서브, 감점 수치(시안 #929292 3.11:1 도 여기로 수렴)
+  resultTextMeta: '#707071', // 시안 #7A7A7B(3.90:1) — AA 미달이라 명도만 낮췄다. 모달 박스 배경 4.50:1 — '어디서 재나요' 제목·본문
+  resultWarnTitle: '#876B39', // 시안 #96773F(3.81:1) — AA 미달이라 명도만 낮췄다. resultWarnBg 위 4.55:1 — 경고 제목(앰버)
+  resultWarnBody: '#706F75', // 시안 #79787E(3.97:1) — AA 미달이라 명도만 낮췄다. resultWarnBg 위 4.52:1 — 경고 본문
+  resultChipMoreText: '#6F6E74', // 시안 #79787E(3.91:1) — AA 미달이라 명도만 낮췄다. resultChipBg 위 4.52:1 — '+2' 칩 글자
+  resultPagerLine: '#767676', // 시안 #7F7F7F(4.00:1) — AA 미달이라 명도만 낮췄다. 흰 배경 4.54:1 — 모달 페이저 글자·원 테두리
+  resultPagerChevron: '#2F2F2F', // 시안 #2F2F2F 그대로 (13.39:1) — 모달 페이저 셰브론
+  resultGrip: '#8B8B8D', // 시안 #8B8B8D 그대로 (비텍스트 3.40:1) — 모달 손잡이 바
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

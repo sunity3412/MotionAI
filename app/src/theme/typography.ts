@@ -78,26 +78,46 @@ export const typography = {
   scoreGaugeLg: { fontSize: 52, fontWeight: '700', fontFamily: fontFamily.bold },
   scoreGaugeSm: { fontSize: 36, fontWeight: '700', fontFamily: fontFamily.bold },
 
-  // ── 분석 결과 재디자인 (피그마 시안 실측) ──────────────────────────────────
+  // ── 분석 결과 재디자인 (피그마 시안 실측 — 260909-ji1 에서 역산 상수 교정) ────
   //
-  // 크기는 벡터 바운딩 박스에서 역산했다. 한글은 글자 폭 ≈ 1em 이라 **글자당 advance**
-  // 로 재는 것이 신뢰할 수 있고(높이는 라인박스가 섞여 과대추정된다), 숫자는 폭·높이
-  // 두 방법이 74pt 로 일치해 방법 자체가 검증됐다.
-  //   '분석결과' 4자 102.2px → 25.6px/자 → 21pt
-  //   탭 '교정포인트' 5자 86.5px → 17.3px/자 → 14.5pt
-  //   '75' 98.5×63.4px → 폭 74pt · 높이 73.5pt
-  resultTitle: { fontSize: 21, fontWeight: '700', fontFamily: fontFamily.bold },
-  resultTabActive: { fontSize: 15, fontWeight: '700', fontFamily: fontFamily.bold },
-  resultTabIdle: { fontSize: 15, fontWeight: '400', fontFamily: fontFamily.regular },
+  // 크기는 벡터 잉크폭에서 역산한다. 시안 섹션은 텍스트 레이어가 0 이라 글자당 advance
+  // 로 되돌리는 것이 유일한 계기다(높이는 라인박스가 섞여 과대추정된다).
+  //
+  // ★ 역산 상수 — 번들 Pretendard 의 한글 advance 는 **0.864 em** 이다.
+  //   (ImageFont.getlength('가') / 1000em = 0.8640, Regular·Medium·SemiBold·Bold 4종 동일)
+  //   fontSize(pt) = 잉크폭(px) ÷ 글자수 ÷ 0.864 × K      K = 0.83475 (시안 467.206px = 390pt)
+  //
+  // ★ 이전 주석은 "한글 ≈ 1em" 으로 놓고 '75' 가 폭·높이 두 계기에서 74pt 로 일치한다며
+  //   방법이 검증됐다고 적었다. 그 결과 한글 토큰 전부가 0.864 배 작게 들어갔다
+  //   (09-09 시안 대조 30건의 근본 원인). '75' 는 숫자라 advance 가 한글과 다르다 —
+  //   **숫자로 검증한 역산을 한글에 적용하지 말 것.** 숫자 토큰(resultDialScore /
+  //   resultDialLabel)만 그 검증이 유효해 값을 유지한다.
+  //   '분석결과' 4자 102.2px ÷ 4 ÷ 0.864 × K → 24.7pt (잉크높이 계기 24.9) → 25
+  //   탭 '교정포인트' 5자 86.5px ÷ 5 ÷ 0.864 × K → 16.7pt (시안 17.0) → WCAG 로 18 (아래)
+  //   '75' 98.5×63.4px → 폭 74pt · 높이 73.5pt (숫자 — 유지)
+  resultTitle: { fontSize: 25, fontWeight: '700', fontFamily: fontFamily.bold },
+  // 탭: 흰 글자 on 브랜드 #FF4B33 = 3.33:1 고정(CLAUDE.md §4, 색을 못 바꾼다). 시안 17.0
+  // regular 는 일반 텍스트(4.5:1 필요)라 미달 → 18 로 올려 large-text 예외(3:1) 안에 넣는다.
+  // 17.0 은 측정 오차 안이라 시각적으로 같다.
+  resultTabActive: { fontSize: 18, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultTabIdle: { fontSize: 18, fontWeight: '400', fontFamily: fontFamily.regular },
   resultDialScore: { fontSize: 74, fontWeight: '700', fontFamily: fontFamily.bold },
   resultDialLabel: { fontSize: 22, fontWeight: '400', fontFamily: fontFamily.regular },
-  // 요약 카드 (시안 글자당 advance 역산):
-  //   헤드라인 309.2px/14.7em → 17.6pt · 서브 195.4/16.2 → 10.1pt
-  //   칩 116.6/9.1 → 10.7pt · 경고 제목 196.7/14.2 → 11.6pt · CTA 218.7/11.3 → 16.2pt
-  resultHeadline: { fontSize: 18, fontWeight: '700', fontFamily: fontFamily.bold },
-  resultSub: { fontSize: 10, fontWeight: '400', fontFamily: fontFamily.regular },
-  resultChip: { fontSize: 11, fontWeight: '700', fontFamily: fontFamily.bold },
-  resultWarnTitle: { fontSize: 12, fontWeight: '700', fontFamily: fontFamily.bold },
-  resultWarnBody: { fontSize: 10, fontWeight: '400', fontFamily: fontFamily.regular },
-  resultCta: { fontSize: 16, fontWeight: '700', fontFamily: fontFamily.bold },
+  // 요약 카드 — 0.864em 으로 재역산한 시안값(audit 09-09): 헤드라인 20.3 · 서브 11.5 ·
+  // 칩 12.4 · 경고 제목 13.4 · 경고 본문 12.0 · CTA 20.3
+  resultHeadline: { fontSize: 20, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultSub: { fontSize: 11.5, fontWeight: '400', fontFamily: fontFamily.regular },
+  resultChip: { fontSize: 12.5, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultWarnTitle: { fontSize: 13.5, fontWeight: '700', fontFamily: fontFamily.bold },
+  resultWarnBody: { fontSize: 12, fontWeight: '400', fontFamily: fontFamily.regular },
+  resultCta: { fontSize: 20, fontWeight: '700', fontFamily: fontFamily.bold },
+  // ── 260909-ji1 신설 — 시안이 위계를 두는 자리에 토큰이 없어 같은 크기로 평탄해졌던 곳.
+  // 굵게는 반드시 fontFamily.bold 로 — 정적 TTF 패밀리명이라 fontWeight 만으론 iOS 가 무시한다.
+  resultCoachPill: { fontSize: 16, fontWeight: '700', fontFamily: fontFamily.bold }, // 보완운동 초록 pill '강사에게 확인할 점' (시안 16.0)
+  resultBandLabel: { fontSize: 17, fontWeight: '700', fontFamily: fontFamily.bold }, // 교정포인트 밴드 라벨 '기준 점수'·'종합' (시안 17.0)
+  resultBandValue: { fontSize: 20.5, fontWeight: '700', fontFamily: fontFamily.bold }, // 교정포인트 밴드 수치 '100'·'60점' (시안 20.6)
+  resultModalHeadline: { fontSize: 23, fontWeight: '700', fontFamily: fontFamily.bold }, // 모달 헤드라인 (시안 23.0)
+  resultModalSub: { fontSize: 14.5, fontWeight: '400', fontFamily: fontFamily.regular }, // 모달 서브 (시안 14.4)
+  resultModalBody: { fontSize: 15.5, fontWeight: '400', fontFamily: fontFamily.regular }, // 모달 '이렇게 해보세요'·'어디서 재나요' 본문 (시안 15.7)
+  resultPager: { fontSize: 15.5, fontWeight: '400', fontFamily: fontFamily.regular }, // 모달 '1 / 5' — 시안은 regular (이전 구현 bold)
 } as const;

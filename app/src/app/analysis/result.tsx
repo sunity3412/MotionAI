@@ -38,7 +38,9 @@ import { ResultExerciseTab } from '../../components/result/ResultExerciseTab';
 import { riskFlagCopy, topRiskFlag } from '../../components/InjuryRiskSection';
 import { buildSummaryChips, summaryChipLabel } from '../../lib/resultSummary';
 import { VideoCompare } from '../../components/VideoCompare';
-import RenderedComparePlayer from '../../components/RenderedComparePlayer';
+import RenderedComparePlayer, {
+  fmtTimeDecimal,
+} from '../../components/RenderedComparePlayer';
 // ── 32-11 대배선 — 32-07/32-08/32-10 산출 컴포넌트·뷰모델 배선 ──────────────
 import { ZoomCompositeImage } from '../../components/ZoomCompositeImage';
 import { ResultCoachmarks } from '../../components/ResultCoachmarks';
@@ -1657,10 +1659,35 @@ function AnalysisResultContent({
                 rightLabel={
                   cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
                 }
-                renderBelowControls={({ seekToRecord, activeRid }) => (
+                renderBelowControls={({ seekToRecord, activeRid, outSecOf }) => (
                   <ResultMomentList
                     flat
-                    rows={momentRows}
+                    // belle 09-09 — 행의 초를 **합성본 시계**로 바꿔 찍는다.
+                    // 원본 8.1s 의 순간이 합성본에서는 0:48.9 라, 원본 초를 그대로
+                    // 두면 바로 위 재생기 시간과 다른 숫자가 되어 서로를 부정한다
+                    // ("항목 시간이랑 실제 시간이랑 차이 보여?"). 짝이 없는 행은
+                    // 초 칸을 비운다 — 없는 시각을 지어내지 않는다.
+                    // 시계를 바꿨으면 **순서도** 그 시계를 따라야 한다. 합성본의
+                    // 정지 순서는 원본 시간 순서와 다르다(원본 4.5s 감점이 이
+                    // 합성본에서는 1:07.6 로 맨 뒤에 온다) — 원본 순서대로 두면
+                    // 0:03 → 1:07 → 0:17 처럼 되짚어 올라가 목록이 고장 나 보인다.
+                    // 짝 없는 행은 뒤로 몰되 서로의 순서는 지킨다(안정 정렬).
+                    rows={momentRows
+                      .map((r, i) => ({
+                        row: r,
+                        i,
+                        out: r.recordId ? outSecOf(r.recordId) : null,
+                      }))
+                      .sort((a, b) =>
+                        a.out == null || b.out == null
+                          ? (a.out == null ? 1 : 0) - (b.out == null ? 1 : 0) ||
+                            a.i - b.i
+                          : a.out - b.out,
+                      )
+                      .map(({ row, out }) => ({
+                        ...row,
+                        secText: out == null ? '' : fmtTimeDecimal(out),
+                      }))}
                     // belle 09-09 — 재생이 그 순간에 닿으면 그 행이 켜진다.
                     // 듀얼 경로와 같은 표식. rid 는 recordId 의 콜론 앞 축약이라
                     // 목록의 recordId 로 되짚어 넘긴다.

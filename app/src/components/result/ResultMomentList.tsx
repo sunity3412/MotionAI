@@ -80,6 +80,15 @@ export interface ResultMomentRow {
   recordId: string | null;
   /** 학생 영상 초. null = 잰 순간이 없는 criterion (fail-closed) → 초 칸 생략. */
   sec: number | null;
+  /**
+   * 초 칸에 대신 찍을 문자열 (belle 09-09 지적).
+   *
+   * 합성 비교 영상은 감점마다 정지가 끼어 있어 **원본 영상보다 길다** — 원본
+   * 8.1s 의 순간이 합성본에서는 0:48.9 에 온다. 그 화면에서 행에 `8.1s` 를
+   * 찍으면 바로 위 재생기 시간과 다른 숫자가 되어 서로를 부정한다.
+   * 그래서 그 가지만 **재생기와 같은 시계**의 값을 넘긴다. 부재 = 원본 초.
+   */
+  secText?: string;
   label: string;
   pointsText: string;
 }
@@ -130,7 +139,7 @@ function MomentRow({
     }).start();
   }, [active, reduceMotion, fade]);
 
-  const secText = formatMomentSec(row.sec);
+  const secText = row.secText ?? formatMomentSec(row.sec);
   const body = (
     <View style={[styles.row, divided ? styles.rowDivided : null]}>
       {/* 채움 — 행 뒤에 깔리는 절대 레이어. pointerEvents none 이 아니면 행 탭을 먹는다. */}

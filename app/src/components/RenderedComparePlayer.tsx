@@ -104,7 +104,8 @@ function fmtTime(s: number): string {
 }
 
 // 0.1초 정밀 (belle 기존 요구 "0.0초 단위" 승계).
-function fmtTimeDecimal(s: number): string {
+// 감점 목록도 같은 시계를 찍어야 해서 내보낸다 (belle 09-09).
+export function fmtTimeDecimal(s: number): string {
   if (!isFinite(s) || s < 0) return '0:00.0';
   const m = Math.floor(s / 60);
   const sec = s - m * 60;
@@ -134,6 +135,12 @@ export default function RenderedComparePlayer({
     seekToRecord: (recordId: string) => boolean;
     /** 지금 재생 중인 정지의 rid (없으면 null) — 그 행을 켠다. */
     activeRid: string | null;
+    /**
+     * 그 감점이 **이 합성본에서** 몇 초인지 (belle 09-09 지적).
+     * 목록이 원본 초를 찍으면 바로 위 재생기 시간과 다른 숫자가 된다 —
+     * 정지가 끼어 합성본이 더 길기 때문이다. 짝이 없으면 null (초 칸 생략).
+     */
+    outSecOf: (recordId: string) => number | null;
   }) => React.ReactNode;
 }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -254,6 +261,10 @@ export default function RenderedComparePlayer({
     player.currentTime = clamped;
     setCurrentTime(clamped);
   };
+
+  /** 감점 행 → 이 합성본에서의 초. 짝이 없으면 null (초 칸을 비운다). */
+  const outSecOf = (recordId: string): number | null =>
+    freezeOutSecByRid.get(recordId.split(':')[0]) ?? null;
 
   /** 감점 행 → 그 정지 지점. 짝이 없으면 false — 아무 데도 안 뛴다(지어내지 않는다). */
   const seekToRecord = (recordId: string): boolean => {
@@ -506,6 +517,9 @@ export default function RenderedComparePlayer({
                 nativeControls={false}
                 contentFit="contain"
                 allowsPictureInPicture={false}
+                // iOS 가 일시정지 프레임에 라이브 텍스트(스캔) 단추를 얹는다 —
+                // 시안에 없는 물건이고 영상 우하단을 가린다 (belle 09-09 시뮬).
+                allowsVideoFrameAnalysis={false}
                 accessibilityLabel="동작 비교 영상"
               />
             </Pressable>
@@ -612,7 +626,7 @@ export default function RenderedComparePlayer({
           (belle 09-09: "시안이 있는데도 왜 삭제만하고 반영을 안해"). */}
       {/* URL 도착 전에는 목록도 함께 늦춘다 — 컨트롤·칩만 늦게 나오면 URL 이 붙는
           순간 목록이 그 높이만큼 아래로 튄다 (260909-ji1). */}
-      {url ? renderBelowControls?.({ seekToRecord, activeRid }) : null}
+      {url ? renderBelowControls?.({ seekToRecord, activeRid, outSecOf }) : null}
 
       {/* 가로 전체화면 — 260702-t0v 90° 회전 Modal 패턴 (portrait 고정 유지).
           같은 player 인스턴스에 두 번째 VideoView attach — 재생 위치·상태 공유
@@ -664,6 +678,7 @@ export default function RenderedComparePlayer({
                     style={styles.fsVideo}
                     contentFit="contain"
                     nativeControls={false}
+                    allowsVideoFrameAnalysis={false}
                     // allowsFullscreen 은 expo-video 에서 deprecated(경고 발생)이고,
                     // nativeControls=false 면 전체화면 진입 UI 자체가 없어 무의미하다.
                     allowsPictureInPicture={false}

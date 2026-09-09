@@ -149,6 +149,23 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[st
     return lines
 
 
+# 앱은 이 mp4 를 시안 2 의 영상 블록(가로:세로 = 276.04 : 177.9)에 **폭을 맞춰**
+# 넣고 위아래를 잘라 낸다 (RenderedComparePlayer 의 frame / videoBox — 시안 블록
+# 비율을 지키기 위한 의도된 크롭). 1224x1080 기준 화면에 남는 세로는 가운데 73%
+# 뿐이라, 프레임 맨 아래에 굽던 자막은 통째로 잘려 나갔다 (belle 09-09 시뮬 실측
+# 0:43.5 — 표시는 보이는데 문장이 없다). 그래서 자막을 그 보이는 창 안쪽에 굽는다.
+APP_BLOCK_ASPECT = 276.04 / 177.9
+
+
+def _caption_bottom(W: int) -> int:
+    """자막 밴드의 아래변 y — 앱이 잘라 내지 않는 구간의 밑선.
+
+    블록이 영상보다 세로로 길면(=크롭 없음) 프레임 맨 아래 그대로다.
+    """
+    visible_h = min(float(PANEL_H), W / APP_BLOCK_ASPECT)
+    return int(round(PANEL_H - (PANEL_H - visible_h) / 2))
+
+
 def _draw_caption(images: list[Image.Image], text: str, font, W: int,
                   pad: int, line_h: int, S: float) -> int:
     """자막 밴드를 **주어진 캔버스 전부**에 동일하게 굽고 밴드 높이를 돌려준다.
@@ -160,11 +177,13 @@ def _draw_caption(images: list[Image.Image], text: str, font, W: int,
     d0 = ImageDraw.Draw(images[0], "RGBA")
     lines = wrap_text(d0, text, font, W - 2 * pad)[:3]
     band_h = round(18 * S) + line_h * len(lines)
+    y1 = _caption_bottom(W)
+    y0 = y1 - band_h
     for img in images:
         d = d0 if img is images[0] else ImageDraw.Draw(img, "RGBA")
-        d.rectangle([0, PANEL_H - band_h, W, PANEL_H], fill=(15, 13, 12, 216))
+        d.rectangle([0, y0, W, y1], fill=(15, 13, 12, 216))
         for li, line in enumerate(lines):
-            d.text((pad, PANEL_H - band_h + round(10 * S) + line_h * li),
+            d.text((pad, y0 + round(10 * S) + line_h * li),
                    line, font=font, fill=(255, 255, 255))
     return band_h
 

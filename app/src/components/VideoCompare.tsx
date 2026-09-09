@@ -169,6 +169,9 @@ function VideoSlot({
               nativeControls={false}
               allowsFullscreen={false}
               allowsPictureInPicture={false}
+              // iOS 라이브 텍스트(스캔) 단추가 일시정지 프레임을 가린다 — 시안에
+              // 없는 물건이고 관절선 오버레이와도 겹친다 (belle 09-09 시뮬).
+              allowsVideoFrameAnalysis={false}
             />
             {overlay && (
               <View style={styles.overlayContainer} pointerEvents="box-none">
@@ -2371,6 +2374,9 @@ export function VideoCompare({
               nativeControls={false}
               allowsFullscreen={false}
               allowsPictureInPicture={false}
+              // iOS 라이브 텍스트(스캔) 단추가 일시정지 프레임을 가린다 — 시안에
+              // 없는 물건이고 관절선 오버레이와도 겹친다 (belle 09-09 시뮬).
+              allowsVideoFrameAnalysis={false}
               accessibilityLabel="동작 비교 영상 (가로)"
             />
             <View style={styles.overlayContainer} pointerEvents="box-none">

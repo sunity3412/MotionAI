@@ -177,9 +177,11 @@ def test_build_emits_criterion_keyed_item():
     item = comps[0]
     assert item["criterion"] == "angle_vs_reference__left_knee"
     assert item["joint"] == "left_knee"
-    # Firestore flat 제약 — png(bytes) 외 값은 전부 scalar.
+    # Firestore flat 제약 — bytes 판(png/pngPlain) 외 값은 전부 scalar.
+    # 두 bytes 는 업로더가 먹고 버린다: _fault_zoom_upload_items 가 화이트리스트로
+    # 새 dict 를 만들어 Firestore 에는 URL·key(str)만 실린다.
     for k, v in item.items():
-        if k == "png":
+        if k in ("png", "pngPlain"):
             continue
         assert v is None or isinstance(v, (str, int, float, bool)), (
             f"non-scalar item field {k}={type(v)}"
@@ -365,8 +367,12 @@ def test_ref_timestamp_stamped_when_stamp_ref(monkeypatch):
         frames, frames, user_rep, ref_rep, stamp_ref=True, **common,
     )
     assert len(comps) == 1
+    # belle 09-09 — 카드마다 판이 **둘**이다(표시 있는 판 + '관절선 끄기'용 표시 없는
+    # 판). 초 도장은 관절선이 아니라 "언제"라서 두 판 모두에 찍는다 — 그래서 이
+    # 스파이의 기대값은 면 수 × 판 수다.
+    variants = 2
     stamps = [t for t in texts if _TS_RE.match(t)]
-    assert len(stamps) == 2, (
+    assert len(stamps) == 2 * variants, (
         f"stamp_ref=True 인데 타임스탬프 {len(stamps)}개 — 기준측 초 미표기"
     )
 
@@ -375,4 +381,48 @@ def test_ref_timestamp_stamped_when_stamp_ref(monkeypatch):
         frames, frames, user_rep, ref_rep, **common,
     )
     stamps_off = [t for t in texts if _TS_RE.match(t)]
-    assert len(stamps_off) == 1, "stamp_ref 기본값(False)에서 학생 패널 단독 표기 회귀"
+    assert len(stamps_off) == 1 * variants, (
+        "stamp_ref 기본값(False)에서 학생 패널 단독 표기 회귀"
+    )
+
+
+# ─────────── Test 7 — '관절선 끄기' 표시 없는 판 (belle 09-09) ───────────────
+
+
+def test_plain_variant_is_the_same_crop_without_marks():
+    """카드마다 표시 없는 판(pngPlain)이 함께 나오고, **같은 crop** 이어야 한다.
+
+    왜 이 시험인가: 앱의 '관절선 끄기' 는 사진을 갈아끼우는 것이라, 두 판의 crop 이
+    조금이라도 다르면 토글할 때 그림이 튄다. 09-06 에 확대 카드가 딴 부위를 보여준
+    문제를 백엔드에서 겨우 잡았는데, 판을 하나 더 만들면서 그 선정이 갈리면 안 된다.
+
+    증명 방법: **표시를 양면 다 억제**하면 표시 있는 판도 표시가 없어지므로 두 판이
+    byte 단위로 같아야 한다. 같지 않다면 crop·초 도장 중 무언가가 갈린 것이다.
+    """
+    frames = _frames()
+    user_rep = _report(9, 9.0, {"left_knee": (0.375, 0.5)}, {"left_knee": 0.9})
+    ref_rep = _report(9, 9.0, {"left_knee": (0.625, 0.5)}, {"left_knee": 0.9})
+    common = dict(
+        worst_seconds=0.5, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+        dtw_match=_IDENTITY9,
+    )
+
+    comps = fz.build_fault_zoom_comparisons(frames, frames, user_rep, ref_rep, **common)
+    assert len(comps) == 1
+    item = comps[0]
+    assert isinstance(item.get("pngPlain"), bytes) and item["pngPlain"], (
+        "표시 없는 판이 안 나왔다 — 앱이 '관절선 끄기' 칩을 그릴 수 없다"
+    )
+    assert item["pngPlain"] != item["png"], (
+        "두 판이 같다 — 표시가 실제로 빠지지 않았다"
+    )
+
+    supp = fz.build_fault_zoom_comparisons(
+        frames, frames, user_rep, ref_rep,
+        suppress_marks={"user", "ref"}, **common,
+    )
+    assert len(supp) == 1
+    assert supp[0]["png"] == supp[0]["pngPlain"], (
+        "표시를 양면 다 억제했는데 두 판이 다르다 — crop 이나 초 도장이 갈렸다"
+    )

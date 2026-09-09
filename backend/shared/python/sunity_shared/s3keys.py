@@ -71,7 +71,7 @@ def build_discover_audio_key(uid: str, analysis_id: str, rid: str, joint: str) -
 
 
 def build_fault_zoom_key(
-    uid: str, analysis_id: str, tier: str | None, key_base: str
+    uid: str, analysis_id: str, tier: str | None, key_base: str, *, plain: bool = False
 ) -> str:
     """확대 비교(fault-zoom) PNG 의 canonical S3 키 (quick-260824-q6p).
 
@@ -84,9 +84,14 @@ def build_fault_zoom_key(
       tier == 'advisory'          → 'zoom_adv_' (확정 카드와 S3 키 충돌 원천 차단)
       그 외(confirmed/None/legacy) → 'zoom_'
     key_base = criterion(있으면 — 33-12 A-5 record 별 카드 유일성) or joint.
+
+    plain=True 는 belle 09-09 '관절선 끄기' 용 **표시 없는 판**의 키다. 같은 crop 을
+    마커/각도선 없이 한 번 더 합성해 나란히 올린다 — 접미사만 다르므로 기존 키는
+    byte-불변이고(기본값 False), 재서명측도 같은 함수로 구성한다(단일 출처 유지).
     """
     prefix = "zoom_adv_" if tier == "advisory" else "zoom_"
-    return f"{RESULT_PREFIX}/{uid}/{analysis_id}/{prefix}{key_base}.png"
+    suffix = "__plain" if plain else ""
+    return f"{RESULT_PREFIX}/{uid}/{analysis_id}/{prefix}{key_base}{suffix}.png"
 
 
 def parse_result_key_from_presigned_url(url: str) -> str | None:

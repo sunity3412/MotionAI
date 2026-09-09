@@ -246,7 +246,10 @@ export type VideoCompareProps = {
    * 감점 목록이 **한 카드 안**에 순서대로 들어간다. 목록을 카드 밖에 두면 순서가
    * 어긋나고(부가 컨트롤이 사이에 낀다) 카드가 두 개로 쪼개진다. 미전달 시 렌더 diff 0.
    */
-  renderBelowControls?: () => React.ReactNode;
+  renderBelowControls?: (api: {
+    /** 두 영상을 그 초로 **함께** 옮긴다 (D-13 "함께 멈추고 함께 돈다"). */
+    seekTo: (sec: number) => void;
+  }) => React.ReactNode;
   leftOverlay?: OverlayRenderProp;
   rightOverlay?: OverlayRenderProp;
   /**
@@ -2036,7 +2039,11 @@ export function VideoCompare({
             쓰면 우측이 짧은 doc 에서 틱이 추가로 앞당겨진다. 트랙 위 위치(pct)만
             재생 도메인 duration 기준(기존 클램프 유지). 탭 = 양쪽 동기
             seek(seekBoth). 세로/전체화면 공용. */}
-        {timelineTicks &&
+        {/* belle 09-09 — 세로(탭) 진행바에서는 틱을 뺀다. 시안 2 의 바는 민무늬이고,
+            "그 순간으로 간다"는 일은 이제 아래 감점 목록 행이 맡는다(행에 초가 이미
+            적혀 있어 더 자연스러운 자리다). 전체화면에는 남긴다 — 거기엔 목록이 없다. */}
+        {dark &&
+          timelineTicks &&
           timelineTicks.length > 0 &&
           tickFrameCount != null &&
           tickFrameCount > 0 &&
@@ -2537,7 +2544,9 @@ export function VideoCompare({
         <Text style={styles.fullscreenBtnHint}>두 손가락으로 벌려 확대</Text>
       ) : null}
 
-      {renderBelowControls ? renderBelowControls() : null}
+      {renderBelowControls
+        ? renderBelowControls({ seekTo: (sec: number) => seekBoth(sec) })
+        : null}
 
       {/* belle 09-09 판정 "시안대로" — 시안 2 의 컨트롤은 재생·진행바·시간 + 0.5배속 +
           관절선 표시 넷뿐이다. 음성 안내·자동 맞춤 배지·시작점 미세조정은 시안 프레임

@@ -2011,6 +2011,23 @@ imageKey  string  optional  ← 카드 PNG canonical S3 키 (results/{uid}/{anal
 - **부재 = legacy doc** — 서버가 저장 `imageUrl` 을 파싱해 소급 (백필 0, no migration — `tier?` 서술 모범).
 - 3-way lockstep: `analysis.ts FaultZoomComparison.imageKey?` ↔ `pipeline _fault_zoom_upload_items` 방출부 ↔ 본 절.
 
+### §11.11 FaultZoomComparison.imageUrlPlain / imageKeyPlain — '관절선 끄기' (belle 2026-09-09)
+
+`FaultZoomComparison` 에 **표시 없는 판**의 URL·key 를 추가한다. 시안(피그마 `분석 디자인 업데이트`)의 확대 사진 위 `관절선 끄기` 칩이 이 판으로 갈아끼운다.
+
+```
+imageUrlPlain  string  optional  ← 표시(관절 원·각도선) 없는 판의 presigned GET URL
+imageKeyPlain  string  optional  ← 그 판의 canonical S3 키 (…{criterion|joint}__plain.png)
+```
+
+- **왜 백엔드가 두 판을 내는가:** 카드 PNG 는 백엔드가 표시를 **구워서** 만든다. 앱이 끌 수 없다. 앱이 영상에서 직접 잘라 그리는 대안은 **crop 중심 선정이 앱으로 넘어와** quick-260906 계열의 "카드가 딴 부위를 보여준다" 문제를 되살린다 — 그래서 크롭 선정은 백엔드에 그대로 두고 같은 crop 을 한 번 더 합성한다.
+- **비용:** 비싼 단계(프레임 추출·포즈·crop 선정)는 공유하고 추가되는 것은 crop 2장 memcpy + PIL 합성·PNG 인코딩 1회다. 표시 없는 사본은 이미 표시 억제 게이트(quick-260906-j8g)가 만들던 것을 **항상 만들도록** 바꾼 것뿐이다.
+- **초 도장은 두 판 모두에 찍는다** — 그것은 관절선이 아니라 "언제"다.
+- **같은 crop 임의 증명:** 표시를 양면 다 억제하면(`suppress_marks={'user','ref'}`) 두 판이 **byte 단위로 같아야** 한다 (`tests/phase33/test_zoom_join_joint_exact.py::test_plain_variant_is_the_same_crop_without_marks`). 갈리면 그 시험이 깨진다.
+- **부재 = 이 카드는 토글 불가** — legacy doc, 렌더 실패, 재서명 불일치 모두 해당. 앱은 fail-closed 로 칩을 **그리지 않는다**(안 되는 버튼 금지).
+- **재서명:** `POST /playback-url` `asset: 'faultZoom'` 이 표시 있는 판과 **같은 규율**로 처리한다 — canonical key 구성 + 저장 `imageKeyPlain` 과 exact 비교 후에만 `playbackUrlPlain` 을 실어 준다. legacy doc 은 URL 파싱 소급을 하지 않는다(애초에 그 판이 S3 에 없다).
+- 3-way lockstep: `analysis.ts FaultZoomComparison.imageUrlPlain?/imageKeyPlain?` ↔ `pipeline _fault_zoom_upload_items` 방출부 + `s3keys.build_fault_zoom_key(plain=True)` ↔ 본 절.
+
 ---
 
 ## §12. 미션 루프 + 번역 레이어 방출 (Phase 32 Plan 32-06 신설 — D-08/D-19/D-26/D-27/D-28/D-29/D-14)

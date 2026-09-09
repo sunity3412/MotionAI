@@ -3699,6 +3699,20 @@ def _fault_zoom_upload_items(
         _s3.put_object(
             Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
         )
+        # belle 09-09 '관절선 끄기' — 표시 없는 판을 나란히 올린다. 같은 crop 이라
+        # 사진이 달라질 여지가 없다. 부재(legacy·렌더 실패)면 앱이 칩을 안 그린다.
+        plain_png = c.get("pngPlain")
+        skey_plain: str | None = None
+        if plain_png:
+            skey_plain = build_fault_zoom_key(
+                uid, analysis_id, tier, key_base, plain=True
+            )
+            _s3.put_object(
+                Bucket=bucket,
+                Key=skey_plain,
+                Body=plain_png,
+                ContentType="image/png",
+            )
         item = {
             "joint": c["joint"],
             "deficitDeg": c.get("deficitDeg"),
@@ -3710,6 +3724,18 @@ def _fault_zoom_upload_items(
             # 파싱해 소급 (contract.md §11.10). TS lockstep:
             # FaultZoomComparison.imageKey? — 앱은 이 값을 읽지 않는다 (H-05).
             "imageKey": skey,
+            # belle 09-09 '관절선 끄기' — 표시 없는 판. scalar str 2개라
+            # _validate_dict_only_scalars flat 제약 통과. 부재 = 이 카드는 토글 불가
+            # (앱이 칩을 안 그린다 — fail-closed). TS lockstep:
+            # FaultZoomComparison.imageUrlPlain? / imageKeyPlain?
+            **(
+                {
+                    "imageUrlPlain": _signed_get(bucket, skey_plain),
+                    "imageKeyPlain": skey_plain,
+                }
+                if skey_plain
+                else {}
+            ),
             # 2단 시각 언어 tier (quick-260704-fz4) — scalar str 이라
             # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
             # FaultZoomComparison.tier ('confirmed'|'advisory', 부재=legacy

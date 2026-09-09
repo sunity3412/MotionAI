@@ -454,6 +454,20 @@ export interface FaultZoomComparison {
    * 방출부 + docs/contract.md §11.10.
    */
   imageKey?: string;
+  /**
+   * belle 2026-09-09 '관절선 끄기' (docs/contract.md §11.11) — **표시(관절 원·각도선)
+   * 없는 판**. 확대 사진 위 칩이 이 URL 로 갈아끼운다.
+   *
+   * 백엔드가 같은 crop 을 한 번 더 합성해 만든다 — 앱이 영상에서 직접 자르면 crop
+   * 중심 선정이 앱으로 넘어와 quick-260906 계열 "카드가 딴 부위" 문제가 되살아난다.
+   * 초 도장은 두 판 모두에 있다(관절선이 아니라 "언제"다).
+   *
+   * **부재 = 이 카드는 토글 불가** (legacy doc·렌더 실패·재서명 불일치). 그때 앱은
+   * 칩을 **그리지 않는다** — 안 되는 버튼을 놓지 않는다.
+   * imageKeyPlain 은 재서명측이 쓰는 값으로 앱은 읽지 않는다(imageKey 선례, H-05).
+   */
+  imageUrlPlain?: string;
+  imageKeyPlain?: string;
   /** 캡션 종류 — Mode1='deficit'(기준보다 부족) / Mode3='improved'|'worsened'(지난 대비). */
   kind?: 'deficit' | 'improved' | 'worsened';
   /**

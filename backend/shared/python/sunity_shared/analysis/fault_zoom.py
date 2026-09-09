@@ -3610,8 +3610,12 @@ def build_fault_zoom_comparisons(
             # quick-260903-upx — 표시 생략 측의 무표시 원본 (크롭은 그대로, 표시만
             # 생략 — "게이트는 표시만 정한다"). 아래 드로잉 로직은 무접촉으로
             # 돌고, 스탬프 직전에 이 원본으로 되돌린다 (반대측 표시는 그대로).
-            _u_plain = u_img.copy() if "user" in _supp else None
-            _r_plain = r_img.copy() if "ref" in _supp else None
+            # belle 09-09 '관절선 끄기' — 표시를 그리기 **전** 사본을 항상 남긴다.
+            # 종전에는 표시 억제 게이트가 걸린 면만 복사했는데(quick-260906-j8g),
+            # 같은 사본이 "표시 없는 판"의 재료이기도 하다. 비용은 crop 2장
+            # memcpy 뿐 — 비싼 것(프레임 추출·포즈·crop 선정)은 이미 끝나 있다.
+            _u_plain = u_img.copy()
+            _r_plain = r_img.copy()
             if unit.criterion is not None and (
                 u_kind == "full" or r_kind == "full"
             ):
@@ -3910,13 +3914,15 @@ def build_fault_zoom_comparisons(
             r_video_sec = r_display_idx / r_label_fps if r_label_fps > 0 else None
             # quick-260903-upx — suppress_marks 적용: 그 측 패널을 무표시 원본으로
             # 되돌리고 인증 플래그를 내린다 (드로잉 코드 무접촉, 반대측 그대로).
-            if _u_plain is not None:
-                u_crop = _u_plain
+            # 표시 억제 게이트 — 판정은 종전대로 _supp 가 한다. (_u_plain/_r_plain
+            # 은 이제 항상 존재하므로 None 검사로 억제 여부를 판정하면 안 된다.)
+            if "user" in _supp:
+                u_crop = _u_plain.copy()
                 u_drew_legs = u_drew_angle = u_drew_circle = False
-            if _r_plain is not None:
-                r_img = _r_plain
+            if "ref" in _supp:
+                r_img = _r_plain.copy()
                 r_drew_legs = r_drew_angle = r_drew_circle = False
-            if _u_plain is not None or _r_plain is not None:
+            if _supp:
                 log.info(
                     "fault_zoom_marks_suppressed analysis_id=%s criterion=%s sides=%s",
                     analysis_id, unit.criterion or "none",
@@ -3926,12 +3932,22 @@ def build_fault_zoom_comparisons(
             if stamp_ref:
                 r_img = _stamp_time(r_img, r_video_sec)
             png = _compose(u_crop, r_img)
+            # belle 09-09 — 같은 crop·같은 초 도장, 표시만 없는 판. 앱의 '관절선 끄기'
+            # 가 이 판으로 갈아끼운다. 크롭·프레임 선정이 표시 있는 판과 **글자 그대로
+            # 같으므로** 09-06 에 겪은 "카드가 딴 부위" 문제가 재발할 여지가 없다.
+            _u_plain = _stamp_time(_u_plain, u_video_sec)
+            if stamp_ref:
+                _r_plain = _stamp_time(_r_plain, r_video_sec)
+            png_plain = _compose(_u_plain, _r_plain)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue
         item = {
             "joint": unit.joint,
             "deficitDeg": deficit,
             "png": png,
+            # belle 09-09 '관절선 끄기' — 표시 없는 판(같은 crop). 업로드측이
+            # 별도 키로 올리고 imageUrlPlain 으로 방출한다.
+            "pngPlain": png_plain,
             # DTW 대응 프레임 쌍 (리뷰 B-01, Phase 31-03) — 2D 비교 뷰어(amended
             # D-10)의 프레임 정합 소스. draw_arrows 와 무관하게 **항상** 방출한다:
             # 뷰어는 화살표 유무와 별개로 "내 자세 어느 프레임 ↔ 목표 어느 프레임"을

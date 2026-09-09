@@ -239,6 +239,10 @@ export type FaultZoomUrlItem = {
   tier?: string;
   criterion?: string;
   playbackUrl: string;
+  // belle 09-09 '관절선 끄기' (contract.md §11.11) — 표시 없는 판의 재서명 URL.
+  // 서버가 저장 imageKeyPlain 과 canonical exact 비교에 성공한 item 에만 실린다.
+  // 부재 = 그 카드는 토글 불가 (legacy doc·렌더 실패) → 앱이 칩을 안 그린다.
+  playbackUrlPlain?: string;
 };
 
 export function fetchFaultZoomUrls(
@@ -274,6 +278,10 @@ export function fetchFaultZoomUrls(
         playbackUrl: it.playbackUrl,
         tier: typeof it.tier === 'string' ? it.tier : undefined,
         criterion: typeof it.criterion === 'string' ? it.criterion : undefined,
+        playbackUrlPlain:
+          typeof it.playbackUrlPlain === 'string' && it.playbackUrlPlain.length > 0
+            ? it.playbackUrlPlain
+            : undefined,
       });
     }
     // expiresInSec 검증 실패는 던지지 않는다 (fetchCoachAudioUrl 선례 — 보수적

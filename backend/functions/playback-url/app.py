@@ -291,6 +291,22 @@ def _handle_fault_zoom(uid: str, analysis_id: str) -> dict:
             entry["tier"] = item["tier"]
         if isinstance(criterion, str):
             entry["criterion"] = criterion
+        # belle 09-09 '관절선 끄기' — 표시 없는 판도 같은 규율로 재서명한다
+        # (canonical 구성 + 저장 key exact 비교). 없거나 불일치면 그냥 빠진다 —
+        # 앱은 playbackUrlPlain 이 없으면 칩을 안 그린다(fail-closed). legacy doc 은
+        # imageKeyPlain 이 없고 URL 파싱 소급도 하지 않는다: 애초에 그 판이 S3 에 없다.
+        canonical_plain = build_fault_zoom_key(
+            uid, analysis_id, item.get("tier"), key_base, plain=True
+        )
+        stored_plain = item.get("imageKeyPlain")
+        if isinstance(stored_plain, str) and stored_plain == canonical_plain:
+            url_plain = _sign_get(
+                canonical_plain,
+                expires=_ASSET_EXPIRES,
+                content_type=_ASSET_CONTENT_TYPE["png"],
+            )
+            if url_plain is not None:
+                entry["playbackUrlPlain"] = url_plain
         out.append(entry)
 
     if not out:

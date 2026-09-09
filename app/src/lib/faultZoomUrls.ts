@@ -81,6 +81,48 @@ export function buildFreshZoomUrlMap(
   return map;
 }
 
+/**
+ * belle 09-09 '관절선 끄기' — **표시 없는 판**의 fresh 맵 (contract.md §11.11).
+ *
+ * 표시 있는 판과 나란한 짝 함수다. 하나의 맵에 두 URL 을 넣지 않은 이유: 기존
+ * `freshZoomUrls: Record<string,string>` 을 소비하는 자리(시트·topFix 카드)가
+ * 이미 여럿이고, 그 타입을 바꾸면 이번 일과 무관한 표면이 전부 흔들린다.
+ * `playbackUrlPlain` 이 없는 item 은 아예 담기지 않는다 → 앱은 그 카드에서
+ * 칩을 안 그린다(fail-closed).
+ */
+export function buildFreshZoomPlainUrlMap(
+  items: FaultZoomUrlItem[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const it of items) {
+    if (it == null || typeof it !== 'object') continue;
+    if (typeof it.joint !== 'string' || it.joint.length === 0) continue;
+    const plain = it.playbackUrlPlain;
+    if (typeof plain !== 'string' || plain.length === 0) continue;
+    map[zoomCardKey(it)] = plain;
+  }
+  return map;
+}
+
+/**
+ * 표시 없는 판의 URL — fresh 맵 우선, 저장 imageUrlPlain 폴백.
+ * **둘 다 없으면 null** — 호출측은 null 이면 '관절선 끄기' 칩을 그리지 않는다.
+ */
+export function resolveZoomPlainImageUrl(
+  zoom: {
+    tier?: string | null;
+    criterion?: string;
+    joint: string;
+    imageUrlPlain?: string;
+  },
+  freshPlainMap: Record<string, string> | null | undefined,
+): string | null {
+  const fresh = freshPlainMap?.[zoomCardKey(zoom)];
+  if (typeof fresh === 'string' && fresh.length > 0) return fresh;
+  const stored = zoom.imageUrlPlain;
+  return typeof stored === 'string' && stored.length > 0 ? stored : null;
+}
+
 // './api' 지연 로드 (모듈 헤더 주석 참조 — node --test 안전).
 async function fetchFresh(analysisId: string) {
   const { fetchFaultZoomUrls } = await import('./api');
@@ -107,12 +149,17 @@ export function useFreshFaultZoomUrls(args: {
   comparisons: FaultZoomComparison[] | null | undefined;
 }): {
   freshZoomUrls: Record<string, string>;
+  /** belle 09-09 — 표시 없는 판의 fresh 맵 (§11.11). 비어 있으면 저장값 폴백. */
+  freshZoomPlainUrls: Record<string, string>;
   onZoomImageError: () => void;
 } {
   const { analysisId, createdAt, comparisons } = args;
   const [freshZoomUrls, setFreshZoomUrls] = useState<Record<string, string>>(
     {},
   );
+  const [freshZoomPlainUrls, setFreshZoomPlainUrls] = useState<
+    Record<string, string>
+  >({});
   const errorRefetchDone = useRef(false);
   const hasComparisons = comparisons != null && comparisons.length > 0;
 
@@ -120,6 +167,7 @@ export function useFreshFaultZoomUrls(args: {
     // 분석 전환 시 리셋 — 다른 doc 의 fresh 맵·onError single-flight 가 남지
     // 않게 (renderedUnavailable 세션 리셋 선례).
     setFreshZoomUrls({});
+    setFreshZoomPlainUrls({});
     errorRefetchDone.current = false;
     if (!analysisId || !hasComparisons) return;
     const age = Date.now() - (createdAt || 0);
@@ -127,7 +175,9 @@ export function useFreshFaultZoomUrls(args: {
     let cancelled = false;
     fetchFresh(analysisId)
       .then((resp) => {
-        if (!cancelled) setFreshZoomUrls(buildFreshZoomUrlMap(resp.items));
+        if (cancelled) return;
+        setFreshZoomUrls(buildFreshZoomUrlMap(resp.items));
+        setFreshZoomPlainUrls(buildFreshZoomPlainUrlMap(resp.items));
       })
       .catch((err) => {
         if (__DEV__) console.warn('[playback-url] faultZoom 재발급 실패', err);
@@ -142,7 +192,10 @@ export function useFreshFaultZoomUrls(args: {
     errorRefetchDone.current = true;
     if (!analysisId || !hasComparisons) return;
     fetchFresh(analysisId)
-      .then((resp) => setFreshZoomUrls(buildFreshZoomUrlMap(resp.items)))
+      .then((resp) => {
+        setFreshZoomUrls(buildFreshZoomUrlMap(resp.items));
+        setFreshZoomPlainUrls(buildFreshZoomPlainUrlMap(resp.items));
+      })
       .catch((err) => {
         if (__DEV__) {
           console.warn('[playback-url] faultZoom onError 재발급 실패', err);
@@ -150,5 +203,5 @@ export function useFreshFaultZoomUrls(args: {
       });
   };
 
-  return { freshZoomUrls, onZoomImageError };
+  return { freshZoomUrls, freshZoomPlainUrls, onZoomImageError };
 }

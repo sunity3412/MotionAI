@@ -19,6 +19,7 @@
 // 얹힌 값이다(233·77·55 의 정확히 절반). 그래서 스크림은 rgba(0,0,0,0.5) 하나면 된다.
 //
 // 문장은 전부 doc 저장값이다 — 이 화면이 지어내는 문장은 0이다. 없는 칸은 그리지 않는다.
+import { useEffect, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -32,6 +33,12 @@ export interface ResultPointPage {
   /** 헤드라인 아래 회색 보조 문장. */
   sub: string | null;
   imageUrl: string | null;
+  /**
+   * belle 09-09 '관절선 끄기' — 표시 없는 판 (contract.md §11.11). 백엔드가 같은
+   * crop 을 한 번 더 합성한 것이라 갈아끼워도 그림이 튀지 않는다.
+   * **null 이면 칩을 그리지 않는다** — 안 되는 버튼을 놓지 않는다(fail-closed).
+   */
+  imageUrlPlain: string | null;
   /** '이렇게 해보세요' 본문 (행동 큐). */
   cue: string | null;
   /** '어디서 재나요?' 본문 (측정 근거). */
@@ -59,6 +66,13 @@ export function ResultPointModal({
   onSeeExercises,
   onImageError,
 }: ResultPointModalProps) {
+  // 관절선 표시 상태. 페이지를 넘기면 되돌린다 — 다음 항목은 표시를 보고 시작하는
+  // 것이 기본이고, 앞 항목에서 끈 상태가 따라오면 "왜 표시가 없지"가 된다.
+  const [jointsHidden, setJointsHidden] = useState(false);
+  useEffect(() => {
+    setJointsHidden(false);
+  }, [index]);
+
   const page = pages[index];
   if (!visible || !page) return null;
   const total = pages.length;
@@ -117,13 +131,42 @@ export function ResultPointModal({
           {page.headline ? <Text style={styles.headline}>{page.headline}</Text> : null}
           {page.sub ? <Text style={styles.sub}>{page.sub}</Text> : null}
           {page.imageUrl ? (
-            <Image
-              source={{ uri: page.imageUrl }}
-              style={styles.photo}
-              resizeMode="cover"
-              onError={onImageError}
-              accessibilityLabel="확대 비교 사진"
-            />
+            <View style={styles.photoWrap}>
+              <Image
+                source={{
+                  uri:
+                    jointsHidden && page.imageUrlPlain
+                      ? page.imageUrlPlain
+                      : page.imageUrl,
+                }}
+                style={styles.photo}
+                resizeMode="cover"
+                onError={onImageError}
+                accessibilityLabel={
+                  jointsHidden
+                    ? '확대 비교 사진 (관절선 없음)'
+                    : '확대 비교 사진'
+                }
+              />
+              {/* 표시 없는 판이 있는 카드에만. 사진 오른쪽 아래 (시안 실측
+                  289.4, 514.0 — 사진 우하단에서 8.4pt 안쪽). */}
+              {page.imageUrlPlain ? (
+                <Pressable
+                  onPress={() => setJointsHidden((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: jointsHidden }}
+                  accessibilityLabel={
+                    jointsHidden ? '관절선 다시 보기' : '관절선 끄기'
+                  }
+                  hitSlop={10}
+                  style={styles.jointChip}
+                >
+                  <Text style={styles.jointChipText}>
+                    {jointsHidden ? '관절선 보기' : '관절선 끄기'}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
           {page.cue ? (
             <View style={[styles.box, styles.boxCue]}>
@@ -227,13 +270,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 14,
   },
+  photoWrap: { width: '100%', marginTop: 20 },
   photo: {
     width: '100%',
     aspectRatio: 326.4 / 166.1,
     borderRadius: radius.resultBox,
-    marginTop: 20,
     backgroundColor: colors.trackBg,
   },
+  // 사진 위에 얹는 칩 — 시안은 흰 알약. 사진이 밝든 어둡든 읽히도록 흰 배경 위
+  // 진한 글씨(§12 "밝은 반투명 위에 밝은 것을 겹치지 말 것").
+  jointChip: {
+    position: 'absolute',
+    right: 8.4,
+    bottom: 8.4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: colors.cardBg,
+  },
+  jointChipText: { ...typography.captionSmall, color: colors.textMid },
   box: {
     width: '100%',
     borderRadius: radius.resultBox,

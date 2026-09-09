@@ -108,6 +108,7 @@ import { useAnalysisDoc } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
 import {
   resolveZoomImageUrl,
+  resolveZoomPlainImageUrl,
   useFreshFaultZoomUrls,
   zoomCardKey,
 } from '../../lib/faultZoomUrls';
@@ -1128,7 +1129,8 @@ function AnalysisResultContent({
   // 패널이 회색이 된다 — 6일 초과 doc 은 배치 재서명(asset 'faultZoom')으로
   // fresh 맵을 받고, 시트 렌더 경계에서 `freshZoomUrls[key] ?? imageUrl` 로
   // 조회한다 (doc item 무변형, 실패 시 현행 회색 fail-closed 폴백 그대로).
-  const { freshZoomUrls, onZoomImageError } = useFreshFaultZoomUrls({
+  const { freshZoomUrls, freshZoomPlainUrls, onZoomImageError } =
+    useFreshFaultZoomUrls({
     analysisId,
     createdAt,
     comparisons: result.faultZoomComparisons ?? null,
@@ -1260,11 +1262,22 @@ function AnalysisResultContent({
             headline: r.statusLine ?? null,
             sub: r.whyLine ?? null,
             imageUrl: zoom ? resolveZoomImageUrl(zoom, freshZoomUrls) : null,
+            // belle 09-09 '관절선 끄기' (contract.md §11.11) — 표시 없는 판.
+            // 없으면 null 이고 모달이 칩을 안 그린다 (legacy doc·렌더 실패 = 토글 불가).
+            imageUrlPlain: zoom
+              ? resolveZoomPlainImageUrl(zoom, freshZoomPlainUrls)
+              : null,
             cue: r.cueLine ?? null,
             basis: formatDeductionRecord(r).detailText,
           };
         }),
-    [records, vetoFaultJoints, result.faultZoomComparisons, freshZoomUrls],
+    [
+      records,
+      vetoFaultJoints,
+      result.faultZoomComparisons,
+      freshZoomUrls,
+      freshZoomPlainUrls,
+    ],
   );
   // '강사에게 공유' 문구 (시안 4). 화면에 이미 보이는 값만 옮겨 담는다 — 새 문장을
   // 짓지 않는다. 감점이 없으면 목록 줄이 빠지고 점수 한 줄만 나간다.
@@ -2765,11 +2778,16 @@ function AnalysisResultContent({
               // belle 09-09 재디자인 — 시안 2 는 감점 목록이 영상 카드 **안**, 옵션 행
               // 바로 아래에 온다. 카드 밖에 두면 부가 컨트롤(음성 안내·미세조정)이
               // 사이에 껴서 시안과 순서가 어긋난다.
-              renderBelowControls={() => (
+              renderBelowControls={({ seekTo }) => (
                 <ResultMomentList
                   flat
                   rows={momentRows}
+                  // belle 09-09 — 진행바 틱이 하던 일을 행이 이어받는다: 그 초로 두
+                  // 영상을 **함께** 옮기고(seekTo) 상세 시트를 연다. 초는 행에 이미
+                  // 적혀 있어 눌렀을 때 어디로 가는지가 눈에 보인다.
                   onRowPress={(recordId) => {
+                    const row = momentRows.find((r) => r.recordId === recordId);
+                    if (row?.sec != null) seekTo(row.sec);
                     const idx = records.findIndex((r) => r.recordId === recordId);
                     if (idx >= 0) setDetailRecordIndex(idx);
                   }}

@@ -536,9 +536,8 @@ export default function RenderedComparePlayer({
         )}
       </View>
       {url ? <View style={styles.controlsWrap}>{renderControls(false)}</View> : null}
-      {/* 260909-ji1 — 시안 2 의 옵션 칩 행. 이 가지에서 쓸 수 있는 것은 배속뿐이다:
-          관절선은 mp4 에 이미 구워져 있어 앱이 켜고 끌 수 없고, '가로로 크게 보기' 는
-          시안에 없다(영상을 탭하면 전체화면이 열린다 — 아래 onPress). */}
+      {/* 시안 2 의 옵션 칩 행 — 0.5배속 · 관절선(표시 없는 판이 있을 때만) · 음성 ·
+          전체화면. 영상을 탭하면 재생/일시정지다. belle 09-09 요구대로 작게 한 줄. */}
       {url ? (
         <View style={styles.optionRow}>
           <Pressable
@@ -611,7 +610,9 @@ export default function RenderedComparePlayer({
       {/* 260909-ji1 — 시안 2 는 감점 목록이 영상 카드 **안**, 옵션 행 바로 아래다.
           듀얼 플레이어 가지에는 이미 그렇게 들어가 있었는데 이 가지에만 없었다
           (belle 09-09: "시안이 있는데도 왜 삭제만하고 반영을 안해"). */}
-      {renderBelowControls?.({ seekToRecord, activeRid })}
+      {/* URL 도착 전에는 목록도 함께 늦춘다 — 컨트롤·칩만 늦게 나오면 URL 이 붙는
+          순간 목록이 그 높이만큼 아래로 튄다 (260909-ji1). */}
+      {url ? renderBelowControls?.({ seekToRecord, activeRid }) : null}
 
       {/* 가로 전체화면 — 260702-t0v 90° 회전 Modal 패턴 (portrait 고정 유지).
           같은 player 인스턴스에 두 번째 VideoView attach — 재생 위치·상태 공유

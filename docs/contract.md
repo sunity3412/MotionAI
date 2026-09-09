@@ -165,6 +165,11 @@ asset  'renderedCompare'   analysisId 와 함께 사용 (추가 파라미터 없
 - `renderedCompare.status != 'done'` / 필드 부재(legacy) / key 불일치 = **전부
   동일한 `404 not_found`** (leak 0). 앱은 404 를 받으면 기존 듀얼 플레이어로 강등.
 - 응답: `{playbackUrl, expiresInSec: 3600}` (`ResponseContentType: video/mp4`).
+- **`playbackUrlPlain?`** — doc 에 `renderedCompare.keyPlain` 이 있고 그 값이 서버가
+  구성한 canonical plain key(`compare_v{N}__plain.mp4`)와 exact 일치할 때만 같은
+  응답에 함께 실린다 (faultZoom `imageUrlPlain` 선례). 앱 '관절선' 칩이 이 URL 로
+  소스를 갈아끼운다. 불일치·부재 = **필드 자체 생략** (fail-open — 칩 미표시,
+  표시 있는 판 재생은 무영향).
 
 #### POST /playback-url — `asset: 'faultZoom'` 확장 (quick-260824-q6p)
 
@@ -2149,12 +2154,13 @@ Mode1 분석이 complete(status='done') 된 뒤, Pod **사후** 스테이지(`co
 |------|------|------|
 | `status` | 'done'\|'failed' | `done` = 리그 ALL PASS mp4 업로드 완료 (key 유효) / `failed` = align 실패·리그 FAIL·스테이지 예외 (앱은 듀얼 플레이어 폴백) |
 | `key` | string | canonical S3 키 (`results/` prefix, `.mp4` suffix). failed 는 `''`. **URL 비저장** — 재생 URL 은 `POST /playback-url` `asset: 'renderedCompare'` 재서명으로만 (H-02) |
-| `freezes?` | `{rid, outSec}[]` | **optional, done 전용** (UI 라운드) — 감점 정지의 합성 mp4 출력 타임라인 시각. `rid` = §12.3 recordId 콜론 앞 축약, `outSec` = 정지 시작 초 (렌더 리포트 voiceStartOutS). 앱 씬 바 틱 + 탭 점프(-0.5s 시크) 근거. **부재(구버전 doc) = 틱 없이 재생만** (fail-open 표시). scalar dict 배열 — nested array 아님. **발굴(discover, §12.10) 정지 틱은 rid 에 `:discover` 접미** (예: `r04:discover`) — 앱 freezeNumber 형식 불일치 = 무번호 틱 fail-open 분기 + React key 중복 회피 (D-di7-05, 앱 코드 무접촉) |
+| `keyPlain?` | string | **optional, done 전용** — 같은 영상의 **관절선 없는 판** canonical S3 키 (`compare_v{N}__plain.mp4`). 정지 프레임에서 관절선·각도 수치만 빼고 **자막은 그대로 굽는다** (토글 이름이 '관절선' 이므로 그것만 끈다 — belle 09-09). 앱 '관절선' 칩이 이 URL 로 소스를 갈아끼워 재생 위치를 유지한 채 표시를 끈다. **부재 = 칩 미표시** (fail-open, 구버전 doc·업로드 실패). 재생 URL 은 `POST /playback-url` 응답의 `playbackUrlPlain` (faultZoom `imageUrlPlain` 선례) |
+| `freezes?` | `{rid, outSec, freezeS}[]` | **optional, done 전용** (UI 라운드) — 감점 정지의 합성 mp4 출력 타임라인 시각. `rid` = §12.3 recordId 콜론 앞 축약, `outSec` = 정지 시작 초 (렌더 리포트 voiceStartOutS), `freezeS` = 그 정지가 유지되는 초 (유한 양수). 앱 감점 행 탭 = `outSec - 0.5s` 시크(유튜브 스크립트식 점프, belle 09-09), 재생 위치 ∈ `[outSec, outSec+freezeS)` = 그 행 활성 표시. **부재(구버전 doc) = 틱 없이 재생만** (fail-open 표시). scalar dict 배열 — nested array 아님. **발굴(discover, §12.10) 정지 틱은 rid 에 `:discover` 접미** (예: `r04:discover`) — 앱 freezeNumber 형식 불일치 = 무번호 틱 fail-open 분기 + React key 중복 회피 (D-di7-05, 앱 코드 무접촉) |
 
 - 스테이지 게이트: env `RENDERED_COMPARE_ENABLED != '0'`(kill-switch, 기본 ON) + `mode == 'mode1'` + ref 로컬 영상 존재 + **motionAlignment `tier == 'warped'`** (trim_only/disabled/부재 = 저신뢰 정렬 강등 스킵 — belle doc 127a2a90 반려 라운드) + 추출 능력 프로브(rtmlib import + YOLOX/RTMW 가중치 실파일 — Lambda CPU 폴백 경로 자동 스킵, T-35J-04). 게이트 미충족·렌더 대상 freeze 전멸 = **doc 필드 무접촉 스킵** (부재 = 폴백). Mode3 는 범위 밖 — 상시 폴백.
-- 검증: `_validate_rendered_compare` — 필수 키(`RENDERED_COMPARE_KEYS`) + 선택 키(`freezes`) 화이트리스트 + status enum + done→key `results/` prefix + `.mp4` suffix / failed→key `''`+freezes 금지 / freezes item = `{rid, outSec}` 정확히 (T-35J-02).
+- 검증: `_validate_rendered_compare` — 필수 키(`RENDERED_COMPARE_KEYS`) + 선택 키(`RENDERED_COMPARE_OPTIONAL_KEYS` = `freezes`·`keyPlain`) 화이트리스트 + status enum + done→key `results/` prefix + `.mp4` suffix / failed→key `''`+freezes·keyPlain 금지 / freezes item = `{rid, outSec, freezeS}` 정확히 (`freezeS` 유한 양수) / keyPlain 도 done 에서 `results/`+`.mp4` (T-35J-02).
 - 리그 확장 (belle 실기기 반려 라운드): **G 경계 핀** — 렌더된 freeze 의 `refSec` 이 ref 영상 양끝 0.5s 밖 (DTW 종점 강제 정렬 아티팩트 차단, 렌더러 사전 제외 + 리그 이중 방어) / **H 진품 판정** — 정지 rid 집합 회계·정지 순간 == doc 측정 순간(±0.2s, 클램프·이동 문법 면제)·구운 자막 == cue_text 조립문·음성 rid == coachAudio 조인 (v7 통째 삽입류 조작이 기계적으로 FAIL — 신뢰 장치).
-- 3-way lockstep: `app/src/types/analysis.ts` `RenderedCompare` ↔ `models.py` `RENDERED_COMPARE_KEYS` 블록 ↔ 본 §12.9.
+- 3-way lockstep: `app/src/types/analysis.ts` `RenderedCompare` ↔ `models.py` `RENDERED_COMPARE_KEYS`/`RENDERED_COMPARE_OPTIONAL_KEYS`/`RENDERED_COMPARE_FREEZE_KEYS` 블록 ↔ 본 §12.9.
 
 ### §12.10 discovery (`result.discovery`) — 발굴 채택 freeze 영속화 (quick-260814-di7)
 

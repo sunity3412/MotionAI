@@ -149,6 +149,26 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[st
     return lines
 
 
+def _draw_caption(images: list[Image.Image], text: str, font, W: int,
+                  pad: int, line_h: int, S: float) -> int:
+    """자막 밴드를 **주어진 캔버스 전부**에 동일하게 굽고 밴드 높이를 돌려준다.
+
+    표시(관절선·각도 수치)와 달리 자막은 '관절선 끄기' 판에도 남는다 — 토글이
+    끄겠다고 이름 붙인 것은 관절선뿐이고, 코칭 문장까지 같이 사라지면 이름과
+    동작이 어긋난다(belle 09-09). 음성이 읽는 문장이 곧 이 자막이다(D-07).
+    """
+    d0 = ImageDraw.Draw(images[0], "RGBA")
+    lines = wrap_text(d0, text, font, W - 2 * pad)[:3]
+    band_h = round(18 * S) + line_h * len(lines)
+    for img in images:
+        d = d0 if img is images[0] else ImageDraw.Draw(img, "RGBA")
+        d.rectangle([0, PANEL_H - band_h, W, PANEL_H], fill=(15, 13, 12, 216))
+        for li, line in enumerate(lines):
+            d.text((pad, PANEL_H - band_h + round(10 * S) + line_h * li),
+                   line, font=font, fill=(255, 255, 255))
+    return band_h
+
+
 def _simplify_curve(xs: np.ndarray, ys: np.ndarray, max_knots: int = 6,
                     tol: float = 0.4) -> tuple[np.ndarray, np.ndarray]:
     """정렬 곡선을 소수 등속 선분으로 단순화 (Douglas-Peucker 유사, 재귀 분할).
@@ -1667,12 +1687,8 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
                     d.ellipse([mx - r_out, my - r_out, mx + r_out, my + r_out],
                               outline=BRAND + (255,), width=round(4 * S))
                     d.ellipse([mx - r_in, my - r_in, mx + r_in, my + r_in], fill=BRAND + (255,))
-            lines = wrap_text(d, fz["text"], font, W - 2 * pad)[:3]
-            band_h = round(18 * S) + line_h * len(lines)
-            d.rectangle([0, PANEL_H - band_h, W, PANEL_H], fill=(15, 13, 12, 216))
-            for li, line in enumerate(lines):
-                d.text((pad, PANEL_H - band_h + round(10 * S) + line_h * li),
-                       line, font=font, fill=(255, 255, 255))
+            targets = [canvas] if plain_canvas is None else [canvas, plain_canvas]
+            _draw_caption(targets, fz["text"], font, W, pad, line_h, S)
         canvas.save(odir / f"{i + 1:06d}.jpg", quality=92)
         if odir_plain is not None:
             # 표시는 정지 프레임(fz)에만 그려지므로 재생 프레임은 두 판이 동일하다

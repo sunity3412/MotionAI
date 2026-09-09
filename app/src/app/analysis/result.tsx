@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -273,14 +274,47 @@ const RESULT_TABS = [
 const DIAL_LABEL = 'Today';
 // 요약 카드 헤드라인 아래 한 줄 — 시안 문구 그대로.
 const SUMMARY_SUBLINE = '90점 이상이면 기준 자세에 가까워요';
+// 요약 경고 본문 줄 수 — 시안이 3줄이다.
+const SUMMARY_WARN_LINES = 3;
+
+/**
+ * 문장을 어절(공백) 경계에서만 잘라 최대 lineCount 줄로 나눈다 — 문장을 짓거나 바꾸지 않는다.
+ * 줄마다 전체 길이 ÷ 줄 수에 가깝게 앞에서부터 채우고 마지막 줄이 나머지를 받는다.
+ * 어절이 줄 수보다 적으면 있는 만큼만 돌려준다. (result.tsx 밖에서 쓸 일이 생기면 lib 로.)
+ */
+function splitAtWordBoundaries(text: string, lineCount: number): string[] {
+  const words = text.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length === 0) return [];
+  const target = Math.ceil(text.trim().length / lineCount);
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (cur && next.length > target && lines.length < lineCount - 1) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = next;
+    }
+  }
+  lines.push(cur);
+  return lines;
+}
 // 탭별 콘텐츠 시작 y (safe-area 상단 기준 pt, 시안 실측). 탭 밑줄 아랫변이 125.6 이라
 // 그보다 아래여야 한다 — 그 위로 올라오면 타이틀·탭에 가린다.
 const RESULT_TAB_TOP: Record<ResultTabKey, number> = {
   summary: 150.1, // 점수 원 윗변
-  compare: 165.3, // 영상 카드 윗변
+  compare: 152.2, // 영상 카드 윗변 — 시안 254:545 y=182.32px = 152.19pt (이전 165.3 은 오독, 260909-ji1)
   points: 150.0,
   exercise: 150.0,
 };
+// 260909-ji1 — 스크롤 콘텐츠 좌우 여백. 시안 카드 좌우 여백 36.44pt(피그마 254:680/1237/1480
+// 좌우 43.65px 대칭). 결과 화면 전용 값이다 — 전역 spacing.screenX(20)는 다른 화면이 쓰므로
+// 건드리지 않는다 (PLAN §3).
+const RESULT_CONTENT_PAD_X = 36.6;
+// 스크롤 콘텐츠 자식 사이 공통 간격. 요약 탭의 점수 원 ↔ 카드만 시안 22pt 다(dialWrap 참조).
+const CONTENT_GAP = 14;
+const DIAL_CARD_GAP = 22;
 
 // 분석 결과 화면 (plan.md #8, design.md §8, ia AC-RES-001).
 // 미설계 화면 → design.md §0 결정 트리로 자체 설계. 흰 배경(§5-1),
@@ -626,7 +660,7 @@ function AnalysisResultContent({
   // 교정포인트 탭 (시안 3) — 같은 감점을 '점수 계산 내역'과 같은 값으로 보여주되,
   // 행을 펼치면 그 순간의 확대 짝 사진과 왜 감점인지 문장이 나온다. 사진·문장은 전부
   // doc 저장값이다(사진 = 그 record 의 확대 카드, 문장 = whyLine/cueLine) — 지어내지 않는다.
-  const [expandedPointId, setExpandedPointId] = useState<string | null>(null);
+  // (펼침 상태 expandedPointId 는 pointRows 바로 아래 — 초기값이 첫 행이라 그 뒤여야 한다.)
   // 시안 5 (교정포인트2) — 전체화면 모달. null = 닫힘, 숫자 = pointRows 안의 위치.
   const [pointModalIndex, setPointModalIndex] = useState<number | null>(null);
   const pointRows = useMemo(
@@ -655,6 +689,12 @@ function AnalysisResultContent({
           };
         }),
     [records, vetoFaultJoints, result.faultZoomComparisons, freshZoomUrls],
+  );
+  // 시안은 첫 행이 **펼쳐진 채**가 기본이다(260909-ji1). 초기값만 첫 행으로 두고 이후는
+  // 사용자 토글을 따른다. pointRows 뒤에 선언해 초기값을 읽되, 훅은 조건 없이 매 렌더
+  // 같은 순서로 호출되므로 훅 순서는 깨지지 않는다(초기값 함수는 최초 1회만 실행).
+  const [expandedPointId, setExpandedPointId] = useState<string | null>(
+    () => pointRows[0]?.recordId ?? null,
   );
   // 시안 5 페이지 — 교정포인트 행과 **같은 순서·같은 record**. 문장은 전부 doc
   // 저장값(statusLine/whyLine/cueLine + 측정 근거 detailText)이고, 없는 칸은 그리지
@@ -708,10 +748,26 @@ function AnalysisResultContent({
     );
     return [head, `종합 ${Math.round(result.overallScore)}점`, ...lines].join('\n');
   }, [cmp, pointRows, result.overallScore]);
+  // 헤더 우상단 공유 아이콘 배선 (260909-ji1 — 4탭 모두 빠져 있었다). 보완운동 탭의 공유와
+  // 같은 문구를 보낸다. 문구가 없으면 undefined 를 넘겨 아이콘을 그리지 않는다(ResultHeaderBar 규약).
+  const onShareResult = useMemo(
+    () =>
+      shareMessage
+        ? () => {
+            // 사용자 취소는 resolve(dismissedAction)다 — catch 는 공유 시트 자체가 못 뜬 경우뿐.
+            Share.share({ message: shareMessage }).catch(() => undefined);
+          }
+        : undefined,
+    [shareMessage],
+  );
   const summaryWarning = useMemo(() => {
     const flag = topRiskFlag(result.safetyFlags);
     const copy = flag ? riskFlagCopy(flag.flagType) : null;
-    return copy ? { title: copy.title, lines: [copy.why] } : null;
+    // 시안은 경고 본문이 3줄이다. 한 덩어리로 넘겨 자동 줄바꿈에 맡기면 줄 수와 끊는 자리가
+    // 기기마다 달라지므로 어절 경계에서 3줄로 나눠 넘긴다 — 문장은 그대로, 분할만 (260909-ji1).
+    return copy
+      ? { title: copy.title, lines: splitAtWordBoundaries(copy.why, SUMMARY_WARN_LINES) }
+      : null;
   }, [result.safetyFlags]);
 
   // quick-260704-fz4 — 2단 시각 언어 set 단일 조립 (표·마커·카드가 같은 소스 사용).
@@ -2144,6 +2200,7 @@ function AnalysisResultContent({
         activeKey={resultTab}
         onTabPress={(k) => setResultTab(k as ResultTabKey)}
         onBack={() => router.back()}
+        onShare={onShareResult}
       />
       {/* (구 DimensionDetailModal 제거 — D-03/D-12. 차원 세부 점수 모달 폐기.) */}
       {/* Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달. tip=null 시 닫힘. */}
@@ -2227,19 +2284,23 @@ function AnalysisResultContent({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg, // 서브 화면 = 흰 배경 (§5-1)
+    // design.md §5-1 은 서브 화면 = 흰색이지만, 이 화면은 belle 09-09 판정으로 시안(#F6F6F6)을
+    // 따른다 — 흰 카드가 배경에서 갈리게 하는 것이 시안 구조의 핵심이다. 이 화면만이다.
+    backgroundColor: colors.resultPageBg,
   },
   // 33-15 (D-17) — 상단 inset 은 컨테이너(실측 insets.top)가 담당. 콘텐츠 안쪽
   // 고정 paddingTop(구 layout.safeAreaTop)은 스크롤 시 본문이 상태바와 겹치는
   // 원인이라 제거 (header marginTop 16 이 첫 요소 간격 담당).
   content: {
-    paddingHorizontal: spacing.screenX,
+    paddingHorizontal: RESULT_CONTENT_PAD_X, // 시안 36.44pt — 근거는 상수 주석 (전역 screenX 아님)
     paddingBottom: layout.safeAreaBottom + 24,
-    gap: 14,
+    gap: CONTENT_GAP,
   },
   // belle 09-08 — 점수 원은 곡선 헤더에 걸치는 요소라 가운데 정렬만 한다
   // (세로 위치는 contentContainerStyle 의 paddingTop 이 정한다).
-  dialWrap: { alignItems: 'center' },
+  // 260909-ji1 — 원 아랫변 ↔ 요약 카드 윗변은 시안 22pt 다. 공통 gap(14)에 모자란 만큼만
+  // 원반 쪽 marginBottom 으로 보탠다 — 다른 탭의 14 는 그대로.
+  dialWrap: { alignItems: 'center', marginBottom: DIAL_CARD_GAP - CONTENT_GAP },
   // 시안 3 — '유지된점' 박스 (실측 #EDF6F2) 와 그 아래 CTA.
   keptBox: {
     backgroundColor: colors.resultKeptBg,

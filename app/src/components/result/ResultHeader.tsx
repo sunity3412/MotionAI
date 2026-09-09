@@ -57,8 +57,15 @@ export const RESULT_HEADER = {
   titleTop: 39.7,
   titleH: 22.2,
   sideInset: 50.3,
-  backH: 13.0,
-  shareH: 13.9,
+  backH: 13.0, // 잉크 높이 — Ionicons size 로 쓰지 말 것 (아래 backIconBox)
+  shareH: 13.9, // 잉크 높이 — 위와 같음 (shareIconBox)
+  /**
+   * 아이콘 박스(pt). backH / shareH 는 시안 **잉크** 높이인데 Ionicons 의 `size` 는 글리프
+   * **박스**다 — `chevron-back` 잉크는 박스의 약 0.62 배라 backH 를 그대로 넣으니 8.3pt 로
+   * 그려졌다(시안 13.05). 잉크 ÷ 0.62 로 박스를 되돌린다: 13.05 → 21, 13.9 → 22 (260909-ji1).
+   */
+  backIconBox: 21,
+  shareIconBox: 22,
   tabsTop: 89.8,
   tabsH: 15.3,
   tabsInset: 49.9,
@@ -166,7 +173,7 @@ export function ResultHeaderBar({
           >
             <Ionicons
               name="chevron-back"
-              size={Math.round(RESULT_HEADER.backH * s)}
+              size={Math.round(RESULT_HEADER.backIconBox * s)}
               color={colors.textWhite}
             />
           </Pressable>
@@ -187,7 +194,7 @@ export function ResultHeaderBar({
           >
             <Ionicons
               name="share-outline"
-              size={Math.round(RESULT_HEADER.shareH * s)}
+              size={Math.round(RESULT_HEADER.shareIconBox * s)}
               color={colors.textWhite}
             />
           </Pressable>

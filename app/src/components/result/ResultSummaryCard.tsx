@@ -17,8 +17,9 @@
 // 색: 브랜드는 #FF4B33 (시안의 #E94D37 기각 — belle 09-08). 나머지는 시안 실측
 // 토큰(resultChipBg / resultWarnBg). 하드코딩 색 0.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { colors, radius, typography } from '../../theme';
+import { colors, layout, radius, typography } from '../../theme';
 import type { SummaryChip } from '../../lib/resultSummary';
 
 const K = 390 / 467.206;
@@ -26,19 +27,49 @@ const K = 390 / 467.206;
 const D = {
   cardRadius: radius.resultCard,
   cardPadX: 19.2,
-  headlineTop: 36.5 * K, // 30.5
-  subTop: 69.8 * K, // 58.3 (카드 top 기준)
+  headlineTop: 36.5 * K, // 30.5 — 잉크 상단 (아래 라인박스 보정 참조)
+  subTop: 69.8 * K, // 58.3 (카드 top 기준) — 잉크 상단
   chipsTop: 104.1 * K, // 86.9
   chipH: 36.0 * K, // 30.1
   chipMinW: 147.8 * K, // 123.4
   chipGapX: 8.4 * K, // 7.0
   chipGapY: 9.3 * K, // 7.8
-  chipPadX: 12,
+  chipPadX: 18.9, // 260909-ji1 시안 실측 (이전 12)
   warnTop: 210.0 * K, // 175.3
-  warnPad: 12,
+  warnPadTop: 20.9, // 경고 박스 윗변 → 제목 잉크 상단 (260909-ji1 시안 실측, 이전 12)
+  warnPad: 12, // 좌우·아래 — 시안 계기가 없어 이전 값 유지
+  // 제목 앞 경고 아이콘 — 시안 잉크 폭 ≈13.4pt. Ionicons 삼각형 잉크는 박스의 약 0.88 → 15.
+  warnIconBox: 15,
+  warnIconGap: 5, // 아이콘 ↔ 제목 — 시안에 계기가 없어 시각 판단 (PLAN 규칙 4)
   cardBottom: 20,
   ctaH: 71.3 * K, // 59.5
-  ctaGap: 24, // 카드 아랫변 ~ CTA 윗변 (시안: 884.8 − 860.6px = 24.2px → 20.2pt + 카드 하단 여백)
+  // 카드 아랫변 ~ CTA 윗변 (시안: 884.8 − 860.6px = 24.2px → 20.2pt). 이전 24 는 px 값을
+  // pt 로 환산하지 않고 그대로 넣은 것이었다 (260909-ji1).
+  ctaGap: 20.2,
+} as const;
+
+// ── 라인박스 보정 (260909-ji1) ───────────────────────────────────────────────────
+// 위 D 의 세로 값은 벡터 **잉크** 상단인데, 이전 구현은 그 값을 <Text> **라인박스** 상단
+// (paddingTop / marginTop)으로 썼다. 게다가 다음 요소의 marginTop 을 "이전 라인박스 높이
+// = fontSize" 로 놓고 뺐는데 실제 라인박스는 fontSize 의 약 1.19 배다. 두 오차가 아래로
+// 누적돼 헤드라인 +2.9 / 서브 +5.7 / 칩 +6.1 / 경고박스 +6.0pt 씩 밀렸다(09-09 대조).
+//
+// 번들 Pretendard 실측(em): hhea asc 0.952 / desc 0.241 / lineGap 0 → 자연 라인 1.193.
+// 한글 잉크 상단은 어센더 선에서 Bold 0.153 / Regular 0.162em 아래다 → 0.15 로 통일.
+//   라인박스 상단 = 잉크 상단 − fontSize × INK_TOP
+// 라인박스 높이는 명시한다 — LINE_H 1.2 ≥ 1.193 이라 RN iOS 가 자연 라인을 가운데 놓는
+// 경로를 타고, 기본값에 기대면 기기·폰트마다 어긋난다 (ResultScoreDial 선례).
+const INK_TOP = 0.15;
+const LINE_H = 1.2;
+const headlineLH = typography.resultHeadline.fontSize * LINE_H;
+const subLH = typography.resultSub.fontSize * LINE_H;
+// 각 요소의 라인박스(뷰는 뷰) 상단 — 카드 top 기준 pt. 뷰(칩·경고 박스)는 보정이 없다.
+const T = {
+  headline: D.headlineTop - typography.resultHeadline.fontSize * INK_TOP, // 27.5
+  sub: D.subTop - typography.resultSub.fontSize * INK_TOP, // 56.6
+  chips: D.chipsTop, // 86.9
+  warn: D.warnTop, // 175.3
+  warnTitle: D.warnPadTop - typography.resultWarnTitle.fontSize * INK_TOP, // 18.9 (박스 top 기준)
 } as const;
 
 export interface ResultSummaryWarning {
@@ -79,7 +110,9 @@ export function ResultSummaryCard({
         <Text style={styles.headline}>
           분석에서 <Text style={styles.headlineNum}>{total}개</Text> 교정할 점이 보여요
         </Text>
-        <Text style={styles.sub}>{subline}</Text>
+        <Text style={styles.sub} lineBreakStrategyIOS="hangul-word">
+          {subline}
+        </Text>
 
         <View style={styles.chips}>
           {chips.map((c, i) => {
@@ -114,9 +147,24 @@ export function ResultSummaryCard({
 
         {warning ? (
           <View style={styles.warn}>
-            <Text style={styles.warnTitle}>{warning.title}</Text>
+            {/* 시안은 제목 앞에 경고 삼각형이 있다 — 구현에 없던 것 (260909-ji1). 이모지가
+                아니라 벡터 아이콘이고 색은 제목과 같은 앰버. 장식이라 접근성 트리에서 뺀다. */}
+            <View style={styles.warnTitleRow}>
+              <Ionicons
+                name="warning-outline"
+                size={D.warnIconBox}
+                color={colors.resultWarnTitle}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
+              <Text style={styles.warnTitle}>{warning.title}</Text>
+            </View>
             {warning.lines.map((l, i) => (
-              <Text key={`warn-${i}`} style={styles.warnBody}>
+              <Text
+                key={`warn-${i}`}
+                style={styles.warnBody}
+                lineBreakStrategyIOS="hangul-word"
+              >
                 {l}
               </Text>
             ))}
@@ -143,25 +191,27 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.cardBg,
     borderRadius: D.cardRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    // 시안 벡터는 stroke #19191B 0.48px 다. 그 굵기로는 렌더에서 #C6C6C6 로 읽히고
-    // (실측), 앱 카드 관례(design.md §5-4)도 같은 톤의 divider 다 — 토큰을 쓴다.
-    borderColor: colors.divider,
+    borderWidth: layout.cardBorderWidth, // design.md §5-4 0.858 — 이전 hairline 은 시안보다 얇았다
+    // ★ 이전 주석 "시안 stroke 가 렌더에서 #C6C6C6 로 읽힘" 은 **잘못된 실측**이었다 — 벡터
+    // 원문은 #8A8A8B / #6C6C6E 다. 시안 #6D6D6E 그대로 쓴다(페이지 배경 위 4.78:1, colors.ts).
+    borderColor: colors.resultCardBorder,
     paddingHorizontal: D.cardPadX,
-    paddingTop: D.headlineTop,
+    paddingTop: T.headline,
     paddingBottom: D.cardBottom,
   },
   headline: {
     ...typography.resultHeadline,
+    lineHeight: headlineLH,
     color: colors.textPrimary,
     textAlign: 'center',
   },
   headlineNum: { color: colors.brand },
   sub: {
     ...typography.resultSub,
-    color: colors.textSecondary,
+    lineHeight: subLH,
+    color: colors.resultTextSub, // 시안 #D6D6D6 은 1.45:1 라 AA 로 낮춘 값 (colors.ts)
     textAlign: 'center',
-    marginTop: D.subTop - D.headlineTop - typography.resultHeadline.fontSize,
+    marginTop: T.sub - T.headline - headlineLH, // 5.1
   },
   chips: {
     flexDirection: 'row',
@@ -169,7 +219,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: D.chipGapX,
     rowGap: D.chipGapY,
-    marginTop: D.chipsTop - D.subTop - typography.resultSub.fontSize,
+    marginTop: T.chips - T.sub - subLH, // 16.5
   },
   chip: {
     minWidth: D.chipMinW,
@@ -186,22 +236,29 @@ const styles = StyleSheet.create({
   },
   // '+N' 은 감점이 아니라 개수라 회색 (시안 실측 #F4F4F6 ≈ softBg).
   chipMore: { minWidth: 0, backgroundColor: colors.softBg },
-  chipMoreText: { color: colors.textMid },
+  chipMoreText: { color: colors.resultChipMoreText }, // 시안 #79787E 는 3.91:1 라 AA 로 낮춘 값 (colors.ts)
   warn: {
     backgroundColor: colors.resultWarnBg,
     borderRadius: radius.resultBox,
     padding: D.warnPad,
-    marginTop: D.warnTop - D.chipsTop - D.chipH * 2 - D.chipGapY,
+    paddingTop: T.warnTitle,
+    // 칩 2행 아래 — 시안(감점 5개)은 칩이 2행이다. 1행이면 그만큼 위로 붙고 간격은 같다.
+    marginTop: T.warn - T.chips - D.chipH * 2 - D.chipGapY, // 20.4
     alignItems: 'center',
+  },
+  warnTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: D.warnIconGap,
   },
   warnTitle: {
     ...typography.resultWarnTitle,
-    color: colors.textPrimary,
+    color: colors.resultWarnTitle, // 시안 #96773F 는 3.81:1 라 AA 로 낮춘 값 (colors.ts)
     textAlign: 'center',
   },
   warnBody: {
     ...typography.resultWarnBody,
-    color: colors.textHi,
+    color: colors.resultWarnBody, // 시안 #79787E 는 3.97:1 라 AA 로 낮춘 값 (colors.ts)
     textAlign: 'center',
     marginTop: 4,
   },

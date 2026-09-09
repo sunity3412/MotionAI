@@ -161,7 +161,7 @@ function VideoSlot({
     <View style={styles.slot}>
       <View style={styles.slotFrame}>
         {url && player ? (
-          <>
+          <View style={styles.slotVideoBox}>
             <VideoView
               player={player}
               style={styles.video}
@@ -190,7 +190,7 @@ function VideoSlot({
                 </View>
               </View>
             ) : null}
-          </>
+          </View>
         ) : (
           <View style={styles.slotEmpty}>
             <Ionicons
@@ -445,6 +445,8 @@ const ILLU_FLOAT_INSET_RATIO = 10 / 360;
 // 상수를 직접 쓴다). 260909-ji1 — 시안 2 는 두 칸이 구분선 하나(2.5pt)로 맞닿아 있다.
 // 종전 8 은 시안에 없던 여백.
 const ROW_PANEL_GAP = 2.5;
+/** 시안 2 영상 블록의 카드 안쪽 좌우 여백 (블록 57.6 − 카드 36.7 = 20.9pt 실측). */
+const VIDEO_BLOCK_INSET = 20.9;
 
 // 32-08 (실기기 피드백 #1) — 음수 오프셋 시작 홀드 임계. 목표시각(unclamped)이 음수인
 // 구간에서 정은지(right)를 0 프레임에 세우되, 이미 ~0 이면 재대입을 생략한다(불필요한
@@ -2928,9 +2930,19 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
   },
+  // 260909-ji1 재수정 — 시안 2 의 영상은 **한 덩어리**다.
+  // 시안 실측(390pt 기준): 블록 57.6~332.2 (폭 274.6) · 카드 36.7~353.1 →
+  // 카드 안쪽 여백 20.9pt. 바깥 모서리만 둥글고, 두 칸은 맞닿아 그 이음매가
+  // near-black 세로선 하나로 보인다(x=194pt 코어 #171713, 폭 약 2pt).
+  // 그래서 라운드·클리핑을 여기(row)로 올리고, 칸 사이 gap 2.5pt 로 이 배경색이
+  // 비쳐 그 이음매가 되게 한다. 칸별 라운드는 slotFrame 에서 뺐다.
   row: {
     flexDirection: 'row',
     gap: ROW_PANEL_GAP,
+    marginHorizontal: VIDEO_BLOCK_INSET - spacing.cardPadding,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.videoBg,
   },
   slot: {
     flex: 1,
@@ -2944,14 +2956,26 @@ const styles = StyleSheet.create({
   //   띠까지 늘어나 9:16 원본에선 관절선이 가로로 어긋날 수 있다. contentFit 은
   //   지시대로 유지 — belle 이 실기기 캡처로 판단할 항목(260909-ji1).
   //   구분선(칸 테두리)은 resultDivider + cardBorderWidth.
+  // ★ 모서리·테두리는 여기에 두지 않는다 — 아래 `row` 가 두 칸을 한 덩어리로 감싼다.
+  //   칸마다 borderRadius 를 주면 가운데에도 라운드가 생겨 두 영상이 흰 틈으로
+  //   벌어져 보인다 (belle 09-09 "동작비교쪽 완전 엉망진창").
   slotFrame: {
     width: '100%',
     aspectRatio: 138.02 / 177.9,
-    borderRadius: 12,
     overflow: 'hidden',
+    justifyContent: 'center',
     backgroundColor: colors.divider,
-    borderWidth: layout.cardBorderWidth,
-    borderColor: colors.resultDivider,
+  },
+  // 칸(0.776)에 세로 영상(9:16 = 0.5625)을 `contain` 으로 넣으면 좌우에 회색 띠가
+  // 남는다 — 시안 2 는 두 영상이 칸을 꽉 채운다. 그렇다고 칸 자체에 `cover` 를 주면
+  // 관절선 오버레이(absoluteFill)가 영상 좌표와 어긋난다.
+  // 그래서 **영상 비율 그대로의 박스**를 칸 안에 두고 폭을 100% 로 편 뒤 칸이 위아래를
+  // 자르게 한다. 오버레이는 이 박스에 붙으므로 좌표가 그대로 맞는다.
+  // ★ 대가: 위아래로 약 27% 잘린다((1/0.5625 − 1/0.776) ÷ (1/0.5625)).
+  //   전신을 보려면 '가로로 크게 보기'(전체화면)가 있다. belle 캡처로 판단할 항목.
+  slotVideoBox: {
+    width: '100%',
+    aspectRatio: 9 / 16,
   },
   video: {
     width: '100%',

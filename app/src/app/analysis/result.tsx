@@ -3036,46 +3036,14 @@ function AnalysisResultContent({
             />
             </>
             )}
-            {/* 33-G S3/F-8 (quick-260730-szk) — 부위 칩 행. 승인 목업 ① 은 칩을
-                캡처 카드 **바로 아래**에 둔다(`.jointchips` = `.dcap` 다음 형제).
-                F-8 로 상시 마커가 사라지므로 이 행이 상시 진입점을 대체한다 —
-                감점 칩 탭 → 기존 부위 상세 시트 state(진입점 신설 아님, 5번째 추가).
-                감점 0(cleanPass)·저신뢰(IN-01) doc 은 빌더가 빈 배열을 주므로 행
-                자체가 렌더되지 않는다 (N-14 / S17 보호). */}
-            {partChips.length > 0 ? (
-              <PartChipsRow
-                chips={partChips}
-                onPressPart={setDetailRecordIndex}
-              />
-            ) : null}
-            {/* 28-CONTEXT D-05 — 정렬 데이터는 새 분석부터, legacy 는 재분석 유도.
-                조건 = motionAlignment 필드 부재(undefined)만. normalize null(데이터
-                있으나 malformed)은 배너 아님 — 필드 자체 부재만 순수 legacy.
-                W3: 신규 분석은 degenerate 라도 tier 'disabled'로 필드가 항상 실리므로
-                (28-02) undefined 판정 = 순수 legacy — "재분석하면 적용" 과약속 루프 없음.
-                tier 판정 금지 — disabled 안내는 VideoCompare 배지(28-06) 책임
-                (배지=VideoCompare / 배너=화면 레벨 책임 분리, 28-RESEARCH Pattern 6). */}
-            {/* 29-CONTEXT D-04 — 28 배너 통합 (재량). legacy mode3 doc(내역 없음)
-                전용 배너를 신설하지 않고 이 Phase 28 배너에 통합한다. "breakdown
-                부재 = legacy" 판정은 빈 criteria 4동작의 신선한 doc 에서도 참이 되어
-                "재분석하면 내역이 나와요" 가 거짓 약속(Pitfall 1)이 되므로, 특정
-                기능 약속 없이 "최신 분석 적용" 으로 일반화한다 (구간 맞춤 + 내역은
-                등록 동작 한정으로 함께 따라옴). 판정 규칙(motionAlignment
-                === undefined = 순수 legacy)은 아래 원 주석 승계. */}
-            {result.motionAlignment === undefined ? (
-              <View style={styles.alignUpsellBanner}>
-                <Text style={styles.alignUpsellText}>
-                  다시 분석하면 자동 구간 맞춤 등 최신 분석이 적용돼요
-                </Text>
-                <Pressable
-                  onPress={() => router.replace('/(tabs)/analyze')}
-                  accessibilityRole="button"
-                  hitSlop={8}
-                >
-                  <Text style={styles.alignUpsellCta}>다시 분석하기</Text>
-                </Pressable>
-              </View>
-            ) : null}
+            {/* belle 09-09 — 부위 칩 행(33-G S3/F-8)과 legacy 재분석 유도 배너
+                (28-CONTEXT D-05)를 여기서 걷어냈다. 시안 2 의 동작비교는 영상·컨트롤·
+                옵션·감점 목록 넷뿐이고, 두 표면 모두 시안이 대체했다:
+                  · 부위 칩 = 감점 항목으로 들어가는 진입점 → 감점 목록 행이 대체
+                    (행이 초까지 들고 있어 더 낫다)
+                  · 재분석 유도 = 보완운동 탭의 '다시 분석' 버튼이 대체
+                감점 목록 행 탭이 부위 칩과 **같은 시트**(setDetailRecordIndex)를 여니
+                잃는 경로가 없다. */}
           </>
         )}
 

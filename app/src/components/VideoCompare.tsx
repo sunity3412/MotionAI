@@ -624,6 +624,8 @@ export function VideoCompare({
   // 플레이어에 같이 건다(한쪽만 걸면 D-13 "함께 멈추고 함께 돈다" 가 깨진다).
   // 신규 의존성 0 — OTA 로 나간다.
   const [slowMotion, setSlowMotion] = useState(false);
+  // belle 09-09 — 시작점 맞추기 접기. 기본 닫힘(자동 정렬이 이미 되어 있다).
+  const [alignOpen, setAlignOpen] = useState(false);
   // 전체화면 타임라인 track 은 폭이 다름 — scrubAtX 가 활성 레이아웃의 폭을 읽도록
   // ref 분리 (portrait track 은 Modal 뒤에 mount 유지라 onLayout 재발화 없음).
   const fullscreenRef = useRef(false);
@@ -2537,6 +2539,33 @@ export function VideoCompare({
               </Text>
             </Pressable>
           ) : null}
+          {/* belle 09-09 — '음성 안내'도 같은 종류의 토글이라 옵션 행으로 올렸다.
+              종전에는 목록 아래 별도 블록이었고, 그것이 시안에 없는 세 덩어리 중
+              하나였다(탭이 한 화면에 안 들어가던 원인). */}
+          {audioAvailable ? (
+            <Pressable
+              onPress={handleToggleAudio}
+              accessibilityRole="switch"
+              accessibilityLabel="재생 중 음성 안내"
+              accessibilityState={{ checked: audioEnabled }}
+              hitSlop={8}
+              style={[styles.optionPill, audioEnabled ? styles.optionPillOn : null]}
+            >
+              <Ionicons
+                name={audioEnabled ? 'volume-high' : 'volume-mute'}
+                size={13}
+                color={audioEnabled ? colors.brand : colors.textMid}
+              />
+              <Text
+                style={[
+                  styles.optionPillText,
+                  audioEnabled ? styles.optionPillTextOn : null,
+                ]}
+              >
+                음성 안내
+              </Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={openFullscreen}
             accessibilityRole="button"
@@ -2566,34 +2595,32 @@ export function VideoCompare({
           관절선 표시 넷뿐이다. 음성 안내·자동 맞춤 배지·시작점 미세조정은 시안 프레임
           **밖**(감점 목록 아래)으로 내렸다. 다른 탭으로는 옮길 수 없다 — 플레이어를
           조작하는 컨트롤이라 플레이어와 같은 화면에 있어야 한다. 기능 손실 0. */}
-      {/* 32-12 (D-18 B안 오디오 큐) — "음성 안내" 토글. coachAudio mp3 보유 doc
-          (audioAnalysisId 전달) 에서만 노출. 기본 off(학원 소음) — 켜면 재생 중 자막
-          큐 전환 시점에 같은 문장을 음성으로 안내한다. 소형 pill(토큰·accessibility). */}
-      {audioAvailable ? (
+      {/* belle 09-09 — 시작점 맞추기(자동 맞춤 배지 + 수동 미세조정)는 시안에 없다.
+          지우지는 않는다: belle 08-07 이 "끄지 않는다"고 못박은 컨트롤이고, 시작점이
+          어긋난 영상을 손으로 맞출 길이 사라지면 비교 자체가 무의미해진다. 대신
+          **접어서 한 줄**로 둔다 — 필요할 때만 펼치면 되고, 탭은 시안처럼 한 화면에
+          들어온다(약 160pt → 30pt). 전체화면으로 옮기지 않은 이유: 가로 모달은
+          영상이 화면을 채워 슬라이더를 놓을 자리가 없다.
+          기본 접힘 — 자동 정렬이 이미 되어 있어 대부분은 손댈 일이 없다. */}
+      {hasLeft && hasRight ? (
         <Pressable
-          onPress={handleToggleAudio}
-          accessibilityRole="switch"
-          accessibilityLabel="재생 중 음성 안내"
-          accessibilityState={{ checked: audioEnabled }}
+          onPress={() => setAlignOpen((v) => !v)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: alignOpen }}
+          accessibilityLabel="시작점 맞추기"
           hitSlop={8}
-          style={[styles.audioToggle, audioEnabled && styles.audioToggleOn]}
+          style={styles.alignDisclosure}
         >
+          <Text style={styles.alignDisclosureText}>시작점 맞추기</Text>
           <Ionicons
-            name={audioEnabled ? 'volume-high' : 'volume-mute'}
-            size={15}
-            color={audioEnabled ? colors.textWhite : colors.textMid}
+            name={alignOpen ? 'chevron-up' : 'chevron-down'}
+            size={13}
+            color={colors.textMid}
           />
-          <Text
-            style={[
-              styles.audioToggleText,
-              audioEnabled && styles.audioToggleTextOn,
-            ]}
-          >
-            {audioEnabled ? '음성 안내 켜짐' : '음성 안내'}
-          </Text>
         </Pressable>
       ) : null}
-
+      {alignOpen ? (
+        <>
       {/* Phase 20 (UI A4) — "자동 구간 맞춤" 신뢰 배지.
           belle 가 서로 다른 시작점의 두 영상을 자동 정렬한 점을 호평 → 이 정렬이
           의도된 것임을 사용자에게 정직하게 알린다. 두 영상이 모두 있을 때만 노출
@@ -2696,6 +2723,8 @@ export function VideoCompare({
           </View>
         </View>
       )}
+        </>
+      ) : null}
 
       {/* quick-260702-t0v — 가로 전체화면 뷰어. portrait 고정 유지 + 뷰 90° 회전
           (검증된 가로 시뮬레이트 패턴). 조건부 렌더 — 닫힌 동안 native 리소스 0
@@ -3323,6 +3352,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.resultChipBg,
   },
   optionPillText: { ...typography.caption, color: colors.textMid },
+  // 시작점 맞추기 접기 줄 — 목록 아래 한 줄. 카드 안이라 배경 없이 글자만.
+  alignDisclosure: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+  },
+  alignDisclosureText: { ...typography.caption, color: colors.textMid },
   optionPillTextOn: { color: colors.brand, fontWeight: '700' },
   fullscreenBtnGroup: {
     gap: 4,

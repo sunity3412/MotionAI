@@ -1049,6 +1049,7 @@ belle 결정 (mirror 검색 path) → HuggingFace anonymous mirror 활용 우회
 | uvicorn server | PID 9652 살아있음, 0.0.0.0:8000 LISTEN, 워밍업 완료 (RTMW+YOLOX+Gemini API 검증) |
 | Lambda env RUNPOD_ANALYZE_URL | https://1ablelgbtrzcgb-8000.proxy.runpod.net/analyze |
 | 260907-itk | Step 0 관절 좌표 학습 필요 판정 — 사전 기준 박제 후 두 측정 (판정: 학습 안 함) | 2026-09-07 | 653dd7b7 | [260907-itk-step-0](./quick/260907-itk-step-0/) |
+| 260909-bhc | **분석 결과 화면 재디자인 — 피그마 '분석 디자인 업데이트' 시안 5장 전부** (요약/동작비교/교정포인트/보완운동/교정포인트2 모달). belle "디자인은 완전 동일하게". 텍스트 레이어 없는 시안이라 vector bbox + 픽셀 샘플링 + SVG 경로로 실측했고 한글 글자크기는 자당 advance 로 역산. 빨강은 **#FF4B33 유지**(시안 `#E94D37` 미채택, belle 판정), 나머지 신규 색 5종은 시안 실측 토큰. ★belle "시안이 중복이랑 이런거 다 제외하고 만든 것이기 때문에 지켜줘야해" → 옮기지 말고 **지웠다**: 참고코너·요약 펼침·부위 칩·재분석 배너·코칭 대기 placeholder·사용자 담기 질문. 그 잔해까지 쳐내 result.tsx **3943 → 2836줄**(−1107). ★참고코너를 지운 근거는 실측이다 — 배포 스택에 Visual Lambda 3종이 **아예 없어서**(list-stack-resources) 그 카드는 프로덕션에서 그려진 적이 없고, 앱엔 아무도 안 읽는 S3 재서명 두 벌만 돌고 있었다. 불변식은 표면만 바뀌고 살았다(투명 감점합산 → ResultPointsCard, 부상 위험 → 요약 카드 warning). 감점 목록 행 활성 표식은 **음성 시점에 맞춤**(초 지어내기 0). 관절선 끄기 = 백엔드가 마커 없는 PNG 를 같이 방출(byte-equality lock 테스트). 게이트 tsc 0 · node --test 226/0 · noUnusedLocals CLEAN · 시뮬 4탭+모달 실물 PASS. OTA e7023625(preview/1.2.4, 네이티브 변경 0) | 2026-09-09 | a5089955 | [260909-bhc-result-redesign](./quick/260909-bhc-result-redesign/) |
 
 ### 남은 작업
 

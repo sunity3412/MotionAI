@@ -19,7 +19,7 @@
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, radius, typography } from '../../theme';
+import { colors, fontFamily, layout, radius, typography } from '../../theme';
 import { CORRECTIVE_EXERCISES } from '../../data/correctiveExercises';
 import { exerciseBadgeLabel } from '../../lib/resultSummary';
 import type { CoachQuestion, RecommendedExercise } from '../../types/analysis';
@@ -40,7 +40,16 @@ const D = {
   pillW: 247.4 * K, // 206.5
   pillH: 35.6 * K, // 29.7
   qGap: 61.3 * K, // 51.2
+  // 질문 행 들여쓰기 — '?' 원이 카드 좌단 +30.06pt 에서 시작한다(구분선보다 ~10.6 안쪽).
+  // 종전엔 들여쓰기 0 이라 구분선과 같은 선(+19.3)에서 시작했다 (audit 09-09).
+  qIndent: 30.06 - 19.1 - layout.cardBorderWidth, // 10.1
+  qTextGap: 15.4, // '?' 원 ↔ 질문 텍스트 (종전 12 → 실측 11.67)
   btnH: 71.3 * K, // 59.5
+  // 세로 간격 — 시안 4 실측. 운동 카드 밑변 501.7 → 강사 카드 윗변 519.2 = 17.5 /
+  // 강사 카드 밑변 742.8 → 버튼 윗변 768.1 = 25.3. 부모(result.tsx)의 공통 gap 에 맡기지
+  // 않고 이 탭이 직접 갖는다 — 아래 컴포넌트 주석 참조.
+  cardGap: 17.6,
+  btnGap: 25.2,
 } as const;
 
 export interface ResultExerciseTabProps {
@@ -61,9 +70,14 @@ export function ResultExerciseTab({
   onReanalyze,
   shareMessage,
 }: ResultExerciseTabProps) {
+  const hasExercises = exercises.length > 0;
+  const hasQuestions = questions.length > 0;
+  // 종전엔 fragment 라 부모 ScrollView 의 공통 gap 이 카드↔카드·카드↔버튼줄에 똑같이
+  // 들어갔다(14). 시안은 둘이 다르다(17.6 / 25.2). View 로 감싸 부모 gap 은 탭 위에 한 번만
+  // 걸리게 하고, 안쪽 간격은 이 탭이 갖는다 — 부모 gap 이 바뀌어도 여기 값은 흔들리지 않는다.
   return (
-    <>
-      {exercises.length > 0 ? (
+    <View>
+      {hasExercises ? (
         <View style={styles.card}>
           {exercises.slice(0, MAX_ROWS).map((ex, i) => {
             const badge = exerciseBadgeLabel(ex.name, CORRECTIVE_EXERCISES);
@@ -88,7 +102,11 @@ export function ResultExerciseTab({
                   <Text style={styles.dose} numberOfLines={1}>
                     {ex.setsReps}
                   </Text>
-                  <Text style={styles.purpose} numberOfLines={2}>
+                  <Text
+                    style={styles.purpose}
+                    numberOfLines={2}
+                    lineBreakStrategyIOS="hangul-word"
+                  >
                     {ex.purpose}
                   </Text>
                 </View>
@@ -103,14 +121,16 @@ export function ResultExerciseTab({
               hitSlop={10}
               style={styles.more}
             >
-              <Ionicons name="chevron-down" size={20} color={colors.brand} />
+              {/* 시안 잉크 24.2×12.5pt. Ionicons 셰브론은 잉크가 박스의 약 45% 라 size 20 은
+                  잉크 13.3×7.7 로 절반이었다(잉크/박스 혼동, audit 09-09) → 30. */}
+              <Ionicons name="chevron-down" size={30} color={colors.brand} />
             </Pressable>
           ) : null}
         </View>
       ) : null}
 
-      {questions.length > 0 ? (
-        <View style={styles.card}>
+      {hasQuestions ? (
+        <View style={[styles.card, hasExercises ? styles.cardGap : null]}>
           <View style={styles.pill}>
             <Text style={styles.pillText}>강사에게 확인할 점</Text>
           </View>
@@ -119,14 +139,16 @@ export function ResultExerciseTab({
               <View style={styles.qMark}>
                 <Text style={styles.qMarkText}>?</Text>
               </View>
-              <Text style={styles.qText}>{q.text}</Text>
+              <Text style={styles.qText} lineBreakStrategyIOS="hangul-word">
+                {q.text}
+              </Text>
             </View>
           ))}
         </View>
       ) : null}
 
       {onReanalyze || shareMessage ? (
-        <View style={styles.btnRow}>
+        <View style={[styles.btnRow, hasExercises || hasQuestions ? styles.btnGap : null]}>
           {onReanalyze ? (
             <Pressable
               onPress={onReanalyze}
@@ -152,7 +174,7 @@ export function ResultExerciseTab({
           ) : null}
         </View>
       ) : null}
-    </>
+    </View>
   );
 }
 
@@ -160,10 +182,12 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.resultCard,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
+    // 시안 테두리 #6C6C6E · 0.83pt — 교정포인트 카드와 같은 근거(hairline 은 시각 무게 1/7.6).
+    borderWidth: layout.cardBorderWidth,
+    borderColor: colors.resultCardBorder,
     padding: D.cardPad,
   },
+  cardGap: { marginTop: D.cardGap },
   row: {
     minHeight: D.rowH,
     flexDirection: 'row',
@@ -182,27 +206,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // 굵게는 fontFamily 로 — 정적 TTF 패밀리명(Pretendard-Regular)을 지정한 상태라 iOS 는
+  // fontWeight 만으론 굵기를 바꾸지 않는다. 종전엔 이 때문에 시안 대비 획이 33% 얇았다
+  // (채움률 0.400 → 0.267, audit 09-09). fontWeight 는 폰트 로드 실패 시 폴백용으로 남긴다.
   badgeText: {
     ...typography.captionSmall,
     fontSize: 9,
     lineHeight: 11,
     fontWeight: '700',
+    fontFamily: fontFamily.bold,
     color: colors.textWhite,
     textAlign: 'center',
   },
   col: { flex: 1, marginLeft: D.colLeft },
-  // 시안 실측: 이름 ≈17pt / 용량 ≈9 / 설명 ≈8. 설명은 앱 최소 크기(captionSmall 10)
-  // 아래라 9 로 올렸다 — 더 줄이면 읽히지 않는다.
+  // 시안 ≈값(이름 ≈17 / 용량 ≈9 / 설명 ≈8)은 09-08 에 '한글 ≈ 1em' 가정으로 역산한 것이다.
+  // 번들 Pretendard 의 한글 advance 는 0.864em 이라(typography.ts) 폭 기반 역산이면 0.864 로
+  // 나눈 19.7 / 10.4 / 9.3 이 맞다. 09-09 audit 30건에 이 셋은 없어 재실측 전 — 값은 두고
+  // 근거만 정정한다. 설명은 앱 최소 크기(captionSmall 10) 아래라 9 로 잡아 두었다.
   name: { ...typography.listTitle, fontSize: 16, color: colors.textPrimary },
   dose: { ...typography.resultChip, fontSize: 11, color: colors.brand, marginTop: 2 },
   purpose: {
     ...typography.captionSmall,
     fontSize: 9,
     lineHeight: 13,
-    color: colors.textSecondary,
+    // 운동 행 배경은 resultCardTint(#FEF8F7)다. 종전 textSecondary(#ACACAC)는 그 위 2.16:1 —
+    // 9pt 본문에 AA 미달이라 틴트 위에서 통과하는 가장 밝은 중성 회색 토큰(4.71:1)으로.
+    color: colors.resultTextMeta,
     marginTop: 4,
   },
-  more: { alignItems: 'center', paddingTop: 10 },
+  // 시안: 셰브론 잉크 윗변이 마지막 운동 행 밑변에서 19pt 아래 (종전 10).
+  more: { alignItems: 'center', paddingTop: 19 },
 
   // '강사에게 확인할 점' — 시안 실측 초록 #6E9985.
   pill: {
@@ -214,16 +247,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pillText: { ...typography.resultWarnTitle, color: colors.textWhite },
+  // 시안 16.0 (종전 resultWarnTitle 12). 흰 글자 on #6E9985 = 3.20:1 — 16pt bold 는
+  // large text 라 3:1 로 통과한다.
+  pillText: { ...typography.resultCoachPill, color: colors.textWhite },
   qRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingLeft: D.qIndent,
+    gap: D.qTextGap,
     minHeight: D.qGap,
   },
+  // 질문 구분선 — 카드 안쪽 여백선에서 끝까지. 색·두께는 교정포인트 행 구분선과 같은 토큰.
   qDivided: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
+    borderTopWidth: layout.cardBorderWidth,
+    borderTopColor: colors.resultDivider,
   },
   qMark: {
     width: 18.4,
@@ -233,15 +270,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // badgeText 와 같은 이유로 fontFamily.bold — fontWeight 만으론 iOS 가 굵기를 무시한다.
   qMarkText: {
     ...typography.captionSmall,
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: fontFamily.bold,
     color: colors.textWhite,
   },
   qText: { ...typography.resultSub, fontSize: 11, color: colors.textHi, flex: 1 },
 
   btnRow: { flexDirection: 'row', gap: 12 },
+  btnGap: { marginTop: D.btnGap },
   btnGhost: {
     width: 114.6,
     height: D.btnH,
@@ -250,7 +290,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnGhostText: { ...typography.resultCta, color: colors.textPrimary },
+  // 시안 글자색은 빨강(#E94D37 → 브랜드 #FF4B33). 종전 검정은 옆 '강사에게 공유'(빨강 채움
+  // +흰 글자)와의 빨강 페어를 깼다. 브랜드 on #FCEFED 는 2.97:1 로 large-text 3:1 에 살짝
+  // 못 미치지만 브랜드색이라 못 바꾼다 (260909-ji1 PLAN §7, belle 보고 항목).
+  btnGhostText: { ...typography.resultCta, color: colors.brand },
   btnBrand: {
     flex: 1,
     height: D.btnH,

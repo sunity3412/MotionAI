@@ -46,7 +46,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radius, typography } from '../../theme';
+import { colors, layout, radius, typography } from '../../theme';
 
 const FADE_IN_MS = 180;
 const FADE_OUT_MS = 140;
@@ -204,9 +204,11 @@ const styles = StyleSheet.create({
     minHeight: 52,
     justifyContent: 'center',
   },
+  // 행 구분선 — 시안 ≈#A2A2A2 · 0.83pt. hairline(0.33) × #D9D9D9 는 시각 무게가 1/7.6 이었다.
+  // 색은 비텍스트 3:1 로 명도만 낮춘 토큰(colors.ts). 활성 채움 띠의 위·아래 변이기도 하다.
   rowDivided: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
+    borderTopWidth: layout.cardBorderWidth,
+    borderTopColor: colors.resultDivider,
   },
   fill: {
     ...StyleSheet.absoluteFillObject,
@@ -215,7 +217,7 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 28, // 시안 2 실측 좌 28.67 / 우 28.01 (종전 18)
     gap: 12,
   },
   // 초는 시안에서 브랜드색 굵은 글씨. 폭을 고정해 이름 칸의 시작선이 흔들리지 않게 한다.

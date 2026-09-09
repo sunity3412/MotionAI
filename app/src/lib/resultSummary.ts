@@ -97,3 +97,44 @@ export function buildSummaryChips(
     total: usable.length,
   };
 }
+
+// ── 보완운동 배지 (시안 4) ─────────────────────────────────────────────────
+//
+// 시안은 운동 카드마다 "팔꿈치 보완" 같은 빨간 배지를 단다. `RecommendedExercise`
+// (name/setsReps/purpose/sourceRef)에는 **어느 결함을 보완하는지가 없다**. 그런데
+// 그 매핑은 앱이 이미 갖고 있다 — backend 가 쓴 것과 같은 fixture 사본
+// (`data/corrective_exercises.json` 의 `defects[*].exercises`)이다. 운동 이름을 그 표에
+// 되짚어 결함을 찾고, 결함의 `jointHints` 첫 항목을 배지로 쓴다. 못 찾으면 null 이고
+// 배지를 안 그린다 — 지어내지 않는다.
+//
+// ★ 표를 **인자로 받는** 이유: 이 파일은 `node --test` 로 도는 순수 계층이라 JSON
+// 모듈을 import 할 수 없다(Node ESM 은 import assertion 을 요구하고, 그러면 Metro 와
+// 갈린다). 표의 소유는 호출측(data/correctiveExercises.ts)이다.
+
+/** corrective_exercises.json 중 이 함수가 읽는 부분만. */
+export interface DefectExerciseTable {
+  defects?: Record<
+    string,
+    {
+      triggers?: { jointHints?: readonly string[] };
+      exercises?: readonly { name?: string }[];
+    }
+  >;
+}
+
+export function exerciseBadgeLabel(
+  exerciseName: string,
+  table: DefectExerciseTable | null | undefined,
+): string | null {
+  if (typeof exerciseName !== 'string' || exerciseName.length === 0) return null;
+  const defects = table?.defects;
+  if (!defects) return null;
+  for (const key of Object.keys(defects)) {
+    const d = defects[key];
+    const hit = (d?.exercises ?? []).some((e) => e?.name === exerciseName);
+    if (!hit) continue;
+    const hint = (d?.triggers?.jointHints ?? [])[0];
+    return typeof hint === 'string' && hint.length > 0 ? `${hint} 보완` : null;
+  }
+  return null;
+}

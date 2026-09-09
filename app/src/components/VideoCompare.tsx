@@ -64,6 +64,12 @@ import type { AnalysisMode, MotionAlignment } from '../types/analysis';
 
 type SlotProps = {
   label: string;
+  /**
+   * belle 09-09 재디자인 — 시안 2 는 라벨을 영상 **위 pill** 로 얹는다(왼쪽 패널은
+   * 브랜드색 좌상단, 오른쪽은 어두운 pill 우상단). 종전에는 영상 아래 회색 텍스트였다.
+   * 미전달 시 종전대로 아래 텍스트 (다른 소비처 무회귀).
+   */
+  labelPill?: 'accent' | 'muted';
   url?: string;
   player: VideoPlayer | null;
   /**
@@ -142,6 +148,7 @@ function fmtOffsetLabel(sec: number): string {
 
 function VideoSlot({
   label,
+  labelPill,
   url,
   player,
   overlay,
@@ -194,8 +201,24 @@ function VideoSlot({
             <Text style={styles.slotEmptyText}>준비 중</Text>
           </View>
         )}
+        {/* 시안 2 — 라벨 pill (영상 위). accent = 내 영상(브랜드), muted = 기준(어둡게). */}
+        {labelPill ? (
+          <View
+            style={[
+              styles.slotLabelPill,
+              labelPill === 'accent'
+                ? styles.slotLabelPillAccent
+                : styles.slotLabelPillMuted,
+            ]}
+            pointerEvents="none"
+          >
+            <Text style={styles.slotLabelPillText} numberOfLines={1}>
+              {label}
+            </Text>
+          </View>
+        ) : null}
       </View>
-      <Text style={styles.slotLabel}>{label}</Text>
+      {labelPill ? null : <Text style={styles.slotLabel}>{label}</Text>}
     </View>
   );
 }
@@ -1980,34 +2003,31 @@ export function VideoCompare({
           color={colors.textWhite}
         />
       </Pressable>
-      {/* Phase 12 후속 B — 0.1s 앞/뒤 step.
-          자세 미세 비교 시 1-frame 수준 정렬용. belle 요구: "0.0초 단위". */}
-      <Pressable
-        onPress={() => stepBy(-STEP_SECONDS)}
-        accessibilityRole="button"
-        accessibilityLabel="0.1초 뒤로"
-        hitSlop={8}
-        style={[styles.stepBtn, dark && styles.stepBtnDark]}
-      >
-        <Ionicons
-          name="play-back"
-          size={16}
-          color={dark ? colors.textWhite : colors.brand}
-        />
-      </Pressable>
-      <Pressable
-        onPress={() => stepBy(STEP_SECONDS)}
-        accessibilityRole="button"
-        accessibilityLabel="0.1초 앞으로"
-        hitSlop={8}
-        style={[styles.stepBtn, dark && styles.stepBtnDark]}
-      >
-        <Ionicons
-          name="play-forward"
-          size={16}
-          color={dark ? colors.textWhite : colors.brand}
-        />
-      </Pressable>
+      {/* Phase 12 후속 B — 0.1s 앞/뒤 step. 자세 미세 비교 시 1-frame 수준 정렬용
+          (belle 요구: "0.0초 단위"). 시안 2 의 탭 컨트롤에는 없어 전체화면 전용으로
+          옮겼다 — 위 '처음으로' 주석과 같은 이유. */}
+      {dark ? (
+        <>
+          <Pressable
+            onPress={() => stepBy(-STEP_SECONDS)}
+            accessibilityRole="button"
+            accessibilityLabel="0.1초 뒤로"
+            hitSlop={8}
+            style={[styles.stepBtn, styles.stepBtnDark]}
+          >
+            <Ionicons name="play-back" size={16} color={colors.textWhite} />
+          </Pressable>
+          <Pressable
+            onPress={() => stepBy(STEP_SECONDS)}
+            accessibilityRole="button"
+            accessibilityLabel="0.1초 앞으로"
+            hitSlop={8}
+            style={[styles.stepBtn, styles.stepBtnDark]}
+          >
+            <Ionicons name="play-forward" size={16} color={colors.textWhite} />
+          </Pressable>
+        </>
+      ) : null}
       <View style={styles.timeline}>
         {/* quick-260705-r6v — 결함 측정 시점 틱 (track 위 별도 줄, panResponder 와
             겹치지 않게 분리). 29 리뷰 WR-01 — sec = frameIndex * leftDuration /
@@ -2089,18 +2109,20 @@ export function VideoCompare({
             : ''}
         </Text>
       </View>
-      <Pressable
-        onPress={restart}
-        accessibilityRole="button"
-        accessibilityLabel="처음으로"
-        hitSlop={8}
-      >
-        <Ionicons
-          name="refresh"
-          size={20}
-          color={dark ? colors.textWhite : colors.textSecondary}
-        />
-      </Pressable>
+      {/* belle 09-09 재디자인 — 세로(탭) 컨트롤은 시안 2 대로 재생·진행바·시간 셋뿐이다.
+          '처음으로'·0.1초 스텝은 **전체화면에만** 남긴다: 정밀 비교를 하는 자리는
+          전체화면이고(belle 요구 "0.0초 단위"는 거기서 살아 있다), 탭 화면에서는
+          시안이 그 셋만 보여준다. 기능 삭제 0 — 자리만 옮겼다. */}
+      {dark ? (
+        <Pressable
+          onPress={restart}
+          accessibilityRole="button"
+          accessibilityLabel="처음으로"
+          hitSlop={8}
+        >
+          <Ionicons name="refresh" size={20} color={colors.textWhite} />
+        </Pressable>
+      ) : null}
     </View>
   );
 
@@ -2388,6 +2410,7 @@ export function VideoCompare({
       <View style={styles.row} onLayout={handleRowLayout}>
         <VideoSlot
           label={leftLabel}
+          labelPill="accent"
           url={leftUrl}
           player={leftPlayer}
           overlay={leftOverlay}
@@ -2401,6 +2424,7 @@ export function VideoCompare({
         />
         <VideoSlot
           label={rightLabel}
+          labelPill="muted"
           url={rightUrl}
           player={rightPlayer}
           overlay={rightOverlay}
@@ -3012,6 +3036,22 @@ const styles = StyleSheet.create({
     ...typography.captionSmall,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  // 시안 2 — 영상 위 라벨 pill. 좌상단 고정(양쪽 같은 자리라 두 패널이 나란히 읽힌다).
+  slotLabelPill: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  slotLabelPillAccent: { backgroundColor: colors.brand },
+  slotLabelPillMuted: { backgroundColor: colors.videoBg },
+  slotLabelPillText: {
+    ...typography.captionSmall,
+    fontWeight: '700',
+    color: colors.textWhite,
   },
   controls: {
     flexDirection: 'row',

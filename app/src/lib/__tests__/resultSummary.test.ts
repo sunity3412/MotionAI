@@ -11,7 +11,11 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSummaryChips, summaryChipLabel } from '../resultSummary.ts';
+import {
+  buildSummaryChips,
+  exerciseBadgeLabel,
+  summaryChipLabel,
+} from '../resultSummary.ts';
 import { criterionLabelKo } from '../deductionLabels.ts';
 import type { DeductionRecord } from '../../types/analysis.ts';
 
@@ -125,4 +129,36 @@ test('빈/없는 입력 — 빈 결과 (크래시 0)', () => {
     const out = buildSummaryChips(input as never);
     assert.deepEqual(out, { chips: [], overflow: 0, total: 0 });
   }
+});
+
+// ── 보완운동 배지 ───────────────────────────────────────────────────────────
+
+test('배지는 표의 실제 매핑에서 나온다 — 없으면 null (지어내지 않는다)', () => {
+  const table = {
+    defects: {
+      grip_weak: {
+        triggers: { jointHints: ['손목', '전완근', '악력'] },
+        exercises: [{ name: "Farmer's Walk" }, { name: 'Hand Grippers' }],
+      },
+      no_hint: { triggers: { jointHints: [] }, exercises: [{ name: '힌트없음' }] },
+    },
+  };
+  assert.equal(exerciseBadgeLabel("Farmer's Walk", table), '손목 보완');
+  assert.equal(exerciseBadgeLabel('Hand Grippers', table), '손목 보완');
+  assert.equal(exerciseBadgeLabel('힌트없음', table), null, 'jointHints 가 비면 배지 없음');
+  for (const bad of ['없는 운동', '', null, undefined]) {
+    assert.equal(exerciseBadgeLabel(bad as never, table), null, String(bad));
+  }
+  // 표 자체가 없어도 크래시 0
+  assert.equal(exerciseBadgeLabel("Farmer's Walk", null), null);
+  assert.equal(exerciseBadgeLabel("Farmer's Walk", {}), null);
+});
+
+test('실제 fixture 와 lockstep — 표 모양이 바뀌면 여기서 깨진다', async () => {
+  // JSON 을 직접 읽는다(순수 계층은 import 못 하지만 테스트는 fs 로 읽을 수 있다).
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const p = path.join(import.meta.dirname, '..', '..', 'data', 'corrective_exercises.json');
+  const table = JSON.parse(fs.readFileSync(p, 'utf8'));
+  assert.equal(exerciseBadgeLabel("Farmer's Walk", table), '손목 보완');
 });

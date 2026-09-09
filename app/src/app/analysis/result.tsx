@@ -38,6 +38,9 @@ import {
 import { ResultScoreDial } from '../../components/result/ResultScoreDial';
 import { ResultSummaryCard } from '../../components/result/ResultSummaryCard';
 import { ResultMomentList } from '../../components/result/ResultMomentList';
+import { ResultPointsCard } from '../../components/result/ResultPointsCard';
+import { ResultPointModal } from '../../components/result/ResultPointModal';
+import { ResultExerciseTab } from '../../components/result/ResultExerciseTab';
 import { riskFlagCopy, topRiskFlag } from '../../components/InjuryRiskSection';
 import { buildSummaryChips, summaryChipLabel } from '../../lib/resultSummary';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
@@ -84,6 +87,7 @@ import {
   composeShortActionLabelKo,
   criterionLabelKo,
   formatDeductionNumber,
+  formatDeductionRecord,
   isCleanPass,
   matchZoomForDeductionRecord,
   projectDeductionRecordKeypoints,
@@ -1201,6 +1205,80 @@ function AnalysisResultContent({
         })),
     [records],
   );
+  // 교정포인트 탭 (시안 3) — 같은 감점을 '점수 계산 내역'과 같은 값으로 보여주되,
+  // 행을 펼치면 그 순간의 확대 짝 사진과 왜 감점인지 문장이 나온다. 사진·문장은 전부
+  // doc 저장값이다(사진 = 그 record 의 확대 카드, 문장 = whyLine/cueLine) — 지어내지 않는다.
+  const [expandedPointId, setExpandedPointId] = useState<string | null>(null);
+  // 시안 5 (교정포인트2) — 전체화면 모달. null = 닫힘, 숫자 = pointRows 안의 위치.
+  const [pointModalIndex, setPointModalIndex] = useState<number | null>(null);
+  const pointRows = useMemo(
+    () =>
+      records
+        .filter(
+          (r) => typeof r.points === 'number' && Number.isFinite(r.points) && r.points < 0,
+        )
+        .map((r) => {
+          const zoom = matchZoomForDeductionRecord(
+            r,
+            vetoFaultJoints,
+            result.faultZoomComparisons ?? [],
+          );
+          return {
+            recordId: typeof r.recordId === 'string' && r.recordId ? r.recordId : null,
+            sec:
+              typeof r.atVideoSec === 'number' && Number.isFinite(r.atVideoSec)
+                ? r.atVideoSec
+                : null,
+            label: summaryChipLabel(r.criterion),
+            pointsText: `−${formatDeductionNumber(Math.abs(r.points))}`,
+            imageUrl: zoom ? resolveZoomImageUrl(zoom, freshZoomUrls) : null,
+            caption: r.whyLine ?? null,
+            lines: r.cueLine ? [r.cueLine] : [],
+          };
+        }),
+    [records, vetoFaultJoints, result.faultZoomComparisons, freshZoomUrls],
+  );
+  // 시안 5 페이지 — 교정포인트 행과 **같은 순서·같은 record**. 문장은 전부 doc
+  // 저장값(statusLine/whyLine/cueLine + 측정 근거 detailText)이고, 없는 칸은 그리지
+  // 않는다. 이 화면이 지어내는 문장은 0이다.
+  const pointPages = useMemo(
+    () =>
+      records
+        .filter(
+          (r) => typeof r.points === 'number' && Number.isFinite(r.points) && r.points < 0,
+        )
+        .map((r) => {
+          const zoom = matchZoomForDeductionRecord(
+            r,
+            vetoFaultJoints,
+            result.faultZoomComparisons ?? [],
+          );
+          const label = summaryChipLabel(r.criterion);
+          const pts = formatDeductionNumber(Math.abs(r.points));
+          return {
+            chipText: `고칠 것 · ${label} ${pts}점`,
+            headline: r.statusLine ?? null,
+            sub: r.whyLine ?? null,
+            imageUrl: zoom ? resolveZoomImageUrl(zoom, freshZoomUrls) : null,
+            cue: r.cueLine ?? null,
+            basis: formatDeductionRecord(r).detailText,
+          };
+        }),
+    [records, vetoFaultJoints, result.faultZoomComparisons, freshZoomUrls],
+  );
+  // '강사에게 공유' 문구 (시안 4). 화면에 이미 보이는 값만 옮겨 담는다 — 새 문장을
+  // 짓지 않는다. 감점이 없으면 목록 줄이 빠지고 점수 한 줄만 나간다.
+  const shareMessage = useMemo(() => {
+    const head =
+      cmp.mode === 'mode1'
+        ? `${cmp.athleteName} 선수 · ${cmp.referenceMotionName} 기준 분석`
+        : '지난 영상과 비교한 분석';
+    const lines = pointRows.map(
+      (r) =>
+        `- ${r.sec != null ? `${r.sec.toFixed(1)}s ` : ''}${r.label} ${r.pointsText}`,
+    );
+    return [head, `종합 ${Math.round(result.overallScore)}점`, ...lines].join('\n');
+  }, [cmp, pointRows, result.overallScore]);
   const summaryWarning = useMemo(() => {
     const flag = topRiskFlag(result.safetyFlags);
     const copy = flag ? riskFlagCopy(flag.flagType) : null;
@@ -3077,6 +3155,43 @@ function AnalysisResultContent({
         )}
         {resultTab === 'points' && (
           <>
+          {/* ── 시안 3 (교정포인트) — 기준 점수 100 → 펼침 행 → 종합 N점 ────────
+              값은 '점수 계산 내역'과 같다(기준 100 에서 감점을 빼 종합). 시안이 더한
+              것은 행을 펼쳤을 때의 확대 짝 사진과 왜 감점인지 문장뿐이다. */}
+          <ResultPointsCard
+            baselineText="100"
+            rows={pointRows}
+            totalText={`${Math.round(result.overallScore)}점`}
+            expandedId={expandedPointId}
+            onToggle={(id) =>
+              setExpandedPointId((cur) => (cur === id ? null : id))
+            }
+            onImageError={onZoomImageError}
+          />
+          {/* 유지된점 — 백엔드 summaryPraise 단일 원천(사람 말, 수치 미포함).
+              없으면 박스도 없다 — 잘한 점을 지어내지 않는다. */}
+          {result.summaryPraise?.headline ? (
+            <View style={styles.keptBox}>
+              <Text style={styles.keptTitle}>유지된점</Text>
+              <Text style={styles.keptBody}>{result.summaryPraise.headline}</Text>
+            </View>
+          ) : null}
+          {/* 시안 3 CTA — 디자이너 확인(2026-09-08): 이걸 누르면 교정포인트2 화면이
+              나온다. 첫 항목부터 1/N 페이징으로 넘긴다. */}
+          {pointRows.length > 0 ? (
+            <Pressable
+              onPress={() => setPointModalIndex(0)}
+              accessibilityRole="button"
+              accessibilityLabel="교정 방법 자세히 보기"
+              style={({ pressed }) => [
+                styles.pointsCta,
+                pressed && styles.pointsCtaPressed,
+              ]}
+            >
+              <Text style={styles.pointsCtaText}>교정 방법 자세히 보기 &gt;</Text>
+            </Pressable>
+          ) : null}
+
           {/* belle 09-09 판정 "시안대로 — 옆으로 옮기기": 요약 탭은 시안대로 점수 원 +
               카드 + CTA 셋만 남기고, 시안에 없는 것들을 여기로 옮겼다. 지운 것은
               옥타곤 점수 그래프 하나뿐이다 — 새 점수 원과 같은 것을 두 번 말한다.
@@ -3619,6 +3734,21 @@ function AnalysisResultContent({
         )}
         {resultTab === 'exercise' && (
           <>
+          {/* ── 시안 4 (보완운동) — 운동 카드 + 강사에게 확인할 점 + 다시분석/공유 ──
+              내용은 전부 doc 저장값이다: 운동 = result.recommendedExercises(백엔드
+              exercise_map 산출), 질문 = result.coachQuestions(D-28). 없으면 그 카드를
+              그리지 않는다. 아래에 기존 상세 섹션(성장·심사 코너·참고코너)이 이어진다. */}
+          <ResultExerciseTab
+            exercises={result.recommendedExercises ?? []}
+            // 기존 섹션과 **같은 소스**. result.coachQuestions 가 없는 doc 은
+            // legacy 폴백(openQuestionsForCoach)이 채우고 사용자가 담은 질문도
+            // 합쳐진다 — 두 표면이 다른 질문을 보여주면 안 된다.
+            questions={combinedCoachQuestions}
+            onSeeAllExercises={() => setExerciseModalOpen(true)}
+            onReanalyze={() => router.replace('/(tabs)/analyze')}
+            shareMessage={shareMessage}
+          />
+
         {/* ── 6. 성장·지난 미션 (D-26/D-27, mode3) — 미션→연습→확인 루프 상세.
             헤드라인은 요약 카드가 담당하므로 여기는 상세. coach_card(3회 미개선) 시
             코치 카드 전면 승격("혼자 안 되는 건 방법 문제일 수 있어요"). improved
@@ -3952,6 +4082,19 @@ function AnalysisResultContent({
       />
       {/* (구 DimensionDetailModal 제거 — D-03/D-12. 차원 세부 점수 모달 폐기.) */}
       {/* Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달. tip=null 시 닫힘. */}
+      {/* 시안 5 (교정포인트2) — 교정포인트 탭 CTA 로 열린다(디자이너 확인 2026-09-08). */}
+      <ResultPointModal
+        visible={pointModalIndex != null}
+        index={pointModalIndex ?? 0}
+        pages={pointPages}
+        onIndexChange={setPointModalIndex}
+        onClose={() => setPointModalIndex(null)}
+        onSeeExercises={() => {
+          setPointModalIndex(null);
+          setResultTab('exercise');
+        }}
+        onImageError={onZoomImageError}
+      />
       <CoachingTipDetailModal
         visible={detailTip != null}
         tip={detailTip}
@@ -4032,6 +4175,35 @@ const styles = StyleSheet.create({
   // belle 09-08 — 점수 원은 곡선 헤더에 걸치는 요소라 가운데 정렬만 한다
   // (세로 위치는 contentContainerStyle 의 paddingTop 이 정한다).
   dialWrap: { alignItems: 'center' },
+  // 시안 3 — '유지된점' 박스 (실측 #EDF6F2) 와 그 아래 CTA.
+  keptBox: {
+    backgroundColor: colors.resultKeptBg,
+    borderRadius: radius.resultBox,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  keptTitle: {
+    ...typography.resultWarnTitle,
+    color: colors.resultCoachGreen,
+  },
+  keptBody: {
+    ...typography.resultSub,
+    color: colors.textMid,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  pointsCta: {
+    alignSelf: 'center',
+    height: 40,
+    paddingHorizontal: 24,
+    borderRadius: radius.button,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pointsCtaPressed: { opacity: 0.85 },
+  pointsCtaText: { ...typography.resultChip, color: colors.textWhite },
   header: { marginTop: 16, marginBottom: 2 },
   title: { ...typography.heading, color: colors.textPrimary },
   sub: {

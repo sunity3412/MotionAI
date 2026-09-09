@@ -2570,13 +2570,47 @@ export function VideoCompare({
                   overlayOn ? styles.optionPillTextOn : null,
                 ]}
               >
-                관절선 표시
+                관절선
               </Text>
             </Pressable>
           ) : null}
-          {/* 260909-ji1 — 시안 2 의 옵션 칩은 [0.5배속][관절선 표시] **둘**이다.
-              여기 있던 '음성 안내'·'가로로 크게 보기' 를 뺐다
-              (belle 09-09 "피그마랑 똑같이 하라고"). */}
+          {/* belle 09-09 — 음성 온오프·전체화면 복귀. 시안은 칩 2개지만 belle 이
+              "0.5배속·관절선 표시·음성 온오프를 작게 해주던가" 로 4개를 요구했다.
+              **작게 한 줄**로 간다 (아래 optionPill 주석에 근거). */}
+          {audioAvailable ? (
+            <Pressable
+              onPress={handleToggleAudio}
+              accessibilityRole="switch"
+              accessibilityLabel="재생 중 음성 안내"
+              accessibilityState={{ checked: audioEnabled }}
+              hitSlop={10}
+              style={[styles.optionPill, audioEnabled ? styles.optionPillOn : null]}
+            >
+              <Ionicons
+                name={audioEnabled ? 'volume-high' : 'volume-mute'}
+                size={12}
+                color={audioEnabled ? colors.brand : colors.textMid}
+              />
+              <Text
+                style={[
+                  styles.optionPillText,
+                  audioEnabled ? styles.optionPillTextOn : null,
+                ]}
+              >
+                음성
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={openFullscreen}
+            accessibilityRole="button"
+            accessibilityLabel="가로 전체화면으로 크게 보기"
+            hitSlop={10}
+            style={styles.optionPill}
+          >
+            <Ionicons name="expand" size={12} color={colors.textMid} />
+            <Text style={styles.optionPillText}>전체화면</Text>
+          </Pressable>
         </View>
       ) : null}
       {/* belle 09-07 — 전체화면 안에서 무엇을 할 수 있는지 미리 알린다. 안내를 한 번
@@ -3279,14 +3313,23 @@ const styles = StyleSheet.create({
   // 260909-ji1 — 시안 2 칩은 고정폭 86 이라 minWidth 로 맞추고 글자를 가운데 둔다
   // (내용폭이면 '0.5배속'·'관절선 표시' 폭이 달라 줄이 들쭉날쭉했다). 칩 4개 2줄은
   // belle 승인 — 개수·줄수는 그대로.
+  // belle 09-09 — 컨트롤 4개를 **한 줄에 작게**.
+  //
+  // 자리: 영상 바로 아래(카드 안). 이 넷은 전부 **영상을 바꾸는 것**이라 자기가
+  // 바꾸는 대상 옆에 있어야 한다. belle 이 대안으로 준 '상태바 아래'는 화면 이동
+  // (뒤로·탭)의 자리라 성격이 다르고, 영상에서 멀어져 무엇을 바꾸는지가 흐려진다.
+  //
+  // 크기: 시각 높이 약 26pt 로 줄이고 hitSlop 10 을 줘 실제 터치 영역은 46pt 를
+  // 넘긴다(작게 보이되 누르기는 쉽게). 위계도 이게 맞다 — 이 화면의 주인공은
+  // 영상과 감점 목록이고 옵션은 3순위다. 시안의 큰 칩 2개는 4개가 되면 두 줄로
+  // 접혀 카드를 잡아먹는다.
   optionPill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    minWidth: 86,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    gap: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: radius.button,
     borderWidth: 1,
     borderColor: colors.divider,

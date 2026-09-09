@@ -1657,15 +1657,18 @@ function AnalysisResultContent({
                 rightLabel={
                   cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
                 }
-                renderBelowControls={() => (
+                renderBelowControls={({ seekToRecord }) => (
                   <ResultMomentList
                     flat
                     rows={momentRows}
-                    // 이 가지는 학생 도메인 초로 뛰어들 수단이 없다(파일 헤더 한계 2 —
-                    // freezes 는 출력 mp4 시계다). 그래서 seek 없이 상세 시트만 연다.
+                    // belle 09-09 "유튜브 스크립트처럼" — 행을 누르면 그 지점으로
+                    // 이동한다. 좌표는 doc 의 freezes(rid↔outSec, contract §12.9)이고
+                    // 듀얼 플레이어 가지의 행 탭과 같은 약속이다(이동 + 상세 시트).
+                    // belle 09-09 "유튜브 스크립트처럼" — 누르면 **이동만** 한다.
+                    // 시트를 함께 띄우면 영상을 가려 스크립트의 의미가 사라진다.
+                    // 상세는 교정포인트 탭이 맡는다.
                     onRowPress={(recordId) => {
-                      const idx = records.findIndex((r) => r.recordId === recordId);
-                      if (idx >= 0) setDetailRecordIndex(idx);
+                      seekToRecord(recordId);
                     }}
                   />
                 )}
@@ -1695,11 +1698,11 @@ function AnalysisResultContent({
                   // belle 09-09 — 진행바 틱이 하던 일을 행이 이어받는다: 그 초로 두
                   // 영상을 **함께** 옮기고(seekTo) 상세 시트를 연다. 초는 행에 이미
                   // 적혀 있어 눌렀을 때 어디로 가는지가 눈에 보인다.
+                  // belle 09-09 "유튜브 스크립트처럼" — 누르면 **이동만** 한다
+                  // (두 가지가 같은 약속을 갖도록 여기도 시트를 떼었다).
                   onRowPress={(recordId) => {
                     const row = momentRows.find((r) => r.recordId === recordId);
                     if (row?.sec != null) seekTo(row.sec);
-                    const idx = records.findIndex((r) => r.recordId === recordId);
-                    if (idx >= 0) setDetailRecordIndex(idx);
                   }}
                 />
               )}

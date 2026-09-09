@@ -158,7 +158,9 @@ function MomentRow({
       accessibilityRole="button"
       // 상태는 라벨 문자열이 아니라 state 로 — VoiceOver 가 "선택됨"으로 읽는다.
       accessibilityState={{ selected: active }}
-      accessibilityLabel={`${secText ? `${secText} ` : ''}${row.label} ${row.pointsText}점 상세 보기`}
+      // belle 09-09 — 행 탭은 그 지점으로 **이동**한다(유튜브 스크립트). 라벨도
+      // 그 일을 말해야 한다 — 종전 '상세 보기' 는 시트를 여는 줄 알게 했다.
+      accessibilityLabel={`${secText ? `${secText} ` : ''}${row.label} ${row.pointsText}점, 그 지점으로 이동`}
     >
       {body}
     </Pressable>

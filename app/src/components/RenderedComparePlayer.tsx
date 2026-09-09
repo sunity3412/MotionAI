@@ -138,11 +138,17 @@ export default function RenderedComparePlayer({
   /** 영상 우상단 역할 알약. 없으면 그 알약을 그리지 않는다 (문구를 지어내지 않는다). */
   rightLabel?: string | null;
   /** 시안 2 — 감점 목록은 옵션 행 바로 아래, 카드 **안**에 온다. */
-  renderBelowControls?: () => React.ReactNode;
+  renderBelowControls?: (api: {
+    /** 감점 행 → 그 정지 지점으로 이동. 짝 없으면 false. */
+    seekToRecord: (recordId: string) => boolean;
+  }) => React.ReactNode;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   // 시안 2 옵션 칩 — 이 가지에서 앱이 통제할 수 있는 유일한 옵션.
   const [slowMotion, setSlowMotion] = useState(false);
+  // belle 09-09 '음성 온오프'. 이 mp4 의 오디오가 코칭 음성 그 자체라(파일 헤더)
+  // player.muted 가 곧 음성 스위치다 — 앱이 따로 재생하는 음성이 없다.
+  const [audioOn, setAudioOn] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   // onUnavailable 는 보통 인라인 콜백(매 렌더 새 참조)이라 effect deps 에 넣으면
   // 렌더마다 재발급이 돈다 — ref 로 최신 참조만 유지 (deps = analysisId 만).
@@ -177,6 +183,10 @@ export default function RenderedComparePlayer({
   useEffect(() => {
     if (player) player.playbackRate = slowMotion ? 0.5 : 1;
   }, [slowMotion, player]);
+
+  useEffect(() => {
+    if (player) player.muted = !audioOn;
+  }, [audioOn, player]);
 
 
   // ── 재생 상태 폴링 (커스텀 컨트롤의 유일한 상태원) ────────────────────────
@@ -216,6 +226,15 @@ export default function RenderedComparePlayer({
     const clamped = Math.max(0, duration > 0 ? Math.min(sec, duration) : sec);
     player.currentTime = clamped;
     setCurrentTime(clamped);
+  };
+
+  /** 감점 행 → 그 정지 지점. 짝이 없으면 false — 아무 데도 안 뛴다(지어내지 않는다). */
+  const seekToRecord = (recordId: string): boolean => {
+    const rid = recordId.split(':')[0];
+    const outSec = freezeOutSecByRid.get(rid);
+    if (outSec == null) return false;
+    seekTo(Math.max(0, outSec - TICK_JUMP_LEAD_S));
+    return true;
   };
 
   // 트랙 드래그 스크럽 — 세로/가로가 각자 폭을 재고(회전 컨테이너라 폭이 다름)
@@ -270,6 +289,24 @@ export default function RenderedComparePlayer({
   const fsShort = Math.min(winW, winH);
   const fsLong = Math.max(winW, winH);
   const validFreezes = freezes ?? [];
+
+  // 260909-ji1 — 감점 행 탭 = 그 지점으로 이동 (belle 09-09 "유튜브 스크립트처럼").
+  //
+  // 매핑은 이미 계약에 있다 (contract.md §12.9): freezes[].rid = recordId 의 콜론 앞
+  // 축약, outSec = 그 정지가 시작하는 **출력 mp4** 초(= 렌더 리포트 voiceStartOutS).
+  // 내가 앞서 "학생 영상 초와 도메인이 달라 못 뛴다"고 한 것은 틀렸다 — 출력 영상
+  // 안에서 뛰는 데는 outSec 이 정확한 좌표이고, 방금 걷어낸 번호 틱이 바로 그 일을
+  // 하고 있었다.
+  //
+  // ★ 0.8초 — 정지·음성은 **결함 순간보다 0.8초 먼저** 시작한다(창 반폭 0.8s,
+  //   260731-iis 판정). 그래서 outSec 으로 뛰면 해설이 시작하는 지점에 선다.
+  //   여기서 다시 TICK_JUMP_LEAD_S(0.5s)를 빼는 것은 정지 화면이 아니라 **그 직전
+  //   움직임부터** 보이게 하려는 것이다(계약 §12.9 "탭 점프 -0.5s 시크", 260809-jnb).
+  const freezeOutSecByRid = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const f of validFreezes) if (!m.has(f.rid)) m.set(f.rid, f.outSec);
+    return m;
+  }, [validFreezes]);
 
   // ── belle 09-07 손가락 확대 (파일 헤더의 한계 3건과 함께 읽을 것) ────────────
   //
@@ -479,12 +516,41 @@ export default function RenderedComparePlayer({
               0.5배속
             </Text>
           </Pressable>
+          <Pressable
+            onPress={() => setAudioOn((v) => !v)}
+            accessibilityRole="switch"
+            accessibilityLabel="재생 중 음성 안내"
+            accessibilityState={{ checked: audioOn }}
+            hitSlop={10}
+            style={[styles.optionPill, audioOn ? styles.optionPillOn : null]}
+          >
+            <Ionicons
+              name={audioOn ? 'volume-high' : 'volume-mute'}
+              size={12}
+              color={audioOn ? colors.brand : colors.textMid}
+            />
+            <Text
+              style={[styles.optionPillText, audioOn ? styles.optionPillTextOn : null]}
+            >
+              음성
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={openFullscreen}
+            accessibilityRole="button"
+            accessibilityLabel="가로 전체화면으로 크게 보기"
+            hitSlop={10}
+            style={styles.optionPill}
+          >
+            <Ionicons name="expand" size={12} color={colors.textMid} />
+            <Text style={styles.optionPillText}>전체화면</Text>
+          </Pressable>
         </View>
       ) : null}
       {/* 260909-ji1 — 시안 2 는 감점 목록이 영상 카드 **안**, 옵션 행 바로 아래다.
           듀얼 플레이어 가지에는 이미 그렇게 들어가 있었는데 이 가지에만 없었다
           (belle 09-09: "시안이 있는데도 왜 삭제만하고 반영을 안해"). */}
-      {renderBelowControls?.()}
+      {renderBelowControls?.({ seekToRecord })}
 
       {/* 가로 전체화면 — 260702-t0v 90° 회전 Modal 패턴 (portrait 고정 유지).
           같은 player 인스턴스에 두 번째 VideoView attach — 재생 위치·상태 공유
@@ -627,20 +693,20 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 5,
   },
+  // 듀얼 플레이어 가지와 같은 크기·규약 (VideoCompare.optionPill 주석에 근거).
   optionPill: {
-    minWidth: 86,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    gap: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: 999,
     borderWidth: layout.cardBorderWidth,
     borderColor: colors.resultDivider,
   },
   optionPillOn: { borderColor: colors.brand, backgroundColor: colors.resultChipBg },
-  optionPillText: { ...typography.resultChip, color: colors.textPrimary },
+  optionPillText: { ...typography.caption, color: colors.textMid },
   optionPillTextOn: { color: colors.brand },
   // 260909-ji1 — 블록 비는 시안 2 실측(276.04 x 177.90 = 1.5517). 듀얼 플레이어
   // 가지와 같은 값이라 두 가지가 같은 크기로 보인다.

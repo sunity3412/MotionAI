@@ -294,3 +294,30 @@ def test_no_minimum_floor_constant() -> None:
 def test_generation_cap_locksteps_with_storage_cap() -> None:
     """생성 상한 == 저장 거부선. 셋 중 둘이 어긋나면 유효 운동이 조용히 잘린다."""
     assert _MAX_EXERCISES == models.MAX_RECOMMENDED_EXERCISES == 5
+
+
+def test_elbow_pain_area_prescribes_a_doable_exercise() -> None:
+    """quick-260910-vwh Task 4 — 팔꿈치 칸이 '루틴 구성 원칙'이 아니라 운동을 준다.
+
+    종전 항목 `Bicep/Tricep Balance`(setsReps "수직+수평 당기기 균형")는 동작이
+    아니라 원칙이라 수강생이 보고 할 수 있는 게 없었다. 폴 보고서 원문이 처방한
+    "미는 훈련(Pushing)" 쪽을 라이브러리에 이미 있는 운동으로 갈음한다.
+
+    ★ 어깨 대표(팔굽혀펴기)를 쓰면 안 된다 — 모달이 defect 그룹을 **대표 이름**으로
+    고르므로(exerciseSections.buildExerciseSections), 팔꿈치 통증만 신고해도
+    '어깨 안정화' 그룹 5개가 딸려 나오고 팔꿈치 칸이 비어 버린다(실측).
+    """
+    result = map_exercises(None, pain_areas=["elbow"], motion_id=None)
+    assert [ex["name"] for ex in result] == ["어깨 위로 밀기"]
+    ex = result[0]
+    # 도즈가 실제 횟수여야 한다 — "수직+수평 당기기 균형" 같은 원칙 문구가 아니라.
+    assert ex["setsReps"] == "10~15회"
+    assert ex["kind"] == "strength"
+
+    # 어깨 안정화 그룹의 대표를 쓰지 않는다 (모달 그룹 오선택 방지).
+    from sunity_shared.analysis import exercise_map as _em
+
+    shoulder_lead = _em._load_corrective_exercises()["defects"][
+        "shoulder_unstable"
+    ]["exercises"][0]["name"]
+    assert ex["name"] != shoulder_lead

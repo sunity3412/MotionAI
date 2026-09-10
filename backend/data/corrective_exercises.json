@@ -134,7 +134,7 @@
     "elbow": {
       "avoid": "엘보 그립 안쪽 과하중 경계",
       "exercises": [
-        {"name": "Bicep/Tricep Balance", "setsReps": "수직+수평 당기기 균형", "purpose": "당기는 운동만 하지 말고 미는 운동을 같이 해서 팔꿈치를 보호합니다", "kind": "strength", "sourceRef": "NotebookLM e688fb4e [6]"}
+        {"name": "어깨 위로 밀기", "setsReps": "10~15회", "purpose": "당기는 운동만 하지 말고 미는 운동을 같이 해서 팔꿈치를 보호합니다", "kind": "strength", "sourceRef": "NotebookLM e688fb4e [6]"}
       ]
     }
   }

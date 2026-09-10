@@ -7468,6 +7468,67 @@ def _attach_translation_emission(
         )
 
 
+# ── quick-260910-pbs — 감점 부위를 보완 운동 선정에 넣는다 ───────────────────────
+# 종전엔 운동 종류가 vision faultKey 와 findings 에서만 왔고, **실제로 점수를 깎은
+# 감점 record 의 관절은 선정에 들어가지 않았다.** 그래서 대표 doc(c64afae6)은 팔꿈치·
+# 무릎·엉덩이 감점 6건을 갖고도 어깨 운동만 받았다. belle 2026-09-10 "분석마다 다른
+# 개수 다른 **종류**" 의 종류 축이 이것이다.
+#
+# 어휘는 새로 만들지 않는다 — vision_veto.match_keypoint_set(부위 어휘 단일 owner)로
+# 접고, exercise_map._KEYPOINT_SET_TO_DEFECTS 가 defect 로 잇는다. 이미 있던 두 표를
+# 이어 쓸 뿐이다.
+_ANGLE_CRITERION_PREFIX = "angle_vs_reference__"
+
+
+def _deduction_keypoint_sets(breakdown: dict | None) -> list[str] | None:
+    """감점 record 부위를 **감점 큰 순**으로 접는다. record 없으면 None.
+
+    · `angle_vs_reference__{jk}` → 관절명 `jk` 만 떼어 조회 (criterion 접두어가
+      어휘 매칭을 오염시키지 않게).
+    · 그 밖의 criterion(`split_angle` 등)은 id 자체가 부위어를 담고 있어 그대로 조회
+      (leg 행의 "split" 키워드가 이미 그 용도로 있다).
+    · 어휘가 못 알아본 criterion 은 **버린다** — 기본값 'torso' 로 접으면 근거 없는
+      코어 운동이 처방된다. 모르는 것에는 운동을 붙이지 않는다.
+    · 순서 = 부위별 |points| 합 내림차순, 동점은 record 등장 순서(결정론).
+
+    붕괴 게이트(quick-260910-ovo)와의 결합: 판정 불가로 빠진 관절은 record 자체가
+    없으므로 그 부위 운동도 자동으로 안 나온다. 별도 처리 불필요 — 근거 없는 감점에서
+    나온 운동은 근거가 없다.
+
+    채점 무접촉: breakdown 을 읽기만 한다 (사후 mutation 0).
+    """
+    from sunity_shared.analysis import vision_veto
+
+    records = (breakdown or {}).get("records") or []
+    totals: dict[str, float] = {}
+    order: list[str] = []
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        criterion = rec.get("criterion")
+        if not isinstance(criterion, str) or not criterion:
+            continue
+        text = (
+            criterion[len(_ANGLE_CRITERION_PREFIX):]
+            if criterion.startswith(_ANGLE_CRITERION_PREFIX)
+            else criterion
+        )
+        kp_set = vision_veto.match_keypoint_set(text)
+        if kp_set is None:
+            continue
+        try:
+            weight = abs(float(rec.get("points")))
+        except (TypeError, ValueError):
+            weight = 0.0
+        if kp_set not in totals:
+            totals[kp_set] = 0.0
+            order.append(kp_set)
+        totals[kp_set] += weight
+    if not order:
+        return None
+    return sorted(order, key=lambda k: (-totals[k], order.index(k)))
+
+
 def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     _ensure_adapters()
     # Phase 27 SPD-01 — stage-timing 계측 (27-RESEARCH Pattern 6). D-01 before/after
@@ -8576,11 +8637,21 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 "vision fault keypoint_set 도출 실패 — 보완운동 기존 경로 폴백"
             )
             fault_keypoint_sets = None
+        # quick-260910-pbs — 실제 감점 record 부위(감점 큰 순)를 선정 1순위로.
+        # 도출 실패는 분석 비치명 (None 폴백 = 기존 경로 불변).
+        try:
+            deduction_keypoint_sets = _deduction_keypoint_sets(
+                result.get("deductionBreakdown") if isinstance(result, dict) else None
+            )
+        except Exception:  # noqa: BLE001 - 보완운동 매칭 보강 실패는 분석 비치명
+            log.exception("감점 부위 도출 실패 — 보완운동 기존 경로 폴백")
+            deduction_keypoint_sets = None
         recommended_exercises = exercise_map.map_exercises(
             force_pattern_inference_dict,
             pain_areas=pain_areas,
             motion_id=getattr(profile, "motion_id", None),
             fault_keypoint_sets=fault_keypoint_sets,
+            deduction_keypoint_sets=deduction_keypoint_sets,
         )
         # ────────────────────────────────────────────────────────────────
 

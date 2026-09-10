@@ -174,13 +174,25 @@ _KEYPOINT_SET_BY_KEYWORD: tuple[tuple[tuple[str, ...], str], ...] = (
 )
 
 
-def _keypoint_set_for(body_part: str) -> str:
-    """body_part → canonical keypoint_set (FaultKey 집계용). 미상은 'torso'."""
-    part = str(body_part or "").lower()
+def match_keypoint_set(text: str) -> str | None:
+    """부위 어휘 단일 조회 owner — 매칭 없으면 **None** (기본값으로 삼키지 않는다).
+
+    quick-260910-pbs: `_keypoint_set_for` 는 미상을 'torso' 로 접어 FaultKey 집계에
+    구멍을 안 내지만, 그 기본값은 소비처에 따라 거짓말이 된다 — 보완운동 매칭에서
+    'torso' 는 곧 코어 운동 처방이라, 어휘가 못 알아본 criterion 이 근거 없는 코어
+    운동으로 둔갑한다. 그래서 "못 알아봤다"를 말할 수 있는 조회구를 따로 낸다.
+    어휘표(`_KEYPOINT_SET_BY_KEYWORD`)는 그대로 하나다 — 표를 늘리지 않는다.
+    """
+    part = str(text or "").lower()
     for keywords, kp_set in _KEYPOINT_SET_BY_KEYWORD:
         if any(kw.lower() in part for kw in keywords):
             return kp_set
-    return "torso"
+    return None
+
+
+def _keypoint_set_for(body_part: str) -> str:
+    """body_part → canonical keypoint_set (FaultKey 집계용). 미상은 'torso'."""
+    return match_keypoint_set(body_part) or "torso"
 
 
 def _fault_kind_for(difference: dict) -> str:

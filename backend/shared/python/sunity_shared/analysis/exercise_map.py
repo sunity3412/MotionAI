@@ -119,15 +119,17 @@ def _defect_keys_from_findings(findings: list) -> list[str]:
     return matched
 
 
-def _defect_keys_from_fault_keypoint_sets(
-    fault_keypoint_sets: list[str] | None,
+def _defect_keys_from_keypoint_sets(
+    keypoint_sets: list[str] | None,
 ) -> list[str]:
-    """vision veto 결함 keypoint_set 목록 → defect 키 (순서 보존, 중복 제거).
+    """부위(keypoint_set) 목록 → defect 키 (순서 보존, 중복 제거).
 
+    입력 출처는 둘이다 — vision veto 결함 부위(faultKey.keypoint_set)와 실제 감점
+    record 부위(quick-260910-pbs). 어느 쪽이든 어휘가 같으므로 접는 규칙도 하나다.
     알 수 없는 keypoint_set 값은 조용히 skip (graceful — enum drift 시 크래시 0).
     """
     matched: list[str] = []
-    for kp_set in fault_keypoint_sets or []:
+    for kp_set in keypoint_sets or []:
         for defect_key in _KEYPOINT_SET_TO_DEFECTS.get(kp_set, ()):
             if defect_key in _DEFECT_KEYS and defect_key not in matched:
                 matched.append(defect_key)
@@ -149,6 +151,7 @@ def map_exercises(
     motion_id: str | None,
     *,
     fault_keypoint_sets: list[str] | None = None,
+    deduction_keypoint_sets: list[str] | None = None,
 ) -> list[dict]:
     """결함 + 통증부위 → 보완 운동 (개수는 결함 수가 정한다, 상한 _MAX_EXERCISES).
 
@@ -163,6 +166,14 @@ def map_exercises(
             painArea 최우선 유지). None 아니면 **확정 결함 유래 운동이 목록 선두**
             (pod 검증 fix — belle: "결함과 무관한 운동이 대표로 보임"). painArea/
             findings 유래 운동은 제거하지 않고 후순위로 유지.
+        deduction_keypoint_sets: **실제 감점 record 의 부위** 목록, 감점이 큰 순
+            (quick-260910-pbs). 호출부(pipeline)가 record criterion 을 부위 어휘로
+            접어 넘긴다 — 본 모듈은 vision_veto 를 import 하지 않는다(순수성).
+            None = 기존 동작 byte-동등. 이 목록이 **가장 앞**에 오는 이유: 점수를
+            깎은 것이 감점 record 이므로, 운동 종류와 순서를 정할 권리도 그쪽에
+            있다 (belle 2026-09-10 "다른 종류가 될 수도 있지"). 종전엔 감점 부위가
+            운동 선정에 전혀 안 들어가, 대표 doc 이 팔꿈치·무릎·엉덩이 감점을 갖고도
+            어깨 운동만 받았다.
 
     Returns:
         plain camelCase scalar dict list — {name, setsReps, purpose, sourceRef}.
@@ -181,13 +192,25 @@ def map_exercises(
             findings = raw
 
     valid_pain_areas = _valid_pain_area_keys(pain_areas)
-    fault_defect_keys = _defect_keys_from_fault_keypoint_sets(fault_keypoint_sets)
+    deduction_defect_keys = _defect_keys_from_keypoint_sets(
+        deduction_keypoint_sets
+    )
+    fault_defect_keys = [
+        k
+        for k in _defect_keys_from_keypoint_sets(fault_keypoint_sets)
+        if k not in deduction_defect_keys
+    ]
+    _already = set(deduction_defect_keys) | set(fault_defect_keys)
     finding_defect_keys = [
-        k for k in _defect_keys_from_findings(findings) if k not in fault_defect_keys
+        k for k in _defect_keys_from_findings(findings) if k not in _already
     ]
 
     ordered: list[dict] = []
-    # (1) 확정 결함(vision faultKey) 유래 defect — 목록 선두 (pod 검증 fix).
+    # (0) 감점 record 유래 defect — 감점 큰 부위부터 (quick-260910-pbs).
+    #     점수를 깎은 근거가 여기 있으므로 운동 종류·순서의 1순위도 여기다.
+    for defect_key in deduction_defect_keys:
+        ordered.extend(_defect_exercises(defect_key)[:_EXERCISES_PER_DEFECT])
+    # (1) 확정 결함(vision faultKey) 유래 defect — (0) 이 안 덮은 부위만 (pod 검증 fix).
     for defect_key in fault_defect_keys:
         ordered.extend(_defect_exercises(defect_key)[:_EXERCISES_PER_DEFECT])
     # (2) painArea 안전 운동 — fault 부재(=None 경로) 시 기존처럼 최우선.

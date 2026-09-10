@@ -74,6 +74,7 @@ import {
 import { MIN_ZOOM, type ZoomState } from '../lib/pinchZoom';
 import {
   SWAP_READY_TIMEOUT_MS,
+  clampSeekTarget,
   decideSwapSeek,
   type PlayerStatus,
   type SwapPhase,
@@ -284,6 +285,10 @@ export default function RenderedComparePlayer({
     let attempts = 0;
     let observedSec: number | null = null;
     let loadedDurationSec = 0;
+    // 로딩 창 심기 1회 제한 (아래 statusChange 의 'loading' 가지 참조). 'loading'
+    // 은 한 교체에서 여러 번 올 수 있는데, 창이 닫힌 뒤의 대입은 이미 꽂힌
+    // 아이템을 실제로 seek 해 아래 절차의 seek 와 겹친다.
+    let preSeeded = false;
     // ready 판정은 **이벤트가 말한 것**만 믿는다. `player.status` 를 직접 읽으면
     // 옛 아이템의 'readyToPlay' 가 그대로 남아 있어(iOS status didSet 은 값이
     // 바뀔 때만 emit) 익지 않은 새 아이템을 익은 것으로 오독한다 — 그것이 이
@@ -411,6 +416,38 @@ export default function RenderedComparePlayer({
       );
       subs.push(
         player.addListener('statusChange', ({ status }) => {
+          // ★ belle 09-10 실기기 — "칩을 누르면 살짝 맨 처음으로 0.몇 초 갔다가
+          //   돌아온다". 아래 절차(ready 대기 → seek → 검증)는 정확하지만, 그 사이에
+          //   **새 AVPlayerItem 이 이미 화면에 꽂힌다** — `ref.replaceCurrentItem`
+          //   (ios/VideoPlayer.swift:264)이 main 큐에서 도는 순간 VideoView 는 새
+          //   소스를 t=0 부터 그리기 시작하고 우리 seek 은 그보다 뒤에 온다. 시간
+          //   표시는 폴링 억제(swappingRef)로 이미 막았지만 그림 자체는 못 막았다.
+          //   expo-video 에는 이 목적의 장치가 이미 있다: **로딩 중**의 currentTime
+          //   대입은 `DangerousPropertiesStore`(ios/VideoPlayer/
+          //   DangerousPropertiesStore.swift:1-2)에 담겼다가(setter 분기는
+          //   ios/VideoPlayer.swift:49-53) `replaceCurrentItem` **바로 다음 줄**
+          //   (ios/VideoPlayer.swift:264-266)에서 꺼내 적용된다 — 즉 새 아이템이
+          //   처음부터 그 위치로 꽂힌다.
+          //   ★ 왜 `replaceAsync` 호출 직후가 아니라 `'loading'` 인가:
+          //   `ownerIsReplacing = true` 는 Swift Task 안에서 세팅되고(:242) JS 의
+          //   currentTime setter 는 JS 스레드에서 동기 실행이라, 호출 직후 대입은
+          //   창 **앞**에 떨어질 수 있다(그러면 옛 아이템을 seek 하고 교체에 지워진다
+          //   — 무해하지만 효과도 없다). `'loading'` 통지는 로딩이 시작된 뒤에
+          //   나가므로 창 **안**에 있는 것이 보장된다.
+          //   ★ 이것은 **최선 노력 심기**이지 절차의 대체가 아니다. 실패해도 아무
+          //   것도 바꾸지 않고 판정(signalStatus/step)에도 들어가지 않는다 — 위치의
+          //   책임은 그대로 ready 대기 → seek → 검증 → 재시도 → play 에 있다.
+          //   목표값은 기존 seek 과 **같은 클램프**를 통과시킨다(duration 을 아직
+          //   모르는 창이라 대개 원값 그대로 — sourceSwapSeek.clampSeekTarget 규약,
+          //   상한은 AVPlayer 가 알아서 자른다 ios/VideoPlayer.swift:47).
+          if (status === 'loading' && !preSeeded && alive()) {
+            preSeeded = true;
+            try {
+              player.currentTime = clampSeekTarget(targetSec, loadedDurationSec);
+            } catch {
+              // 해제 직후 등 — 심기만 포기한다. 아래 절차는 그대로 간다.
+            }
+          }
           signalStatus = status;
           step();
         }),

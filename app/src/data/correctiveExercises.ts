@@ -12,12 +12,29 @@
 // 선택 규칙 = lib/exerciseSections.ts).
 
 import data from './corrective_exercises.json';
-import type { RecommendedExercise } from '../types/analysis';
+import type { ExerciseKind, RecommendedExercise } from '../types/analysis';
 
 // corrective_exercises.json 의 운동 항목 모양 (RecommendedExercise 호환 — sourceRef
-// 는 fixture 에서 항상 채워지나 계약상 옵셔널).
+// 와 kind 는 fixture 에서 항상 채워지나 계약상 옵셔널).
 export interface CorrectiveExercise extends RecommendedExercise {
   sourceRef: string;
+  kind: ExerciseKind;
+}
+
+// 운동 성격의 한글 표시명 — **여기 한 곳**에만 둔다 (quick-260910-vwh Task 2).
+// belle 이 문구를 바꿀 때 이 3줄만 고치면 되고 백엔드 재배포가 필요 없다.
+// ★ 이 값으로 운동 개수를 배분하지 않는다 (belle 2026-09-10 "근력이 충분한데
+// 뭐하러 헬스를 하겠어" — 강제 혼합 기각). 표시만 한다.
+export const EXERCISE_KIND_LABELS: Record<ExerciseKind, string> = {
+  strength: '근력',
+  flexibility: '유연성',
+  warmup: '준비운동',
+};
+
+/** 성격 표시명. 옛 doc(2026-09-10 이전 분석)은 kind 가 없어 null → 표시 생략. */
+export function exerciseKindLabel(kind?: string | null): string | null {
+  if (typeof kind !== 'string') return null;
+  return EXERCISE_KIND_LABELS[kind as ExerciseKind] ?? null;
 }
 
 export interface CorrectiveDefect {

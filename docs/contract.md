@@ -670,11 +670,19 @@ contributesToOverall bool (optional, Phase 19 D-01) 해당 차원이 종합점�
 
 `RecommendedExercise[]` (Phase 13, 2026-06-16 추가 — PERS-03)
 ```
-name        string 운동명 (예: "파머스 워크")
+name        string 운동명 (예: "파머스 워크") — 2026-09-10 부터 한글 통용명
 setsReps    string 세트/반복 (예: "왕복", "8~12회")
 purpose     string 한 줄 목적 (왜 이 운동인지)
+kind        'strength'|'flexibility'|'warmup' 운동의 성격 (quick-260910-vwh)
 sourceRef   string? 출처 cite (예: "NotebookLM e688fb4e [1]"). 옵셔널.
 ```
+  - `kind` 는 **표시용**이다. 이 값으로 개수를 배분하지 않는다 — belle 2026-09-10:
+    "균형 잡히게 섞는거 물론 좋지. 근데 그게 규칙이 될 필요는 없어 … 근력이 충분한데
+    뭐하러 헬스를 하겠어." 분석은 원인(근력/유연성)을 모르므로 그 축으로 배분하면
+    아는 척이 된다. 유일한 예외 = `warmup` 을 목록 앞으로 보내는 규칙(exercise_map).
+    한글 표시명(근력/유연성/준비운동)은 앱 상수 한 곳에만 있다
+    (`app/src/data/correctiveExercises.ts` EXERCISE_KIND_LABELS).
+  - 옛 doc(2026-09-10 이전 분석)에는 `kind` 가 없다 — 앱은 없으면 표시만 생략한다.
   - 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 개인화 subset. 개수는
     **분석이 정한다** — 결함 1개면 1개, 3개면 3개, 상한 5 (belle 2026-09-10:
     초 "최대 6개 정도로만" → 후 "현 5개 오케이" 로 5 확정, quick-260910-u67).

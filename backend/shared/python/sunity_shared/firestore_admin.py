@@ -816,7 +816,7 @@ def _validate_force_pattern_inference(
 #
 # PERS-03. `_validate_force_pattern_inference` 1:1 mirror — `_validate_dict_only_scalars`
 # 본체 변경 영구 0 박제 정합. recommendedExercises 는 result 내부 list[dict] 이며
-# 각 dict 는 flat scalar (name/setsReps/purpose/sourceRef) 만 — 본 validator 만
+# 각 dict 는 flat scalar (name/setsReps/purpose/kind/sourceRef) 만 — 본 validator 만
 # 이 list[dict] path 를 박제 허용한다. [[firestore-nested-array-flat]] 보존.
 
 

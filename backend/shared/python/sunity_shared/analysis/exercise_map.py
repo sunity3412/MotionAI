@@ -246,11 +246,14 @@ def map_exercises(
             continue
         seen.add(name)
         # plain camelCase scalar dict 만 emit (nested 차단).
+        # kind = 운동의 성격 (quick-260910-vwh) — 표시용. 이 값으로 개수를 배분하지
+        # 않는다(belle 이 강제 혼합을 기각). fixture 에 없으면 None (옛 fixture 호환).
         deduped.append(
             {
                 "name": ex.get("name"),
                 "setsReps": ex.get("setsReps"),
                 "purpose": ex.get("purpose"),
+                "kind": ex.get("kind"),
                 "sourceRef": ex.get("sourceRef"),
             }
         )

@@ -223,10 +223,18 @@ export interface CoachingCause {
 // 3-way lockstep: 본 interface ↔ backend models.py recommendedExercises 계약 ↔
 // docs/contract.md §4 (CoachingCause 모양 정합). 전체 라이브러리 browse 는 별도
 // app/src/data/correctiveExercises.ts (backend fixture byte-copy mirror).
+// 운동의 성격 (quick-260910-vwh). 표시용이다 — 이 값으로 개수를 배분하지 않는다
+// (belle 2026-09-10 "근력이 충분한데 뭐하러 헬스를 하겠어" 로 강제 혼합은 기각).
+// 백엔드 lockstep: models.EXERCISE_KINDS. 한글 표시명은 data/correctiveExercises.ts
+// EXERCISE_KIND_LABELS 한 곳에만 둔다.
+export type ExerciseKind = 'strength' | 'flexibility' | 'warmup';
+
 export interface RecommendedExercise {
   name: string; // 운동명 (예: '파머스 워크')
   setsReps: string; // 세트/반복 (예: '왕복', '8~12회')
   purpose: string; // 한 줄 목적 (왜 이 운동인지)
+  // 성격. 옛 doc(2026-09-10 이전 분석)에는 없으므로 옵셔널 — 없으면 표시만 생략한다.
+  kind?: ExerciseKind;
   sourceRef?: string; // 출처 cite (예: 'NotebookLM e688fb4e [1]'). 옵셔널.
 }
 

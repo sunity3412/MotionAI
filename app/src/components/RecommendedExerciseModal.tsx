@@ -27,6 +27,7 @@ import {
 import { colors, radius } from '../theme';
 import {
   CORRECTIVE_SECTIONS,
+  exerciseKindLabel,
   type CorrectiveSection,
 } from '../data/correctiveExercises';
 import { buildExerciseSections, countExerciseRows } from '../lib/exerciseSections';
@@ -142,16 +143,32 @@ function SectionBlock({ section }: { section: CorrectiveSection }) {
           <Text style={styles.avoidBody}>{section.note}</Text>
         </View>
       ) : null}
-      {section.exercises.map((ex, idx) => (
-        <View key={`${ex.name}-${idx}`} style={styles.causeCard}>
-          <Text style={styles.exerciseName}>{ex.name}</Text>
-          <Text style={styles.exerciseSets}>{ex.setsReps}</Text>
-          <Text style={styles.exercisePurpose}>{ex.purpose}</Text>
-        </View>
-      ))}
+      {section.exercises.map((ex, idx) => {
+        // 성격 표시 (quick-260910-vwh) — belle "스트레칭 뿐만 아니라 근력을 키우는
+        // 헬스도 있을거고". 옛 doc 은 kind 가 없어 null → 칩을 그리지 않는다.
+        // 표시일 뿐이며 선택/개수에는 관여하지 않는다.
+        const kindLabel = exerciseKindLabel(ex.kind);
+        return (
+          <View key={`${ex.name}-${idx}`} style={styles.causeCard}>
+            <View style={styles.exerciseHead}>
+              <Text style={styles.exerciseName}>{ex.name}</Text>
+              {kindLabel ? (
+                <View style={styles.kindChip}>
+                  <Text style={styles.kindChipText}>{kindLabel}</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.exerciseSets}>{ex.setsReps}</Text>
+            <Text style={styles.exercisePurpose}>{ex.purpose}</Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
+
+// 성격 칩 높이 — 알약 모양을 만들 기준값 (결과 화면 칩 규칙 정합).
+const KIND_CHIP_H = 18;
 
 const styles = StyleSheet.create({
   backdrop: {
@@ -239,11 +256,33 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
+  exerciseHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   exerciseName: {
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 4,
+  },
+  // 성격 칩 — 알약 모양(다른 결과 화면 칩과 같은 규칙: borderRadius = 높이/2).
+  // 이름을 밀어내지 않게 flexShrink 는 이름 쪽에 준다.
+  kindChip: {
+    height: KIND_CHIP_H,
+    paddingHorizontal: 7,
+    borderRadius: KIND_CHIP_H / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.resultChipBg,
+  },
+  // resultChipBg(#FCEFED) 위 resultChipMoreText 는 4.52:1 — 10pt 글자 AA 통과 토큰.
+  kindChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.resultChipMoreText,
   },
   exerciseSets: {
     fontSize: 12,

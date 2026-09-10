@@ -473,11 +473,25 @@ SCORE_SUPPRESSION_AUDIT_KEYS = (
 #   painAreas + motion_id 만 — painAreas 는 매핑 출력에만 흐르고 점수 경로 미진입 (D-05).
 # - 검증 = firestore_admin._validate_recommended_exercises scoped validator
 #   (len <= 5 cap + 각 item flat scalar — firestore-nested-array-flat 보존).
-# - 각 운동 dict = plain camelCase scalar {name, setsReps, purpose, sourceRef?}.
+# - 각 운동 dict = plain camelCase scalar {name, setsReps, purpose, kind, sourceRef?}.
 #   static fixture(backend/data/corrective_exercises.json) 산출이라 normalizer 불필요.
 # - 3-way lockstep: app/src/types/analysis.ts:RecommendedExercise ↔ 본 계약 ↔
 #   docs/contract.md §4. 세 곳 동시 갱신 필수.
-RECOMMENDED_EXERCISE_KEYS = ("name", "setsReps", "purpose", "sourceRef")
+RECOMMENDED_EXERCISE_KEYS = ("name", "setsReps", "purpose", "kind", "sourceRef")
+
+# 운동의 성격 (quick-260910-vwh Task 2). belle 2026-09-10: "스트레칭 뿐만 아니라
+# 근력을 키우는 헬스도 있을거고 다양하게 구성하여".
+#   strength    근력 — 힘을 키우는 것 (버티기·안정화 드릴 포함)
+#   flexibility 유연성 — 늘려서 범위를 넓히는 것
+#   warmup      준비운동 — 본 운동 전에 데우는 것
+# ★ 이 값은 **표시용**이다. 개수 배분에 쓰지 않는다 — belle 이 명시적으로 기각했다:
+#   "균형 잡히게 섞는거 물론 좋지. 근데 그게 규칙이 될 필요는 없어 … 근력이 충분한데
+#   뭐하러 헬스를 하겠어." 지금 파이프라인은 원인(힘이 없어서인가 뻣뻣해서인가)을
+#   모르므로 그 축으로 배분하면 아는 척이 된다. 유일한 예외 = 준비운동을 목록 앞으로
+#   보내는 규칙(exercise_map, 다치지 말라는 상식이지 원인 판단이 아니다).
+# 한글 표시명은 앱에만 있다 (app/src/data/correctiveExercises.ts EXERCISE_KIND_LABELS)
+# — belle 이 문구를 바꿀 때 백엔드 재배포가 필요 없게.
+EXERCISE_KINDS = ("strength", "flexibility", "warmup")
 # 상한 3곳 lockstep: 여기(저장 거부선) · exercise_map._MAX_EXERCISES(생성) ·
 # firestore_admin._validate_recommended_exercises(검증). 셋을 같이 바꿀 것.
 # 5 의 근거(belle 09-10 초 "최대 6개 정도로만" → 후 "현 5개 오케이")는

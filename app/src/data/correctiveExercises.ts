@@ -12,11 +12,15 @@
 // 선택 규칙 = lib/exerciseSections.ts).
 
 import data from './corrective_exercises.json';
+import { LEGACY_EXERCISE_NAMES } from './legacyExerciseNames';
 import type { ExerciseKind, RecommendedExercise } from '../types/analysis';
 
 // corrective_exercises.json 의 운동 항목 모양 (RecommendedExercise 호환 — sourceRef
 // 와 kind 는 fixture 에서 항상 채워지나 계약상 옵셔널).
+// id 는 라이브러리에서는 **필수**다 (quick-260910-woq Task 1 — 43행 전부 보유).
+// 계약(RecommendedExercise)에서 옵셔널인 것은 옛 doc 때문이지 라이브러리 때문이 아니다.
 export interface CorrectiveExercise extends RecommendedExercise {
+  id: string;
   sourceRef: string;
   kind: ExerciseKind;
 }
@@ -69,12 +73,18 @@ export const CORRECTIVE_SCHEMA_VERSION = (data as CorrectiveLibrary).schemaVersi
 // 정작 보여줄 그룹에서 그 운동이 사라진다. 그래서 중복 제거는 분석별 선택 이후에
 // buildExerciseSections(lib/exerciseSections.ts)가 수행한다 — 사용자가 보는 목록에
 // 중복이 없다는 약속은 거기서 지켜지고, node --test 로 검증된다.
+export interface CorrectiveSectionExercise extends CorrectiveExercise {
+  // 2026-09-10 개명 이전 doc 이 들고 있는 옛 영문명 (legacyExerciseNames.ts).
+  // **표시에 쓰지 않는다** — 옛 doc 을 되짚는 폴백 조인 키다 (quick-260910-woq).
+  legacyName?: string;
+}
+
 export interface CorrectiveSection {
   key: string; // 그룹 키 (defect key 또는 painArea key)
   kind: 'defect' | 'painArea';
   title: string; // 사용자 표시 그룹 제목 (한국어)
   note?: string; // painArea avoid 안전 라인 (있으면)
-  exercises: CorrectiveExercise[];
+  exercises: CorrectiveSectionExercise[];
 }
 
 const DEFECT_TITLES: Record<string, string> = {
@@ -97,19 +107,27 @@ const PAIN_AREA_TITLES: Record<string, string> = {
   elbow: '팔꿈치 통증 보강',
 };
 
+// 각 운동에 옛 영문명을 붙인다 (quick-260910-woq). 조인은 id 로 하지만, 09-10 개명
+// 이전에 만들어진 doc 은 id 가 없어 옛 이름으로만 되짚을 수 있다. 표를 **여기서**
+// 붙이는 이유: 선택 규칙(lib/exerciseSections.ts)은 JSON 을 import 하지 않는 순수
+// 모듈이라, 라이브러리 쪽 데이터는 섹션을 만들 때 실어 보내야 한다.
+function withLegacyNames(list: CorrectiveExercise[]): CorrectiveSectionExercise[] {
+  return list.map((ex) => ({ ...ex, legacyName: LEGACY_EXERCISE_NAMES[ex.id] }));
+}
+
 export const CORRECTIVE_SECTIONS: CorrectiveSection[] = [
   ...Object.entries(CORRECTIVE_EXERCISES.defects).map(([key, d]) => ({
     key,
     kind: 'defect' as const,
     title: DEFECT_TITLES[key] ?? key,
-    exercises: d.exercises,
+    exercises: withLegacyNames(d.exercises),
   })),
   ...Object.entries(CORRECTIVE_EXERCISES.painAreas).map(([key, p]) => ({
     key,
     kind: 'painArea' as const,
     title: PAIN_AREA_TITLES[key] ?? key,
     note: p.avoid,
-    exercises: p.exercises,
+    exercises: withLegacyNames(p.exercises),
   })),
 ];
 

@@ -218,11 +218,16 @@ def map_exercises(
             어깨 운동만 받았다.
 
     Returns:
-        plain camelCase scalar dict list — {name, setsReps, purpose, kind, sourceRef}.
-        name 기준 dedup, 상한 _MAX_EXERCISES. **하한 없음** — 결함이 1개면 1개만,
+        plain camelCase scalar dict list — {id, name, setsReps, purpose, kind, sourceRef}.
+        **id 기준** dedup, 상한 _MAX_EXERCISES. **하한 없음** — 결함이 1개면 1개만,
         없으면 빈 list (graceful, 크래시 X). belle 2026-09-10 "1개 필요하면 진짜 1개만".
         순서: 준비운동(kind=warmup) 먼저 → 그 다음 감점 부위 우선순위
         (quick-260910-vwh Task 3).
+
+        id 는 라이브러리 식별자이자 **앱의 조인 키**다 (quick-260910-woq). 앱 모달은
+        이 id 로 doc ↔ 라이브러리를 되짚으므로, 표시명이 바뀌어도 과거 분석이 안
+        끊긴다. 종전엔 name 이 표시 문자열과 조인 키를 겸해, 09-10 개명(vwh) 직후
+        기존 분석의 모달이 전부 빈 상태가 됐다.
     """
     library = _load_corrective_exercises()
 
@@ -272,21 +277,32 @@ def map_exercises(
     # 하나만 매칭돼도 그 그룹의 fixture 5개로 상한을 채워, 개수가 분석과 무관하게
     # 거의 항상 5로 고정되는 원인이었다 (실측 4개 doc 전부 5개).
 
-    # name 기준 dedup (순서 보존).
+    # **id 기준** dedup (순서 보존) — quick-260910-woq.
+    # 왜 name 이 아니라 id 인가: 같은 운동이 여러 그룹에 실려 있고(스쿼트 = 3그룹),
+    # 그룹마다 purpose 가 다르다. 이름이 바뀌는 날 같은 운동이 두 벌 나가지 않도록
+    # 동일성 판정을 표시 문자열에서 떼어낸다. 라이브러리가 정합하면(같은 이름 <->
+    # 같은 id, 게이트 = tests/phase13/test_exercise_id_contract.py) 결과는 종전과 같다.
+    # id 가 없는 fixture 행은 name 으로 폴백 — 라이브러리 회귀 시 조용히 중복을
+    # 흘리지 않기 위한 가드다 (정상 경로에서는 발생하지 않는다).
     seen: set[str] = set()
     deduped: list[dict] = []
     for ex in ordered:
         if not isinstance(ex, dict):
             continue
         name = ex.get("name")
-        if not isinstance(name, str) or name in seen:
+        if not isinstance(name, str):
             continue
-        seen.add(name)
+        ex_id = ex.get("id")
+        key = ex_id if isinstance(ex_id, str) and ex_id else name
+        if key in seen:
+            continue
+        seen.add(key)
         # plain camelCase scalar dict 만 emit (nested 차단).
         # kind = 운동의 성격 (quick-260910-vwh) — 표시용. 이 값으로 개수를 배분하지
         # 않는다(belle 이 강제 혼합을 기각). fixture 에 없으면 None (옛 fixture 호환).
         deduped.append(
             {
+                "id": ex.get("id"),
                 "name": ex.get("name"),
                 "setsReps": ex.get("setsReps"),
                 "purpose": ex.get("purpose"),

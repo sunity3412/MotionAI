@@ -3,8 +3,11 @@
 //
 // 내용은 전부 doc 저장값이다 — 운동은 `result.recommendedExercises`(백엔드
 // exercise_map 산출), 질문은 `result.coachQuestions`(D-28 자동 등재). 없으면 그 카드를
-// 그리지 않는다. 배지("손목 보완")는 운동 이름을 fixture 의 결함표에 되짚어 얻는다
+// 그리지 않는다. 배지("손목 보완")는 운동을 fixture 의 결함표에 되짚어 얻는다
 // (resultSummary.exerciseBadgeLabel) — 못 찾으면 배지 없이 그린다.
+// 되짚는 키는 **id** 다 (quick-260910-woq). 옛 doc(2026-09-10 이전 분석)은 id 가 없어
+// 옛 영문명을 resolveExerciseId 로 먼저 id 로 바꾼다 — 안 그러면 개명 이전 분석에서
+// 배지가 통째로 사라진다.
 //
 // 시안 실측 (화면 좌상단 기준 px → pt, k = 390/467.206 = 0.83475):
 //   운동 카드      43.7, 182.3, 379.9 × 418.7px → 36.5, 152.2, 317.1 × 349.5pt
@@ -21,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fontFamily, layout, radius, typography } from '../../theme';
 import { CORRECTIVE_EXERCISES } from '../../data/correctiveExercises';
+import { resolveExerciseId } from '../../data/legacyExerciseNames';
 import { exerciseBadgeLabel } from '../../lib/resultSummary';
 import type { CoachQuestion, RecommendedExercise } from '../../types/analysis';
 
@@ -81,10 +85,14 @@ export function ResultExerciseTab({
       {hasExercises ? (
         <View style={styles.card}>
           {exercises.slice(0, MAX_ROWS).map((ex, i) => {
-            const badge = exerciseBadgeLabel(ex.name, CORRECTIVE_EXERCISES);
+            const exId = resolveExerciseId(ex);
+            const badge = exerciseBadgeLabel(
+              { id: exId, name: ex.name },
+              CORRECTIVE_EXERCISES,
+            );
             return (
               <View
-                key={`${ex.name}-${i}`}
+                key={`${exId ?? ex.name}-${i}`}
                 style={[styles.row, i > 0 ? styles.rowGap : null]}
               >
                 <View style={styles.badge}>

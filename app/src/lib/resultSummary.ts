@@ -101,11 +101,17 @@ export function buildSummaryChips(
 // ── 보완운동 배지 (시안 4) ─────────────────────────────────────────────────
 //
 // 시안은 운동 카드마다 "팔꿈치 보완" 같은 빨간 배지를 단다. `RecommendedExercise`
-// (name/setsReps/purpose/sourceRef)에는 **어느 결함을 보완하는지가 없다**. 그런데
-// 그 매핑은 앱이 이미 갖고 있다 — backend 가 쓴 것과 같은 fixture 사본
-// (`data/corrective_exercises.json` 의 `defects[*].exercises`)이다. 운동 이름을 그 표에
-// 되짚어 결함을 찾고, 결함의 `jointHints` 첫 항목을 배지로 쓴다. 못 찾으면 null 이고
-// 배지를 안 그린다 — 지어내지 않는다.
+// 에는 **어느 결함을 보완하는지가 없다**. 그런데 그 매핑은 앱이 이미 갖고 있다 —
+// backend 가 쓴 것과 같은 fixture 사본(`data/corrective_exercises.json` 의
+// `defects[*].exercises`)이다. 운동을 그 표에 되짚어 결함을 찾고, 결함의
+// `jointHints` 첫 항목을 배지로 쓴다. 못 찾으면 null 이고 배지를 안 그린다 —
+// 지어내지 않는다.
+//
+// ★ 되짚는 키는 **id** 다 (quick-260910-woq). 종전엔 이름으로 되짚어서, 09-10 개명
+// 직후 옛 doc 의 배지가 통째로 사라졌다 — 모달이 빈 화면이 된 것과 같은 원인이다
+// (이름이 표시 문자열과 조인 키를 겸함). 이름 비교는 폴백으로만 남긴다.
+// 옛 doc 의 옛 영문명 → id 되짚기는 호출측이 한다 (data/legacyExerciseNames.ts
+// resolveExerciseId — 이 파일은 그 표를 import 하지 않는다, 아래 이유 참조).
 //
 // ★ 표를 **인자로 받는** 이유: 이 파일은 `node --test` 로 도는 순수 계층이라 JSON
 // 모듈을 import 할 수 없다(Node ESM 은 import assertion 을 요구하고, 그러면 Metro 와
@@ -117,21 +123,32 @@ export interface DefectExerciseTable {
     string,
     {
       triggers?: { jointHints?: readonly string[] };
-      exercises?: readonly { name?: string }[];
+      exercises?: readonly { id?: string; name?: string }[];
     }
   >;
 }
 
+/** 되짚을 운동 1건 — id 가 우선, 이름은 폴백. */
+export interface ExerciseBadgeRef {
+  id?: string | null;
+  name?: string | null;
+}
+
 export function exerciseBadgeLabel(
-  exerciseName: string,
+  ref: ExerciseBadgeRef | null | undefined,
   table: DefectExerciseTable | null | undefined,
 ): string | null {
-  if (typeof exerciseName !== 'string' || exerciseName.length === 0) return null;
+  const id = typeof ref?.id === 'string' && ref.id.length > 0 ? ref.id : null;
+  const name =
+    typeof ref?.name === 'string' && ref.name.length > 0 ? ref.name : null;
+  if (id === null && name === null) return null;
   const defects = table?.defects;
   if (!defects) return null;
   for (const key of Object.keys(defects)) {
     const d = defects[key];
-    const hit = (d?.exercises ?? []).some((e) => e?.name === exerciseName);
+    const hit = (d?.exercises ?? []).some(
+      (e) => (id !== null && e?.id === id) || (id === null && e?.name === name),
+    );
     if (!hit) continue;
     const hint = (d?.triggers?.jointHints ?? [])[0];
     return typeof hint === 'string' && hint.length > 0 ? `${hint} 보완` : null;

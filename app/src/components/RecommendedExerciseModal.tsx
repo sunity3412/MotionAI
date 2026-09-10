@@ -52,10 +52,9 @@ export function RecommendedExerciseModal({
   const sheetHeight = Math.round(winH * 0.88);
   const sections = React.useMemo(
     () =>
-      buildExerciseSections(CORRECTIVE_SECTIONS, {
-        exerciseNames: exercises.map((e) => e.name),
-        painAreas,
-      }),
+      // doc 을 그대로 넘긴다 — id 가 있으면 id 로, 없으면(옛 doc) 이름으로 되짚는
+      // 판단은 buildExerciseSections 안에 한 곳으로 모여 있다 (quick-260910-woq).
+      buildExerciseSections(CORRECTIVE_SECTIONS, { exercises, painAreas }),
     [exercises, painAreas],
   );
   const rowCount = countExerciseRows(sections);

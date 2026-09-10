@@ -138,20 +138,46 @@ test('배지는 표의 실제 매핑에서 나온다 — 없으면 null (지어�
     defects: {
       grip_weak: {
         triggers: { jointHints: ['손목', '전완근', '악력'] },
-        exercises: [{ name: "파머스 워크" }, { name: '악력기 운동' }],
+        exercises: [
+          { id: 'farmers_walk', name: '파머스 워크' },
+          { id: 'hand_grippers', name: '악력기 운동' },
+        ],
       },
-      no_hint: { triggers: { jointHints: [] }, exercises: [{ name: '힌트없음' }] },
+      no_hint: {
+        triggers: { jointHints: [] },
+        exercises: [{ id: 'no_hint_move', name: '힌트없음' }],
+      },
     },
   };
-  assert.equal(exerciseBadgeLabel("파머스 워크", table), '손목 보완');
-  assert.equal(exerciseBadgeLabel('악력기 운동', table), '손목 보완');
-  assert.equal(exerciseBadgeLabel('힌트없음', table), null, 'jointHints 가 비면 배지 없음');
-  for (const bad of ['없는 운동', '', null, undefined]) {
-    assert.equal(exerciseBadgeLabel(bad as never, table), null, String(bad));
+  assert.equal(exerciseBadgeLabel({ id: 'farmers_walk' }, table), '손목 보완');
+  assert.equal(exerciseBadgeLabel({ id: 'hand_grippers' }, table), '손목 보완');
+  assert.equal(
+    exerciseBadgeLabel({ id: 'no_hint_move' }, table),
+    null,
+    'jointHints 가 비면 배지 없음',
+  );
+  // 이름 폴백 — id 를 못 구한 옛 doc 경로.
+  assert.equal(exerciseBadgeLabel({ name: '파머스 워크' }, table), '손목 보완');
+  for (const bad of [{ id: 'unknown_move' }, { name: '없는 운동' }, {}, null, undefined]) {
+    assert.equal(exerciseBadgeLabel(bad as never, table), null, JSON.stringify(bad));
   }
   // 표 자체가 없어도 크래시 0
-  assert.equal(exerciseBadgeLabel("파머스 워크", null), null);
-  assert.equal(exerciseBadgeLabel("파머스 워크", {}), null);
+  assert.equal(exerciseBadgeLabel({ id: 'farmers_walk' }, null), null);
+  assert.equal(exerciseBadgeLabel({ id: 'farmers_walk' }, {}), null);
+});
+
+test('배지 조인은 id 다 — 이름이 바뀌어도 안 끊긴다 (quick-260910-woq)', () => {
+  // 개명 회귀: 같은 id 인데 라이브러리 표시명만 바뀐 상황. 이름으로 되짚던 종전
+  // 구현은 여기서 null 이 됐고, 그게 09-10 개명 직후 배지가 사라진 원인이다.
+  const renamed = {
+    defects: {
+      grip_weak: {
+        triggers: { jointHints: ['손목'] },
+        exercises: [{ id: 'farmers_walk', name: '가방 들고 걷기' }],
+      },
+    },
+  };
+  assert.equal(exerciseBadgeLabel({ id: 'farmers_walk' }, renamed), '손목 보완');
 });
 
 test('실제 fixture 와 lockstep — 표 모양이 바뀌면 여기서 깨진다', async () => {
@@ -160,5 +186,6 @@ test('실제 fixture 와 lockstep — 표 모양이 바뀌면 여기서 깨진�
   const path = await import('node:path');
   const p = path.join(import.meta.dirname, '..', '..', 'data', 'corrective_exercises.json');
   const table = JSON.parse(fs.readFileSync(p, 'utf8'));
-  assert.equal(exerciseBadgeLabel("파머스 워크", table), '손목 보완');
+  assert.equal(exerciseBadgeLabel({ id: 'farmers_walk' }, table), '손목 보완');
+  assert.equal(exerciseBadgeLabel({ name: '파머스 워크' }, table), '손목 보완');
 });

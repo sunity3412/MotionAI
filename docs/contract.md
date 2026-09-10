@@ -670,12 +670,28 @@ contributesToOverall bool (optional, Phase 19 D-01) 해당 차원이 종합점�
 
 `RecommendedExercise[]` (Phase 13, 2026-06-16 추가 — PERS-03)
 ```
-name        string 운동명 (예: "파머스 워크") — 2026-09-10 부터 한글 통용명
-setsReps    string 세트/반복 (예: "왕복", "8~12회")
-purpose     string 한 줄 목적 (왜 이 운동인지)
+id          string  라이브러리 식별자 (예: "farmers_walk") — **조인 키** (quick-260910-woq)
+name        string  표시용 운동명 (예: "파머스 워크") — 2026-09-10 부터 한글 통용명
+setsReps    string  세트/반복 (예: "왕복", "8~12회")
+purpose     string  한 줄 목적 (왜 이 운동인지)
 kind        'strength'|'flexibility'|'warmup' 운동의 성격 (quick-260910-vwh)
 sourceRef   string? 출처 cite (예: "NotebookLM e688fb4e [1]"). 옵셔널.
 ```
+  - ★ `id` 와 `name` 의 역할을 섞지 마라. **`id` = 조인 키(불변), `name` = 표시(가변).**
+    2026-09-10 개명(quick-260910-vwh)이 이름을 영문 → 한글로 바꾸자, 이름으로
+    라이브러리를 되짚던 앱 모달이 **그 이전 분석 전부에서 빈 화면**이 됐다. 원인은
+    한 필드가 표시 문자열과 조인 키를 겸한 것이다. 앞으로 belle 이 문구를 다듬어도
+    과거 분석이 안 끊기려면 조인은 `id` 로만 해야 한다.
+  - `id` 는 corrective_exercises.json 의 `id` 를 그대로 싣는다. 값은 **옛 영문명
+    유래 스네이크 케이스**다 (표시명 파생 금지 — 표시명에서 만들면 다음 개명 때
+    같은 결함이 재발한다). 라이브러리 43행 / 유니크 id 28개, 같은 운동은 어느
+    그룹에 있든 같은 id (게이트 = `backend/tests/phase13/test_exercise_id_contract.py`).
+  - 옛 doc(2026-09-10 이전 분석)에는 `id` 가 없다 — 앱은 저장된 **옛 영문명**으로
+    폴백한다 (`app/src/data/legacyExerciseNames.ts`, 동결 표 28행). 폴백은 id 가
+    없는 항목에만 적용된다(신 doc 에 이름 매칭을 열어 두면 개명으로 두 운동이 한
+    이름을 나눠 갖는 날 조용한 오매칭이 생긴다).
+  - 백엔드 dedup 도 `id` 기준이다 (`exercise_map.map_exercises`). 같은 운동이 여러
+    결함 그룹에 실려 있으므로(스쿼트 = 3그룹) 동일성 판정을 표시 문자열에서 뗀다.
   - `kind` 는 **표시용**이다. 이 값으로 개수를 배분하지 않는다 — belle 2026-09-10:
     "균형 잡히게 섞는거 물론 좋지. 근데 그게 규칙이 될 필요는 없어 … 근력이 충분한데
     뭐하러 헬스를 하겠어." 분석은 원인(근력/유연성)을 모르므로 그 축으로 배분하면

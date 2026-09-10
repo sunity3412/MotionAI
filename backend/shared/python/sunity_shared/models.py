@@ -473,11 +473,19 @@ SCORE_SUPPRESSION_AUDIT_KEYS = (
 #   painAreas + motion_id 만 — painAreas 는 매핑 출력에만 흐르고 점수 경로 미진입 (D-05).
 # - 검증 = firestore_admin._validate_recommended_exercises scoped validator
 #   (len <= 5 cap + 각 item flat scalar — firestore-nested-array-flat 보존).
-# - 각 운동 dict = plain camelCase scalar {name, setsReps, purpose, kind, sourceRef?}.
+# - 각 운동 dict = plain camelCase scalar {id, name, setsReps, purpose, kind, sourceRef?}.
 #   static fixture(backend/data/corrective_exercises.json) 산출이라 normalizer 불필요.
+# - ★ `id` = 라이브러리 식별자이자 **앱의 조인 키** (quick-260910-woq). 앱 모달은
+#   저장된 doc 을 이 id 로 라이브러리에 되짚는다. `name` 은 표시 전용이다 —
+#   09-10 개명(quick-260910-vwh) 때 이름으로 조인하던 앱이 과거 분석 전부에서 빈
+#   모달을 그렸고, 원인이 한 필드가 표시 문자열과 조인 키를 겸한 것이었다.
+#   이름은 바뀌어야 하고 조인 키는 바뀌면 안 되므로 필드를 갈랐다. **id 를 표시명에서
+#   유도하지 마라** — 옛 영문명 유래 고정 문자열이고, 이름이 또 바뀌어도 불변이다.
+#   옛 doc(2026-09-10 이전)에는 id 가 없다 — 앱이 옛 영문명으로 폴백한다
+#   (app/src/data/legacyExerciseNames.ts, 동결 표).
 # - 3-way lockstep: app/src/types/analysis.ts:RecommendedExercise ↔ 본 계약 ↔
 #   docs/contract.md §4. 세 곳 동시 갱신 필수.
-RECOMMENDED_EXERCISE_KEYS = ("name", "setsReps", "purpose", "kind", "sourceRef")
+RECOMMENDED_EXERCISE_KEYS = ("id", "name", "setsReps", "purpose", "kind", "sourceRef")
 
 # 운동의 성격 (quick-260910-vwh Task 2). belle 2026-09-10: "스트레칭 뿐만 아니라
 # 근력을 키우는 헬스도 있을거고 다양하게 구성하여".

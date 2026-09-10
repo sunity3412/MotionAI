@@ -230,7 +230,14 @@ export interface CoachingCause {
 export type ExerciseKind = 'strength' | 'flexibility' | 'warmup';
 
 export interface RecommendedExercise {
-  name: string; // 운동명 (예: '파머스 워크')
+  // 라이브러리 식별자 (corrective_exercises.json 의 id, 예: 'farmers_walk').
+  // ★ 이름이 아니라 **이것이 조인 키**다 (quick-260910-woq). 09-10 개명(vwh) 때
+  // 이름으로 조인하던 모달이 과거 분석 전부에서 빈 상태가 됐고, 그 원인이 이름이
+  // 표시 문자열과 조인 키를 겸한 것이었다. 표시는 바뀌어야 하고 조인 키는 바뀌면
+  // 안 되므로 필드를 갈랐다. 옛 doc(2026-09-10 이전 분석)에는 없어 옵셔널 —
+  // 앱은 없으면 옛 영문명으로 폴백한다 (app/src/data/legacyExerciseNames.ts).
+  id?: string;
+  name: string; // 표시용 운동명 (예: '파머스 워크'). 조인에 쓰지 않는다.
   setsReps: string; // 세트/반복 (예: '왕복', '8~12회')
   purpose: string; // 한 줄 목적 (왜 이 운동인지)
   // 성격. 옛 doc(2026-09-10 이전 분석)에는 없으므로 옵셔널 — 없으면 표시만 생략한다.

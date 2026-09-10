@@ -261,6 +261,14 @@ const RESULT_TABS = [
 ] as const;
 // 요약 카드 헤드라인 아래 한 줄 — 시안 문구 그대로.
 const SUMMARY_SUBLINE = '90점 이상이면 기준 자세에 가까워요';
+// quick-260910-ovo — 관측하지 못한 관절이 있을 때 점수 아래 한 줄
+// (contract.md §4 `unjudgedJoints`). 백엔드가 그 관절의 감점을 **빼고** 점수를 낸
+// 상태라, 이 줄은 장식이 아니라 "왜 이 점수인지"의 일부다.
+//
+// ★ 문구는 belle 이 정한다 — 아직 미확정이다("글도 그냥 구구절절 될까바 애매하고").
+// 그래서 **이 상수 한 줄만 고치면 문구가 바뀐다.** 화면 여러 곳에 흩지 말 것.
+const UNJUDGED_NOTE = (hidden: number, total: number) =>
+  `${total}곳 중 ${hidden}곳은 가려져서 못 봤어요`;
 // 요약 경고 본문 줄 수 — 시안이 3줄이다.
 const SUMMARY_WARN_LINES = 3;
 
@@ -830,6 +838,16 @@ function AnalysisResultContent({
   // topFix·접힘 카드·요약 헤드라인·심사 코너)을 전부 강등/억제한다. 점수 값
   // (overallScore/final/records)은 byte-불변 — 표현 전용. false/부재 시 렌더 diff 0.
   const attributionUnreliable = result.attributionReliability?.unreliable === true;
+
+  // quick-260910-ovo — 관측하지 못한 관절 한 줄. **비어 있으면 아무것도 안 그린다**
+  // (0곳일 때 "0곳은 못 봤어요" 금지). 필드 부재(legacy doc)도 같은 취급이다.
+  // 백엔드가 판정 규칙을 소유하므로 앱은 개수만 읽는다 (limb_collapse.py 정본).
+  const unjudgedNote = useMemo(() => {
+    const hidden = result.unjudgedJoints?.length ?? 0;
+    const total = result.joints?.length ?? 0;
+    if (hidden <= 0 || total <= 0 || hidden > total) return null;
+    return UNJUDGED_NOTE(hidden, total);
+  }, [result.unjudgedJoints, result.joints]);
 
   // IN-01 — 예상 부위 단일 관절 (역립 저신뢰 오버레이 주황 점 최대 1개). angle_vs_
   // reference 감점 record 중 |points| 최대이며 keypoint 매핑되는 관절 1개, 폴백은
@@ -1629,6 +1647,12 @@ function AnalysisResultContent({
                 }
               />
             </View>
+            {/* quick-260910-ovo — 관측 못 한 관절이 있을 때만 나타나는 한 줄.
+                dialWrap 의 marginBottom(시안 22pt)은 건드리지 않는다 — 그 22pt 가
+                이제 원 ↔ 이 줄 사이가 되고, 줄 ↔ 카드는 공통 gap 을 쓴다. */}
+            {unjudgedNote ? (
+              <Text style={styles.unjudgedNote}>{unjudgedNote}</Text>
+            ) : null}
             <ResultSummaryCard
               total={summaryChips.total}
               chips={summaryChips.chips}
@@ -2203,6 +2227,13 @@ const styles = StyleSheet.create({
   // 260909-ji1 — 원 아랫변 ↔ 요약 카드 윗변은 시안 22pt 다. 공통 gap(14)에 모자란 만큼만
   // 원반 쪽 marginBottom 으로 보탠다 — 다른 탭의 14 는 그대로.
   dialWrap: { alignItems: 'center', marginBottom: DIAL_CARD_GAP - CONTENT_GAP },
+  // quick-260910-ovo — 점수 아래 한 줄. 곡선 헤더 아래(페이지 배경) 자리라
+  // resultTextSub(#767676, 4.54:1 AA) 를 그대로 쓴다. 새 치수·새 색 0.
+  unjudgedNote: {
+    ...typography.resultSub,
+    color: colors.resultTextSub,
+    textAlign: 'center',
+  },
   // 시안 3 — '유지된점' 박스 (실측 #EDF6F2) 와 그 아래 CTA.
   keptBox: {
     backgroundColor: colors.resultKeptBg,

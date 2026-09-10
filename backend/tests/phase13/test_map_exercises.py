@@ -290,4 +290,4 @@ def test_no_minimum_floor_constant() -> None:
 
 def test_generation_cap_locksteps_with_storage_cap() -> None:
     """생성 상한 == 저장 거부선. 셋 중 둘이 어긋나면 유효 운동이 조용히 잘린다."""
-    assert _MAX_EXERCISES == models.MAX_RECOMMENDED_EXERCISES == 6
+    assert _MAX_EXERCISES == models.MAX_RECOMMENDED_EXERCISES == 5

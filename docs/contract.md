@@ -676,12 +676,13 @@ purpose     string 한 줄 목적 (왜 이 운동인지)
 sourceRef   string? 출처 cite (예: "NotebookLM e688fb4e [1]"). 옵셔널.
 ```
   - 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 개인화 subset. 개수는
-    **분석이 정한다** — 결함 1개면 1개, 3개면 3개, 상한 6 (belle 2026-09-10).
+    **분석이 정한다** — 결함 1개면 1개, 3개면 3개, 상한 5 (belle 2026-09-10:
+    초 "최대 6개 정도로만" → 후 "현 5개 오케이" 로 5 확정, quick-260910-u67).
     하한 없음 (quick-260910-pbs: 고정 개수로 채우던 백필 폐지).
   - 생산자 = `analysis/exercise_map.map_exercises(forcePatternInference.findings,
     bodyProfile.painAreas, motion_id)` — pure fn. painAreas 는 매핑 출력에만
     흐르고 점수/차원 경로 미진입 (D-05).
-  - 검증 = `firestore_admin._validate_recommended_exercises` (len <= 6 cap + 각
+  - 검증 = `firestore_admin._validate_recommended_exercises` (len <= 5 cap + 각
     item flat scalar — [[firestore-nested-array-flat]] 보존).
   - 옵셔널 필드 — 빈/부재 시 result.tsx 는 전체 라이브러리 모달 browse entry 만
     유지 (MEDIUM-1). 전체 라이브러리는 `app/src/data/correctiveExercises.ts`

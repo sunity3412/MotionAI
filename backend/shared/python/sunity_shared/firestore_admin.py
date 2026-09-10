@@ -828,7 +828,8 @@ def _validate_recommended_exercises(
     명세:
       · None graceful (미산출 분석 — return).
       · list 아니면 reject.
-      · len > MAX_RECOMMENDED_EXERCISES(6) reject (belle 2026-09-10 "최대 6개" 상한 —
+      · len > MAX_RECOMMENDED_EXERCISES(5) reject (belle 2026-09-10 초 "최대 6개
+        정도로만" → 같은 날 "현 5개 오케이" 로 5 확정, quick-260910-u67 —
         fabrication 금지). **하한 검사는 없다** — 결함 1개짜리 분석은 1개만 저장된다
         (quick-260910-pbs: 고정 개수로 채우던 백필 폐지).
       · 각 item: dict + flat scalar 만 (`_validate_dict_only_scalars` 위임,

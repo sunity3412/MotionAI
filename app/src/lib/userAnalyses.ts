@@ -551,7 +551,7 @@ export function normalize(
   }
   // Phase 13 (Plan 13-A, PERS-03) recommendedExercises null-guard.
   // forcePatternInference 패턴 mirror — backend validator
-  // (_validate_recommended_exercises) 가 len<=6 + flat scalar 강제하므로
+  // (_validate_recommended_exercises) 가 len<=5 + flat scalar 강제하므로
   // 여기선 list 여부만 확인. 부재/비-list 면 undefined 유지 (TS contract
   // recommendedExercises?: RecommendedExercise[] 가 undefined 허용).
   if (Array.isArray(result?.recommendedExercises)) {

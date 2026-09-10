@@ -32,6 +32,8 @@ import type {
   SpotCheck,
   SpotCheckVerdict,
   SummaryPraise,
+  UnjudgedJoint,
+  UnjudgedReason,
 } from '../types/analysis';
 
 // Phase 11 (Plan 11-02, COACH-01) — CoachCommentHook null-guard normalize.
@@ -367,6 +369,39 @@ function normalizeAttributionReliability(
   };
 }
 
+// quick-260910-sus — unjudgedJoints 방어 파싱 (normalizeAttributionReliability 와
+// 같은 방어 수준). 백엔드 방출값을 신뢰하지 않는다.
+//
+// ★ 빈 배열과 부재는 **다른 뜻**이다: 빈 배열 = 봤는데 붕괴 0, 부재 = 안 봤다
+// (legacy doc / 판정기 미산출 경로). analysis.ts §AnalysisResult.unjudgedJoints 주석이
+// 그 둘을 구분하므로, 살아남은 원소가 0개여도 빈 배열을 그대로 돌려준다 — 여기서
+// undefined 로 접으면 구분이 정규화 단계에서 뭉개진다. 배열이 아닐 때만 undefined.
+//
+// reason 화이트리스트는 문자열 배열이 아니라 Record<UnjudgedReason, true> 다.
+// union 에 신뢰도 축이 추가되면 이 상수가 키 누락으로 **컴파일 에러**를 내서 같이
+// 고치도록 강제된다 (readonly UnjudgedReason[] 는 부분집합도 통과해 조용히 어긋난다).
+// 정본: analysis.ts UnjudgedReason / Python lockstep: models.py UNJUDGED_REASONS.
+const UNJUDGED_REASONS: Record<UnjudgedReason, true> = { collapse: true };
+
+function normalizeUnjudgedJoints(value: unknown): UnjudgedJoint[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: UnjudgedJoint[] = [];
+  for (const item of value) {
+    if (item == null || typeof item !== 'object' || Array.isArray(item))
+      continue; // malformed 항목만 제거 — 나머지는 보존 (normalizeCoachQuestions 관례)
+    const u = item as Record<string, unknown>;
+    const joint = normalizeNonEmptyString(u.joint);
+    const reason =
+      typeof u.reason === 'string' &&
+      Object.prototype.hasOwnProperty.call(UNJUDGED_REASONS, u.reason)
+        ? (u.reason as UnjudgedReason)
+        : undefined;
+    if (!joint || !reason) continue;
+    out.push({ joint, reason });
+  }
+  return out;
+}
+
 // DeductionRecord 확장 키 통과 파싱 (Plan 32-06 §12.3) — recordId/3단 문구는
 // string, tolerance 는 유한 number 만. malformed 는 undefined 강등하되 record
 // 자체와 기존 필드는 보존 (카드는 계속 렌더 — 문구만 조용히 포기).
@@ -407,7 +442,15 @@ export interface UserAnalysesState {
   error: string | null;
 }
 
-function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null {
+// quick-260910-sus — 검증 목적 export. 화면은 이 함수를 직접 부르지 않는다(훅 전용).
+// 이 파일의 방어 파싱은 지금까지 테스트가 0 이었다. 기존 테스트들은 정규화를 건너뛰고
+// result 객체를 직접 만들어 쓰기 때문에, 이 함수 안에서 무엇이 덮이고 무엇이 raw 로
+// 새는지를 아무도 재지 않았다. __tests__/unjudgedJoints.test.ts 가 통째로 통과시켜
+// 재도록 열어 둔다.
+export function normalize(
+  id: string,
+  raw: Record<string, unknown>,
+): AnalysisDoc | null {
   const mode = raw.mode === 'mode1' || raw.mode === 'mode3' ? raw.mode : null;
   const status = raw.status as AnalysisStatus | undefined;
   // fileName 은 빈 문자열일 수 있다(영상 파일명 미전달). 빈 문자열도 유효한
@@ -733,6 +776,14 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       attributionReliability: normalizeAttributionReliability(
         r.attributionReliability,
       ),
+      // quick-260910-sus — 이 정규화는 **덮어쓰기(overlay)** 지 골라담기(pick)가 아니다:
+      // `let result = raw.result` 로 raw 키를 전부 물고 시작해서 `{...result, ...}` 로
+      // 아는 필드만 defensive 버전으로 덮는다. 그래서 여기 없는 필드는 *버려지는 게
+      // 아니라* **검증 없이 raw 그대로 화면까지 간다**. unjudgedJoints 가 그 상태였다
+      // (2026-09-10 실측: 이 줄 없이도 정상 배열은 그대로 통과함).
+      // 방어가 필요한 이유는 소비처가 `?.length` 로만 분기하기 때문 — 백엔드가
+      // 문자열이나 malformed 원소를 실으면 없는 관절 수를 그대로 세어 말한다.
+      unjudgedJoints: normalizeUnjudgedJoints(r.unjudgedJoints),
     };
   }
   return {

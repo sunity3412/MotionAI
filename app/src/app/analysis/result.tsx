@@ -37,6 +37,7 @@ import { ResultPointModal } from '../../components/result/ResultPointModal';
 import { ResultExerciseTab } from '../../components/result/ResultExerciseTab';
 import { riskFlagCopy, topRiskFlag } from '../../components/InjuryRiskSection';
 import { buildSummaryChips, summaryChipLabel } from '../../lib/resultSummary';
+import { formatAnalysisMoment } from '../../lib/analysisDate';
 import { VideoCompare } from '../../components/VideoCompare';
 import RenderedComparePlayer, {
   fmtTimeDecimal,
@@ -258,9 +259,6 @@ const RESULT_TABS = [
   { key: 'points', label: '교정포인트' },
   { key: 'exercise', label: '보완운동' },
 ] as const;
-// 점수 원 아래 한 줄 — 시안 문구 그대로("Today"). 한글 앱이지만 이 자리는 시안이
-// 영문으로 고정했고 belle 지시가 "완전 동일하게" 다.
-const DIAL_LABEL = 'Today';
 // 요약 카드 헤드라인 아래 한 줄 — 시안 문구 그대로.
 const SUMMARY_SUBLINE = '90점 이상이면 기준 자세에 가까워요';
 // 요약 경고 본문 줄 수 — 시안이 3줄이다.
@@ -439,6 +437,24 @@ function AnalysisResultContent({
   const contentTop =
     useResultTopDelta() + RESULT_TAB_TOP[resultTab] * headerScale;
   const cmp = result.comparison;
+
+  // 점수 원 아래 한 줄 — 분석 시각 (quick-260910-hsk).
+  //
+  // 이력: 09-08 재디자인 때 이 자리는 `const DIAL_LABEL = 'Today'` 였다. 근거는
+  // "한글 앱이지만 이 자리는 시안이 영문으로 고정했고 belle 지시가 완전 동일하게" 였고,
+  // 그 근거 자체는 지우지 않는다. 다만 그 상수는 날짜를 계산하지 않아 기록 탭에서
+  // 3일 전 분석을 열어도 "Today" 가 떴다 — 표기 취향이 아니라 거짓 정보였다.
+  // belle 2026-09-10 이 한글 날짜 표기를 명시적으로 요청했으므로("3번은 날짜 표기를
+  // 원하는거야") 그 지시가 시안 문구 고정보다 우선한다.
+  //
+  // 표기 규칙과 경계(달력 날짜 기준·7일 경계·미래 접기·결측 시 빈 문자열)는
+  // lib/analysisDate.ts 헤더가 정본이다. deps 에는 createdAt 만 넣는다 — Date.now()
+  // 는 deps 가 될 수 없고, 화면이 열려 있는 동안 자정이 넘어가는 경우는 무시한다
+  // (이 자리에 그 정밀도는 필요 없다. 재진입하면 갱신된다).
+  const dialLabel = useMemo(
+    () => formatAnalysisMoment(createdAt ?? 0, Date.now()),
+    [createdAt],
+  );
 
 
   // mode1 메타 카드용 풀데이터. 시드 전이거나 로딩 중이면 motion=null →
@@ -1603,8 +1619,14 @@ function AnalysisResultContent({
             <View style={styles.dialWrap}>
               <ResultScoreDial
                 score={result.overallScore}
-                label={DIAL_LABEL}
-                accessibilityLabel={`종합 ${Math.round(result.overallScore)}점`}
+                label={dialLabel}
+                // 날짜가 화면에 생겼으므로 음성 안내에도 넣는다. 빈 문자열(결측)이면
+                // 점수만 읽는다 — 꼬리 쉼표를 남기지 않는다.
+                accessibilityLabel={
+                  dialLabel
+                    ? `종합 ${Math.round(result.overallScore)}점, ${dialLabel}`
+                    : `종합 ${Math.round(result.overallScore)}점`
+                }
               />
             </View>
             <ResultSummaryCard

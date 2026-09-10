@@ -152,3 +152,128 @@ test('원본 섹션 배열을 변형하지 않는다', () => {
   buildExerciseSections(SECTIONS, { exercises: byId('farmers_walk'), painAreas: ['wrist'] });
   assert.equal(JSON.stringify(SECTIONS), before);
 });
+
+// ── 개명 회귀 (quick-260910-woq) ────────────────────────────────────────────
+//
+// 이 블록이 막는 사고: 2026-09-10 에 운동 이름이 영문 → 한글로 바뀌자
+// (quick-260910-vwh), 이름으로 조인하던 이 함수의 매칭이 0 이 되어 **개명 이전
+// 모든 사용자의 모달이 빈 화면**이 됐다. 시뮬레이터에서 눈으로 보고서야 알았다.
+// 아래 세 축은 그 사고를 코드로 재현해 두는 것이다 — 다음에 belle 이 문구를
+// 다듬을 때 사람이 아니라 테스트가 먼저 막는다.
+
+/** 표시명만 바꾼 라이브러리 (id·legacyName 은 그대로) — 다음 개명을 흉내낸다. */
+const RENAMED: ExerciseSectionLike[] = SECTIONS.map((s) => ({
+  ...s,
+  exercises: s.exercises.map((e) => ({ ...e, name: `개명-${e.name}` })),
+}));
+
+test('축1 id 가 그대로면 이름이 바뀌어도 섹션이 유지된다 (이 결함의 직접 재현)', () => {
+  // 분석 당시 저장된 doc — id 와 그때의 이름을 함께 들고 있다.
+  const doc = [{ id: 'push_ups', name: '팔굽혀펴기' }];
+
+  // 전제 확인: 저장된 이름은 개명 후 라이브러리 어디에도 없다. 이름으로 조인하면
+  // 여기서 반드시 0 이 된다 — 그게 종전 구현이 무너진 지점이다.
+  const liveNames = new Set(RENAMED.flatMap((s) => s.exercises.map((e) => e.name)));
+  assert.equal(liveNames.has('팔굽혀펴기'), false, '전제가 깨졌다 — 개명 흉내가 안 됐다');
+
+  const got = buildExerciseSections(RENAMED, { exercises: doc, painAreas: [] });
+  assert.deepEqual(keys(got), ['shoulder_unstable'], '개명만으로 섹션이 사라졌다');
+  assert.deepEqual(names(got), ['개명-팔굽혀펴기', '개명-어깨 위로 밀기']);
+});
+
+test('축1-b 중복 제거도 id 기준 — 개명해도 같은 운동이 두 번 안 나온다', () => {
+  const got = buildExerciseSections(RENAMED, {
+    exercises: [{ id: 'farmers_walk' }],
+    painAreas: ['wrist'],
+  });
+  const ids = got.flatMap((s) => s.exercises.map((e) => e.id));
+  assert.equal(ids.length, new Set(ids).size, '같은 id 가 두 번 그려진다');
+  assert.deepEqual(ids, ['farmers_walk', 'hand_grippers', 'deadlift']);
+});
+
+test('축2 id 없는 옛 doc 은 옛 영문명으로 잡힌다 (폴백이 없으면 빈 모달)', () => {
+  // 실물 검증본 doc(c64afae6)이 들고 있던 모양 — id 없음, 옛 영문명.
+  const legacyDoc = [
+    { name: 'Push-ups' },
+    { name: 'Overhead Press' },
+    { name: 'Scapular Depression Drills' },
+  ];
+  const got = buildExerciseSections(SECTIONS, { exercises: legacyDoc, painAreas: [] });
+  assert.deepEqual(keys(got), ['shoulder_unstable']);
+  assert.deepEqual(names(got), ['팔굽혀펴기', '어깨 위로 밀기']);
+
+  // 옛 이름 표(legacyName)가 없으면 같은 doc 이 빈 목록이 된다는 것도 같이 박제한다.
+  // 이 대조군이 없으면 "폴백을 지워도 테스트가 안 깨지는" 상태가 되어 축2 가
+  // 무의미해진다. 실물 검증본 doc 으로 잰 값과 같다 — 폴백 있음 5행 / 없음 0행.
+  const withoutLegacy = SECTIONS.map((sec) => ({
+    ...sec,
+    exercises: sec.exercises.map(({ id, name }) => ({ id, name })),
+  }));
+  assert.deepEqual(
+    buildExerciseSections(withoutLegacy, { exercises: legacyDoc, painAreas: [] }),
+    [],
+    '옛 이름 표 없이도 잡힌다면 이 축은 폴백을 검사하지 않는 것이다',
+  );
+});
+
+test('축2-b 개명과 id 도입 사이에 만들어진 doc 은 지금 이름으로 잡힌다', () => {
+  // vwh(한글 개명) ~ woq(id 도입) 사이 doc: id 도 없고 옛 영문명도 아니다.
+  const got = buildExerciseSections(SECTIONS, {
+    exercises: [{ name: '팔굽혀펴기' }],
+    painAreas: [],
+  });
+  assert.deepEqual(keys(got), ['shoulder_unstable']);
+});
+
+test('축3 id 도 이름도 안 맞으면 빈 목록 — 조용한 오매칭 금지', () => {
+  assert.deepEqual(
+    keys(buildExerciseSections(SECTIONS, {
+      exercises: [{ id: 'no_such_id', name: '없는 운동' }],
+      painAreas: [],
+    })),
+    [],
+  );
+  // 라이브러리에서 사라진 옛 운동(vwh 가 교체한 팔꿈치 항목)도 아무것도 못 끌어온다.
+  assert.deepEqual(
+    keys(buildExerciseSections(SECTIONS, {
+      exercises: [{ name: 'Bicep/Tricep Balance' }],
+      painAreas: [],
+    })),
+    [],
+  );
+});
+
+test('축3-b id 를 가진 doc 에는 이름 폴백을 열지 않는다 (오매칭 차단)', () => {
+  // 개명으로 서로 다른 두 운동이 한 이름을 나눠 갖는 날을 가정한다. doc 은 A 를
+  // 가리키는 id 를 들고 있는데, 지금 라이브러리에서 그 이름은 B 가 쓴다.
+  // 이름까지 열어 두면 B 그룹이 조용히 딸려 나온다 — 그러면 안 된다.
+  const collided: ExerciseSectionLike[] = [
+    { key: 'legs_not_extended', kind: 'defect', title: '다리 펴기 강화',
+      exercises: [{ id: 'squats', name: '하체 스쿼트', legacyName: 'Squats' }] },
+    { key: 'grip_weak', kind: 'defect', title: '그립·악력 강화',
+      exercises: [{ id: 'deadlift', name: '스쿼트', legacyName: 'Deadlift' }] },
+  ];
+  const got = buildExerciseSections(collided, {
+    exercises: [{ id: 'squats', name: '스쿼트' }],
+    painAreas: [],
+  });
+  assert.deepEqual(keys(got), ['legs_not_extended'], 'id 를 무시하고 이름으로 끌려갔다');
+});
+
+test('축1-c 그룹마다 이름이 어긋나도 같은 운동은 한 번만 그려진다 (dedup 이 id 기준)', () => {
+  // 개명이 그룹별로 어긋나게 반영된 상황. 이름 기준 dedup 이었다면 파머스 워크가
+  // 두 벌 그려진다 — 사용자에겐 같은 운동이 두 번 나온 것으로 보인다.
+  const drifted: ExerciseSectionLike[] = [
+    { key: 'grip_weak', kind: 'defect', title: '그립·악력 강화',
+      exercises: [ex('farmers_walk', '파머스 워크', "Farmer's Walk")] },
+    { key: 'wrist', kind: 'painArea', title: '손목 통증 보강', note: '손목 과신전 회피',
+      exercises: [ex('farmers_walk', '가방 들고 걷기', "Farmer's Walk")] },
+  ];
+  const got = buildExerciseSections(drifted, {
+    exercises: byId('farmers_walk'),
+    painAreas: ['wrist'],
+  });
+  const ids = got.flatMap((s) => s.exercises.map((e) => e.id));
+  assert.deepEqual(ids, ['farmers_walk'], `같은 운동이 두 벌 그려졌다: ${ids}`);
+  assert.deepEqual(names(got), ['파머스 워크']);
+});

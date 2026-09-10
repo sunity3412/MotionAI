@@ -1,0 +1,17 @@
+# 대표 사례 c64afae6 — 저장 record 별 붕괴 게이트 판정 (읽기 전용 실측, 2026-09-10)
+
+출처: Firestore users/csKWYvI3…/analyses/c64afae6… (읽기만, 쓰기 0).
+판정기: sunity_shared.analysis.limb_collapse (배포된 그 코드).
+프레임 = record.atFrameIdx(학생 9fps) → keypointReport rep 인덱스는 fault_zoom._to_rep_idx.
+
+criterion                                 at(9fps)   rep   aspect   L/medL  판정
+angle_vs_reference__left_elbow                  81   162   0.7476   1.1556  정상(감점 유지)
+angle_vs_reference__right_elbow                 81   162   0.0522   0.4628  판정불가(감점 미방출)
+angle_vs_reference__right_shoulder              35    70   0.0095   0.6790  정상(감점 유지)
+angle_vs_reference__left_hip                    45    90   0.0000   1.0253  정상(감점 유지)
+angle_vs_reference__left_knee                   57   114   0.2306   1.2630  정상(감점 유지)
+angle_vs_reference__right_knee                  59   118   0.0000   1.3554  정상(감점 유지)
+
+좌우 대조 (같은 프레임 81 = rep 162):
+   right_elbow    aspect=0.0522  L/medL=0.4628  -> COLLAPSED
+   left_elbow     aspect=0.7476  L/medL=1.1556  -> ok

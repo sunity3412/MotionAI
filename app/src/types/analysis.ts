@@ -934,7 +934,28 @@ export interface AttributionReliability {
   aggregateStatement?: string;
 }
 
+// quick-260910-ovo — 관측하지 못한 사지에 감점을 매기지 않기 위해 **감점 seed 자체를
+// 방출하지 않은** 관절 목록. belle 2026-09-10: "아는척 하면 안되지." 카메라 방향 때문에
+// 사지가 렌즈 축으로 포개지면 그 각도는 잰 것이 아니라 추측한 것이고, 그 추측으로 감점
+// 행과 확대 사진을 만들면 아무 데도 안 가리키는 사진이 남는다.
+//
+// 판정 규칙 정본은 backend `sunity_shared/analysis/limb_collapse.py`
+// (납작함 AND 단축 — 두 조건 AND). 앱은 규칙을 다시 계산하지 않고 결과만 읽는다.
+// reason 은 지금 'collapse' 하나뿐이지만 **문자열 enum 으로 열려 있다** (신뢰도 축이
+// 나중에 붙는다). Python lockstep: models.py UNJUDGED_REASONS + contract.md §4.
+export type UnjudgedReason = 'collapse';
+
+export interface UnjudgedJoint {
+  joint: string; // JointScore.key 와 같은 관절 이름
+  reason: UnjudgedReason;
+}
+
 export type AnalysisResult = ScoreSuppression & {
+  // quick-260910-ovo — 붕괴로 감점을 방출하지 않은 관절. **빈 배열 = 봤는데 붕괴 0**,
+  // **부재 = 안 봤다**(legacy doc 또는 판정기 미산출 경로). 앱은 둘 다 아무것도 그리지
+  // 않으므로 소비처는 length > 0 으로만 분기할 것 (필드 존재로 분기 금지).
+  // 점수 무접촉이 아니다 — 여기 실린 관절은 overallScore 에서 이미 빠져 있다.
+  unjudgedJoints?: UnjudgedJoint[];
   // IN-01 (quick-260724-q6b) + quick-260802-nfd — per-joint 귀속 신뢰도 마커. vision
   // 컨텍스트 경로(mode1 collect 산출)에서 **항상** 방출된다. OPTIONAL 유지 —
   // 부재 = legacy doc 또는 vision 컨텍스트 미산출(레거시 폴백) 경로. 강등 여부는

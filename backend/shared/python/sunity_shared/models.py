@@ -680,6 +680,27 @@ COACH_STATUSES = (
     COACH_STATUS_FAILED,
 )
 
+# ── 판정 불가 관절 사유 (quick-260910-ovo — contract.md §4 unjudgedJoints) ──
+#   belle 2026-09-10: *"아는척 하면 안되지."* 카메라 방향 때문에 사지가 렌즈 축으로
+#   포개져 버리면 그 팔·다리의 각도는 잰 것이 아니라 추측한 것이다. 그 추측으로 감점
+#   행과 확대 사진을 만들면 앱이 아무 데도 안 가리키는 사진을 들이민다 → 감점 seed
+#   자체를 방출하지 않는다(pipeline `_emit_reference_relative`). 없앤 사실은
+#   `result.unjudgedJoints` 에 남긴다 — 없앤 것을 없었던 일로 만들지 않는다.
+#
+#   **문자열 enum 으로 열어 둔다** — 지금은 collapse 하나뿐이지만 신뢰도(conf) 축이
+#   나중에 붙는다(이번 사이클에서는 계기가 위태로워 제외: RTMW conf 가 역립·정립
+#   구분 없이 0.4~0.6 에 몰려 임계가 분포 한가운데에 그어진다).
+#
+#   Firestore 저장 형상: `unjudgedJoints` 는 **map 의 배열**이다
+#   ([{joint, reason}]). Firestore 가 금지하는 것은 배열 안의 배열이지 배열 안의 map 이
+#   아니므로 평탄화가 필요 없다 — `faultZoomComparisons[]`(scalar-only item) 선례와
+#   같은 형상이다 ([[firestore-nested-array-flat]] 보존).
+#
+#   3-way lockstep: 본 상수 ↔ `app/src/types/analysis.ts` UnjudgedReason/UnjudgedJoint
+#   ↔ `docs/contract.md` §4 `unjudgedJoints` 절.
+UNJUDGED_REASON_COLLAPSE = "collapse"  # 사지가 렌즈 축으로 포개져 관측 불가
+UNJUDGED_REASONS = (UNJUDGED_REASON_COLLAPSE,)
+
 # ── 분석 오류 코드 (contract.md §5 / ml_CLAUDE.md) ────────────────────
 ERR_NO_HUMAN = "no_human"
 ERR_SIZE_EXCEEDED = "size_exceeded"

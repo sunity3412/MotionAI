@@ -352,6 +352,7 @@ visionVeto     { status, severity?, tallyFinal? } optional  ← Phase 20 SCORE-0
 scoreSuppressed bool? + scoreSuppressedReason? enum         ← Phase 20 TRUST-07
 scoreSuppressionAudit { recognizerCategory, branchReferenceFree, resolvedReason } optional ← Phase 20 iter5
 attributionReliability { unreliable, geminiSilent, overTolJointCount, visibility, dtwDistance, aggregateStatement? } optional ← IN-01 / quick-260802-nfd
+unjudgedJoints [{ joint, reason }] optional  ← quick-260910-ovo (관측 못 한 사지 = 감점 미방출)
 ```
 
 `visionVeto` (Phase 20 SCORE-08 / TRUST-08 + Phase 24 ND-01 — 비전 채점 audit, 밴드 제거)
@@ -486,6 +487,43 @@ aggregateStatement? string   unreliable=true 시에만 동반 — 관절명 없�
   - lockstep: `app/src/types/analysis.ts` `AttributionReliability` ↔ pipeline `app.py`
     `_assess_attribution_reliability`(방출 형상) + `_attach_attribution_marker`(부착) ↔ 본 §4.
     (models.py 상수 불필요 — status enum 아님, timingsMs 선례.)
+
+`unjudgedJoints` (quick-260910-ovo — 관측하지 못한 사지에는 감점을 매기지 않는다)
+```
+unjudgedJoints  [{ joint: string, reason: 'collapse' }]  optional
+  joint   JointScore.key 와 같은 관절 이름 (left_elbow / right_shoulder / …)
+  reason  판정 불가 사유. 현재 'collapse' 하나 — 문자열 enum 으로 열어 둔다.
+```
+  - **왜 있는가 (belle 2026-09-10)**: *"아는척 하면 안되지."* 카메라 방향 때문에 사지가
+    렌즈 축으로 포개지면 그 팔·다리의 각도는 **잰 것이 아니라 추측한 것**이다. 그 추측으로
+    감점 행과 확대 사진을 만들면 앱이 아무 데도 안 가리키는 사진을 들이민다. 그래서
+    **감점 seed 자체를 방출하지 않고**(행도 카드도 안 생긴다) 사실만 여기 남긴다.
+    행은 남기고 숫자만 지우는 (나)안은 belle 이 기각했다 — *"문제는 그 사진"*.
+  - **판정 규칙**: 납작함(PCA 단축/장축 < 0.10) **AND** 단축(사지 길이 < 클립 중앙값의 0.60).
+    두 조건 AND 가 필수다 — 곧게 편 정상 다리도 공선이라(kip-up 실측 aspect 0.016~0.042,
+    붕괴한 팔 0.052 보다 더 납작하다) 공선성만 쓰면 정립 fixture 가 위양성으로 걸린다.
+    갈라주는 축은 단축이다(붕괴 팔 0.46 vs 곧게 편 다리 0.88~1.16). 임계 2개는 승인
+    fixture 5대상 실측에서 나왔고 **역립 표본이 더 들어오면 재검토 대상**이다.
+  - **판정 시점**은 그 감점을 잰 순간(§10 `deductionBreakdown.records[].atFrameIdx` 와
+    같은 프레임)이다. 순간을 특정할 수 없는 레거시 경로에서는 **게이트를 걸지 않는다** —
+    의심스러우면 안 없앤다(이 게이트는 감점을 없애는 쪽이라 한쪽으로만 틀려야 한다).
+  - **대상 범위**: `angle_vs_reference__{joint}`(reference_relative) seed 만. ipsf_absolute
+    (leg/arm_extension·line)와 vision 주입 record 는 이번 범위 밖이다.
+  - **신뢰도(conf) 축은 넣지 않았다** — 같은 실측에서 계기가 위태로운 것이 확인됐다
+    (RTMW conf 가 역립·정립 구분 없이 0.4~0.6 에 몰려 임계가 분포 한가운데에 그어진다).
+    reason enum 이 열려 있는 이유이자, 그 축이 붙을 자리다.
+  - **점수 무접촉이 아니다** — 여기 실린 관절은 감점 seed 가 방출되지 않았으므로
+    `overallScore` / `deductionBreakdown.final` 이 그만큼 달라져 있다. 그것이 이 필드의 목적이다.
+  - **빈 배열 `[]` = 봤는데 붕괴 0**, **필드 부재 = 안 봤다**(레거시 doc 또는 판정기
+    미산출 경로). 앱은 둘 다 아무것도 그리지 않지만 doc 에서는 구분된다
+    (`attributionReliability` 상시 기록과 같은 이유 — quick-260802-nfd).
+  - Firestore 저장 형상: **map 의 배열**. 금지된 것은 배열 안의 배열이지 배열 안의 map 이
+    아니므로 평탄화 불필요 — `faultZoomComparisons[]` 선례
+    ([[firestore-nested-array-flat]] 보존).
+  - lockstep: `app/src/types/analysis.ts` `UnjudgedJoint`/`UnjudgedReason` ↔
+    `backend/shared/python/sunity_shared/models.py` `UNJUDGED_REASONS` ↔ pipeline `app.py`
+    `_emit_reference_relative`(게이트) + `_attach_unjudged_joints`(부착) ↔ 본 §4.
+    판정 규칙 정본은 `sunity_shared/analysis/limb_collapse.py`.
 
 `faultZoomStatus` (Phase 27 SPD-04 — fault_zoom 사후 분리, D-06)
 ```

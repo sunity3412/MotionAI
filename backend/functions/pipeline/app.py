@@ -2476,6 +2476,25 @@ def _attach_attribution_marker(result: dict, seed_audit: dict) -> None:
         result["attributionReliability"] = marker
 
 
+def _attach_unjudged_joints(result: dict, unjudged: list) -> None:
+    """붕괴로 감점을 방출하지 않은 관절 목록을 result 에 싣는다 — in-place (quick-260910-ovo).
+
+    **빈 리스트도 싣는다.** 그래야 "봤는데 없다"(신 파이프라인, 붕괴 0)와 "안 봤다"
+    (레거시 doc / 판정기 부재 경로)가 doc 에서 구분된다. quick-260802-nfd 가
+    `attributionReliability` 에서 배운 것과 같은 이유다 — 발화 여부에만 필드를 실으면
+    "발화해야 하는데 안 했나"를 원리적으로 검증할 수 없다. 호출측은 **판정기가 실제로
+    돌았을 때만** 이 함수를 부른다(부르지 않으면 필드 부재 = 안 봤다).
+
+    채점 무접촉이 아니다 — 이 목록의 관절은 애초에 감점 seed 가 방출되지 않았으므로
+    `overallScore`/`deductionBreakdown` 이 그만큼 달라져 있다. 그것이 이 사이클의 수리다.
+    """
+    if isinstance(result, dict) and isinstance(unjudged, list):
+        result["unjudgedJoints"] = [
+            u for u in unjudged
+            if isinstance(u, dict) and u.get("joint") and u.get("reason")
+        ]
+
+
 # ── quick-260801-gbk: 측정 순간 산출 wrapper (표시 전용, 채점 무접촉) ────────
 # dimensions helper 를 그대로 호출하되 예외를 삼킨다 — 순간 산출 실패가 점수 substrate
 # 산출을 막으면 안 된다(순간은 있으면 좋은 것, 점수는 반드시 나와야 하는 것).
@@ -2518,6 +2537,7 @@ def _build_deduction_measured_deviations(
     vision_pointed_joints=None, seed_audit_out=None, alignment_visibility=None,
     alignment_visibility_measured=True, vision_status=None, measured_at_out=None,
     frame_confidence=None, measurement_error_out=None, ref_fps=None, pose_fps=None,
+    limb_collapsed=None, unjudged_out=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2602,11 +2622,31 @@ def _build_deduction_measured_deviations(
         **md 는 절대 mutate 하지 않는다** — seed_audit_out/measured_at_out 과 정확히
         같은 선례·같은 보장. 실패는 예외가 아니라 항목 부재로만 반영한다.
 
+      · limb_collapsed: `(frame_idx, joint) -> bool` (quick-260910-ovo). 그 감점을
+        **잰 순간**에 그 관절이 속한 사지가 붕괴(렌즈 축으로 포개짐)해 있었는가.
+        frame_idx 도메인은 measured_at_out 과 같은 **학생 9fps angles 행 인덱스**다
+        (`limb_collapse.collapse_from_pose_frames` 가 pose_frames 에서 만든다 —
+        pose_frames 는 angles 와 같은 축, `frame_confidence` 와 같은 선례).
+
+        **이 인자만은 md 를 바꾼다** — 다른 out-param 과 달리 이것은 감점 seed 자체를
+        막는 게이트다. 관측하지 못한 사지에 감점을 매기면 앱이 아무 데도 안 가리키는
+        확대 사진을 들이민다(belle 2026-09-10 "아는척 하면 안되지"). 게이트 지점이
+        여기인 이유는 `_emit_reference_relative` 독스트링 참조(멈춤은 record 에서
+        태어나므로 md 를 안 내면 사진 0장 멈춤이 원리적으로 안 생긴다).
+        None(default) = 게이트 미적용 = 이 사이클 이전과 완전히 같은 산출.
+
+      · unjudged_out: list 전달 시 `[{"joint": str, "reason": str}]` 기록 — 위 게이트가
+        없앤 것을 없었던 일로 만들지 않는다. reason 은 지금
+        `models.UNJUDGED_REASON_COLLAPSE` 하나뿐이지만 문자열 enum 으로 열어 둔다
+        (신뢰도 축이 나중에 붙는다). 관절당 1회만 기록(중복 없음).
+
     반환값(md)은 33-NEXT 마커 배선 전후로 byte-동일 — 마커는 seed_audit_out 에만 기록되고
     md 를 절대 변경하지 않는다(magnitude-neutral 보장, D-20/D-29). measured_at_out 도
     동일 — 전달 유무와 무관하게 md 는 키·값 모두 같다. frame_confidence 도 동일 —
     표시 프레임만 움직이고 점수 substrate 는 그 존재를 모른다. measurement_error_out 도
     동일 — 구간은 md 를 읽지도 쓰지도 않고 out-param 에만 기록된다.
+    **limb_collapsed 만 예외다** — 이 인자는 md 를 줄이는 것이 목적이므로 전달하면
+    산출이 달라진다(그것이 이 사이클의 수리다). 미전달 시에는 byte-동일이 유지된다.
     """
     from sunity_shared.analysis import dimensions
     from sunity_shared.analysis import moment as _moment
@@ -2747,19 +2787,52 @@ def _build_deduction_measured_deviations(
     #     (per_joint_deviation) 유지 — silent 관절까지 window 편향 표집하면 RTMW jitter/
     #     촬영거리 노이즈가 감점으로 증폭돼 success 위양성(260702-o0c FAIL 실증).
 
-    def _emit_reference_relative(jk, v) -> bool:
+    def _emit_reference_relative(jk, v, at_frame=None) -> bool:
         """양 경로 공통 방출 규칙 — seed-stage cross-exclusion(§3-2) 포함.
 
         profile.expects_extension(jk) 관절은 ipsf_absolute(leg/arm/line)가 이미 채점하므로
         reference_relative 미방출(double-count 금지). line(collective)도 expects_extension
         파생이므로 이 gate 가 정확히 차단 — 엔진-stage 는 leg/arm/split 만 보증.
-        JOINT_KEYS 외 문자열은 skip(엔진 md 계약은 criterion id 키만 기대 — spurious 금지)."""
+        JOINT_KEYS 외 문자열은 skip(엔진 md 계약은 criterion id 키만 기대 — spurious 금지).
+
+        quick-260910-ovo — **관측하지 못한 사지에는 감점을 매기지 않는다.** 그 감점을
+        잰 순간(at_frame)에 그 관절이 속한 사지가 붕괴해 있었다면 미방출하고
+        `unjudged_out` 에 사실만 남긴다.
+
+        ★ 게이트가 **여기** 있어야 하는 이유 — 멈춤(freeze)은 record 에서 태어난다
+        (`compare_render.py:1227` records 루프 → `:1345` freezes.append). md 를 안 내면
+        criterion 이 seed 되지 않고 → record 도, 그 record 가 낳는 멈춤도, 확대 카드도
+        생기지 않는다. 즉 **"사진 0장인 멈춤"이 원리적으로 생기지 않는다.** 표시층에서
+        카드만 지우면 아무것도 안 보여주는 멈춤이 남아 09-03 규칙("멈추는 구간은 다
+        보여줘야 한다")을 위반한다.
+
+        **의심스러우면 안 없앤다** — 판정기 부재(mode3/legacy/pose_frames 없음),
+        측정 순간 미상(레거시 doc 처럼 atFrameIdx 부재), 판정기 예외는 전부 게이트
+        미적용이다. 이 게이트는 감점을 *없애는* 쪽이라 한쪽으로만 틀려야 한다.
+        """
         if jk not in JOINT_KEYS:
             return False
         if v != v or v <= 0.0:  # NaN/0/음수 미방출(md 슬림 — 엔진 tol gate 가 self-compare 0 도 거름)
             return False
         if profile is not None and profile.expects_extension(jk):
             return False
+        if limb_collapsed is not None and at_frame is not None:
+            try:
+                collapsed = bool(limb_collapsed(at_frame, jk))
+            except Exception:  # noqa: BLE001 — 판정기 실패 = 게이트 미적용(종전대로 감점)
+                collapsed = False
+            if collapsed:
+                if isinstance(unjudged_out, list) and not any(
+                    isinstance(u, dict) and u.get("joint") == jk for u in unjudged_out
+                ):
+                    unjudged_out.append(
+                        {"joint": jk, "reason": models.UNJUDGED_REASON_COLLAPSE}
+                    )
+                log.info(
+                    "unjudged joint=%s reason=%s frame=%s — 붕괴 사지, 감점 미방출",
+                    jk, models.UNJUDGED_REASON_COLLAPSE, at_frame,
+                )
+                return False
         md[f"angle_vs_reference__{jk}"] = v
         return True
 
@@ -2840,7 +2913,11 @@ def _build_deduction_measured_deviations(
                                 )
                     except Exception:  # noqa: BLE001 — 구간 실패는 항목 부재(fail-closed)
                         dtw_ci_by_joint = {}
-                if isinstance(measured_at_out, dict):
+                # quick-260910-ovo — 붕괴 게이트도 "그 감점을 잰 순간"이 필요하므로
+                # 판정기가 있으면 표시 out-param 유무와 무관하게 대표 프레임을 뽑는다.
+                # (이 조건이 measured_at_out 전용이면 게이트가 조용히 사문이 된다.)
+                # limb_collapsed=None 이면 추가 계산 0 = 종전과 byte-동일.
+                if isinstance(measured_at_out, dict) or limb_collapsed is not None:
                     try:
                         # 수술 ② — 점수 경로(dev)와 동일 ref_fps: 표시 순간이 제외
                         # 구간 스텝에서 절대 나오지 않는다.
@@ -2906,18 +2983,20 @@ def _build_deduction_measured_deviations(
     fallback_joints: list = []
     for jk in JOINT_KEYS:
         if jk in pointed and jk in wm_by_joint:
-            if _emit_reference_relative(jk, wm_by_joint[jk]):
+            # quick-260910-ovo — 순간을 **방출 판정 전에** 뽑는다. 붕괴 게이트가
+            # "그 감점을 잰 순간"을 봐야 하기 때문이다. `_window_moment_frame` 은
+            # 순수 함수이고 종전에도 매번 평가되던 자리라(아래 `_record_moment`
+            # 인자) 산출·비용 모두 종전과 같다.
+            at_frame = _window_moment_frame(jk)
+            if _emit_reference_relative(jk, wm_by_joint[jk], at_frame):
                 window_joints.append(jk)
                 # 방출된 관절만 순간을 남긴다 — md 키와 순간 키가 정확히 대응.
-                _record_moment(
-                    f"angle_vs_reference__{jk}", _window_moment_frame(jk)
-                )
+                _record_moment(f"angle_vs_reference__{jk}", at_frame)
         elif jk in dtw_by_joint:
-            if _emit_reference_relative(jk, dtw_by_joint[jk]):
+            at_frame = dtw_frame_by_joint.get(jk)
+            if _emit_reference_relative(jk, dtw_by_joint[jk], at_frame):
                 fallback_joints.append(jk)
-                _record_moment(
-                    f"angle_vs_reference__{jk}", dtw_frame_by_joint.get(jk)
-                )
+                _record_moment(f"angle_vs_reference__{jk}", at_frame)
                 # quick-260802-nse — **방출된 DTW-fallback 관절에만** 구간을 남긴다.
                 # window 경로 관절(위 분기)에는 남기지 않는다: 추정량이 다르고 표본이
                 # 최소표본에 구조적으로 미달한다(fail-closed → 종전대로 감점).
@@ -8185,6 +8264,20 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 _frame_confidence = joint_confidence_from_pose_frames(pose_frames)
             except Exception:  # noqa: BLE001 — 신뢰도 미상 = 동점 판정 없이 종전 선택
                 _frame_confidence = None
+            # quick-260910-ovo — 붕괴 사지 판정기. pose_frames 는 angles 와 같은 축이라
+            # 감점의 측정 순간(measured_at frame_idx)을 변환 없이 그대로 조회한다
+            # (_frame_confidence 와 같은 선례·같은 축). 실패는 **게이트 미적용**으로만
+            # 반영된다 — 판정기를 못 만들었다고 감점을 없애면 안 되고, 없애지 않는 것이
+            # 종전 동작이다.
+            try:
+                from sunity_shared.analysis.limb_collapse import (
+                    collapse_from_pose_frames,
+                )
+
+                _limb_collapsed = collapse_from_pose_frames(pose_frames)
+            except Exception:  # noqa: BLE001 — 판정기 미상 = 게이트 없이 종전대로 감점
+                _limb_collapsed = None
+            _unjudged: list = []
             # quick-260802-nse — criterion별 median 신뢰구간을 builder 가 채우고
             # tally 가 읽는다. 빈 dict 면 억제 0(전 criterion 종전대로 감점).
             _measurement_error: dict = {}
@@ -8216,6 +8309,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # rate** 로 환산한다(요청값 target_fps 아님). 점수 무접촉: pose_fps 는
                 # measured_at_out(표시 전용 out-param)에만 닿고 md 에는 들어가지 않는다.
                 pose_fps=_pipeline_frame_fps(local_video_path),
+                # quick-260910-ovo — 관측하지 못한 사지에는 감점을 매기지 않는다.
+                limb_collapsed=_limb_collapsed,
+                unjudged_out=_unjudged,
             )
             result = _apply_vision_veto(
                 result,
@@ -8247,6 +8343,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # 분기하는 곳은 0이다(소스 확인): 앱 result.tsx `?.unreliable === true` 엄격
             # 비교, assemble.rebuild_tips_for_vision_fault `attr.get("unreliable")` falsy.
             _attach_attribution_marker(result, seed_audit)
+            # quick-260910-ovo — 판정기가 실제로 돈 경로에서만 필드를 남긴다.
+            # 빈 리스트 = "봤는데 붕괴 0", 필드 부재 = "안 봤다"(레거시/판정기 미상).
+            if _limb_collapsed is not None:
+                _attach_unjudged_joints(result, _unjudged)
         else:
             # 레거시 경로 (collect 미산출) — 기존 Gemini 호출 경로 graceful 폴백.
             # quantification 도 명명 substrate 도 없다 → tally unavailable fallback(iter4 HIGH-2).

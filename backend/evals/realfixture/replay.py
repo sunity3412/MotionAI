@@ -261,6 +261,94 @@ def frame_confidence_from_keypoint_report(report: dict, frames_fps: float):
 
 
 # ---------------------------------------------------------------------------
+# 붕괴 판정 어댑터 (quick-260910-ovo) — 저장 keypointReport → 붕괴 게이트 입력
+# ---------------------------------------------------------------------------
+def limb_collapse_from_keypoint_report(report: dict, frames_fps: float):
+    """저장 `keypointReport` → `(9fps 프레임, joint) -> bool`.
+
+    **어댑터 경계 치환**이다 — 판정 규칙(aspect · 길이비 · AND · 보수적 fail-closed)은
+    production `analysis.limb_collapse` 모듈이 그대로 소유하고, 여기서는 좌표를 어디서
+    읽어오는지만 바꾼다. 하네스가 기하를 다시 쓰지 않는다.
+
+    production 은 `pose_frames[t].keypoints_2d[coco].x/.y` 에서 읽지만 하네스에는 그
+    객체가 없다. 대신 doc 에 저장된 report 를 쓴다 — **같은 수치다**:
+      · report.data = `keypoints_2d[coco].x/.y` 를 그대로 flat 저장
+        (`assemble.build_keypoint_report`).
+      · 18fps 업샘플은 선형 보간이고 짝수 rep 인덱스에서 원본 9fps 표본이 그대로
+        복원된다. 인덱스 변환은 production 단일 출처(`fault_zoom._to_rep_idx`)를 부른다.
+
+    **결측 표기가 다르다** — report 는 keypoint 부재를 `(0.0, 0.0) + conf 0` 으로 적는데
+    (0,0) 은 좌표로도 읽힌다. 그래서 `conf == 0 이고 좌표가 정확히 (0,0)` 인 표본은
+    NaN 으로 되돌린다. production 에서는 그 자리가 `kps.get(name) is None` 이라 NaN 이다.
+
+    ★ 알려진 차이(박제): 길이 중앙값을 production 은 9fps pose_frames 전체에서,
+    여기서는 18fps rep 프레임 전체에서 낸다. 보간값이 이웃 사이에 놓이므로 중앙값은
+    거의 같지만 **byte-동일 보장은 아니다.** 실제 파이프라인의 판정은 Pod 실행으로만
+    확인된다(이 하네스는 저장값 재조립이지 추론이 아니다).
+    """
+    from sunity_shared.analysis.fault_zoom import _to_rep_idx
+    from sunity_shared.analysis.keypoint_frame import JOINT_KEY_TO_ANGLE_KEY
+    from sunity_shared.analysis.limb_collapse import (
+        is_limb_collapsed,
+        limb_aspect_and_length,
+        limb_keypoints_for_joint,
+        median_limb_length,
+    )
+
+    names = list((report or {}).get("joints") or ())
+    data = list((report or {}).get("data") or ())
+    conf = list((report or {}).get("confidence") or ())
+    rep_fps = float((report or {}).get("fps") or frames_fps)
+    rep_frames = int((report or {}).get("frames") or 0)
+    coco_to_col = {
+        JOINT_KEY_TO_ANGLE_KEY[n]: i
+        for i, n in enumerate(names)
+        if n in JOINT_KEY_TO_ANGLE_KEY
+    }
+    j = len(names)
+    cache: dict[tuple[str, str, str], tuple[np.ndarray, float]] = {}
+
+    def _series(triple):
+        hit = cache.get(triple)
+        if hit is not None:
+            return hit
+        pts = np.full((rep_frames, 3, 2), np.nan, dtype=float)
+        for t in range(rep_frames):
+            for k, coco in enumerate(triple):
+                col = coco_to_col.get(coco)
+                if col is None:
+                    continue
+                pos = t * j + col
+                if pos < 0 or pos >= len(conf) or 2 * pos + 1 >= len(data):
+                    continue
+                x, y = float(data[2 * pos]), float(data[2 * pos + 1])
+                c = float(conf[pos])
+                # (0,0)+conf0 = build_keypoint_report 의 결측 placeholder → NaN 복원.
+                if c == 0.0 and x == 0.0 and y == 0.0:
+                    continue
+                if np.isfinite(x) and np.isfinite(y):
+                    pts[t, k] = (x, y)
+        out = (pts, median_limb_length(pts))
+        cache[triple] = out
+        return out
+
+    def _collapsed(frame_idx: int, joint: str) -> bool:
+        triple = limb_keypoints_for_joint(joint)
+        if triple is None or j == 0 or rep_frames <= 0:
+            return False
+        rep_idx = _to_rep_idx(int(frame_idx), frames_fps, rep_fps, rep_frames)
+        if rep_idx < 0 or rep_idx >= rep_frames:
+            return False
+        pts, med = _series(triple)
+        aspect, length = limb_aspect_and_length(
+            pts[rep_idx, 0], pts[rep_idx, 1], pts[rep_idx, 2]
+        )
+        return is_limb_collapsed(aspect, length, med)
+
+    return _collapsed
+
+
+# ---------------------------------------------------------------------------
 # 재생 — production 함수만 부른다. 하네스가 산식을 다시 쓰지 않는다.
 # ---------------------------------------------------------------------------
 class Blocked(Exception):
@@ -269,7 +357,7 @@ class Blocked(Exception):
 
 def replay_fixture(
     app, entry: dict, *, use_frame_confidence: bool = False,
-    noise_floor: bool = False,
+    noise_floor: bool = False, limb_collapse: bool = False,
 ) -> dict:
     """분석 1건 재생 → {md, breakdown, measured_at, match, profile, ...}.
 
@@ -285,6 +373,12 @@ def replay_fixture(
 
     구간 산출(builder out-param)은 **양쪽 모두**에서 돈다 — 처리 변수를 tally 인자
     하나로 좁히기 위해서다. builder 는 md 를 mutate 하지 않으므로 md 는 양쪽 byte-동일.
+
+    limb_collapse (quick-260910-ovo): True 면 저장 keypointReport 에서 만든 붕괴
+    판정기를 builder 에 주입한다 — 감점을 **잰 순간**에 그 사지가 렌즈 축으로 포개져
+    있었으면 그 관절의 감점 seed 를 방출하지 않는다. **이 인자만은 md 를 바꾼다**
+    (다른 인자들과 달리 게이트다). False(default) = 이 인자가 생기기 전과 완전히 같은
+    재생 → RECON 게이트 무영향.
     """
     from sunity_shared.analysis import dimensions, kismam, skeleton, vision_veto
     from sunity_shared.analysis.gemini_technique_recognizer import (
@@ -368,6 +462,15 @@ def replay_fixture(
             result.get("keypointReport") or {},
             float(getattr(app._FRAME_EXTRACTOR, "target_fps", 0.0)) or 1.0,
         )
+    # quick-260910-ovo — 붕괴 게이트 입력. 미주입(default)이면 builder 가 게이트를
+    # 걸지 않아 이 인자가 생기기 전과 산출이 같다.
+    limb_collapsed = None
+    unjudged: list = []
+    if limb_collapse:
+        limb_collapsed = limb_collapse_from_keypoint_report(
+            result.get("keypointReport") or {},
+            float(getattr(app._FRAME_EXTRACTOR, "target_fps", 0.0)) or 1.0,
+        )
     md = app._build_deduction_measured_deviations(
         angles=angles,
         profile=profile,
@@ -387,6 +490,8 @@ def replay_fixture(
         measured_at_out=measured_at,
         frame_confidence=frame_confidence,
         measurement_error_out=measurement_error_out,
+        limb_collapsed=limb_collapsed,
+        unjudged_out=unjudged,
     )
 
     # (6) tally — production 경로(_apply_vision_veto_from_context)를 그대로 탄다.
@@ -437,6 +542,8 @@ def replay_fixture(
         "measuredAt": measured_at,
         "measurementError": measurement_error_out,
         "noiseFloor": bool(noise_floor),
+        "limbCollapse": bool(limb_collapse),
+        "unjudgedJoints": unjudged,
         "seedAudit": seed_audit,
         "quantification": quantification,
         "vetoResult": veto_result,
@@ -612,6 +719,13 @@ def build_parser() -> argparse.ArgumentParser:
             "(quick-260802-nse). 처리 변수는 억제 하나뿐"
         ),
     )
+    p.add_argument(
+        "--collapse-gate-report", action="store_true",
+        help=(
+            "같은 fixture 를 붕괴 게이트 off/on 두 번 돌려 record·카드·사진0장멈춤 "
+            "이동 표를 낸다 (quick-260910-ovo). 처리 변수는 게이트 하나뿐"
+        ),
+    )
     p.add_argument("--out", default=None, help="판정 산출물 경로 (replay_out.json)")
     return p
 
@@ -626,6 +740,11 @@ _DEFAULT_NOISE_FLOOR_OUT = (
     / ".planning/quick/260802-nse-noise-floor-deduction/noise_floor_effect.json"
 )
 
+_DEFAULT_COLLAPSE_GATE_OUT = (
+    _REPO
+    / ".planning/quick/260910-ovo-collapse-gate/collapse_gate_effect.json"
+)
+
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
@@ -638,6 +757,16 @@ def main(argv=None) -> int:
         f"referenceAnglesFps={manifest['referenceAnglesFps']}"
     )
     print(f"firestore 차단 함수 {len(app._czw_blocked_firestore)}종")
+
+    if args.collapse_gate_report:
+        # quick-260910-ovo — 게이트 효과 표. exit code 는 불변식(설명 안 되는 소멸 0 ·
+        # 사진 0장 멈춤 0 · 새 record 0)이 성립했는가만 답한다.
+        out_path = Path(args.out) if args.out else _DEFAULT_COLLAPSE_GATE_OUT
+        payload = build_collapse_gate_report(app, manifest)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n")
+        print(f"\n산출물: {out_path}")
+        return 0 if payload["invariantsHold"] else 1
 
     if args.noise_floor_report:
         # quick-260802-nse — 효과 표는 RECON/판정 경로와 독립이다. exit code 는
@@ -1175,6 +1304,197 @@ def _fail_closed_rows(md: dict, records: list, measurement_error: dict) -> list[
             "reason": reason or "interval_unavailable",
         })
     return rows
+
+
+def _criterion_units(app, replayed: dict, records: list) -> list[dict]:
+    """record → 확대 카드 crop unit (production `criterion_units_from_records`, 순수).
+
+    **왜 `render_cards` 가 아니라 여기인가** — 이 환경에서 PNG 렌더 경로는 돌지 않는다:
+    `_render_fault_zoom` → `_build_native_frame_provider` 가 `compare_render` 를
+    import 하고 그 모듈이 `imageio_ffmpeg` 를 요구하는데 로컬에 설치돼 있지 않다
+    (같은 결손이 pytest 수집 오류 7건도 낸다 — 수리 전후 모두 동일한 선행 조건).
+    이 사이클이 물어야 하는 것은 픽셀이 아니라 **"어느 감점이 사진을 갖는가"**이고,
+    그 답을 정하는 것이 바로 이 함수다(`_build_fault_zoom_comparisons` 가 카드를
+    만들기 직전에 부르는 그 함수 그대로). 하네스가 규칙을 다시 쓰지 않는다.
+
+    `fault_joints` 는 저장 doc 의 `visionVeto.faultJoints` 를 그대로 준다. 이 인자는
+    `source=='vision'` record 의 투영에만 쓰이고, 이 게이트가 없앨 수 있는 것은
+    `angle_vs_reference__{jk}`(rule 2, 단일 관절 투영)뿐이라 비교 민감도에 기여하지
+    않는다.
+    """
+    from sunity_shared.analysis import fault_zoom as _fz
+
+    vv = (replayed["result"].get("visionVeto") or {})
+    fault_joints = list(vv.get("faultJoints") or ())
+    if not records:
+        return []
+    return _fz.criterion_units_from_records(
+        records, fault_joints, app._KISMAM_TO_KEYPOINT,
+        max_units=max(4, len(records)),
+    )
+
+
+def build_collapse_gate_report(app, manifest: dict) -> dict:
+    """같은 fixture 를 붕괴 게이트 off/on 두 번 돌려 이동을 수치로 낸다 (quick-260910-ovo).
+
+    처리 변수는 게이트 하나뿐 — 다른 인자·입력은 전부 동일하다
+    (`build_noise_floor_report` 선례를 그대로 따른다).
+
+    잠그는 요구 3개:
+      ① **정립 fixture 는 byte-동일** — record 집합·points·카드 수가 하나도 안 바뀐다.
+         하나라도 바뀌면 임계를 옮기는 게 아니라 실패로 본다(곡선맞춤 방지).
+      ② 사라진 record 는 전부 `unjudgedJoints` 로 설명된다 — 없앤 것을 없었던 일로
+         만들지 않는다.
+      ③ **사진 0장이 되는 멈춤 = 0건.** 멈춤은 record 에서 태어나므로(compare_render
+         records 루프 → freezes.append) record 를 안 만들면 멈춤도 안 생긴다. 반대로
+         record 는 남았는데 그 record 의 카드만 사라지면 사진 0장 멈춤이다.
+    """
+    frames_fps = float(manifest["studentAnglesFps"])
+    fixtures: list[dict] = []
+    invariants_hold = True
+    violations: list[str] = []
+
+    for entry in manifest["analyses"]:
+        aid = entry["analysisId"]
+        try:
+            off = replay_fixture(app, entry, limb_collapse=False)
+            on = replay_fixture(app, entry, limb_collapse=True)
+        except Blocked as exc:
+            fixtures.append({"analysisId": aid, "blocked": str(exc)})
+            invariants_hold = False
+            violations.append(f"{aid}: BLOCKED {exc}")
+            continue
+
+        b_off, b_on = off["breakdown"] or {}, on["breakdown"] or {}
+        recs_off = [r for r in (b_off.get("records") or []) if isinstance(r, dict)]
+        recs_on = [r for r in (b_on.get("records") or []) if isinstance(r, dict)]
+        crit_recs_off = [r.get("criterion") for r in recs_off]
+        crit_recs_on = [r.get("criterion") for r in recs_on]
+
+        eng_off, _res_off = _engrave_with_result(app, off, off["measuredAt"])
+        eng_on, _res_on = _engrave_with_result(app, on, on["measuredAt"])
+        units_off = _criterion_units(app, off, eng_off)
+        units_on = _criterion_units(app, on, eng_on)
+        crit_cards_off = {u.get("criterion") for u in units_off if u.get("criterion")}
+        crit_cards_on = {u.get("criterion") for u in units_on if u.get("criterion")}
+        cards_off, cards_on = units_off, units_on
+
+        unjudged = on["unjudgedJoints"]
+        unjudged_joints = {u["joint"] for u in unjudged}
+        dropped = [c for c in crit_recs_off if c not in crit_recs_on]
+        # 사라진 record 가 **저장 doc 에 실제로 있던 것**인지, 재현본에만 있던 것인지
+        # 가른다. 후자는 RECON 이 이미 EXTRA 로 찍은 행이다(예: powerspin 의 hip 2행 —
+        # 저장 doc 에서는 `split_angle` 이 cross-exclusion 으로 지운 관절인데, 하네스가
+        # vision 주입 record 를 재현하지 못해 배제가 안 걸린 결과다). 게이트가 저장
+        # record 를 지웠는지가 정립 fixture 의 진짜 질문이므로 분리해서 센다.
+        stored_crit = {
+            s.get("criterion") for s in (entry.get("sourceRecordCriteria") or [])
+        }
+        dropped_stored = [c for c in dropped if c in stored_crit]
+        dropped_repro_only = [c for c in dropped if c not in stored_crit]
+        # 사라진 record 가 전부 unjudged 로 설명되는가 (관절 이름이 붙은 것만 대상).
+        unexplained = [
+            c for c in dropped
+            if not (
+                isinstance(c, str)
+                and c.startswith("angle_vs_reference__")
+                and c[len("angle_vs_reference__"):] in unjudged_joints
+            )
+        ]
+        # ③ 사진 0장 멈춤 = record 는 살아 있는데 그 record 의 카드만 사라진 경우.
+        photoless = sorted(
+            (crit_cards_off - crit_cards_on) & set(c for c in crit_recs_on if c)
+        )
+
+        identical = (
+            crit_recs_off == crit_recs_on
+            and [r.get("points") for r in recs_off] == [r.get("points") for r in recs_on]
+            and len(cards_off) == len(cards_on)
+            and b_off.get("final") == b_on.get("final")
+            and off["md"] == on["md"]
+        )
+
+        if unexplained:
+            invariants_hold = False
+            violations.append(f"{aid}: 설명 안 되는 record 소멸 {unexplained}")
+        if photoless:
+            invariants_hold = False
+            violations.append(f"{aid}: 사진 0장 멈춤 {photoless}")
+        if set(crit_recs_on) - set(crit_recs_off):
+            invariants_hold = False
+            violations.append(f"{aid}: 새 record 가 생겼다")
+
+        fixtures.append({
+            "analysisId": aid,
+            "referenceMotionId": entry["referenceMotionId"],
+            "motionId": off["motionId"],
+            "byteIdentical": identical,
+            "mdByteIdentical": off["md"] == on["md"],
+            "finalBefore": b_off.get("final"),
+            "finalAfter": b_on.get("final"),
+            "recordCountBefore": len(recs_off),
+            "recordCountAfter": len(recs_on),
+            "recordCriteriaBefore": crit_recs_off,
+            "recordCriteriaAfter": crit_recs_on,
+            "recordPointsBefore": [r.get("points") for r in recs_off],
+            "recordPointsAfter": [r.get("points") for r in recs_on],
+            "recordsDropped": dropped,
+            "recordsDroppedStored": dropped_stored,
+            "recordsDroppedReproductionOnly": dropped_repro_only,
+            "unjudgedJoints": unjudged,
+            "unexplainedDrops": unexplained,
+            # 카드 = criterion crop unit (PNG 렌더 아님 — _criterion_units 독스트링).
+            "cardUnitCountBefore": len(cards_off),
+            "cardUnitCountAfter": len(cards_on),
+            "cardCriteriaBefore": sorted(crit_cards_off),
+            "cardCriteriaAfter": sorted(crit_cards_on),
+            "photolessFreezes": photoless,
+        })
+
+    print("\n── 붕괴 사지 판정불가 게이트 효과 (quick-260910-ovo) ──")
+    for f in fixtures:
+        if f.get("blocked"):
+            print(f"  {f['analysisId']:34} BLOCKED {f['blocked']}")
+            continue
+        print(
+            f"  {f['analysisId']:34} "
+            f"{'BYTE-IDENTICAL' if f['byteIdentical'] else 'CHANGED'} · "
+            f"final {f['finalBefore']} -> {f['finalAfter']} · "
+            f"record {f['recordCountBefore']} -> {f['recordCountAfter']} · "
+            f"card-unit {f['cardUnitCountBefore']} -> {f['cardUnitCountAfter']} · "
+            f"사진0장멈춤 {len(f['photolessFreezes'])} · "
+            f"저장record소멸 {len(f['recordsDroppedStored'])}"
+        )
+        for u in f["unjudgedJoints"]:
+            print(f"      판정불가 {u['joint']:16} reason={u['reason']}")
+        for c in f["recordsDroppedStored"]:
+            print(f"      record 소멸 (저장 doc 에 있던 것) {c}")
+        for c in f["recordsDroppedReproductionOnly"]:
+            print(f"      record 소멸 (재현본에만 있던 RECON EXTRA 행) {c}")
+    if violations:
+        print("\n불변식 위반:")
+        for v in violations:
+            print(f"  - {v}")
+    else:
+        print("\n불변식: 설명 안 되는 소멸 0 · 사진 0장 멈춤 0 · 새 record 0 — 전부 성립")
+
+    return {
+        "generatedBy": (
+            "backend/evals/realfixture/replay.py --collapse-gate-report "
+            "(quick-260910-ovo)"
+        ),
+        "studentAnglesFps": manifest["studentAnglesFps"],
+        "fixtures": fixtures,
+        "invariantsHold": invariants_hold,
+        "violations": violations,
+        "limits": [
+            "이 하네스는 저장 산출물 재조립이지 실제 추론이 아니다 — 실제 파이프라인에서 "
+            "같은 판정이 나오는지는 Pod 실행으로만 확인된다.",
+            "길이 중앙값을 production 은 9fps pose_frames 에서, 여기서는 18fps rep "
+            "프레임에서 낸다(보간 표본 포함). 중앙값은 거의 같지만 byte-동일 보장은 아니다.",
+            "대표 사례(c64afae6)는 라이브 Firestore doc 이라 이 fixture 집합에 없다.",
+        ],
+    }
 
 
 def build_noise_floor_report(app, manifest: dict) -> dict:

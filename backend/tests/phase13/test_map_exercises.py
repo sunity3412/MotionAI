@@ -110,14 +110,17 @@ def test_kipup_fault_sets_prioritize_defect_body_parts_over_grip() -> None:
         fault_keypoint_sets=["leg", "shoulder"],
     )
     names = [ex["name"] for ex in result]
-    # 정확한 선두 순서: hip_hamstring_tight → legs_not_extended → shoulder_unstable,
-    # 각 defect 당 _EXERCISES_PER_DEFECT(=1)개. 스플릿 = 고관절 유연성이 1순위.
+    # 정확한 선두 순서 (quick-260910-vwh Task 3 — **부위 단위** 라운드로빈):
+    #   1라운드 = 부위마다 대표 하나씩 → leg(허벅지 뒤 스트레칭) · shoulder(팔굽혀펴기)
+    #   2라운드 = 남은 자리를 앞 부위부터 → leg 의 두 번째(스쿼트)
+    # 종전엔 defect 단위라 leg 하나가 2연속(허벅지 뒤 스트레칭·스쿼트)으로 앞을 먹고
+    # shoulder 대표가 3번째로 밀렸다. 결과 카드는 3행만 보이므로 그게 곧 부위 소실이다.
     # 마지막 파머스 워크 는 findings(late_contact→grip_weak) 유래 — 종전엔 cap 에
     # 밀려 사라졌으나 백필 폐지로 자리가 남아 살아남는다 (quick-260910-pbs).
     assert names == [
         "허벅지 뒤 스트레칭",
-        "스쿼트",
         "팔굽혀펴기",
+        "스쿼트",
         "파머스 워크",
     ]
     # grip 운동이 결함 부위 운동보다 앞서지 않는다.

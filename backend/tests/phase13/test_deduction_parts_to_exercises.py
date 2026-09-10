@@ -161,9 +161,17 @@ def test_representative_doc_gets_leg_exercises_not_only_shoulder() -> None:
             deduction_keypoint_sets=deduction_sets,
         )
     ]
-    assert names == ["팔굽혀펴기", "허벅지 뒤 스트레칭", "스쿼트", "옆으로 다리 들기"]
-    # 무릎(leg) 계열이 실제로 들어왔다 — 어깨 일색이 아니다.
+    # 부위 우선순위(감점 합) = arm 25.8 · leg 14.5 · shoulder 6.7 · hip 4.0.
+    # quick-260910-vwh Task 3: 1라운드에서 **부위마다 대표 하나씩** —
+    #   arm(팔굽혀펴기) · leg(허벅지 뒤 스트레칭) · hip(옆으로 다리 들기)
+    #   shoulder 는 arm 이 이미 shoulder_unstable 을 가져가 줄이 비어 건너뛴다.
+    # 2라운드에서 leg 의 두 번째(스쿼트). 종전엔 leg 가 1·2라운드 자리를 연달아 먹어
+    # hip 대표가 4번째로 밀렸고, 결과 카드 3행 안에서 엉덩이 감점이 사라졌다.
+    assert names == ["팔굽혀펴기", "허벅지 뒤 스트레칭", "옆으로 다리 들기", "스쿼트"]
+    # 무릎(leg)·엉덩이(hip) 계열이 실제로 들어왔다 — 어깨 일색이 아니다.
     assert {"허벅지 뒤 스트레칭", "스쿼트"} <= set(names)
+    # ★ 화면에 실제로 보이는 3행(ResultExerciseTab MAX_ROWS)에 세 부위가 다 있다.
+    assert names[:3] == ["팔굽혀펴기", "허벅지 뒤 스트레칭", "옆으로 다리 들기"]
 
 
 def test_deduction_parts_lead_over_vision_fault_parts() -> None:

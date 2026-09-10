@@ -20,6 +20,7 @@ D-05 하드월: painAreas 는 본 매핑 출력에만 흘러가고 어떤 점수
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 from .. import models
@@ -49,7 +50,10 @@ _DEFECT_KEYS: frozenset[str] = frozenset(
 # painArea 키 = models.PAIN_AREAS 재사용 (단일 진실원).
 _PAIN_AREA_KEYS: frozenset[str] = frozenset(models.PAIN_AREAS)
 
-# quick-260704-fwb — vision veto 결함 부위(faultKey.keypoint_set) → defect 키 매핑.
+# quick-260704-fwb — 부위(keypoint_set) → defect 키 매핑. 입력 출처는 둘이다 —
+# vision veto 결함 부위(faultKey.keypoint_set)와 실제 감점 record 부위
+# (quick-260910-pbs). 어휘가 같으므로 접는 규칙도 하나다(_rounds_by_part).
+# 알 수 없는 keypoint_set 값은 조용히 skip (graceful — enum drift 시 크래시 0).
 # vision_veto.FAULT_KEYPOINT_SETS 8값 전부 커버. vision_veto import 금지 (순수성
 # 유지 — 문자열 리터럴 lockstep, 값 추가 시 여기도 갱신). 스플릿 각도 부족 =
 # 고관절 유연성 → hip_hamstring_tight 를 leg 의 1순위로 (kip-up 케이스 정합).
@@ -127,21 +131,51 @@ def _defect_keys_from_findings(findings: list) -> list[str]:
     return matched
 
 
-def _defect_keys_from_keypoint_sets(
-    keypoint_sets: list[str] | None,
-) -> list[str]:
-    """부위(keypoint_set) 목록 → defect 키 (순서 보존, 중복 제거).
+# 준비운동 kind 값 (models.EXERCISE_KINDS lockstep). 목록 앞으로 보내는 규칙에만
+# 쓴다 — 개수 배분에는 쓰지 않는다 (belle 이 강제 혼합을 기각).
+_WARMUP_KIND = "warmup"
 
-    입력 출처는 둘이다 — vision veto 결함 부위(faultKey.keypoint_set)와 실제 감점
-    record 부위(quick-260910-pbs). 어느 쪽이든 어휘가 같으므로 접는 규칙도 하나다.
-    알 수 없는 keypoint_set 값은 조용히 skip (graceful — enum drift 시 크래시 0).
+
+def _rounds_by_part(
+    keypoint_sets: list[str] | None,
+    exercises_of: Callable[[str], list],
+    used_defects: set[str],
+) -> list[list[dict]]:
+    """부위(keypoint_set)마다 후보 운동을 한 줄씩 만든다 (quick-260910-vwh Task 3).
+
+    줄의 순서 = 입력 순서 = **감점이 큰 부위부터**. 한 부위가 여러 defect 로
+    펼쳐지면(`leg` → hip_hamstring_tight + legs_not_extended) 그 줄이 길어지고,
+    이미 다른 부위가 가져간 defect 는 건너뛴다(`used_defects`).
+
+    왜 부위 단위인가 — 종전엔 defect 단위로 앞에서부터 잘라, 부위 하나가 defect 2개로
+    펼쳐지면 **다른 부위의 대표보다 먼저** 두 자리를 가져갔다. 결과 화면 카드는 3행만
+    보여주므로(ResultExerciseTab MAX_ROWS) 감점이 작은 부위는 아예 화면 밖으로 밀렸다.
     """
-    matched: list[str] = []
+    per_part: list[list[dict]] = []
     for kp_set in keypoint_sets or []:
+        row: list[dict] = []
         for defect_key in _KEYPOINT_SET_TO_DEFECTS.get(kp_set, ()):
-            if defect_key in _DEFECT_KEYS and defect_key not in matched:
-                matched.append(defect_key)
-    return matched
+            if defect_key not in _DEFECT_KEYS or defect_key in used_defects:
+                continue
+            used_defects.add(defect_key)
+            row.extend(exercises_of(defect_key)[:_EXERCISES_PER_DEFECT])
+        if row:
+            per_part.append(row)
+    return per_part
+
+
+def _interleave(per_part: list[list[dict]]) -> list[dict]:
+    """부위마다 대표를 하나씩 먼저 채우고, 남으면 감점 큰 부위부터 두 번째를 준다.
+
+    belle 2026-09-10: "분석 보고에 따라 조절 되어야 한다는 말이야." 어깨·팔꿈치·무릎이
+    걸렸으면 세 부위가 다 나온다 — 한 부위가 목록을 독식하지 않는다.
+    """
+    out: list[dict] = []
+    for round_index in range(max((len(row) for row in per_part), default=0)):
+        for row in per_part:
+            if round_index < len(row):
+                out.append(row[round_index])
+    return out
 
 
 def _valid_pain_area_keys(pain_areas: list[str]) -> list[str]:
@@ -184,9 +218,11 @@ def map_exercises(
             어깨 운동만 받았다.
 
     Returns:
-        plain camelCase scalar dict list — {name, setsReps, purpose, sourceRef}.
+        plain camelCase scalar dict list — {name, setsReps, purpose, kind, sourceRef}.
         name 기준 dedup, 상한 _MAX_EXERCISES. **하한 없음** — 결함이 1개면 1개만,
         없으면 빈 list (graceful, 크래시 X). belle 2026-09-10 "1개 필요하면 진짜 1개만".
+        순서: 준비운동(kind=warmup) 먼저 → 그 다음 감점 부위 우선순위
+        (quick-260910-vwh Task 3).
     """
     library = _load_corrective_exercises()
 
@@ -200,27 +236,28 @@ def map_exercises(
             findings = raw
 
     valid_pain_areas = _valid_pain_area_keys(pain_areas)
-    deduction_defect_keys = _defect_keys_from_keypoint_sets(
-        deduction_keypoint_sets
-    )
-    fault_defect_keys = [
-        k
-        for k in _defect_keys_from_keypoint_sets(fault_keypoint_sets)
-        if k not in deduction_defect_keys
-    ]
-    _already = set(deduction_defect_keys) | set(fault_defect_keys)
-    finding_defect_keys = [
-        k for k in _defect_keys_from_findings(findings) if k not in _already
-    ]
+    # 한 defect 를 두 부위가 나눠 갖지 않게 사용 이력을 공유한다 (감점 → fault 순).
+    used_defects: set[str] = set()
 
     ordered: list[dict] = []
-    # (0) 감점 record 유래 defect — 감점 큰 부위부터 (quick-260910-pbs).
-    #     점수를 깎은 근거가 여기 있으므로 운동 종류·순서의 1순위도 여기다.
-    for defect_key in deduction_defect_keys:
-        ordered.extend(_defect_exercises(defect_key)[:_EXERCISES_PER_DEFECT])
-    # (1) 확정 결함(vision faultKey) 유래 defect — (0) 이 안 덮은 부위만 (pod 검증 fix).
-    for defect_key in fault_defect_keys:
-        ordered.extend(_defect_exercises(defect_key)[:_EXERCISES_PER_DEFECT])
+    # (0) 감점 record 유래 — **부위마다 대표 하나씩** 먼저, 남으면 감점 큰 부위부터
+    #     두 번째 (quick-260910-vwh Task 3). 점수를 깎은 근거가 감점 record 이므로
+    #     운동 종류·순서의 1순위는 여기다 (quick-260910-pbs).
+    ordered.extend(
+        _interleave(
+            _rounds_by_part(deduction_keypoint_sets, _defect_exercises, used_defects)
+        )
+    )
+    # (1) 확정 결함(vision faultKey) 유래 — (0) 이 안 덮은 defect 만 (pod 검증 fix).
+    #     같은 부위 어휘라 접는 규칙도 같다.
+    ordered.extend(
+        _interleave(
+            _rounds_by_part(fault_keypoint_sets, _defect_exercises, used_defects)
+        )
+    )
+    finding_defect_keys = [
+        k for k in _defect_keys_from_findings(findings) if k not in used_defects
+    ]
     # (2) painArea 안전 운동 — fault 부재(=None 경로) 시 기존처럼 최우선.
     for area_key in valid_pain_areas:
         area = library.get("painAreas", {}).get(area_key, {})
@@ -261,5 +298,11 @@ def map_exercises(
     if not deduped:
         return []
 
+    # 준비운동을 목록 앞으로 (quick-260910-vwh Task 3-b). 이건 원인 판단이 아니라
+    # **다치지 말라는 상식**이라 규칙으로 둔다 — 성격으로 개수를 맞추는 것과 다르다.
+    # 안정 분할(상대 순서 보존)이라 같은 성격끼리의 우선순위는 그대로다.
+    warmups = [ex for ex in deduped if ex.get("kind") == _WARMUP_KIND]
+    rest = [ex for ex in deduped if ex.get("kind") != _WARMUP_KIND]
+
     # 상한 cap 만 적용. 하한 없음 — 후보가 1개면 1개만 낸다 (fabrication 금지).
-    return deduped[:_MAX_EXERCISES]
+    return (warmups + rest)[:_MAX_EXERCISES]

@@ -102,6 +102,7 @@ import type {
   JointDirection,
   JointScore,
   KeypointName,
+  RecommendedExercise,
   SynthesisWarningCode,
 } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
@@ -332,6 +333,11 @@ const DIAL_CARD_GAP = 22;
 
 
 
+// quick-260910-pbs — 빈 배열 리터럴을 렌더마다 새로 만들면 모달 useMemo 가 매번
+// 재계산된다. 모듈 상수로 참조를 고정한다.
+const EMPTY_PAIN_AREAS: readonly string[] = [];
+const EMPTY_EXERCISES: readonly RecommendedExercise[] = [];
+
 export default function AnalysisResult() {
   const router = useRouter();
   // 33-15 (D-17) — safe-area 실측 inset (컨테이너 상단 패딩).
@@ -399,6 +405,7 @@ export default function AnalysisResult() {
       result={storedDoc.result}
       name={name}
       bodyProfileSummary={bodyProfileSummary}
+      painAreas={bodyProfileSnapshot?.painAreas ?? EMPTY_PAIN_AREAS}
       updatedAt={storedDoc.updatedAt}
       createdAt={storedDoc.createdAt}
       anglesFrames={storedDoc.anglesFrames}
@@ -416,6 +423,7 @@ function AnalysisResultContent({
   result,
   name,
   bodyProfileSummary,
+  painAreas,
   updatedAt,
   createdAt,
   anglesFrames,
@@ -424,6 +432,9 @@ function AnalysisResultContent({
   result: AnalysisResult;
   name?: string;
   bodyProfileSummary: string | null;
+  // quick-260910-pbs — 보완 운동 모달이 통증부위 그룹을 고르는 데 쓴다.
+  // [R1] 분석-당시 snapshot (live 프로필 아님) — wrapper 가 이미 고른 값을 받는다.
+  painAreas: readonly string[];
   // Phase 27 D-06 — pending 고아 시간 상한 폴백 기준(doc.updatedAt = complete 시점).
   updatedAt?: number;
   // 29-CONTEXT D-09 — mode1 referenceVideoUrl TTL 재발급 판단 기준(doc 생성 시각).
@@ -2148,10 +2159,15 @@ function AnalysisResultContent({
         tip={detailTip}
         onClose={() => setDetailTip(null)}
       />
-      {/* Phase 13 (Plan 13-A): "다른 운동 보기" 전체 보완 운동 라이브러리 모달. */}
+      {/* Phase 13 (Plan 13-A) / quick-260910-pbs — "다른 운동 보기" 모달.
+          이 분석의 것만 그린다: 운동은 result.recommendedExercises(전면 카드와
+          **같은 소스**), 통증부위는 분석-당시 bodyProfile snapshot. 종전엔 분석을
+          아예 안 받아 어느 분석에서 열어도 라이브러리 전체가 나왔다. */}
       <RecommendedExerciseModal
         visible={exerciseModalOpen}
         onClose={() => setExerciseModalOpen(false)}
+        exercises={result.recommendedExercises ?? EMPTY_EXERCISES}
+        painAreas={painAreas}
       />
       {/* quick-260705-r6v — 감점 드릴다운 시트. 내역 행/여백 범례/(세로) 번호 점
           탭 → [내|정은지] 확대사진 + 수치 + 행동구. zoom 미매칭 시 수치·문구만. */}

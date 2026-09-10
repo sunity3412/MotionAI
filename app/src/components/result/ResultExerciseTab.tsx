@@ -26,8 +26,9 @@ import type { CoachQuestion, RecommendedExercise } from '../../types/analysis';
 
 const K = 390 / 467.206;
 
-// belle 09-09 — 시안 4 는 운동 카드가 **3개**다. 백엔드는 3~5개를 내려주므로
-// (exercise_map 산출) 넘치는 것은 아래 화살표(전체 보완 운동 보기)가 맡는다.
+// belle 09-09 — 시안 4 는 운동 카드가 **3개**다. 백엔드가 내려주는 개수는 분석마다
+// 다르고(결함 1개면 1개, 상한 6 — quick-260910-pbs), 3개를 넘치는 것은 아래 화살표
+// (보완 운동 더 보기)가 맡는다. 이 값은 시안이 정한 것이라 개수 지시와 무관하다.
 const MAX_ROWS = 3;
 
 const D = {

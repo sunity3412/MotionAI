@@ -1,8 +1,14 @@
-// Phase 13 (Plan 13-A, PERS-03) — "다른 운동 보기" 전체 보완 운동 라이브러리 모달.
+// Phase 13 (Plan 13-A, PERS-03) — "다른 운동 보기" 보완 운동 모달.
 //
-// HIGH-1 (13-REVIEW-FIXES.md): 본 모달은 result.recommendedExercises(3~5 개인화
-// subset)가 아니라 app/src/data/correctiveExercises.ts 의 전체 라이브러리를 browse
-// 한다 (옵션 a). 결함 그룹 + 통증부위 그룹별 운동 카드 목록.
+// quick-260910-pbs (belle 2026-09-03 "뭐가 이렇게 많아. 뭘 다 나열해놨어"):
+// 종전엔 props 가 {visible, onClose} 뿐이라 **어느 분석에서 열어도 라이브러리
+// 14그룹 43행이 똑같이** 나왔다(이름 유니크 29 — 14행이 중복). 이제 모달은 이
+// 분석의 결함 그룹 + 사용자 통증부위 그룹만 그린다. 전면 카드(ResultExerciseTab)가
+// 대표 몇 개를 보여주고, 여기가 "그 그룹 안에 뭐가 더 있는지"를 보여주는 자리다.
+//
+// 선택·중복제거 규칙은 lib/exerciseSections.ts (순수 함수, node --test 로 검증).
+// 부위 어휘를 TS 에 복제하지 않는다 — 백엔드가 이미 접어 놓은 recommendedExercises
+// 이름으로 그룹을 되짚는다.
 //
 // scaffold = Phase 12.5 CoachingTipDetailModal 패턴 (backdrop = pure View +
 // 위 빈 영역만 Pressable tap=close, sheet useWindowDimensions height, ScrollView
@@ -23,15 +29,35 @@ import {
   CORRECTIVE_SECTIONS,
   type CorrectiveSection,
 } from '../data/correctiveExercises';
+import { buildExerciseSections, countExerciseRows } from '../lib/exerciseSections';
+import type { RecommendedExercise } from '../types/analysis';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
+  // 이 분석의 result.recommendedExercises (백엔드 exercise_map 산출).
+  exercises: readonly RecommendedExercise[];
+  // 분석 당시 bodyProfile.painAreas snapshot (없으면 빈 배열).
+  painAreas: readonly string[];
 }
 
-export function RecommendedExerciseModal({ visible, onClose }: Props) {
+export function RecommendedExerciseModal({
+  visible,
+  onClose,
+  exercises,
+  painAreas,
+}: Props) {
   const { height: winH } = useWindowDimensions();
   const sheetHeight = Math.round(winH * 0.88);
+  const sections = React.useMemo(
+    () =>
+      buildExerciseSections(CORRECTIVE_SECTIONS, {
+        exerciseNames: exercises.map((e) => e.name),
+        painAreas,
+      }),
+    [exercises, painAreas],
+  );
+  const rowCount = countExerciseRows(sections);
 
   return (
     <Modal
@@ -46,7 +72,7 @@ export function RecommendedExerciseModal({ visible, onClose }: Props) {
           <View style={styles.handle} />
           <View style={styles.titleRow}>
             <Text style={styles.title} numberOfLines={2}>
-              보완 운동 라이브러리
+              {rowCount > 0 ? '이 분석의 보완 운동' : '보완 운동'}
             </Text>
             <Pressable
               onPress={onClose}
@@ -64,13 +90,32 @@ export function RecommendedExerciseModal({ visible, onClose }: Props) {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.intro}>
-              결함·통증부위별 보완 운동 전체 목록입니다. 통증이 있으면 회피 안내를
-              먼저 확인하세요.
-            </Text>
-            {CORRECTIVE_SECTIONS.map((section) => (
-              <SectionBlock key={`${section.kind}-${section.key}`} section={section} />
-            ))}
+            {sections.length > 0 ? (
+              <>
+                <Text style={styles.intro}>
+                  이번 분석에서 짚인 부위의 보완 운동입니다. 통증이 있으면 회피
+                  안내를 먼저 확인하세요.
+                </Text>
+                {sections.map((section) => (
+                  <SectionBlock
+                    key={`${section.kind}-${section.key}`}
+                    section={section}
+                  />
+                ))}
+              </>
+            ) : (
+              /* 화살표만 있고 아무것도 없는 화면은 만들지 않는다 — 왜 비었는지
+                 말한다. 감점이 없으면 처방할 것도 없다는 게 정직한 상태다. */
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>
+                  이번 분석에서 짚인 보완 부위가 없어요.
+                </Text>
+                <Text style={styles.emptyBody}>
+                  자세가 기준 범위 안에 있었거나, 판정할 수 있는 구간이 부족했어요.
+                  다른 각도에서 다시 찍어 분석하면 더 구체적으로 짚어 드릴 수 있어요.
+                </Text>
+              </View>
+            )}
           </ScrollView>
 
           <Pressable
@@ -155,6 +200,15 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: 18,
   },
+  emptyBox: { paddingVertical: 24 },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  emptyBody: { fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
   sectionBlock: { marginBottom: 18 },
   sectionHead: {
     fontSize: 15,

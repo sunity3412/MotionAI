@@ -64,14 +64,19 @@ _KEYPOINT_SET_TO_DEFECTS: dict[str, tuple[str, ...]] = {
     "line": ("core_weak",),
 }
 
-# 보완 운동 출력 cap (criteria 2 = 3~5).
-_MAX_EXERCISES = 5
-_MIN_EXERCISES = 3
+# 보완 운동 출력 상한 (belle 2026-09-10: "동작별 최대 6개 정도로만").
+# 이것은 **상한**이지 목표치가 아니다 — 하한은 없다. 필요한 결함이 1개면 1개만 나온다.
+# 3곳 lockstep: 여기(생성) · models.MAX_RECOMMENDED_EXERCISES(저장 거부선) ·
+# firestore_admin._validate_recommended_exercises(검증). 셋을 같이 바꿀 것.
+_MAX_EXERCISES = 6
 
-# quick-260704-fwb pod 검증 fix — fault 유래 defect 는 목록 선두에 defect 당 상위
-# N개만 먼저 배치하고 나머지는 후순위 백필. cap(5) 안에서 painArea/기존 매핑 운동이
-# 완전히 밀려나지 않게 하는 표시 다양성 값 (채점 무관 — 점수 경로 진입 0).
-_FAULT_LEAD_PER_DEFECT = 2
+# 결함 하나당 대표 운동 개수 (quick-260910-pbs).
+# belle 2026-09-10: "1개 필요하면 진짜 1개만, 3개 필요하면 3개" → 개수를 분석이
+# 정하게 하려면 결함 수가 개수를 정해야 한다. 그래서 defect 당 **고정 1개**를 뽑고
+# 남는 자리를 채우지 않는다(백필 폐지 — 그것이 개수를 항상 상한으로 붙여놓던 원인).
+# belle 2026-09-03 은 "한 두개씩"이라 했으므로 1 이냐 2 냐는 화면을 보고 정할 여지가
+# 있다. 그 조정은 **이 상수 한 줄**이다 (fault/findings 양쪽 경로가 이 값을 공유).
+_EXERCISES_PER_DEFECT = 1
 
 
 def _load_corrective_exercises() -> dict:
@@ -145,7 +150,7 @@ def map_exercises(
     *,
     fault_keypoint_sets: list[str] | None = None,
 ) -> list[dict]:
-    """결함 + 통증부위 → 보완 운동 3~5개 (criteria 2,3).
+    """결함 + 통증부위 → 보완 운동 (개수는 결함 수가 정한다, 상한 _MAX_EXERCISES).
 
     Args:
         force_pattern_inference: Firestore result.forcePatternInference dict
@@ -161,7 +166,8 @@ def map_exercises(
 
     Returns:
         plain camelCase scalar dict list — {name, setsReps, purpose, sourceRef}.
-        name 기준 dedup, 3~5 cap. 입력이 비면 빈 list (graceful, 크래시 X).
+        name 기준 dedup, 상한 _MAX_EXERCISES. **하한 없음** — 결함이 1개면 1개만,
+        없으면 빈 list (graceful, 크래시 X). belle 2026-09-10 "1개 필요하면 진짜 1개만".
     """
     library = _load_corrective_exercises()
 
@@ -182,20 +188,21 @@ def map_exercises(
 
     ordered: list[dict] = []
     # (1) 확정 결함(vision faultKey) 유래 defect — 목록 선두 (pod 검증 fix).
-    #     defect 당 상위 _FAULT_LEAD_PER_DEFECT 개만 먼저 배치해 cap(5) 안에서
-    #     painArea/findings 운동이 완전히 밀려나지 않게 한다 (제거 아님 — 후순위).
     for defect_key in fault_defect_keys:
-        ordered.extend(_defect_exercises(defect_key)[:_FAULT_LEAD_PER_DEFECT])
+        ordered.extend(_defect_exercises(defect_key)[:_EXERCISES_PER_DEFECT])
     # (2) painArea 안전 운동 — fault 부재(=None 경로) 시 기존처럼 최우선.
     for area_key in valid_pain_areas:
         area = library.get("painAreas", {}).get(area_key, {})
         ordered.extend(area.get("exercises", []))
-    # (3) findings(forcePatternInference) 유래 defect — 기존 매핑.
+    # (3) findings(forcePatternInference) 유래 defect — fault 경로와 **같은 상한**.
+    #     (quick-260910-pbs) 종전엔 여기만 슬라이스 없이 defect 운동 5개를 통째로
+    #     넣어, findings 하나가 잡히면 그것만으로 상한이 꽉 찼다. 대표 doc c64afae6
+    #     (감점 6건)이 어깨 운동 5개만 받은 실제 경로가 이것이다.
     for defect_key in finding_defect_keys:
-        ordered.extend(_defect_exercises(defect_key))
-    # (4) fault 유래 defect 나머지 — 후순위 백필 (dedup 이 중복 제거).
-    for defect_key in fault_defect_keys:
-        ordered.extend(_defect_exercises(defect_key)[_FAULT_LEAD_PER_DEFECT:])
+        ordered.extend(_defect_exercises(defect_key)[:_EXERCISES_PER_DEFECT])
+    # 백필 없음 (quick-260910-pbs) — 남는 자리는 비워 둔다. 종전 (4) 단계가 결함
+    # 하나만 매칭돼도 그 그룹의 fixture 5개로 상한을 채워, 개수가 분석과 무관하게
+    # 거의 항상 5로 고정되는 원인이었다 (실측 4개 doc 전부 5개).
 
     # name 기준 dedup (순서 보존).
     seen: set[str] = set()
@@ -220,5 +227,5 @@ def map_exercises(
     if not deduped:
         return []
 
-    # 3~5 cap. 후보가 3 미만이면 있는 만큼만 (fabrication 금지).
+    # 상한 cap 만 적용. 하한 없음 — 후보가 1개면 1개만 낸다 (fabrication 금지).
     return deduped[:_MAX_EXERCISES]

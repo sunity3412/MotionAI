@@ -828,7 +828,9 @@ def _validate_recommended_exercises(
     명세:
       · None graceful (미산출 분석 — return).
       · list 아니면 reject.
-      · len > MAX_RECOMMENDED_EXERCISES(5) reject (criteria 2 cap — fabrication 금지).
+      · len > MAX_RECOMMENDED_EXERCISES(6) reject (belle 2026-09-10 "최대 6개" 상한 —
+        fabrication 금지). **하한 검사는 없다** — 결함 1개짜리 분석은 1개만 저장된다
+        (quick-260910-pbs: 고정 개수로 채우던 백필 폐지).
       · 각 item: dict + flat scalar 만 (`_validate_dict_only_scalars` 위임,
         nested list / nested dict reject — firestore-nested-array-flat 보존).
 

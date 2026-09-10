@@ -2,7 +2,7 @@
 
 <behavior> 6 항목 미러:
   1. late_contact finding + painArea ["wrist"] → grip_weak 운동 + wrist painArea 운동 포함.
-  2. 출력 길이는 항상 3~5 cap, 중복(name) 제거.
+  2. 출력 길이는 상한 cap 이하, 중복(name) 제거. **하한 없음** (quick-260910-pbs).
   3. painArea avoid 안전 라인 우선 정렬.
   4. force_pattern_inference=None + pain_areas=[] → 빈 list (크래시 X).
   5. motion_id=None → generic 결함 운동만 (graceful).
@@ -11,7 +11,9 @@
 
 from __future__ import annotations
 
-from sunity_shared.analysis.exercise_map import map_exercises
+from sunity_shared import models
+from sunity_shared.analysis import exercise_map
+from sunity_shared.analysis.exercise_map import _MAX_EXERCISES, map_exercises
 
 from .conftest import load_phase13_fixture
 
@@ -30,8 +32,8 @@ def test_late_contact_plus_wrist_includes_grip_and_wrist_exercises() -> None:
     assert any(n in names for n in {"Farmer's Walk", "Hand Grippers", "Deadlift"})
 
 
-def test_output_capped_3_to_5_and_deduped() -> None:
-    # 모든 신호 + 모든 painArea → union 폭발 → 3~5 cap + dedup.
+def test_output_capped_and_deduped() -> None:
+    # 모든 신호 + 모든 painArea → union 폭발 → 상한 cap + dedup.
     big_inference = {
         "findings": [
             {"sourceSignal": "late_contact", "jointHint": "손목"},
@@ -42,7 +44,7 @@ def test_output_capped_3_to_5_and_deduped() -> None:
     result = map_exercises(
         big_inference, pain_areas=["wrist", "shoulder", "lower_back"], motion_id=None
     )
-    assert 3 <= len(result) <= 5
+    assert 0 < len(result) <= _MAX_EXERCISES
     names = [ex["name"] for ex in result]
     assert len(names) == len(set(names)), "중복 name 미제거"
 
@@ -64,7 +66,7 @@ def test_none_inference_and_empty_pain_areas_returns_empty() -> None:
 def test_motion_id_none_is_graceful() -> None:
     result = map_exercises(_sample_inference(), pain_areas=[], motion_id=None)
     assert isinstance(result, list)
-    assert 0 <= len(result) <= 5
+    assert 0 <= len(result) <= _MAX_EXERCISES
 
 
 def test_returned_items_are_plain_camel_case_scalar_dicts() -> None:
@@ -99,8 +101,8 @@ def _grip_trigger_inference() -> dict:
 
 def test_kipup_fault_sets_prioritize_defect_body_parts_over_grip() -> None:
     """kip-up 시나리오: leg+shoulder 결함 + grip 트리거 findings 동시 입력 →
-    결함 부위(다리/고관절/어깨) 운동이 **목록 선두** (pod 검증 fix — defect 당 상위 2
-    선행 배치), grip 운동은 결함 부위 운동보다 앞서지 않음."""
+    결함 부위(다리/고관절/어깨) 운동이 **목록 선두** (pod 검증 fix — defect 당
+    _EXERCISES_PER_DEFECT 개), grip 운동은 결함 부위 운동보다 앞서지 않음."""
     result = map_exercises(
         _grip_trigger_inference(),
         pain_areas=[],
@@ -108,16 +110,17 @@ def test_kipup_fault_sets_prioritize_defect_body_parts_over_grip() -> None:
         fault_keypoint_sets=["leg", "shoulder"],
     )
     names = [ex["name"] for ex in result]
-    # 정확한 선두 순서: hip_hamstring_tight[:2] → legs_not_extended[:2] →
-    # shoulder_unstable[:2] (cap 5). 스플릿 = 고관절 유연성이 1순위.
+    # 정확한 선두 순서: hip_hamstring_tight → legs_not_extended → shoulder_unstable,
+    # 각 defect 당 _EXERCISES_PER_DEFECT(=1)개. 스플릿 = 고관절 유연성이 1순위.
+    # 마지막 Farmer's Walk 는 findings(late_contact→grip_weak) 유래 — 종전엔 cap 에
+    # 밀려 사라졌으나 백필 폐지로 자리가 남아 살아남는다 (quick-260910-pbs).
     assert names == [
         "Hamstring Stretch",
-        "Hip Flexor Stretch",
         "Squats",
-        "Lunges",
         "Push-ups",
+        "Farmer's Walk",
     ]
-    # grip 운동이 결함 부위 운동보다 앞서지 않는다 (여기선 cap 에 밀려 미포함).
+    # grip 운동이 결함 부위 운동보다 앞서지 않는다.
     first_defect_idx = min(
         i for i, n in enumerate(names) if n in _LEG_HIP_SHOULDER_EXERCISES
     )
@@ -139,10 +142,9 @@ def test_pod_repro_pain_wrist_fault_leg_defect_leads_grip_rear() -> None:
     names = [ex["name"] for ex in result]
     assert names == [
         "Hamstring Stretch",
-        "Hip Flexor Stretch",
         "Squats",
-        "Lunges",
         "Farmer's Walk",
+        "Hand Grippers",
     ]
 
 
@@ -177,7 +179,7 @@ def test_pain_area_first_only_without_fault_keypoint_sets() -> None:
 
 
 def test_fault_keypoint_sets_dedup_and_cap() -> None:
-    """중복 keypoint_set + findings 폭발 입력 → dedup + cap(≤5) 불변."""
+    """중복 keypoint_set + findings 폭발 입력 → dedup + 상한 cap 불변."""
     result = map_exercises(
         {
             "findings": [
@@ -189,7 +191,7 @@ def test_fault_keypoint_sets_dedup_and_cap() -> None:
         motion_id=None,
         fault_keypoint_sets=["leg", "leg", "hip", "shoulder", "torso"],
     )
-    assert 3 <= len(result) <= 5
+    assert 0 < len(result) <= _MAX_EXERCISES
     names = [ex["name"] for ex in result]
     assert len(names) == len(set(names)), "중복 name 미제거"
 
@@ -219,3 +221,73 @@ def test_fault_keypoint_sets_output_shape_unchanged() -> None:
         assert _SCALAR_FIELDS <= set(ex.keys())
         for v in ex.values():
             assert isinstance(v, (str, type(None))), "scalar only (no nested)"
+
+
+# ── quick-260910-pbs — 개수는 분석이 정한다 (백필 폐지 / 결함당 대표 1개) ─────────
+#
+# belle 2026-09-10: "1개 필요하면 진짜 1개만, 3개 필요하면 3개, 진짜로 분석별로".
+# 착수 전 실측: 저장된 doc 4건(감점 1~6건)이 **전부 5개**였다 — 개수가 분석과 무관.
+
+
+def test_single_defect_yields_single_exercise() -> None:
+    """결함 1개 → 운동 1개. 종전엔 그 defect 의 fixture 5개가 상한을 채웠다."""
+    result = map_exercises(
+        None, pain_areas=[], motion_id=None, fault_keypoint_sets=["shoulder"]
+    )
+    assert [ex["name"] for ex in result] == ["Push-ups"]
+
+
+def test_no_backfill_from_matched_defect_group() -> None:
+    """매칭된 defect 그룹의 나머지 운동으로 빈자리를 채우지 않는다 (백필 폐지).
+
+    shoulder_unstable fixture 는 5개지만 대표 1개만 나와야 한다.
+    """
+    result = map_exercises(
+        None, pain_areas=[], motion_id=None, fault_keypoint_sets=["shoulder"]
+    )
+    names = {ex["name"] for ex in result}
+    assert not (
+        names
+        & {"Overhead Press", "Scapular Depression Drills", "Arm Circles",
+           "Cross-Shoulder Stretch"}
+    ), "백필이 살아 있다 — 같은 defect 그룹의 후순위 운동이 유입됨"
+
+
+def test_exercise_count_tracks_defect_count() -> None:
+    """결함 부위가 늘면 운동도 늘고, 줄면 준다 — 개수가 분석을 따라간다."""
+    one = map_exercises(
+        None, pain_areas=[], motion_id=None, fault_keypoint_sets=["shoulder"]
+    )
+    two = map_exercises(
+        None, pain_areas=[], motion_id=None, fault_keypoint_sets=["shoulder", "grip"]
+    )
+    assert len(one) == 1
+    assert len(two) == 2
+    assert len(one) < len(two)
+
+
+def test_findings_defect_obeys_same_per_defect_cap() -> None:
+    """(3) findings 유래 defect 도 fault 경로와 같은 상한을 받는다.
+
+    종전엔 여기만 슬라이스가 없어 defect 하나가 fixture 5개를 통째로 넣었다 —
+    대표 doc c64afae6(감점 6건)이 어깨 운동 5개만 받은 실제 경로.
+    """
+    # late_contact 는 grip_weak + legs_not_extended 두 defect 를 트리거한다 →
+    # defect 당 1개씩 = 2개. 각 그룹의 나머지 4개는 들어오지 않는다.
+    result = map_exercises(
+        _grip_trigger_inference(), pain_areas=[], motion_id=None
+    )
+    assert [ex["name"] for ex in result] == ["Farmer's Walk", "Squats"]
+    names = {ex["name"] for ex in result}
+    assert not (names & {"Hand Grippers", "Assisted Pull-ups", "Dead Hang",
+                         "Deadlift", "Lunges", "Calf Raises"})
+
+
+def test_no_minimum_floor_constant() -> None:
+    """죽은 하한 상수 _MIN_EXERCISES 재도입 차단 — 하한은 존재하지 않는다."""
+    assert not hasattr(exercise_map, "_MIN_EXERCISES")
+
+
+def test_generation_cap_locksteps_with_storage_cap() -> None:
+    """생성 상한 == 저장 거부선. 셋 중 둘이 어긋나면 유효 운동이 조용히 잘린다."""
+    assert _MAX_EXERCISES == models.MAX_RECOMMENDED_EXERCISES == 6

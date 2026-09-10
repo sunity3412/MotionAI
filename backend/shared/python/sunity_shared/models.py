@@ -465,18 +465,22 @@ SCORE_SUPPRESSION_AUDIT_KEYS = (
 )
 
 # ── Phase 13 (Plan 13-A, PERS-03): recommendedExercises 계약 명세 ───────
-# 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 3~5개 개인화 subset.
+# 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 개인화 subset.
+# 개수는 **분석이 정한다** — 결함 1개면 1개, 3개면 3개, 상한 6 (belle 2026-09-10).
+# 하한은 없다 (quick-260910-pbs: 고정 개수로 채우던 백필 폐지).
 # - 생산자 = analysis/exercise_map.map_exercises(force_pattern_inference, pain_areas,
 #   motion_id) (pure fn, Layer 2 boto3-free). 입력은 Phase 9 findings + bodyProfile
 #   painAreas + motion_id 만 — painAreas 는 매핑 출력에만 흐르고 점수 경로 미진입 (D-05).
 # - 검증 = firestore_admin._validate_recommended_exercises scoped validator
-#   (len <= 5 cap + 각 item flat scalar — firestore-nested-array-flat 보존).
+#   (len <= 6 cap + 각 item flat scalar — firestore-nested-array-flat 보존).
 # - 각 운동 dict = plain camelCase scalar {name, setsReps, purpose, sourceRef?}.
 #   static fixture(backend/data/corrective_exercises.json) 산출이라 normalizer 불필요.
 # - 3-way lockstep: app/src/types/analysis.ts:RecommendedExercise ↔ 본 계약 ↔
 #   docs/contract.md §4. 세 곳 동시 갱신 필수.
 RECOMMENDED_EXERCISE_KEYS = ("name", "setsReps", "purpose", "sourceRef")
-MAX_RECOMMENDED_EXERCISES = 5
+# 상한 3곳 lockstep: 여기(저장 거부선) · exercise_map._MAX_EXERCISES(생성) ·
+# firestore_admin._validate_recommended_exercises(검증). 셋을 같이 바꿀 것.
+MAX_RECOMMENDED_EXERCISES = 6
 
 # ── Phase 3 (Plan 03-01) — BodyProfile 자가입력 계약 (3-way lockstep #2) ──
 # 사람용 명세: docs/contract.md "BodyProfile (자가입력)" 섹션.

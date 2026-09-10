@@ -8540,7 +8540,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
 
         # ── Phase 13 (Plan 13-A, PERS-03) — 보완 운동 매핑 ──────────────────
         # 실패 원인 후보(Phase 9 findings) + 자가입력 통증부위(bodyProfile.painAreas)
-        # + motion_id → exercise_map.map_exercises (pure fn). 3~5 개인화 subset.
+        # + motion_id → exercise_map.map_exercises (pure fn). 개수는 결함 수가
+        # 정한다 (상한 6, 하한 없음 — belle 2026-09-10 / quick-260910-pbs).
         # D-05: painAreas 만 소비 — weightKg 등 점수 경로 진입 0. normalize_body_profile
         # 가 PAIN_AREAS frozenset 멤버만 통과 (위조 painAreas drop). graceful None/빈.
         pain_areas = (

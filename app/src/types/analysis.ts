@@ -217,7 +217,8 @@ export interface CoachingCause {
 
 // Phase 13 (Plan 13-A, PERS-03): 보완 운동 1건. 분석 결과(힘 패턴 findings +
 // 통증부위)에 맞춰 backend exercise_map.map_exercises 가 산출 → Firestore
-// result.recommendedExercises (3~5 subset). plain camelCase scalar — nested 금지
+// result.recommendedExercises (개수는 분석이 정한다 — 결함 1개면 1개, 상한 6.
+// belle 2026-09-10). plain camelCase scalar — nested 금지
 // (firestore-nested-array-flat / _validate_recommended_exercises scoped validator).
 // 3-way lockstep: 본 interface ↔ backend models.py recommendedExercises 계약 ↔
 // docs/contract.md §4 (CoachingCause 모양 정합). 전체 라이브러리 browse 는 별도
@@ -1092,7 +1093,8 @@ export type AnalysisResult = ScoreSuppression & {
   // 책임 경계: Phase 11 (CoachCommentHook) 가 findings[].interpretation 위
   // LLM 자연어 풍부화. Phase 12 가 raw 수치 UI 노출. Phase 9 자체는 canned 만.
   forcePatternInference?: ForcePatternInference | null;
-  // Phase 13 (Plan 13-A, PERS-03) — 보완 운동 3~5개 개인화 subset.
+  // Phase 13 (Plan 13-A, PERS-03) — 보완 운동 개인화 subset. 개수는 분석마다
+  // 다르다 (결함 1개면 1개, 상한 6 — belle 2026-09-10 / quick-260910-pbs).
   // backend exercise_map.map_exercises(findings + painAreas + motion_id) 산출 →
   // _validate_recommended_exercises scoped validator → result.recommendedExercises.
   // 옵셔널 — 이전 빌드 doc 호환 (dimensionExplanation 패턴). 빈/부재 시 result.tsx

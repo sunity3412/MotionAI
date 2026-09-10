@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from sunity_shared import firestore_admin
+from sunity_shared import firestore_admin, models
 from sunity_shared.firestore_admin import _validate_recommended_exercises
 
 
@@ -39,6 +39,11 @@ def _valid_exercises() -> list[dict]:
             "sourceRef": "NotebookLM e688fb4e [3]",
         },
     ]
+
+
+def _over_cap_exercises() -> list[dict]:
+    """상한 +1 길이 목록 (models.MAX_RECOMMENDED_EXERCISES 파생)."""
+    return _valid_exercises()[:1] * (models.MAX_RECOMMENDED_EXERCISES + 1)
 
 
 # ── complete_analysis wiring ──────────────────────────────────────────────
@@ -81,8 +86,9 @@ def test_complete_analysis_recommended_exercises_over_cap_raises(monkeypatch) ->
     fake_doc = _FakeDocRef()
     monkeypatch.setattr(firestore_admin, "_doc", lambda path: fake_doc)
 
-    too_many = _valid_exercises() * 3  # 6 > 5 cap.
-    with pytest.raises(ValueError, match="length > 5|cap"):
+    # 상한 초과분은 상수에서 파생 — 상한 수치를 테스트에 박지 않는다(lockstep drift 방지).
+    too_many = _over_cap_exercises()
+    with pytest.raises(ValueError, match="length >|cap"):
         firestore_admin.complete_analysis(
             uid="u1",
             analysis_id="a1",
@@ -109,8 +115,19 @@ def test_validator_non_list_rejects() -> None:
 
 
 def test_validator_over_cap_rejects() -> None:
-    with pytest.raises(ValueError, match="length > 5|cap"):
-        _validate_recommended_exercises(_valid_exercises() * 3)
+    with pytest.raises(ValueError, match="length >|cap"):
+        _validate_recommended_exercises(_over_cap_exercises())
+
+
+def test_validator_at_cap_passes() -> None:
+    """상한 정확히 채운 길이는 통과 — 거부선은 초과분에만 (quick-260910-pbs)."""
+    at_cap = _valid_exercises()[:1] * models.MAX_RECOMMENDED_EXERCISES
+    _validate_recommended_exercises(at_cap)
+
+
+def test_validator_single_item_passes() -> None:
+    """하한 없음 — 결함 1개짜리 분석은 운동 1개만 저장된다 (belle 2026-09-10)."""
+    _validate_recommended_exercises(_valid_exercises()[:1])
 
 
 def test_validator_nested_array_in_item_rejects() -> None:

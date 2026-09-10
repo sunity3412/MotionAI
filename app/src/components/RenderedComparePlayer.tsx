@@ -72,6 +72,12 @@ import {
   markFullscreenPinchHintSeen,
 } from '../lib/coachmark';
 import { MIN_ZOOM, type ZoomState } from '../lib/pinchZoom';
+import {
+  SWAP_READY_TIMEOUT_MS,
+  decideSwapSeek,
+  type PlayerStatus,
+  type SwapPhase,
+} from '../lib/sourceSwapSeek';
 import type { RenderedCompareFreeze } from '../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../theme';
 import { compareCardControls } from '../theme/compareControls';
@@ -96,6 +102,12 @@ const freshRenderedZoom = (): ZoomState => ({ scale: MIN_ZOOM, tx: 0, ty: 0 });
 // 값·같은 문구·같은 1회 플래그(coachmark.ts)를 쓴다 — 사용자에게는 같은 제스처를
 // 배우는 한 번의 경험이라, 가지가 둘이라고 두 번 가르치면 안 된다.
 const PINCH_HINT_AUTO_DISMISS_MS = 4000;
+
+// 소스 교체 seek 를 되읽어 검증하기까지의 유예(ms). expo-video 의 seek 는
+// 비동기라 대입 직후 읽으면 옛 값이 나온다. 220ms 는 듀얼 플레이어의 재재생
+// seek 유예(REPLAY_SEEK_DELAY_MS 200ms — replaySettle.ts 헤더)와 같은 자리수이고,
+// 실패해도 SWAP_SEEK_ATTEMPTS 만큼 다시 쏘므로 짧게 잡아 체감을 지킨다.
+const SWAP_VERIFY_DELAY_MS = 220;
 
 function fmtTime(s: number): string {
   if (!isFinite(s) || s < 0) return '0:00';
@@ -199,29 +211,241 @@ export default function RenderedComparePlayer({
   // 순간 영상이 처음으로 돌아가 "무엇이 달라졌는지"를 비교할 수 없다 — 이 토글의
   // 목적 자체가 같은 순간을 표시 유무로 견주는 것이다.
   // urlPlain 이 없으면 이 효과는 아무것도 하지 않는다(칩도 안 그려진다).
+  //
+  // ★ belle 09-10 실기기 반려(TestFlight/LTE) — "관절선을 누르면 처음부터 재생된다,
+  //   그런데 가끔은 정상". 맥 시뮬레이터에서는 09-09 에 정상으로만 관측됐다.
+  //   종전 구현은 `await player.replaceAsync(next)` 바로 뒤에 `currentTime = at` 을
+  //   대입했다. **그 대입은 기기에서 버려진다.** expo-video 3.0.16 네이티브 근거:
+  //     · `replaceAsync`(ios/VideoModule.swift:330-333)가 부르는 async
+  //       `replaceCurrentItem`(ios/VideoPlayer.swift:236-268)은 main 큐 블록을
+  //       **예약만 하고 반환**한다. 프로미스 해소는 "아이템이 꽂혔다"까지지
+  //       "아이템이 익었다"가 아니다 — `DangerousPropertiesStore`
+  //       (ios/VideoPlayer/DangerousPropertiesStore.swift:1-2, 7-14) 주석 그대로
+  //       "아직 안 꽂혔다"만 막고 "아직 안 익었다"는 안 막는다.
+  //     · 그래서 status `.unknown` 인 새 AVPlayerItem 에 exact seek
+  //       (ios/VideoPlayer.swift:55)이 날아간다. 새 아이템은 아무것도 프리로드하지
+  //       않으므로(ios/VideoPlayerItem.swift:27 `automaticallyLoadedAssetKeys: nil`)
+  //       원격 S3 presigned mp4 의 moov 도착까지의 창이 맥에서는 ~0, LTE 폰에서는
+  //       초 단위다 — **sim 은 되고 기기는 안 되던 축이 여기서 기계적으로 나온다.**
+  //     · 또 `replaceCurrentItem` 에는 pause 가 없고 `rate` 는 AVPlayer 레벨
+  //       (ios/VideoPlayer.swift:32-35)이라 아이템 교체를 넘어 유지된다. 재생 중에
+  //       토글하면 새 아이템이 ready 되는 즉시 0초부터 돈다. 종전의
+  //       `if (wasPlaying) player.play()` 는 rate 가 0 이 된 적이 없어 무의미했다.
+  //   → 순서를 **교체 전 pause → ready 대기 → seek → 되읽어 검증 → 재시도 →
+  //     그 다음에만 play** 로 바꾼다. 판정은 lib/sourceSwapSeek.ts 가 갖고(순수
+  //     모듈, node --test 8축) 여기서는 호출만 한다.
+  //
+  // ★ 재적용 금지 — 교체 뒤에 `playbackRate`/`muted`/`loop`/`volume` 을 다시
+  //   대입하지 않는다. 전부 AVPlayer 레벨이라 교체를 넘어 유지되고, 특히
+  //   `playbackRate` 의 iOS `didSet` 은 **값이 같아도 무조건** `ref.rate` 를 쓴다
+  //   (ios/VideoPlayer.swift:26-36) — 재적용하면 정지 상태에서 재생이 시작된다.
   const overlayOnRef = useRef(overlayOn);
+  // 교체 진행 중 — ref 는 폴링이 매 tick 읽고, state 는 칩 잠금을 화면에 보인다.
+  const swappingRef = useRef(false);
+  const [swapping, setSwapping] = useState(false);
+  // 세대 — 연타/재실행 시 옛 콜백을 전부 무효화한다(늦게 온 seek 가 새 교체를
+  // 되감는 것을 막는다).
+  const swapEpochRef = useRef(0);
   useEffect(() => {
-    if (overlayOnRef.current === overlayOn) return;
+    const prevOverlayOn = overlayOnRef.current;
+    if (prevOverlayOn === overlayOn) return;
     overlayOnRef.current = overlayOn;
     const next = overlayOn ? url : urlPlain;
     if (!player || !next) return;
-    let at = 0;
+
+    // 1) 교체 **전에** 읽는다. 교체 뒤의 값은 옛 아이템 값이거나 0 이다.
+    let targetSec = 0;
     let wasPlaying = false;
     try {
-      at = player.currentTime ?? 0;
+      targetSec = player.currentTime ?? 0;
       wasPlaying = player.playing;
     } catch {
       // 해제 직후 접근 — 0 부터 시작해도 토글 자체는 성립한다.
     }
-    void (async () => {
-      try {
-        await player.replaceAsync(next);
-        player.currentTime = at;
-        if (wasPlaying) player.play();
-      } catch {
-        // 교체 실패 = 현재 소스 유지 (조용한 정지보다 낫다).
+
+    // 2) 교체 **전에** 멈춘다. 살아남는 rate 가 새 아이템을 0초부터 돌리는 것을
+    //    막고(축 2), 로드를 기다리는 동안 옛 아이템이 계속 진행해 targetSec 이
+    //    낡는 것도 같이 막는다.
+    try {
+      player.pause();
+    } catch {
+      // 해제 직후 — 아래 절차가 어차피 무해하게 끝난다.
+    }
+
+    // 3) 세대 증가.
+    const epoch = swapEpochRef.current + 1;
+    swapEpochRef.current = epoch;
+    const alive = () => swapEpochRef.current === epoch;
+
+    swappingRef.current = true;
+    setSwapping(true);
+
+    let phase: SwapPhase = 'awaitingReady';
+    let attempts = 0;
+    let observedSec: number | null = null;
+    let loadedDurationSec = 0;
+    // ready 판정은 **이벤트가 말한 것**만 믿는다. `player.status` 를 직접 읽으면
+    // 옛 아이템의 'readyToPlay' 가 그대로 남아 있어(iOS status didSet 은 값이
+    // 바뀔 때만 emit) 익지 않은 새 아이템을 익은 것으로 오독한다 — 그것이 이
+    // 결함의 축 1 이다.
+    let signalStatus: PlayerStatus = 'loading';
+    const startedAt = Date.now();
+    const subs: { remove: () => void }[] = [];
+    let readyTimer: ReturnType<typeof setTimeout> | null = null;
+    let verifyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const stopWatching = () => {
+      for (const sub of subs) sub.remove();
+      subs.length = 0;
+      if (readyTimer) {
+        clearTimeout(readyTimer);
+        readyTimer = null;
       }
-    })();
+      if (verifyTimer) {
+        clearTimeout(verifyTimer);
+        verifyTimer = null;
+      }
+    };
+
+    const endSwap = () => {
+      phase = 'done';
+      stopWatching();
+      swappingRef.current = false;
+      setSwapping(false);
+    };
+
+    // 실패 시 칩 되돌림. **ref 를 먼저** 되돌려야 재실행된 effect 가 맨 위
+    // 가드에서 즉시 return 해 되감기 루프가 생기지 않는다.
+    const revertChip = () => {
+      overlayOnRef.current = prevOverlayOn;
+      setOverlayOn(prevOverlayOn);
+    };
+
+    const step = () => {
+      if (!alive() || phase === 'done') return;
+      let durationSec = loadedDurationSec;
+      if (!(durationSec > 0)) {
+        try {
+          durationSec = player.duration ?? 0;
+        } catch {
+          endSwap();
+          return;
+        }
+      }
+      const decision = decideSwapSeek({
+        phase,
+        status: signalStatus,
+        targetSec,
+        durationSec,
+        wasPlaying,
+        observedSec,
+        attempts,
+        waitedMs: Date.now() - startedAt,
+      });
+      if (decision.action === 'wait') return;
+      if (decision.action === 'abort') {
+        // 로드 실패 — seek 도 play 도 하지 않는다. 조용한 0초 재생으로 강등하면
+        // 사용자는 "관절선을 껐더니 처음부터 돈다"로 읽는다.
+        endSwap();
+        revertChip();
+        return;
+      }
+      if (decision.action === 'seek') {
+        phase = 'seeking';
+        attempts += 1;
+        observedSec = null;
+        try {
+          player.currentTime = decision.seekSec;
+        } catch {
+          endSwap();
+          return;
+        }
+        if (verifyTimer) clearTimeout(verifyTimer);
+        verifyTimer = setTimeout(() => {
+          verifyTimer = null;
+          if (!alive() || phase !== 'seeking') return;
+          try {
+            observedSec = player.currentTime ?? null;
+          } catch {
+            endSwap();
+            return;
+          }
+          step();
+        }, SWAP_VERIFY_DELAY_MS);
+        return;
+      }
+      // finish — 재생 재개는 **여기서만** 한다.
+      const shouldPlay = decision.play;
+      endSwap();
+      if (shouldPlay) {
+        try {
+          player.play();
+        } catch {
+          // 해제 직후 — 사용자가 영상을 탭해 다시 재생할 수 있다.
+        }
+      }
+    };
+
+    // 4) 리스너를 `replaceAsync` **전에** 건다 — Android 는 statusChange('loading')
+    //    이 프로미스 해소보다 먼저 나간다(android/.../VideoModule.kt:356-374).
+    //    `sourceLoad` 가 정본이다: iOS 는 새 아이템이 `.readyToPlay`(또는 `.error`)
+    //    에 닿았을 때만 이 이벤트를 낸다(ios/VideoPlayerObserver.swift:419-421 →
+    //    ios/VideoPlayer.swift:387). `statusChange` 는 보조 — 먼저 오는 쪽이 이긴다.
+    //    `sourceLoad` 는 `.error` 로도 오므로 `statusChange` 의 error 를 반드시
+    //    같이 구독한다.
+    try {
+      subs.push(
+        player.addListener('sourceLoad', ({ duration }) => {
+          if (duration > 0) loadedDurationSec = duration;
+          // 오류 로드도 sourceLoad 로 온다. iOS 는 `.error` 를 이 이벤트보다 먼저
+          // status 에 반영하므로(VideoPlayerObserver.swift:412-421) 여기서 가른다.
+          let failed = false;
+          try {
+            failed = player.status === 'error';
+          } catch {
+            failed = true;
+          }
+          signalStatus = failed ? 'error' : 'readyToPlay';
+          step();
+        }),
+      );
+      subs.push(
+        player.addListener('statusChange', ({ status }) => {
+          signalStatus = status;
+          step();
+        }),
+      );
+    } catch {
+      // 리스너 등록 실패 — 아래 폴백 타이머만으로 절차를 마친다(멈추지 않는다).
+    }
+
+    // ready 신호가 끝내 오지 않아도 칩이 잠긴 채 남지 않게 하는 상한. 여기 걸리면
+    // 판정이 마지막으로 한 번 seek 를 쏘고 절차를 진행시킨다.
+    readyTimer = setTimeout(() => {
+      readyTimer = null;
+      step();
+    }, SWAP_READY_TIMEOUT_MS + 50);
+
+    void player.replaceAsync(next).catch(() => {
+      if (!alive()) return;
+      // 교체 자체가 실패 = 소스는 옛것 그대로다. 칩을 되돌리고, 우리가 멈춘
+      // 재생만 원래대로 돌려 놓는다(위치는 건드린 적이 없다).
+      endSwap();
+      revertChip();
+      if (wasPlaying) {
+        try {
+          player.play();
+        } catch {
+          // 해제 직후 — 사용자가 영상을 탭해 다시 재생할 수 있다.
+        }
+      }
+    });
+
+    return () => {
+      stopWatching();
+      swappingRef.current = false;
+      setSwapping(false);
+    };
   }, [overlayOn, url, urlPlain, player]);
 
   useEffect(() => {
@@ -241,6 +465,12 @@ export default function RenderedComparePlayer({
     setCurrentTime(0);
     setDuration(0);
     const id = setInterval(() => {
+      // 소스 교체 중에는 화면을 갱신하지 않는다. 교체 순간의 `currentTime = 0` /
+      // `playing = false` 가 그대로 쓰이면 시간 텍스트·트랙 fill·activeRid 파생
+      // 감점 행이 한 tick 깜빡이고, belle 은 그 깜빡임을 "처음으로 돌아갔다"로
+      // 읽는다 — seek 이 성공한 경우에도 그렇다. 듀얼 경로(VideoCompare)의
+      // replaySettleTicksRef 방어와 같은 취지다.
+      if (swappingRef.current) return;
       try {
         const d = player.duration;
         if (d && d > 0) setDuration(d);
@@ -573,13 +803,21 @@ export default function RenderedComparePlayer({
             </Text>
           </Pressable>
           {urlPlain ? (
+            // 교체가 끝나기 전에 또 누르면 절차가 겹친다 — 세대 ref 가 옛 콜백을
+            // 무효화하긴 하지만, 잠금이 **눈에 보여야** belle 이 "안 눌린다"로
+            // 읽지 않는다 (opacity 로 잠긴 상태를 드러낸다).
             <Pressable
               onPress={() => setOverlayOn((v) => !v)}
+              disabled={swapping}
               accessibilityRole="switch"
               accessibilityLabel="관절선 표시"
-              accessibilityState={{ checked: overlayOn }}
+              accessibilityState={{ checked: overlayOn, disabled: swapping }}
               hitSlop={10}
-              style={[styles.optionPill, overlayOn ? styles.optionPillOn : null]}
+              style={[
+                styles.optionPill,
+                overlayOn ? styles.optionPillOn : null,
+                swapping ? styles.optionPillBusy : null,
+              ]}
             >
               <Text
                 style={[
@@ -785,6 +1023,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBg,
   },
   optionPillOn: { borderColor: colors.brand, backgroundColor: colors.resultChipBg },
+  // 소스 교체 중 잠금 표시 — 색을 새로 만들지 않고 불투명도만 낮춘다
+  // (design.md 토큰 추가 없이 "지금은 못 누른다"만 전한다).
+  optionPillBusy: { opacity: 0.6 },
   optionPillText: { ...typography.caption, color: colors.textMid },
   optionPillTextOn: { color: colors.brand },
   // 260909-ji1 — 블록 비는 시안 2 실측(276.04 x 177.90 = 1.5517). 듀얼 플레이어

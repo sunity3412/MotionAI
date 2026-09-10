@@ -28,8 +28,8 @@ def test_late_contact_plus_wrist_includes_grip_and_wrist_exercises() -> None:
     # sample fixture 에는 late_contact (grip_weak) + axis_tilt (core_weak) finding.
     result = map_exercises(_sample_inference(), pain_areas=["wrist"], motion_id=None)
     names = {ex["name"] for ex in result}
-    # grip_weak 운동 (Farmer's Walk 등) 또는 wrist painArea 운동이 포함.
-    assert any(n in names for n in {"Farmer's Walk", "Hand Grippers", "Deadlift"})
+    # grip_weak 운동 (파머스 워크 등) 또는 wrist painArea 운동이 포함.
+    assert any(n in names for n in {"파머스 워크", "악력기 운동", "데드리프트"})
 
 
 def test_output_capped_and_deduped() -> None:
@@ -55,8 +55,8 @@ def test_pain_area_avoid_exercise_prioritized() -> None:
         _sample_inference(), pain_areas=["wrist"], motion_id=None
     )
     assert len(result) >= 1
-    # 첫 항목이 wrist painArea 운동 (Farmer's Walk / Hand Grippers).
-    assert result[0]["name"] in {"Farmer's Walk", "Hand Grippers"}
+    # 첫 항목이 wrist painArea 운동 (파머스 워크 / 악력기 운동).
+    assert result[0]["name"] in {"파머스 워크", "악력기 운동"}
 
 
 def test_none_inference_and_empty_pain_areas_returns_empty() -> None:
@@ -83,14 +83,14 @@ def test_returned_items_are_plain_camel_case_scalar_dicts() -> None:
 
 # fixture lockstep: corrective_exercises.json defect별 운동 이름 (grep 게이트 아님 —
 # 순서 검증용 소속 판정에만 사용).
-_GRIP_EXERCISES = {"Farmer's Walk", "Hand Grippers", "Assisted Pull-ups", "Dead Hang", "Deadlift"}
+_GRIP_EXERCISES = {"파머스 워크", "악력기 운동", "밴드 턱걸이", "철봉 매달리기", "데드리프트"}
 _LEG_HIP_SHOULDER_EXERCISES = {
     # hip_hamstring_tight
-    "Hamstring Stretch", "Hip Flexor Stretch", "Quad Stretch", "Dynamic Leg Swings", "PNF Stretch",
+    "허벅지 뒤 스트레칭", "골반 앞 스트레칭", "허벅지 앞 스트레칭", "앞뒤로 다리 흔들기", "파트너 스트레칭",
     # legs_not_extended
-    "Squats", "Lunges", "Calf Raises", "High Kick", "Lateral Leg Raise",
+    "스쿼트", "런지", "까치발 들기", "다리 차올리기", "옆으로 다리 들기",
     # shoulder_unstable
-    "Push-ups", "Overhead Press", "Scapular Depression Drills", "Arm Circles", "Cross-Shoulder Stretch",
+    "팔굽혀펴기", "어깨 위로 밀기", "매달려 어깨 내리기", "팔 돌리기", "어깨 뒤 스트레칭",
 }
 
 
@@ -112,13 +112,13 @@ def test_kipup_fault_sets_prioritize_defect_body_parts_over_grip() -> None:
     names = [ex["name"] for ex in result]
     # 정확한 선두 순서: hip_hamstring_tight → legs_not_extended → shoulder_unstable,
     # 각 defect 당 _EXERCISES_PER_DEFECT(=1)개. 스플릿 = 고관절 유연성이 1순위.
-    # 마지막 Farmer's Walk 는 findings(late_contact→grip_weak) 유래 — 종전엔 cap 에
+    # 마지막 파머스 워크 는 findings(late_contact→grip_weak) 유래 — 종전엔 cap 에
     # 밀려 사라졌으나 백필 폐지로 자리가 남아 살아남는다 (quick-260910-pbs).
     assert names == [
-        "Hamstring Stretch",
-        "Squats",
-        "Push-ups",
-        "Farmer's Walk",
+        "허벅지 뒤 스트레칭",
+        "스쿼트",
+        "팔굽혀펴기",
+        "파머스 워크",
     ]
     # grip 운동이 결함 부위 운동보다 앞서지 않는다.
     first_defect_idx = min(
@@ -130,7 +130,7 @@ def test_kipup_fault_sets_prioritize_defect_body_parts_over_grip() -> None:
 
 
 def test_pod_repro_pain_wrist_fault_leg_defect_leads_grip_rear() -> None:
-    """pod 재분석 재현 (2026-07-04): painArea wrist(Farmer's Walk/Hand Grippers) 안전
+    """pod 재분석 재현 (2026-07-04): painArea wrist(파머스 워크/악력기 운동) 안전
     운동이 fault 유래 스트레칭보다 선두라 '결함과 무관한 운동이 대표' 로 보였음 →
     fix 후 확정 결함(leg) 운동이 선두, grip 계열은 제거되지 않고 후순위 유지."""
     result = map_exercises(
@@ -141,10 +141,10 @@ def test_pod_repro_pain_wrist_fault_leg_defect_leads_grip_rear() -> None:
     )
     names = [ex["name"] for ex in result]
     assert names == [
-        "Hamstring Stretch",
-        "Squats",
-        "Farmer's Walk",
-        "Hand Grippers",
+        "허벅지 뒤 스트레칭",
+        "스쿼트",
+        "파머스 워크",
+        "악력기 운동",
     ]
 
 
@@ -164,7 +164,7 @@ def test_pain_area_first_only_without_fault_keypoint_sets() -> None:
     base = map_exercises(
         _grip_trigger_inference(), pain_areas=["wrist"], motion_id=None
     )
-    assert base[0]["name"] in {"Farmer's Walk", "Hand Grippers"}
+    assert base[0]["name"] in {"파머스 워크", "악력기 운동"}
 
     with_fault = map_exercises(
         _grip_trigger_inference(),
@@ -173,9 +173,9 @@ def test_pain_area_first_only_without_fault_keypoint_sets() -> None:
         fault_keypoint_sets=["leg"],
     )
     names = [ex["name"] for ex in with_fault]
-    assert names[0] in {"Hamstring Stretch", "Hip Flexor Stretch"}
+    assert names[0] in {"허벅지 뒤 스트레칭", "골반 앞 스트레칭"}
     # painArea(grip 계열) 운동 잔존 — 후순위 (제거 아님).
-    assert any(n in {"Farmer's Walk", "Hand Grippers"} for n in names)
+    assert any(n in {"파머스 워크", "악력기 운동"} for n in names)
 
 
 def test_fault_keypoint_sets_dedup_and_cap() -> None:
@@ -206,8 +206,8 @@ def test_unknown_keypoint_set_is_graceful() -> None:
     )
     assert len(result) >= 1
     assert result[0]["name"] in {
-        "Hamstring Stretch", "Hip Flexor Stretch", "Quad Stretch",
-        "Dynamic Leg Swings", "PNF Stretch",
+        "허벅지 뒤 스트레칭", "골반 앞 스트레칭", "허벅지 앞 스트레칭",
+        "앞뒤로 다리 흔들기", "파트너 스트레칭",
     }
 
 
@@ -234,7 +234,7 @@ def test_single_defect_yields_single_exercise() -> None:
     result = map_exercises(
         None, pain_areas=[], motion_id=None, fault_keypoint_sets=["shoulder"]
     )
-    assert [ex["name"] for ex in result] == ["Push-ups"]
+    assert [ex["name"] for ex in result] == ["팔굽혀펴기"]
 
 
 def test_no_backfill_from_matched_defect_group() -> None:
@@ -248,8 +248,8 @@ def test_no_backfill_from_matched_defect_group() -> None:
     names = {ex["name"] for ex in result}
     assert not (
         names
-        & {"Overhead Press", "Scapular Depression Drills", "Arm Circles",
-           "Cross-Shoulder Stretch"}
+        & {"어깨 위로 밀기", "매달려 어깨 내리기", "팔 돌리기",
+           "어깨 뒤 스트레칭"}
     ), "백필이 살아 있다 — 같은 defect 그룹의 후순위 운동이 유입됨"
 
 
@@ -277,10 +277,10 @@ def test_findings_defect_obeys_same_per_defect_cap() -> None:
     result = map_exercises(
         _grip_trigger_inference(), pain_areas=[], motion_id=None
     )
-    assert [ex["name"] for ex in result] == ["Farmer's Walk", "Squats"]
+    assert [ex["name"] for ex in result] == ["파머스 워크", "스쿼트"]
     names = {ex["name"] for ex in result}
-    assert not (names & {"Hand Grippers", "Assisted Pull-ups", "Dead Hang",
-                         "Deadlift", "Lunges", "Calf Raises"})
+    assert not (names & {"악력기 운동", "밴드 턱걸이", "철봉 매달리기",
+                         "데드리프트", "런지", "까치발 들기"})
 
 
 def test_no_minimum_floor_constant() -> None:

@@ -670,7 +670,7 @@ contributesToOverall bool (optional, Phase 19 D-01) 해당 차원이 종합점�
 
 `RecommendedExercise[]` (Phase 13, 2026-06-16 추가 — PERS-03)
 ```
-name        string 운동명 (예: "Farmer's Walk")
+name        string 운동명 (예: "파머스 워크")
 setsReps    string 세트/반복 (예: "왕복", "8~12회")
 purpose     string 한 줄 목적 (왜 이 운동인지)
 sourceRef   string? 출처 cite (예: "NotebookLM e688fb4e [1]"). 옵셔널.

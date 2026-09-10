@@ -224,7 +224,7 @@ export interface CoachingCause {
 // docs/contract.md §4 (CoachingCause 모양 정합). 전체 라이브러리 browse 는 별도
 // app/src/data/correctiveExercises.ts (backend fixture byte-copy mirror).
 export interface RecommendedExercise {
-  name: string; // 운동명 (예: 'Farmer's Walk')
+  name: string; // 운동명 (예: '파머스 워크')
   setsReps: string; // 세트/반복 (예: '왕복', '8~12회')
   purpose: string; // 한 줄 목적 (왜 이 운동인지)
   sourceRef?: string; // 출처 cite (예: 'NotebookLM e688fb4e [1]'). 옵셔널.

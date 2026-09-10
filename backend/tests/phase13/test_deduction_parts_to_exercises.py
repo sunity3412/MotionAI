@@ -131,8 +131,8 @@ def test_collapse_gate_removes_the_part_because_record_is_gone() -> None:
     no_knee_names = {e["name"] for e in map_exercises(
         None, pain_areas=[], motion_id=None, deduction_keypoint_sets=without_knee
     )}
-    assert "Hamstring Stretch" in knee_names
-    assert "Hamstring Stretch" not in no_knee_names
+    assert "허벅지 뒤 스트레칭" in knee_names
+    assert "허벅지 뒤 스트레칭" not in no_knee_names
 
 
 # ── (2) 부위가 운동 종류에 반영되는가 ─────────────────────────────────────────
@@ -161,9 +161,9 @@ def test_representative_doc_gets_leg_exercises_not_only_shoulder() -> None:
             deduction_keypoint_sets=deduction_sets,
         )
     ]
-    assert names == ["Push-ups", "Hamstring Stretch", "Squats", "Lateral Leg Raise"]
+    assert names == ["팔굽혀펴기", "허벅지 뒤 스트레칭", "스쿼트", "옆으로 다리 들기"]
     # 무릎(leg) 계열이 실제로 들어왔다 — 어깨 일색이 아니다.
-    assert {"Hamstring Stretch", "Squats"} <= set(names)
+    assert {"허벅지 뒤 스트레칭", "스쿼트"} <= set(names)
 
 
 def test_deduction_parts_lead_over_vision_fault_parts() -> None:
@@ -178,9 +178,9 @@ def test_deduction_parts_lead_over_vision_fault_parts() -> None:
             deduction_keypoint_sets=["leg"],
         )
     ]
-    assert names[0] in {"Hamstring Stretch", "Squats"}
+    assert names[0] in {"허벅지 뒤 스트레칭", "스쿼트"}
     # vision fault 유래 운동은 제거되지 않고 후순위 유지.
-    assert "Farmer's Walk" in names
+    assert "파머스 워크" in names
 
 
 def test_deduction_sets_none_is_byte_identical() -> None:
@@ -209,4 +209,4 @@ def test_defect_not_duplicated_across_sources() -> None:
     )
     names = [e["name"] for e in result]
     assert len(names) == len(set(names))
-    assert names.count("Hamstring Stretch") == 1
+    assert names.count("허벅지 뒤 스트레칭") == 1

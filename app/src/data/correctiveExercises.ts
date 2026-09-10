@@ -47,7 +47,7 @@ export const CORRECTIVE_SCHEMA_VERSION = (data as CorrectiveLibrary).schemaVersi
 //
 // name 중복 제거는 **여기서 하지 않는다** (quick-260910-pbs — 종전 주석은 제거를
 // 약속했으나 구현이 없었고, 여기서 제거하면 안 된다는 것이 그 사이 밝혀졌다):
-// 라이브러리는 같은 운동을 여러 그룹이 공유하므로(Squats = 다리 펴기 + 둔근 안정화
+// 라이브러리는 같은 운동을 여러 그룹이 공유하므로(스쿼트 = 다리 펴기 + 둔근 안정화
 // + 무릎 통증), 전체 목록에서 먼저 잘라내면 **표시되지 않는 그룹이 이름을 가져가**
 // 정작 보여줄 그룹에서 그 운동이 사라진다. 그래서 중복 제거는 분석별 선택 이후에
 // buildExerciseSections(lib/exerciseSections.ts)가 수행한다 — 사용자가 보는 목록에

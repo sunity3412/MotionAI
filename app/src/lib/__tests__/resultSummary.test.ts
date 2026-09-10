@@ -138,20 +138,20 @@ test('배지는 표의 실제 매핑에서 나온다 — 없으면 null (지어�
     defects: {
       grip_weak: {
         triggers: { jointHints: ['손목', '전완근', '악력'] },
-        exercises: [{ name: "Farmer's Walk" }, { name: 'Hand Grippers' }],
+        exercises: [{ name: "파머스 워크" }, { name: '악력기 운동' }],
       },
       no_hint: { triggers: { jointHints: [] }, exercises: [{ name: '힌트없음' }] },
     },
   };
-  assert.equal(exerciseBadgeLabel("Farmer's Walk", table), '손목 보완');
-  assert.equal(exerciseBadgeLabel('Hand Grippers', table), '손목 보완');
+  assert.equal(exerciseBadgeLabel("파머스 워크", table), '손목 보완');
+  assert.equal(exerciseBadgeLabel('악력기 운동', table), '손목 보완');
   assert.equal(exerciseBadgeLabel('힌트없음', table), null, 'jointHints 가 비면 배지 없음');
   for (const bad of ['없는 운동', '', null, undefined]) {
     assert.equal(exerciseBadgeLabel(bad as never, table), null, String(bad));
   }
   // 표 자체가 없어도 크래시 0
-  assert.equal(exerciseBadgeLabel("Farmer's Walk", null), null);
-  assert.equal(exerciseBadgeLabel("Farmer's Walk", {}), null);
+  assert.equal(exerciseBadgeLabel("파머스 워크", null), null);
+  assert.equal(exerciseBadgeLabel("파머스 워크", {}), null);
 });
 
 test('실제 fixture 와 lockstep — 표 모양이 바뀌면 여기서 깨진다', async () => {
@@ -160,5 +160,5 @@ test('실제 fixture 와 lockstep — 표 모양이 바뀌면 여기서 깨진�
   const path = await import('node:path');
   const p = path.join(import.meta.dirname, '..', '..', 'data', 'corrective_exercises.json');
   const table = JSON.parse(fs.readFileSync(p, 'utf8'));
-  assert.equal(exerciseBadgeLabel("Farmer's Walk", table), '손목 보완');
+  assert.equal(exerciseBadgeLabel("파머스 워크", table), '손목 보완');
 });

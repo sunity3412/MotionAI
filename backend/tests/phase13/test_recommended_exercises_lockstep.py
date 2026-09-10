@@ -27,13 +27,13 @@ class _FakeDocRef:
 def _valid_exercises() -> list[dict]:
     return [
         {
-            "name": "Farmer's Walk",
+            "name": "파머스 워크",
             "setsReps": "왕복",
             "purpose": "전완근/악력 강화",
             "sourceRef": "NotebookLM e688fb4e [1]",
         },
         {
-            "name": "Planks",
+            "name": "플랭크",
             "setsReps": "30~60s",
             "purpose": "코어 안정화",
             "sourceRef": "NotebookLM e688fb4e [3]",

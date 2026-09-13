@@ -62,7 +62,8 @@ _AUTH_TOKEN = os.environ.get("RUNPOD_AUTH_TOKEN", "")
 #
 # 따뜻한(warm) Pod 재사용은 프로세스가 이미 떠 있어 /health 200 만으로는 **어떤
 # 커밋의 코드가 도는지·모델이 올라왔는지** 를 증명하지 못한다. 그래서 /health 에
-# ①코드 커밋 SHA ②핵심 env 플래그(PR_INVERSION_ENABLED / RTMW_DETERMINISTIC)
+# ①코드 커밋 SHA ②핵심 env 플래그(PR_INVERSION_ENABLED / RTMW_DETERMINISTIC /
+#    ROT180_INVERSION_ENABLED — quick-260913-udr, 기본 off)
 # ③model-init canary(어댑터/엔진 로드 여부) 를 함께 실어, 33-04/06/07 이 "정확히
 # 이 커밋 + 이 모델" 을 확인할 수 있게 한다.
 #
@@ -323,6 +324,10 @@ def health() -> dict:
         "envFlags": {
             "PR_INVERSION_ENABLED": _env_flag("PR_INVERSION_ENABLED"),
             "RTMW_DETERMINISTIC": _env_flag("RTMW_DETERMINISTIC"),
+            # quick-260913-udr: bool 만 (env 원문 노출 금지 — T-udr-01). start_server.sh 가
+            # =0 으로 박제하므로 정본 기동이면 false, 줄이 빠진 맨손 기동이면 역시 false —
+            # 둘의 구분은 값이 아니라 기동 경로(md5 대조)로 한다.
+            "ROT180_INVERSION_ENABLED": _env_flag("ROT180_INVERSION_ENABLED"),
         },
         "modelInitCanary": _model_init_canary(),
     }

@@ -126,6 +126,49 @@ else
   rm -f "$DUE_FILE" 2>/dev/null || true
 fi
 
+# ── 3-4. 단계 실패 표면화 (quick-260913-vqr) ─────────────────────────────────
+# 왜: 수집 단계가 2026-08-24 부터 3주간 exit 1 이었는데(359b9de5 이후 sunity_shared
+# 경로 결손) 아무도 몰랐다. rc 는 FLYWHEEL-LOG 마지막 열에 매주 적히고 있었지만 그
+# 열을 읽는 사람이 없었다 — 로그는 증거이지 알림이 아니다. TRAINING-DUE.md 와 같은
+# 기전으로: 하나라도 rc!=0 이면 마커를 남기고 알림, 전부 0 이면 마커를 지운다
+# (낡은 마커가 잘못 알리는 것을 막는다). rc 는 위에서 이미 모았으니 읽기만 한다.
+# set -e 를 넣지 않는 이유도 같다 — 한 단계 실패가 다음 단계를 막으면 안 된다.
+BROKEN_FILE="$ROOT/.planning/FLYWHEEL-BROKEN.md"
+broken=""
+[ "$watch_rc" -eq 0 ]     || broken="${broken}수집(rc=$watch_rc) "
+[ "$harvest_rc" -eq 0 ]   || broken="${broken}수확(rc=$harvest_rc) "
+[ "$upload_rc" -eq 0 ]    || broken="${broken}반출(rc=$upload_rc) "
+[ "$report_rc" -eq 0 ]    || broken="${broken}분석(rc=$report_rc) "
+[ "$report_up_rc" -eq 0 ] || broken="${broken}분석반출(rc=$report_up_rc) "
+broken="${broken% }"
+if [ -n "$broken" ]; then
+  # $1 단계  $2 rc  $3 로그  $4 재현 커맨드 — rc=0 인 단계는 아무것도 쓰지 않는다.
+  broken_section() {
+    [ "$2" -eq 0 ] && return 0
+    printf '\n## %s — rc=%s\n\n재현: `%s`\n\n`%s` 마지막 20줄:\n\n```\n' "$1" "$2" "$4" "$3"
+    tail -n 20 "$3" 2>/dev/null || printf '(로그 없음)\n'
+    printf '```\n'
+  }
+  HARVEST_MAPS="--motion-alias $MAPS/motion_alias.json --analysis-motion-map $MAPS/analysis_motion_map.json --motion-map $MAPS/motion_map.json --consent-map $MAPS/consent_map.json"
+  {
+    printf '# 플라이휠 단계 실패 — %s\n\n' "$STAMP"
+    printf '주간 사이클은 돌았지만 단계가 실패했다. **다음 세션에서 belle 에게 알릴 것.**\n\n'
+    printf '실패: %s\n\n' "$broken"
+    printf '전 단계가 성공하면 사이클이 이 파일을 스스로 지운다. 주간 rc 이력 = .planning/FLYWHEEL-LOG.md 마지막 열.\n'
+    printf '수집의 `--run` 은 Gemini 과금 — 재현은 `--dry-run` 으로(같은 import 오류는 dry-run 에서도 난다).\n'
+    broken_section "수집"     "$watch_rc"     /tmp/_fw_watch.log   "PHASE22_BELLE_GREENLIGHT=1 $PY backend/scripts/phase22_watch.py --dry-run"
+    broken_section "수확"     "$harvest_rc"   /tmp/_fw_harvest.log "$PY backend/training/datagen/harvest_eye.py --dry-run --readjudicate --with-s3 $HARVEST_MAPS"
+    broken_section "반출"     "$upload_rc"    /tmp/_fw_upload.log  "$PY backend/training/datagen/harvest_eye.py --upload-media --run"
+    broken_section "분석"     "$report_rc"    /tmp/_fw_report.log  "$PY backend/training/datagen/harvest_reports.py --run"
+    broken_section "분석반출" "$report_up_rc" /tmp/_fw_report.log  "$PY backend/training/datagen/harvest_reports.py --upload-media --run"
+  } > "$BROKEN_FILE"
+  note "[flywheel] ★단계 실패 — $BROKEN_FILE 생성 ($broken)"
+  osascript -e "display notification \"단계 실패: $broken\" with title \"Sunity 플라이휠\"" 2>/dev/null || true
+else
+  # 전부 0 — 낡은 마커를 지운다(TRAINING-DUE 와 같은 규율).
+  rm -f "$BROKEN_FILE" 2>/dev/null || true
+fi
+
 # ── 4. 원장 변경 커밋 (데이터가 리포에 남아야 다음 사이클이 이어진다) ────────
 committed="no"
 if ! git diff --quiet -- backend/training/data 2>/dev/null; then

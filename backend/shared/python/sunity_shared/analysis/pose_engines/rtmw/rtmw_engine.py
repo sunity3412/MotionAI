@@ -58,6 +58,18 @@ _YOLOX_DET_ENV = "YOLOX_ONNX_PATH"
 # 제한 통합 게이트(32-15 Task 2) 통과 후에만 Pod start_server.sh 에서 on.
 _PR_INVERSION_ENV = "PR_INVERSION_ENABLED"
 
+# quick-260913-udr: rot180 인버전 2-pass 게이트 — 코드 기본 off. 켜는 곳은 Pod start_server.sh
+# (지금은 =0 으로 박제, belle 승인 후 1). "1"/"true" 일 때만 estimate 가 1차 추론 후 인버전
+# 검출→프레임 180° 회전 2차 추론→좌표 역매핑을 수행한다. 실측(MEASUREMENTS §2-§4, 로컬 CPU):
+# 붕괴 9→0 · 뼈위반 p90 2.108→0.776 · boneCV −23% (운영 ON 인 PR 워프는 −2%). GPU 실경로 미검증.
+# 두 플래그가 같이 켜지면 회전이 이기고 PR 워프는 돌지 않는다 (R-3, 3패스 금지 — estimate 디스패처).
+_ROT180_INVERSION_ENV = "ROT180_INVERSION_ENABLED"
+
+
+def _env_on(name: str) -> bool:
+    """env 플래그 판정 — PR 선례와 같은 문자열("1"/"true", strip+lower). 새 플래그에만 쓴다."""
+    return os.environ.get(name, "").strip().lower() in ("1", "true")
+
 
 # ── LicenseViolationError ─────────────────────────────────────────────────
 
@@ -196,6 +208,11 @@ class RTMWPoseEngine:
         워프 2차 추론으로 좌표 교체 — 미검출/off 경로는 1차 결과 그대로
         (바이트 동일 — 비인버전 무회귀의 구조 보장).
 
+        quick-260913-udr: 1차 추론 후 2-pass 디스패처. ROT180_INVERSION_ENABLED 가 켜져
+        있으면 _maybe_second_pass_rot180 (프레임 180° 회전 2차) 로, 아니면 종전대로
+        _maybe_second_pass_inversion (PR 워프) 로 간다. 두 플래그 동시 on 이면 회전이
+        이기고 PR 훅은 호출되지 않는다 (경고 1줄, 3패스 금지). 두 플래그 off = 1차 그대로.
+
         Args:
             frames: (T, H, W, 3) RGB uint8 배열.
             pole_axis: PoleDetector 산출 PoleAxis (D-10/H-3).
@@ -220,7 +237,16 @@ class RTMWPoseEngine:
                 "영상에 사람이 없거나 카메라 각도를 확인하세요."
             )
 
-        # 32-15 PR 인버전 2-pass 조건부 훅 — 1차 추론 "후" 삽입 (순환 의존 0).
+        # 2-pass 디스패처 — 1차 추론 "후" 삽입 (순환 의존 0). rot180 플래그가 먼저다:
+        # 켜져 있으면 회전 2차(quick-260913-udr)만 돌고 PR 워프 훅은 호출하지 않는다
+        # (R-3: §4 실측 회전 −23% vs PR −2%. rot+pr 은 3패스라 후속 검토 대상).
+        if _env_on(_ROT180_INVERSION_ENV):
+            if _env_on(_PR_INVERSION_ENV):
+                log.warning("rot180_inversion both_flags_on pr_warp_skipped=true")
+            return self._maybe_second_pass_rot180(
+                frames, raw_first, pose_frames, pole_axis, W, H
+            )
+        # 32-15 PR 인버전 2-pass 조건부 훅 (종전 경로 그대로).
         return self._maybe_second_pass_inversion(
             frames, raw_first, pose_frames, pole_axis, W, H
         )
@@ -387,6 +413,129 @@ class RTMWPoseEngine:
         log.info(
             "pr_inversion applied=true replaced=%d/%d second_pass_ms=%d",
             replaced, T, second_pass_ms,
+        )
+        if replaced == 0:
+            return pose_frames_first
+
+        pose_frames_second, _ = self._build_pose_frames(
+            merged, image_width, image_height, pole_axis
+        )
+        return pose_frames_second
+
+    def _maybe_second_pass_rot180(
+        self,
+        frames: np.ndarray,
+        raw_first: list[tuple[np.ndarray, np.ndarray] | None],
+        pose_frames_first: list[PoseFrame],
+        pole_axis: PoleAxis,
+        image_width: int,
+        image_height: int,
+    ) -> list[PoseFrame]:
+        """rot180 인버전 2-pass 조건부 훅 (quick-260913-udr — MEASUREMENTS §2·§4·§5 근거).
+
+        구조 (PR 선례와 같은 안전 규약 — 순환 의존 0, 좌표계 불변):
+          검출 입력 = 1차 추론 결과(inversion_warp.detect_inversion 재사용) → 참일 때만
+          프레임 픽셀을 180° 회전 → 같은 _infer_raw 로 2차 추론(**검출부터 다시** — §2 분해:
+          붕괴 소멸은 포즈 몫, conf/뼈위반은 검출기 몫이라 crop 만 돌리면 절반) →
+          좌표를 unrotate_points_180 으로 원본 프레임 공간에 복원 → 프레임 단위 채택
+          (choose_pass: 1차 미검출 미채택 R-5 / 2차 미검출·비유한·범위 이탈 → 1차 유지).
+          신뢰도는 2차 것. 거짓/off/실패 경로 전부 1차 결과 그대로 (바이트 동일).
+
+        계기 (§5): 1차와 역매핑된 2차가 둘 다 있는 프레임마다 body-17 불일치를 재서
+          **로그로만** 남긴다 — 채택 여부와 무관하게 잰다(계기는 판정이 아니다). 어디에도
+          저장하지 않는다 (R-6: PoseFrame 은 TS/contract 3벌 lockstep 인 frozen dataclass,
+          읽는 소비처가 없다 — 소비처가 생기면 그때 계약을 연다). 판별력은 conf 와 대등
+          (AUROC 0.793 vs 0.807, 독립 기준) — 값어치는 이봉 분포의 골짜기다. 임계는 두지 않는다.
+          torso 정규화는 클립 중앙값 하나 (inversion_rot180 docstring 정정 1).
+
+        좌우 인덱스 스왑 없음: 180° 는 det=+1 회전 — inversion_rot180 docstring 참조.
+
+        게이트: ROT180_INVERSION_ENABLED env — 코드 기본 off. 켜는 곳은 Pod start_server.sh
+          (belle 승인 후). GPU 실경로는 미검증 — 실측은 로컬 CPU onnxruntime 이었다.
+        """
+        # 순수 유틸 lazy import (어댑터 관례) — off 경로 import 비용 0.
+        from ...inversion_rot180 import (  # noqa: PLC0415
+            REASON_ADOPTED,
+            REASON_FIRST_MISSING,
+            REASON_SECOND_MISSING,
+            REASON_SECOND_NONFINITE,
+            REASON_SECOND_OUT_OF_BOUNDS,
+            REASONS,
+            choose_pass,
+            clip_torso_median,
+            disagreement_summary,
+            joint_disagreement,
+            rotate_frames_180,
+            unrotate_points_180,
+        )
+        from ...inversion_warp import detect_inversion  # noqa: PLC0415
+
+        T = len(raw_first)
+        kxy_first = np.full((T, 133, 2), np.nan)
+        ks_first = np.zeros((T, 133))
+        for t, entry in enumerate(raw_first):
+            if entry is not None:
+                kxy_first[t] = entry[0][:, :2]
+                ks_first[t] = entry[1]
+
+        det = detect_inversion(kxy_first, ks_first)
+        log.info(
+            "rot180_inversion detect is_inverted=%s ratio=%.3f run=%d valid=%d/%d",
+            det.is_inverted, det.inverted_ratio, det.longest_run_frames,
+            det.valid_frames, det.total_frames,
+        )
+        if not det.is_inverted:
+            return pose_frames_first  # 미검출 = 기존 경로 그대로 (안전 기본 분기)
+
+        t0 = time.perf_counter()
+        try:
+            rotated = rotate_frames_180(np.asarray(frames))
+            raw_second = self._infer_raw(rotated)
+        except Exception:  # noqa: BLE001 - 2차는 보너스다. 실패가 분석을 죽이면 안 된다 → 1차 유지
+            log.exception("rot180_inversion 2차 추론 실패 — 1차 결과 유지")
+            return pose_frames_first
+
+        merged = list(raw_first)
+        reasons = {r: 0 for r in REASONS}
+        kxy_second = np.full((T, 133, 2), np.nan)  # 역매핑된 2차 좌표 (계기용)
+        for t in range(T):
+            second_back = None
+            if raw_second[t] is not None:
+                kps2, scores2 = raw_second[t]
+                kps_back = kps2.copy()
+                # 133 전량 역매핑 — raw 보존층까지 좌표공간 일치 (공간 혼합 금지, R-7).
+                kps_back[:, :2] = unrotate_points_180(kps2[:, :2], image_width, image_height)
+                second_back = (kps_back, scores2)
+                kxy_second[t] = kps_back[:, :2]
+            choice = choose_pass(raw_first[t], second_back, image_width, image_height)
+            reasons[choice.reason] += 1
+            if choice.use_second:
+                merged[t] = second_back  # 신뢰도 = 2차 것 (PR 선례)
+
+        # 계기 — 채택과 무관하게 1차·2차 둘 다 있는 (t, j) 마다 잰다. 로그만 (R-6).
+        # 이 값을 쓰는 곳이 생기면 그때 PoseFrame 계약을 연다.
+        disagreement = joint_disagreement(kxy_first, kxy_second)
+        summary = disagreement_summary(disagreement)
+        log.info(
+            "rot180_inversion disagreement valid_pairs=%d p50=%.3f p90=%.3f max=%.3f torso_px=%.1f",
+            summary["valid_pairs"], summary["p50"], summary["p90"], summary["max"],
+            clip_torso_median(kxy_first, kxy_second),
+        )
+        log.info(
+            "rot180_inversion disagreement_by_joint %s",
+            " ".join(
+                f"{name}={p50:.3f}/{p90:.3f}" for name, (p50, p90) in summary["per_joint"].items()
+            ),
+        )
+
+        replaced = reasons[REASON_ADOPTED]
+        second_pass_ms = int((time.perf_counter() - t0) * 1000)
+        log.info(
+            "rot180_inversion applied=true replaced=%d/%d adopted=%d first_missing=%d "
+            "second_missing=%d second_nonfinite=%d second_out_of_bounds=%d second_pass_ms=%d",
+            replaced, T, reasons[REASON_ADOPTED], reasons[REASON_FIRST_MISSING],
+            reasons[REASON_SECOND_MISSING], reasons[REASON_SECOND_NONFINITE],
+            reasons[REASON_SECOND_OUT_OF_BOUNDS], second_pass_ms,
         )
         if replaced == 0:
             return pose_frames_first

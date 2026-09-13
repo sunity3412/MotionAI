@@ -29,9 +29,12 @@
 > Pod 에서는 `source /workspace/aws_env.sh && bash /workspace/start_server.sh`.
 >
 > ⚠ 아래 4)번의 맨손 `uvicorn` 한 줄에는 **동작 env 플래그가 빠져 있다**
-> (`PR_INVERSION_ENABLED` / `RTMW_DETERMINISTIC` / Gemini 코치·veto 계열).
+> (`PR_INVERSION_ENABLED` / `RTMW_DETERMINISTIC` / `ROT180_INVERSION_ENABLED` /
+> Gemini 코치·veto 계열).
 > 미주입은 조용한 OFF 함정이라 결과가 달라진 줄 모른 채 넘어간다 — 실제로
 > 인버전(32-15)·렌더 정렬 결정론(08-08) 이 이 경로로 두 번 누락됐다.
+> `ROT180_INVERSION_ENABLED` 는 off 가 기본이라 지금은 누락돼도 그 함정이 아니지만,
+> 켠 뒤(quick-260913-udr 후속, belle 승인)에는 같은 함정이 된다.
 > 맨손 기동은 스모크용으로만 쓰고, 분석·판정용 기동은 정본 스크립트로 할 것.
 
 ```bash

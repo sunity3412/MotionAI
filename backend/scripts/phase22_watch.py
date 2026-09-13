@@ -41,6 +41,9 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND / "scripts"))
+# launchd 가 직접 실행하는 진입점 — 하위 수집기가 sunity_shared(curate_vision 경유,
+# 359b9de5) 를 쓰므로 여기서도 깐다. collect_phase22_instagram.py 같은 자리 주석 참조.
+sys.path.insert(0, str(BACKEND / "shared" / "python"))
 
 import collect_phase22_youtube as yt  # 키 스킴·매니페스트·레지스트리·필터 재사용.
 

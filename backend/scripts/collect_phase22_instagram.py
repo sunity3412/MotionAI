@@ -22,6 +22,12 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND / "scripts"))
 sys.path.insert(0, str(BACKEND / "training"))
+# 왜 shared/python 까지: curate_vision 이 sunity_shared.gemini.config 를 import 한다
+# (359b9de5, 2026-08-18 — Gemini 모델 문자열을 정본 한 곳으로 모음). 이 경로가 빠져
+# 있어 launchd 주간 수집이 08-24 부터 3주간 ModuleNotFoundError 로 exit 1 이었다
+# (.planning/FLYWHEEL-LOG.md rc 열). pytest 는 conftest 가 깔아줘 안 보였다 —
+# 진입점은 스스로 깔아야 한다(assert_falsepositive_gate.py:46 관례).
+sys.path.insert(0, str(BACKEND / "shared" / "python"))
 
 import collect_phase22_youtube as yt  # 키 스킴·매니페스트·레지스트리 재사용.
 from datagen import curate_vision

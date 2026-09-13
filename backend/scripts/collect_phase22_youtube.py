@@ -35,6 +35,10 @@ from pathlib import Path
 import yaml
 
 BACKEND = Path(__file__).resolve().parents[1]
+# curate_vision(--curate/--collect 에서 지연 import) 이 sunity_shared.gemini.config 를
+# 쓴다(359b9de5). 단독 실행 시 이 경로가 없으면 ModuleNotFoundError —
+# collect_phase22_instagram.py 의 같은 자리 주석 참조(3주 수집 사망의 원인).
+sys.path.insert(0, str(BACKEND / "shared" / "python"))
 SOURCES_YAML = BACKEND / "scripts" / "phase22_sources.yaml"
 MANIFEST_PATH = BACKEND / "training" / "data" / "manifest.json"
 

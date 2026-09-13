@@ -271,8 +271,18 @@ class VisionGate:
             raw = self._call_gemini(url_or_path, profile=profile)
             verdict = normalize_verdict(raw)
         except Exception:  # noqa: BLE001
-            log.exception("Gemini 선별 실패 — unknown 보류")
-            verdict = normalize_verdict(None)
+            # ★ 실패는 캐시하지 않는다 (2026-09-13, 한 달치 수집 재개 전 수리).
+            # 이 자리의 주석은 원래 "unknown 보류"였지만 구현이 그렇지 않았다:
+            # normalize_verdict(None) 은 비어있지 않은 dict 라 decide() 가 unknown 이
+            # 아니라 **reject** 로 읽는다(실측: decide(normalize_verdict(None)).status
+            # == "reject", decide(None) 만 unknown). 그 값을 아래에서 캐시에 저장했으므로
+            # 다음 실행은 캐시 히트로 재호출을 건너뛴다 — 즉 일시적 rate-limit·네트워크
+            # 실패가 그 후보를 **영구 폐기**했다. 실측 피해 33건(IG 24 / YT 9).
+            # 대량 수집은 rate-limit 이 가장 잘 걸리는 조건이라 그때 손실이 커진다.
+            # 캐시 쓰기 없이 돌려주면 다음 실행이 다시 묻는다. 영구 실패 영상은 매 회차
+            # 1회씩 재시도되지만(작은 비용), 좋은 후보를 영영 잃는 것보다 낫다.
+            log.exception("Gemini 선별 실패 — 캐시하지 않고 보류(다음 실행에서 재시도)")
+            return normalize_verdict(None)
         self._cache[key] = verdict
         self._save_cache()
         return verdict

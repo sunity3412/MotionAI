@@ -245,3 +245,61 @@ def test_fault_demo_prompt_static_fence():
     assert '"fault_desc"' in p
     assert "편집" in p
     assert "자막" in p
+
+
+def test_gemini_failure_is_not_cached(tmp_path, monkeypatch):
+    """Gemini 호출 실패는 캐시에 남기지 않는다 — 다음 실행이 반드시 재시도한다.
+
+    왜 이 테스트가 있는가 (2026-09-13 실측):
+    `gate()` 의 except 블록 주석은 "unknown 보류" 라고 쓰여 있었지만 구현이 그렇지
+    않았다. `normalize_verdict(None)` 은 값이 전부 falsy 이지만 **비어있지 않은 dict**
+    라서 `decide()` 가 `unknown`(재시도 가능)이 아니라 **`reject`(영구 폐기)** 로 읽는다.
+    그 값이 캐시에 저장됐으므로 다음 실행은 캐시 히트로 Gemini 를 다시 부르지 않았다.
+    결과: 일시적 rate-limit·네트워크 실패 한 번이 그 영상을 영영 학습셋 밖으로 밀어냈다.
+    수집 원장 실측 피해 = 969건 중 33건.
+
+    대량 수집(한 달치 따라잡기)이 바로 rate-limit 이 가장 잘 걸리는 조건이라
+    이 회귀는 반드시 막아야 한다.
+    """
+    monkeypatch.setattr(cv, "_load_api_key", lambda: "fake-key")
+    cache_file = tmp_path / "verdicts.json"
+    gate = cv.VisionGate(cache_path=cache_file)
+    gate._client = object()
+
+    calls: list[str] = []
+
+    def boom(url, profile="default"):
+        calls.append(url)
+        raise RuntimeError("rate limit")
+
+    monkeypatch.setattr(gate, "_call_gemini", boom)
+
+    first = gate.gate("vidX", "https://youtu.be/vidX")
+    assert cv.decide(first, profile="default").keep is False
+    # ★ 핵심: 실패가 캐시에 박히지 않았다.
+    assert cv.cache_key("vidX") not in gate._cache
+
+    # 그래서 다음 호출이 캐시 히트로 건너뛰지 않고 실제로 재시도한다.
+    gate.gate("vidX", "https://youtu.be/vidX")
+    assert len(calls) == 2, "실패가 캐시되면 2회차가 캐시 히트로 건너뛴다 — 영구 폐기 회귀"
+
+    # 성공하면 그때는 캐시된다 (과금 방어는 유지).
+    monkeypatch.setattr(gate, "_call_gemini", lambda url, profile="default": {
+        "keep": True, "single_person_pole": True, "bucket": "fault", "reason": "ok",
+    })
+    ok = gate.gate("vidX", "https://youtu.be/vidX")
+    assert gate._cache[cv.cache_key("vidX")] == ok
+    assert cv.decide(ok, profile="default").status == "keep"
+
+
+def test_failure_verdict_would_be_reject_not_unknown():
+    """실패 verdict 가 왜 위험했는지를 박제한다 — decide() 가 reject 로 읽는다.
+
+    이 성질 자체는 고치지 않았다(다른 호출처가 의존할 수 있다). 대신 위 테스트가
+    '그 값을 캐시하지 않는다' 를 지킨다. 이 성질이 바뀌면 위 수리의 전제가 달라지므로
+    같이 보이도록 남긴다.
+    """
+    failure = cv.normalize_verdict(None)
+    assert failure, "비어있지 않은 dict 라서 decide() 가 unknown 으로 못 읽는다"
+    assert cv.decide(failure, profile="default").status == "reject"
+    assert cv.decide(None, profile="default").status == "unknown"

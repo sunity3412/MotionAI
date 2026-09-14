@@ -77,11 +77,57 @@ def _angle_deg(seg: np.ndarray) -> float:
     return math.degrees(math.atan2(x2 - x1, y2 - y1))
 
 
+def measure_width(frames: np.ndarray, *, top: float = 0.05, bottom: float = 0.35,
+                  grad_thresh: float = 6.0, max_w: int = 30) -> dict | None:
+    """폴 폭을 행마다 직접 잰다 — **폭은 이 함수로만 잴 것.**
+
+    ★ `find_pole` 의 쌍 간격을 폭으로 쓰면 안 된다. 2026-09-14 에 그걸로
+    22.76px 을 냈는데 실제는 6.0px 이었다(3.8배). 폴 실루엣 한 쌍이 아니라
+    폴 엣지와 배경 엣지를 짝지은 탓이다. 물리 검증으로 잡혔다 —
+    0.506 px/mm 이면 같은 프레임의 몸통 66.9px 이 13cm 가 된다(성인은 45~52cm).
+
+    방법: 사람이 없는 위쪽 구간에서 행별 밝기 미분을 보고
+    '강한 하강 엣지 → 그 오른쪽의 강한 상승 엣지' 한 쌍을 잡는다.
+    폴은 배경보다 어두운 금속 기둥이라 이 부호 순서가 성립한다.
+
+    검증: 45mm 로 나눈 자로 몸통을 재면 50.2cm — 해부학적으로 맞는다.
+    """
+    bg = np.median(frames, axis=0).astype(np.uint8)
+    g = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY).astype(float)
+    h, w = g.shape
+    widths, centers = [], []
+    for y in range(int(h * top), int(h * bottom)):
+        d = np.gradient(g[y])
+        for x in range(int(w * 0.30), int(w * 0.75)):
+            if d[x] >= -grad_thresh:
+                continue
+            for x2 in range(x + 2, min(x + max_w, w - 1)):
+                if d[x2] > grad_thresh:
+                    widths.append(x2 - x)
+                    centers.append((x + x2) / 2)
+                    break
+            break
+    if not widths:
+        return None
+    arr = np.array(widths, dtype=float)
+    med = float(np.median(arr))
+    return {
+        "width_px": med,
+        "x_center": float(np.median(centers)),
+        "n_rows": int(len(arr)),
+        "n_agree": int((np.abs(arr - med) <= 3).sum()),
+        "p10_p90": (float(np.percentile(arr, 10)), float(np.percentile(arr, 90))),
+    }
+
+
 def find_pole(frames: np.ndarray, *, pair_tol_deg: float = 2.0,
               min_w: float = 2.0, max_w: float = 40.0) -> dict | None:
-    """평행 엣지쌍으로 폴을 찾는다. 각도 prior 없음.
+    """평행 엣지쌍으로 폴 **축**을 찾는다. 각도 prior 없음.
 
-    반환: angle_deg(세로 대비 기울기) · width_px(두 엣지 간격) · x_center · n_pairs
+    ★ 반환되는 width_px 는 신뢰할 수 없다 — 폭은 `measure_width` 를 쓸 것.
+    이 함수는 angle_deg(롤 측정, 평균오차 ≈0.7°) 용도로만 검증됐다.
+
+    반환: angle_deg(세로 대비 기울기) · width_px(**비신뢰**) · x_center · n_pairs
     """
     bg = np.median(frames, axis=0).astype(np.uint8)          # 사람 제거
     gray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
@@ -133,15 +179,24 @@ def main() -> None:
         frames = load_frames(path)
         name = path.rsplit("/", 1)[-1]
         r = find_pole(frames)
+        wm = measure_width(frames)
         print(f"\n=== {name}  ({frames.shape[0]}프레임 {frames.shape[2]}x{frames.shape[1]}) ===")
         if r is None:
-            print("  폴 미검출")
+            print("  폴 축 미검출")
+        else:
+            print(f"  축 기울기 {r['angle_deg']:+.2f}°   "
+                  f"쌍 {r['n_pairs']}/{r['n_segments']}선")
+        if wm is None:
+            print("  폭 미측정")
             continue
-        pxmm = r["width_px"] / a.diameter
-        print(f"  기울기 {r['angle_deg']:+.2f}°   폭 {r['width_px']:.2f}px   "
-              f"x중심 {r['x_center']:.0f}px   쌍 {r['n_pairs']}/{r['n_segments']}선")
-        print(f"  → px-per-mm {pxmm:.4f}  (지름 {a.diameter:.0f}mm 가정, 폴 평면 한정)")
-        print(f"  → 1cm 이 {pxmm*10:.2f}px")
+        pxmm = wm["width_px"] / a.diameter
+        print(f"  폭 {wm['width_px']:.1f}px  x중심 {wm['x_center']:.0f}px  "
+              f"(표본 {wm['n_rows']}행, ±3px 내 {wm['n_agree']}행, "
+              f"10~90% {wm['p10_p90'][0]:.0f}~{wm['p10_p90'][1]:.0f}px)")
+        print(f"  → px-per-mm {pxmm:.4f}  |  1cm = {pxmm*10:.2f}px"
+              f"   (지름 {a.diameter:.0f}mm · 폴 평면 한정)")
+        print(f"  → 몸통 66.9px 환산 {66.9/(pxmm*10):.1f}cm  "
+              f"(성인 어깨↔골반 45~52cm 면 타당)")
 
         if a.roll_test:
             print(f"  {'가한 롤':>8}{'검출 기울기':>13}{'따라온 양':>12}{'폭':>9}")

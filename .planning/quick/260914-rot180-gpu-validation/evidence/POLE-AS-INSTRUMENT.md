@@ -2,8 +2,9 @@
 
 전략 1번("폴이 자다")의 첫 증분. **운영 코드 무접촉 · GPU 불필요 · 로컬 CPU 만.**
 
-대상 = `/Users/Shared/sunity-lr-audit/user.mp4`(belle pdshape) ·
-`ref.mp4`(정은지 pdshape 기준). 둘 다 1080×1920 세로, 640 장변으로 다운샘플.
+대상 = `/Users/Shared/sunity-lr-audit/user.mp4`(belle pdshape, **2160×3840**) ·
+`ref.mp4`(정은지 pdshape 기준, **1080×1920**). 해상도가 서로 다르므로 측정은
+항상 **장변을 맞춰 정규화한 뒤** 비교한다 (스파이크 3 정정 2 참조).
 
 ---
 
@@ -145,3 +146,88 @@ backend/.venv/bin/python \
   .planning/quick/260914-rot180-gpu-validation/evidence/pole_probe.py \
   /Users/Shared/sunity-lr-audit/user.mp4 /Users/Shared/sunity-lr-audit/ref.mp4 --roll-test
 ```
+
+---
+
+# 스파이크 3 — 조사가 내 판단 세 개를 고쳤다 (2026-09-14)
+
+`pole-as-instrument-survey` 워크플로 4건 + 오케스트레이터 직접 재확인.
+
+## 정정 1 — 검출기는 프로덕션에서 line 을 **반환한다** (내가 과하게 말했다)
+
+로컬 프로덕션 doc 23건 전부 `contactMetrics.coordinateSpace='image_2d'` 이고
+`pole_line_missing` 경고 **0건** → `detect_with_line` 이 23/23 에서 line 을 냈다.
+"매번 폴백으로 떨어진다"는 아니다.
+
+**단 §1 의 결론은 그대로다**: `detected` 는 "폴이 맞다"가 아니다. 조사가 근거를
+하나 더 보탰다 — `HoughPoleDetector` 에는 **그립 프라이어가 없다**
+(`detector.py:182-200` 은 수직성·길이 필터뿐). 창틀·거울 모서리가 ±5° 를 통과하면
+동등한 자격으로 채택된다. 반면 `compare_render._detect_pole` 은 손목 x 중앙값
+프라이어를 갖고 있고 주석이 "창틀 등 배경 수직 에지 오선택 방지"라고 적어 뒀다
+(`compare_render.py:411-424`).
+
+## 정정 2 — user.mp4 는 1080×1920 이 아니라 **2160×3840** 이다
+
+머리말에 "둘 다 1080×1920" 이라 적은 것은 틀렸다. `ref.mp4` 만 1080×1920 이고
+`user.mp4` 는 그 2배다. 두 영상은 **다른 촬영 해상도**다.
+
+측정 자체는 무사하다 — 둘 다 장변 1920 으로 정규화해 쟀기 때문이다. 오히려
+**서로 다른 캡처 해상도에서 정규화 후 같은 폭(21.4 / 21.5px)이 나온 것**이라
+일관성의 의미가 더 강해진다. 다만 "같은 카메라 설정"이라는 서술은 못 한다.
+
+## 정정 3 — 폭에 약 20% 계통 불확실성이 있다
+
+조사가 부호 있는 수평 그래디언트로 독립 측정했다: ref 18px, user 35px(→1920 환산 17.5px).
+내 반치폭은 21.5 / 21.4px. **두 방법이 약 20% 어긋난다** — 폴이 ~20px 이니
+엣지 전이 폭 하나 정도의 차이다. "엣지를 어디로 정의하느냐"의 문제다.
+
+물리 검산은 내 쪽을 지지한다 — 18px 을 쓰면 몸통 최댓값이 56.6cm 로 **해부학적
+상한을 넘는다**(투영은 줄이기만 하므로 넘으면 안 된다). 21.5px 이면 47.4cm 로 들어온다.
+그래도 **스케일에 ±20% 불확실성이 있다고 적어 두는 것이 정직하다.**
+
+## ★ 새 발견 — 롤 보정 코드가 이미 있고, 도달만 못 한다
+
+```
+force_signals.py:1003  _shoulder_tilt_2d(frame, line)
+    어깨선 각도 − 폴 선 방향  ← 정확히 롤 보정된 몸통 기울기다
+force_signals.py:1021  _hip_tilt_2d(frame, line)   동일
+
+force_signals.py:1096  has_pole_aligned = bool(pose_frames[0].keypoints_3d_pole_aligned)
+force_signals.py:1119  if has_pole_aligned:   ← 3D 분기가 항상 이긴다
+```
+
+`has_pole_aligned` 는 **항상 True** 다. `rtmw_133_to_coco17.py:253-256` 의
+ImportError 폴백이 그 dict 를 raw xyz 로 채우기 때문이다. 그래서 3D 분기가
+`arcsin(z)=arcsin(0)=0` 을 내고, **전 문서 기울기 0.0** 이 된다.
+
+근본 원인은 **scipy 미설치**다 — 로컬 venv·`bootstrap_full.sh`·requirements 3개
+**전부 0건**(직접 확인).
+
+> ★ **그런데 scipy 를 깔면 해결되지 않는다.** z 가 0 인 평면 데이터를 3D 로 회전시키면
+> 의미 없는 z 가 생길 뿐이다. **올바른 수리는 반대 방향이다** — z 가 실질적으로
+> 비어 있으면 `has_pole_aligned` 를 False 로 만들어 **2D 분기로 떨어뜨린다.**
+> 그러면 이미 쓰여 있는 `_shoulder_tilt_2d` 가 폴 선 기준으로 롤 보정된 값을 낸다.
+
+## 그 밖에 조사가 찾은 것
+
+- **검출된 폴 line 의 91% 가 버려진다** — `force_signals.py:1465-1497` 의
+  `motion_unrecognized` 분기가 거리 필드를 전부 None 으로 고정한다. 실제 숫자가
+  되는 doc 은 23건 중 **2건**(climb·climbfault)뿐이다.
+- **검출 축은 정렬기에 도달조차 못 한다** — `app.py:1529` 가 하드코딩
+  `default_pole(0,1,0)` 로 pose estimate 를 끝낸 **뒤** `app.py:1549` 에서 Hough 를 돌린다.
+  정렬이 identity 인 이유가 **둘**이다(scipy 부재 + 순서).
+- **`card_gates.PoleResult.width_px` 는 폴 폭이 아니라 "검출에 쓴 프레임 너비"** 다
+  (`card_gates.py:429`). 이름만 폭인 함정.
+- **`compare_render.halfWidthNorm` 도 측정이 아니라 임계값 오프셋**이다
+  (`compare_render.py:395-406`). mm 환산도, 45mm 대조도, doc 저장도 없다.
+- cv2 는 Pod 에 있다 — 다만 의도한 설치가 아니라 **rtmlib 이 끌고 온 것**이다
+  (`bootstrap_full.sh:21`). `pod_doctor.sh` 는 cv2 도 scipy 도 검사하지 않는다.
+
+## 그래서 다음 수리는 이것이다 (작고 정확함)
+
+1. `has_pole_aligned` 를 **z 가 실제로 비어 있지 않을 때만** True 로 — 한 줄짜리 게이트.
+   그러면 이미 있는 2D 롤 보정이 살아난다.
+2. 그 2D 보정은 **폴 line 을 믿는다.** 그러니 §2 의 prior 없는 검출기가 필요하다 —
+   `HoughPoleDetector` 의 ±5° 게이트와 그립 프라이어 부재를 그대로 두면
+   틀린 선 기준으로 보정하게 된다.
+3. **둘은 한 묶음이다.** 하나만 하면 죽은 지표가 틀린 지표가 된다.

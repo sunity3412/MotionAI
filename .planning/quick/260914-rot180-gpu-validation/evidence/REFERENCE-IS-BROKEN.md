@@ -105,3 +105,56 @@ ROT180_INVERSION_ENABLED={0,1} python3 scripts/extract_reference_angles.py \
 ```
 
 산출물: `docs/ref_off.json` · `docs/ref_on.json` · `ref_angles_off.json` · `ref_angles_on.json`
+
+---
+
+# 추가 결함 — 기준 11개 중 4개가 y/z 축이 뒤바뀌어 저장됨 (2026-09-14, 폴 작업 부수 발견)
+
+폴 계기를 기준 영상 11편에 돌리다 몸통 길이가 3배 벌어지는 것이 걸려서 좌표를 열어봤다.
+
+```
+ref-foxtop         x 39.3~305.8   y 0.000~0.000   z 249.2~552.1   ← 세로값이 z 에
+ref-foxtop-split   x 45.7~307.3   y 0.000~0.000   z 251.0~554.6
+ref-invert         x 59.2~294.8   y 0.000~0.000   z 289.4~553.4
+ref-sideway-spin   x 37.0~328.4   y 0.000~0.000   z 292.9~554.5
+────────────────────────────────────────────────────────────────
+ref-pdshape        x 16.2~316.0   y 195.9~515.4   z 0.000~0.000   ← 정상
+(정상 7편 모두 같은 형태)
+```
+
+**세로 좌표가 `y` 가 아니라 `z` 슬롯에 들어 있다.** `joints3d[:,:,1]` 을 세로로 읽는
+모든 소비처는 이 4편에서 **0 을 읽는다**.
+
+## 원인 — 06-14 배치가 축 규약을 틀렸고 그 4편만 안 고쳐졌다
+
+| | reprocessedAt |
+|---|---|
+| 망가진 4편 | **2026-06-14 10:42~10:44** |
+| 정상 7편 | 2026-06-15 00:55 이후 (climb 은 08-16) |
+
+06-14 배치의 산출이고, 06-15 배치에서 규약이 고쳐졌는데 **그 4편은 재처리되지 않았다.**
+
+## 영향 범위 (일부 미검증)
+
+- **채점은 아마 무사하다** — mode1 채점은 `angles` 를 읽고, 4편 모두 `angles` 가
+  있고 유한값 100% 다. 다만 `angles` 자체가 같은 배치에서 나왔는지는 **미검증**.
+- **joints3d 를 읽는 소비처는 깨진다** — 앱의 자세 뷰어(`reshapePose3dData`),
+  grip 파생, 몸통/체형 파생. 그 4편은 세로가 0 이라 납작하게 그려진다.
+- 오늘 폴 검산에서 이 4편의 몸통이 15~21px(= x 차이만)로 나와 22cm 로 읽혔다.
+  **계기가 틀린 게 아니라 입력이 틀렸던 것이다.**
+
+## 확인 방법
+
+```
+FIREBASE_SA_PATH=firebase-sa.json backend/.venv/bin/python -c "
+import sys,numpy as np; sys.path.insert(0,'backend/scripts')
+import e2e_app_path as e2e
+db=e2e.firestore_client()
+for m in ['ref-foxtop','ref-foxtop-split','ref-invert','ref-sideway-spin']:
+    d=db.document(f'reference/{m}').get().to_dict()
+    a=np.asarray(d['joints3d'],float).reshape(int(d['joints3dFrames']),17,3)
+    print(m, 'y max', a[:,:,1].max(), 'z max', a[:,:,2].max())"
+```
+
+★ 고치려면 그 4편을 재처리해야 하는데, 이는 **기준 재추출 결정(§5)과 같은 묶음**이다 —
+어차피 회전을 켜면 11편 전부 다시 뽑아야 한다.

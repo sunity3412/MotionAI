@@ -33,22 +33,36 @@ Firestore `users/*/analyses/*` 전수 스캔 (2026-09-14 직접 실행, 읽기 �
 - ★ **Gemini 자기 메모(`notes_ko`)가 역립/인버트/거꾸로를 언급한 213건에서조차
   `occlusion_severe` True 0건.**
 
-## 2. 왜 이런가 — 판정 규칙이 아예 없다
+## 2. 왜 이런가 — 프롬프트 정의의 비대칭
 
-셋 다 **Gemini 응답 원문 그대로**다. 임계값도 휴리스틱도 파생식도 없다.
-
-```
-scene_finder.py:137  find_scene_flags(...)
-scene_finder.py:197  return parsed.model_dump()     ← Pydantic FindingFlags 그대로 통과
-scene_finder.py:67-84 _FINDING_PROMPT               ← 유일한 '규칙' = 프롬프트 안 한국어 산문
-```
+셋 다 **Gemini 응답 원문 그대로**다. 파생식도 임계 계산도 없다
+(`scene_finder.py:197` 이 `parsed.model_dump()` 를 그대로 통과시킨다).
+유일한 후처리는 **G4 기준영상 가드레일**(`scene_finder.py:204-219`) 하나인데,
+`is_reference AND occlusion_severe` 일 때 전 플래그를 False 로 덮는다 —
+**941건 중 0건 발동**(`guardrail_triggered` 전부 None)이라 원인이 아니다.
 
 호출은 **정상 경로·기본 ON** 이다 — `GEMINI_FINDING_ENABLED` 기본값 `"1"`
-(`app.py:279`), `start_server.sh` 에서 덮어쓰지 않음. 모델은 `gemini-3.8-flash`
-(`gemini/config.py:28` DEFAULT_C_MODEL).
+(`app.py:279`), `start_server.sh` 에서 덮어쓰지 않음. 모델 `gemini-3.8-flash`,
+`temperature=0.0`, `max_output_tokens=512`, **`thinking_budget=0`**
+(`scene_finder.py:97-99` — Flash 의 thinking 을 끈 상태다).
 
-즉 **모델이 이 두 질문에 한 번도 "예"라고 답한 적이 없다.** 코드 결함이 아니라
-프롬프트/판정 기준의 문제다.
+### ★ 프롬프트 정의를 나란히 놓으면 패턴이 보인다 (`scene_finder.py:73-80`)
+
+| flag | 정의가 요구하는 것 | 실측 |
+|---|---|---|
+| `grip_visible` | "식별 가능한 시점이 **1회 이상** 존재하면" — 클립 전체에 대한 **존재 한정** | True **100%** |
+| `backbend_present` | "**30도 이상** 후굴이 **1초 이상** 유지" — 임계+지속, 그러나 **이름 붙은 자세** | True **35.4%** ✅ |
+| `occlusion_severe` | "**신체의 50% 이상**이 가려진 상태가 **1초 이상** 지속" — **면적 정량 판단** | True **0%** |
+| `camera_angle_problematic` | "좌/우 구분이 **불가능**한 각도" — **불가능성 단언** | True **0%** |
+
+- `grip_visible` 은 "한 번이라도 보이면 참"이라 **거의 항상 참**이 된다. 정보량 0.
+- `backbend_present` 는 같은 "임계+지속" 형식인데 **살아 있다.** 차이는 판단 대상이
+  *알아볼 수 있는 자세*(등 후굴)라는 점이다.
+- 죽은 둘은 모델에게 **"몸 면적의 50%"를 재라**거나 **"불가능하다"고 단언하라**고
+  요구한다. thinking 을 끈 Flash 가 temperature 0 에서 이런 걸 긍정하기는 어렵다.
+
+**미검증 추정**: 코드 결함이 아니라 **정의가 관측 불가능한 형태로 쓰여 있는 것**이
+원인이다. 확정하려면 §5 의 혼동행렬이 필요하다.
 
 ## 3. 왜 4개월간 아무도 몰랐나
 
@@ -67,31 +81,37 @@ scene_finder.py:67-84 _FINDING_PROMPT               ← 유일한 '규칙' = 프
 | 위치 | 상태 |
 |---|---|
 | Firestore doc | `geminiC` 최상위에 **쓰이고 있다** (`firestore_admin.py:1346`) |
-| `app/src/types/analysis.ts` | **없다** — `geminiCalls?: number`(호출 횟수)뿐. 세 이름 grep 0건 |
+| `app/src/types/analysis.ts` | **없다** — 세 이름 grep 0건. Gemini 관련 필드는 `geminiCalls?: number`(:351, 합성 비용 카운터)와 `geminiSilent: boolean`(:943, attribution 신뢰도 — 앱이 실제로 파싱한다 `userAnalyses.ts:359,364`) 둘뿐이고 **둘 다 이 세 필드와 무관하다** |
 | `models.py` | **없다** — 타입은 `gemini/schemas.py` 의 `FindingFlags` 에만 있고 정본 3벌에 안 들어옴 |
 | `docs/contract.md` | `geminiC` grep 0건 |
 
 앱 `normalize()` 가 허용목록으로 최상위 `geminiC` 를 버리므로 **렌더 위험은 0**
 (열어도 안 깨진다). 다만 키가 snake_case 라 나머지 camelCase 계약과 다르다.
 
-**백엔드 소비처**(합성 오클루전 마스크 · wave-2 키포인트 게이트 · 코치 프롬프트 힌트)는
-`occlusion_severe` 에 걸려 있는데 값이 항상 False 라 **사실상 사문**이다.
+**백엔드 소비처는 배선돼 있다** — `scene_result` 는 코치 컨텍스트로 들어가고
+(`app.py:8219` → `sceneFlags` → `coach_writer_v2.py:484,494` → 프롬프트) 합성
+오클루전 마스크·wave-2 키포인트 게이트에도 걸려 있다. **호출되지 않는 게 아니라,
+값이 항상 False 라 그 분기들이 한 번도 참이 된 적이 없다.**
 
-> 지금 세 필드를 전부 False 로 하드코딩해도 **깨지는 것이 없다.**
-> 점수·감점·확대카드·화면·로그 분기 어디에도 영향이 없다.
-> 살아 있는 소비처가 있는 geminiC 플래그는 `backbend_present` 하나뿐이다(코치 프롬프트 힌트).
+> 세 필드를 지금 False 로 하드코딩해도 **사용자가 보는 것은 하나도 안 바뀐다** —
+> 이미 상수 False 이기 때문이다. 다만 "소비처가 없다"는 서술은 틀렸다:
+> 소비처는 있고, 죽어 있는 것은 **신호**다.
 
 ## 5. 그래서 뭘 할 것인가 — belle 판단 필요
 
 계약을 여는 것은 **순서가 틀렸다**. 먼저 신호를 살려야 한다.
 
-1. **재는 것이 먼저다.** `reference_dataset.yaml` 의 C 영역 TODO 7건에 실제 영상과
-   라벨을 붙여 혼동행렬을 내야 한다. 그래야 "모델이 못 맞히는가 / 프롬프트가 못 묻는가"가
-   갈린다.
-2. 팔이 폴에 완전히 붕괴한 영상조차 `occlusion_severe=False` 라면 **프롬프트의 기준이
-   현장 기준과 다르다**는 쪽이 유력하다 (미검증 추정).
-3. `grip_visible` 은 반대로 **항상 True** 라 정보량이 0이다. 같은 문제의 다른 얼굴.
-4. 계약 3벌 확장은 신호가 실제로 흔들리는 걸 확인한 **뒤에** 한다. 그 전에 열면
+1. **정의를 관측 가능한 형태로 다시 쓴다** (가장 싸고 가장 유력하다).
+   "신체의 50% 이상" 같은 면적 정량 대신 `backbend_present` 가 통하는 방식 —
+   **알아볼 수 있는 장면**으로. 예: "폴 뒤로 몸통이 지나가 **한쪽 팔 전체가 안 보이는**
+   구간이 있는가", "좌/우 구분 불가" 대신 "**정면/측면/뒤** 중 무엇인가"(bool 말고 분류).
+   `thinking_budget=0` 을 올려볼 가치도 있다(`scene_finder.py:99`).
+2. **그 다음에 잰다.** `reference_dataset.yaml:202-260` 의 C 영역 TODO 7건에 실제
+   영상·라벨을 붙여 혼동행렬을 내야 "모델이 못 맞히는가 / 정의가 못 묻는가"가 갈린다.
+   지금은 어느 쪽인지 **모른다**.
+3. `grip_visible` 은 반대 방향으로 축퇴했다(항상 True). "1회 이상 존재하면 참"이라는
+   존재 한정을 고치지 않으면 정보량은 계속 0이다.
+4. **계약 3벌 확장은 맨 마지막.** 신호가 실제로 흔들리는 걸 확인하기 전에 열면
    사용자에게 상수를 보여주는 것이다.
 
 ---

@@ -511,6 +511,27 @@ def _flip_active_pointer(
         }
         # None 값 제거 (Firestore update 에서 None 은 필드 삭제 시맨틱 가능).
         mirror_fields = {k: v for k, v in mirror_fields.items() if v is not None}
+
+        # quick-260917-hjy — 같은 보고서를 top-level 에 두 번 쓰지 않는다.
+        #   · referenceKeypointReport 는 _REFERENCE_CONSUMER_FIELDS 에 **없다** →
+        #     resolver 가 덮어주지 못하므로 top-level 에 반드시 있어야 한다.
+        #   · keypointReport 는 consumer 필드다 → 포인터가 서면 candidate 에서
+        #     overlay 된다. 유일한 소비처(_reference_angles_fps, pipeline/app.py:7000)도
+        #     resolver 를 거친 ref 를 읽는다.
+        # 두 값이 같으면(신 파이프라인은 같은 live 산출을 복사한다) top-level 사본은
+        # 순수 중복이고, ref-combo(931프레임)를 Firestore 1MB 한도 밖으로 밀어낸다
+        # (실측 1,082,424 > 1,048,576 — 중복분이 정확히 332KB).
+        # 값이 다르면 종전대로 둘 다 쓴다.
+        if (
+            "keypointReport" in mirror_fields
+            and mirror_fields.get("referenceKeypointReport") == mirror_fields["keypointReport"]
+        ):
+            mirror_fields.pop("keypointReport")
+            log.info(
+                "  [%s] keypointReport == referenceKeypointReport — top-level 중복 미러 생략 "
+                "(consumer 필드라 resolver 가 candidate 에서 overlay, quick-260917-hjy)",
+                motion_id,
+            )
         # set(merge=True): top-level 문서가 없어도 안전 (idempotent set/merge, resumable).
         ref_doc.set(mirror_fields, merge=True)
         log.info(

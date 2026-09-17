@@ -21,7 +21,7 @@ export GEMINI_MOMENT_MODEL=$(PYTHONPATH=/workspace/SunityMotion/backend/shared/p
 echo "GEMINI_MOMENT_MODEL: $GEMINI_MOMENT_MODEL"
 export GEMINI_SPOTCHECK_MODEL=gemini-3.1-pro-preview  # 32-13 스팟체크 판정 모델 (스모크 확정 — 스왑 시 이 줄만)
 export PR_INVERSION_ENABLED=1  # 32-15 PR 인버전 2-pass 보정 — 제한 게이트 PASS(invert 46.8%↑, power-spin detect False) 후 on. rollback: 이 줄 삭제
-export ROT180_INVERSION_ENABLED=0  # quick-260913-udr rot180 인버전 2-pass — 실측(MEASUREMENTS §2-§4: 붕괴 9→0, boneCV −23%)은 로컬 CPU 이고 GPU 실경로 미검증이라 off. 켜기 = 이 값을 1 로 바꾸고 재기동(belle 승인 후). 켜지면 PR_INVERSION_ENABLED 보다 우선하고 PR 워프는 돌지 않는다(3패스 금지). 명시적 0 인 이유: /health envFlags 가 false 를 보여줘야 "안 켠 것"과 "줄이 없는 것"이 구분된다
+export ROT180_INVERSION_ENABLED=1  # quick-260917-hjy: belle 승인(2026-09-17) 후 ON. ★기준 라이브러리 rot180_v1 승격과 **한 묶음**이다 — 한쪽만 되돌리면 학생·기준 중 한쪽만 교정된 비대칭 비교가 되어 지금보다 나빠진다(실측: 회전만 켜면 원감점 -55.3 -> -62.4, 정은지 자기비교 100 -> 60). 되돌릴 때도 둘 다: 이 값을 0 으로 + reference/_release.activeCandidate 를 None 으로. 실측 근거 = .planning/quick/260917-hjy-reference-drift-all11/. 켜지면 PR_INVERSION_ENABLED 보다 우선하고 PR 워프는 돌지 않는다(3패스 금지)
 export RTMW_DETERMINISTIC=1  # 08-08 렌더 정렬 비결정성 뿌리 수리 — 채점(rtmw_engine)+렌더 정렬(compare_align.build_model) 세션 양쪽 결정론. 미주입=OFF 함정(같은 영상이 매 실행 다른 정렬 → 리그 판정이 운에 걸림). rollback: 이 줄 삭제
 export RTMW_ONNX_PATH=/workspace/rtmw_weights/rtmw-x-384.onnx
 export YOLOX_ONNX_PATH=/workspace/yolox_weights/yolox_m.onnx

@@ -1,9 +1,9 @@
-# 묶음 스테이징 완료 — 승격 한 단계만 남음 (2026-09-17)
+# 묶음 완료 — 승격·플래그 둘 다 반영됨 (2026-09-17)
 
 belle 승인: *"묶음(회전 켜기 + 기준 6편 재추출) 진행."*
 
-**운영은 아직 무변화다.** 기준 11편의 회전ON 재처리본을 candidate 버전으로 다 올려뒀고,
-`reference/_release.activeCandidate` 는 여전히 `None` 이라 운영은 옛 top-level 을 읽는다.
+**승격 완료.** `reference/_release.activeCandidate = rot180_v1`, `start_server.sh` 의
+`ROT180_INVERSION_ENABLED = 1`. 둘 다 반영됐다. 아래 §5 가 최종 검증이다.
 
 ---
 
@@ -91,3 +91,67 @@ dry-run 확인 완료 — `candidate 11/11 완비`, 현재 포인터 `None`.
 
 **롤백**: `reference/_release.activeCandidate` 를 `None`/이전 값으로 되돌리면 즉시 원복.
 top-level 원본은 `reference/{id}/versions/pre_phase4` 에 백업된다(flip 이 최초 1회 저장).
+
+
+---
+
+## 5. 승격 실행 + 최종 검증
+
+```
+post-write verify PASS — 11/11 activeVersion='rot180_v1' + per-doc hash + 전역 포인터 일치
+reference/_release.activeCandidate = 'rot180_v1'
+start_server.sh:24  ROT180_INVERSION_ENABLED = 1
+```
+
+### 5-1. 승격 중에 같은 1MB 벽을 한 번 더 맞았다 (top-level 미러)
+
+candidate 는 고쳤는데 **top-level 미러**가 또 걸렸다(1,082,424 bytes). 미러가
+`keypointReport`(v1.1 332KB)와 `referenceKeypointReport`(v1.1 332KB)를 **둘 다** 쓰는데
+새 파이프라인에선 두 값이 같기 때문이다.
+
+이때 ref-climb 한 편만 미러된 **부분 상태**가 생겼다(포인터는 아직 None 이라 해석 경로는
+불변). 실물로 확인하고 수리 후 재실행했다.
+
+**수리 원칙** — 두 필드의 성격이 다르다:
+
+| 필드 | consumer 필드? | top-level 필요? |
+|---|---|---|
+| `referenceKeypointReport` | **아니오** | **필수** — resolver 가 안 덮어준다 |
+| `keypointReport` | 예 | 불필요 — 포인터가 서면 candidate 에서 overlay |
+
+`keypointReport` 의 유일한 소비처 `_reference_angles_fps`(`pipeline/app.py:7000`)도
+resolver 를 거친 `ref` 를 읽는다. 앱은 `angles`/`meanAngles` 만 읽고 두 보고서를 안 읽는다.
+→ **두 값이 같으면 top-level 미러에서 `keypointReport` 를 생략**한다(다르면 종전대로).
+
+### 5-2. 실제 해석 경로 검증 (`firestore_admin.get_reference_motion`)
+
+```
+get_reference_motion('ref-pdshape') → pipelineVersion=rot180_v1 activeVersion=rot180_v1
+  anglesFrames=237
+  referenceKeypointReport v=1.1 frames=237   (top-level 미러)
+  keypointReport          v=1.1 frames=237   (candidate overlay — 미러 생략이 옳았다는 증거)
+```
+
+11편 전수: `pipelineVersion`·`anglesFrames`·두 보고서 frames·`joints3d` 가 **11/11 정합**
+(120/931/329/426/485/260/118/237/130/159/298 — 각도·보고서·좌표가 같은 프레임 공간).
+
+### 5-3. 최종 점수 (승격된 라이브 기준으로 재채점)
+
+| 학생 | angle | 초과 관절 | 원감점 | **점수** |
+|---|---|---|---|---|
+| belle pdshape (회전ON) | **87** | 1 | −13.3 | **87** |
+| 정은지 자기비교 (회전ON) | **100** | 0 | 0.0 | **100** |
+
+승격 전 60 / 60 에서 올라왔고, 스테이징 단계 예측(87 / 100)과 일치한다.
+
+## 6. 롤백 (한 묶음으로)
+
+```bash
+# (1) 기준 포인터
+#     reference/_release.activeCandidate 를 삭제하거나 이전 값으로
+# (2) 엔진 플래그
+#     start_server.sh:24  ROT180_INVERSION_ENABLED=0
+```
+
+**한쪽만 되돌리면 안 된다** — 비대칭 비교가 되어 승격 전보다 나빠진다.
+top-level 원본은 `reference/{id}/versions/pre_phase4` 에 있다(flip 이 최초 1회 저장, 11/11 확인).

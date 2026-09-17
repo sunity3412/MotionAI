@@ -555,6 +555,16 @@ def _merge_into_candidate(
     now_ms = int(time.time() * 1000)
     payload: dict = {}
     for k, v in fields.items():
+        # quick-260917-hjy: referenceKeypointReport 는 keypointReport 와 **같은 물건**이다
+        # (E-2 가 같은 live 산출을 dict() 로 복사). 그런데 firestore_admin.
+        # _REFERENCE_CONSUMER_FIELDS 에 없어서 **candidate 에서는 아무도 읽지 않는다** —
+        # 유일한 소비처는 33-07 flip 의 top-level 미러링이고, 그쪽은 candidate 의
+        # keypointReport 로 폴백하도록 같은 커밋에서 열어뒀다.
+        # 중복 저장은 ref-combo(931프레임)를 Firestore 1MB 문서 한도 밖으로 밀어냈다
+        # (실측 1,085,164 > 1,048,576 — 중복분이 정확히 332KB). 값이 다르면 종전대로 쓴다.
+        if k == "referenceKeypointReport" and v == fields.get("keypointReport"):
+            payload[f"{k}UpdatedAt"] = now_ms
+            continue
         payload[k] = v
         payload[f"{k}UpdatedAt"] = now_ms
     payload["downstreamBackfillVersion"] = "phase33-cm3-04"

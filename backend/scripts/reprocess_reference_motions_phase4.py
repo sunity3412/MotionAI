@@ -466,9 +466,25 @@ def _flip_active_pointer(
         # (backfill_reference_downstream.py 가 candidate 문서에 나중에 MERGE 한다).
         # 따라서 payload 만 보는 1줄은 no-op — candidate 버전 문서 폴백까지 있어야 실제로 실린다.
         ref_kp_report = payload.get("referenceKeypointReport")
+        cand_doc: dict | None = None
         if ref_kp_report is None:
             cand_snap = ref_doc.collection("versions").document(version).get()
-            ref_kp_report = (cand_snap.to_dict() or {}).get("referenceKeypointReport")
+            cand_doc = cand_snap.to_dict() or {}
+            ref_kp_report = cand_doc.get("referenceKeypointReport")
+        if ref_kp_report is None:
+            # quick-260917-hjy: backfill 이 중복을 안 쓴 candidate 폴백.
+            # backfill_reference_downstream._merge_candidate 의 E-2 가 두 보고서를
+            # 같은 live 산출로 만들므로(값 동일을 확인하고서만 생략) keypointReport 가
+            # 곧 referenceKeypointReport 다. 이 폴백이 없으면 낡은 top-level 보고서가
+            # 새 angles 와 함께 남아 33-07 타임베이스 어긋남이 재발한다.
+            if cand_doc is None:
+                cand_doc = (ref_doc.collection("versions").document(version).get().to_dict() or {})
+            ref_kp_report = cand_doc.get("keypointReport")
+            if ref_kp_report is not None:
+                log.info(
+                    "  [%s] referenceKeypointReport 부재 → candidate keypointReport 로 미러 "
+                    "(중복 저장 제거분, quick-260917-hjy)", motion_id,
+                )
         if ref_kp_report is None:
             # 값을 지어내지 않는다(fail-closed). 다만 조용히 두면 낡은 타임베이스가
             # 무증상으로 남으므로 운영자가 알 수 있게 경고를 남긴다.

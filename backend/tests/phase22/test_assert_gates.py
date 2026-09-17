@@ -3,7 +3,10 @@
 Pod artifact 없이 게이트 의미론을 강제한다:
   · 각 check 의 PASS/FAIL 방향성
   · ARTIFACT-GATED: artifact 부재 = SKIPPED (FAIL 아님)
-  · main() exit 규약: FAIL=1 / SKIPPED-only=0+경고 / --require-pass 는 SKIPPED 도 비0 (DR-03)
+  · main() exit 규약: FAIL=1 / SKIPPED-only=0+경고 / --require-pass 는 SKIPPED 면 비0 (DR-03)
+  · SKIPPED vs DESCOPED (quick-260918-0q8): 선언된 범위 밖(DESCOPED)은 승격을 막지
+    않고, 쟀어야 하는데 못 잰 것(SKIPPED)만 막는다. 섞여 있던 탓에 승격이 구조적으로
+    도달 불가였다 — assert_gates 모듈 독트린 참조.
 """
 # svg_spec 게이트는 2026-08-30 에 폐기했다 — 일러스트(소비처)가 08-24 에 전면
 # 제거됐고, 채워질 수 없는 배선(reference_loader 미주입)으로 승급을 막고 있었다.
@@ -139,11 +142,14 @@ def test_eval18_discriminate_pass():
         _rec("real-kipup-correct", report=_report(faults=[])),
     ])
     res = ag.check_eval18_no_regression(doc, pairs=_PAIRS)
-    fails = [r for r in res if not r.startswith("SKIPPED")]
-    skips = [r for r in res if r.startswith("SKIPPED")]
+    # 모듈 자신의 분류기를 쓴다 — 접두어를 테스트가 다시 적으면 또 어긋난다.
+    fails, skips = ag._split_skips(res)
     assert fails == []
-    # known 페어는 FAIL 없이 명시 추적 라인.
-    assert any("kip-up" in s for s in skips)
+    # known 페어는 FAIL 없이 명시 추적 라인 — 그리고 **승격을 막지 않는** DESCOPED 다.
+    kipup = [x for x in skips if "kip-up" in x]
+    assert kipup, skips
+    assert kipup[0].startswith(ag.DESCOPED)
+    assert ag.blocking_skips(skips) == []
 
 
 def test_eval18_fault_member_zero_faults_fails():
@@ -258,3 +264,97 @@ def test_monotonicity_nondecreasing_passes():
         _synth_rec("s31", 0.01, 0.05, stage=3, report=_report(faults=[_fault(), _fault()])),
     ])
     assert ag.check_traceability_and_monotonicity(doc) == []
+
+
+# ── quick-260918-0q8: SKIPPED vs DESCOPED — 승격 도달 가능성 ──────────────────
+#
+# 2026-09-14 실측으로 "재학습을 아무리 잘 돌려도 승격 불가"가 확인됐다. 원인은
+# 두 의미가 한 통에 있었던 것 — pairs.yaml 이 known_issue 로 못박은 페어와
+# belle 이 descope 한 트랙이, 못 잰 artifact 와 같은 취급을 받아 --require-pass 를
+# 항상 exit 3 으로 만들었다. 아래 3개가 그 회귀를 붙잡는다.
+
+
+def test_descoped_does_not_block_promotion():
+    """선언된 범위 밖(DESCOPED)만 남으면 승격을 막지 않는다."""
+    skips = [
+        f"{ag.DESCOPED} (eval18 kip-up: expected=known_false_positive — 명시 추적만)",
+        f"{ag.DESCOPED} (perturb 트랙 0행 — belle C1 descope)",
+    ]
+    assert ag.blocking_skips(skips) == []
+    assert len(ag.descoped_only(skips)) == 2
+
+
+def test_unmeasured_still_blocks_promotion():
+    """못 잰 것(SKIPPED)은 그대로 막는다 — '못 쟀다'를 '통과'로 번역하지 않는다."""
+    skips = [
+        f"{ag.DESCOPED} (eval18 climb: expected=known_gate_blocked)",
+        f"{ag.SKIPPED} (SFT bake-off run1 artifact absent)",
+    ]
+    blocking = ag.blocking_skips(skips)
+    assert len(blocking) == 1
+    assert "artifact absent" in blocking[0]
+
+
+def test_perturb_descope_is_not_blocking():
+    """belle C1 descope 된 좌표 보정 게이트가 DESCOPED 로 나온다 (라이브 함수)."""
+    res = ag.check_synthetic_holdout(None, corpus_meta={"track_counts": {"perturb": 0}})
+    fails, skips = ag._split_skips(res)
+    assert fails == []
+    assert skips and skips[0].startswith(ag.DESCOPED)
+    assert ag.blocking_skips(skips) == []
+
+
+def _full_passing_doc():
+    """5 게이트를 전부 만족하는 run 리포트 — DESCOPED 만 남게 만든 fixture.
+
+    · motion_balance: manifest 의 real 21항목 전부에 비-skip 레코드
+    · eval18: 변별 4페어는 fault>correct, known 2페어는 DESCOPED 로 빠진다
+    · traceability: fault 항목에 유한 각도 + 라우팅 키 (_fault 가 이미 만족)
+    · monotonicity: 합성 stage 1→2→3 평균 결함 수 비감소
+    · synthetic_holdout: perturb 0행이라 DESCOPED
+    """
+    import yaml as _yaml
+    manifest = _yaml.safe_load(
+        (BACKEND / "evals" / "phase22" / "fixtures" / "manifest.yaml").read_text(encoding="utf-8"))
+    recs = []
+    for row in manifest.get("items") or []:
+        if row.get("type") != "real":
+            continue
+        rid = row.get("id")
+        # 변별 4페어만 fault 쪽에 결함을 심는다(fault > correct). 나머지는 빈 결함이어도
+        # motion_balance 는 '비-skip 레코드 존재'만 본다.
+        discriminating = any(
+            k in rid for k in ("powerspin", "peterpan", "elbowtwist", "pdshape"))
+        faults = [_fault(), _fault(body_part="스플릿")] if (
+            discriminating and rid.endswith("-fault")) else []
+        recs.append(_rec(rid, report=_report(faults=faults)))
+    # 단조성 트랙 — stage 1→2→3 결함 수 비감소.
+    for stage, n in ((1, 1), (2, 1), (3, 2)):
+        recs.append(_rec(f"synthetic-s{stage}", type="synthetic", stage=stage,
+                         report=_report(faults=[_fault()] * n)))
+    return _doc(recs)
+
+
+def test_require_pass_reaches_exit0_with_only_descoped(tmp_path, monkeypatch, capsys):
+    """★ 회귀 방지의 핵심 — 범위 안을 다 재면 --require-pass 가 exit 0 에 **도달한다**.
+
+    2026-09-14 실측: 고치기 전에는 이 조건에서도 항상 exit 3 이었다(승격 구조적 불가).
+    """
+    out_dir = tmp_path / "phase22"
+    out_dir.mkdir(parents=True)
+    doc = _full_passing_doc()
+    for run in ("run1", "run2"):
+        (out_dir / f"bakeoff_fake_model_{run}.json").write_text(
+            json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    # 실제 상황 그대로 — 학습셋 perturb 트랙 0행(belle C1 descope).
+    meta = tmp_path / "_meta.json"
+    meta.write_text(json.dumps({"track_counts": {"perturb": 0, "distill": 400}}),
+                    encoding="utf-8")
+    monkeypatch.setenv("SFT_CORPUS_META", str(meta))
+    monkeypatch.setenv("EVAL_OUT_DIR", str(tmp_path))
+    rc = ag.main(["--model", "fake/model", "--require-pass"])
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    # 범위 밖 항목은 사라지지 않고 **보인다** — 조용히 통과시키는 것이 아니다.
+    assert ag.DESCOPED in out
+    assert "kip-up" in out or "climb" in out

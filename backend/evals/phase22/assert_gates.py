@@ -30,8 +30,27 @@ kip-up(known_false_positive)/climb(known_gate_blocked)은 명시 추적만(pairs
 
 게이트 모드 (DR-03):
   · 기본 main(): FAIL 1건이라도 있으면 exit 1. SKIPPED-only 면 exit 0 + 경고.
-  · --require-pass: 전 게이트 PASS 가 아니면(SKIPPED 포함) exit 비0 —
+  · --require-pass: 재야 할 것을 못 잰 상태(SKIPPED)면 exit 3 —
     Wave 5(22-08) 진입 전 post-Pod 판정 모드. FAIL 상태 암묵 진행 금지.
+
+SKIPPED vs DESCOPED (quick-260918-0q8 — belle 2026-09-17 "게이트부터 고쳐"):
+  두 가지가 한 통(SKIPPED)에 섞여 있어 **승격이 구조적으로 도달 불가**였다.
+  아무리 잘 학습해도 --require-pass 가 항상 exit 3 이었다 (2026-09-14 실측).
+
+  · **DESCOPED** — 이 게이트가 **선언된 범위 밖**이다. 학습을 아무리 잘해도
+    PASS 로 바뀌지 않는다. 승격을 막지 않는다(표시는 항상 한다).
+      - eval18 `expected != discriminate` (kip-up known_false_positive /
+        climb known_gate_blocked) — 위 EVAL18 스코프 정직성 문단이 이미
+        **"명시 추적만"** 이라고 못박아 둔 것들이다. 구현이 그 선언을 어기고
+        차단 게이트로 쓰고 있었다.
+      - perturb 트랙 0행 — belle C1(2026-07-15) descope. `SFT_WITH_PERTURB=1`
+        로 되살리면 게이트도 함께 돌아온다.
+  · **SKIPPED** — 쟀어야 하는데 **못 잰** 것이다(bake-off artifact/필드 부재).
+    이건 그대로 승격을 막는다. "못 쟀다"를 "통과"로 번역하지 않는다.
+
+  즉 --require-pass 는 FAIL 과 SKIPPED 만 막고 DESCOPED 는 막지 않는다.
+  범위를 넓히려면 pairs.yaml 의 expected 를 discriminate 로 바꾸거나
+  perturb 트랙을 되살려라 — 그 순간 자동으로 hard 게이트가 된다.
 """
 from __future__ import annotations
 
@@ -56,6 +75,13 @@ from datagen import schema  # noqa: E402
 _EVAL_OUT_ENV = "EVAL_OUT_DIR"
 _EVAL_OUT_DEFAULT = "/tmp/sunity_eval_out"
 _SFT_MODEL_ENV = "SFT_MODEL_ID"
+
+# 게이트 결과 접두어 — 독트린의 SKIPPED/DESCOPED 구분이 여기 한 곳에서만 정의된다.
+#   SKIPPED  = 쟀어야 하는데 못 쟀다 (승격 차단)
+#   DESCOPED = 선언된 범위 밖이다   (승격 무차단, 표시는 항상)
+SKIPPED = "SKIPPED"
+DESCOPED = "DESCOPED"
+_NON_FAIL_PREFIXES = (SKIPPED, DESCOPED)
 
 _MANIFEST_PATH = _HERE / "fixtures" / "manifest.yaml"
 _PAIRS_PATH = _HERE.parents[0] / "phase18" / "dataset" / "pairs.yaml"
@@ -191,7 +217,7 @@ def check_synthetic_holdout(report_doc=None, model_id=None, corpus_meta=None) ->
     """
     if not coord_correction_in_scope(corpus_meta):
         return [
-            "SKIPPED (perturb 트랙 0행 — 좌표 보정은 belle C1(2026-07-15) 로 descope. "
+            f"{DESCOPED} (perturb 트랙 0행 — 좌표 보정은 belle C1(2026-07-15) 로 descope. "
             "SFT_WITH_PERTURB=1 로 되살리면 이 게이트도 함께 복귀)"
         ]
     if report_doc is None:
@@ -290,9 +316,11 @@ def check_eval18_no_regression(report_doc=None, model_id=None, pairs=None) -> li
         n_fault = len(_fault_items(fault_rep)) if fault_rep else None
         n_correct = len(_fault_items(correct_rep)) if correct_rep else None
         if expected != "discriminate":
-            # known 처리 — FAIL 없이 명시 추적(pairs.yaml known_issue 승계).
+            # 선언된 범위 밖 — pairs.yaml 이 known_issue 로 못박은 페어다. 학습으로
+            # PASS 가 되지 않으므로 승격을 막지 않는다(모듈 독트린 SKIPPED vs DESCOPED).
+            # 차단 게이트로 올리려면 pairs.yaml 의 expected 를 discriminate 로 바꿔라.
             failures.append(
-                f"SKIPPED (eval18 {motion}: expected={expected} — 명시 추적만, "
+                f"{DESCOPED} (eval18 {motion}: expected={expected} — 명시 추적만, "
                 f"faults fault={n_fault} correct={n_correct})"
             )
             continue
@@ -422,9 +450,24 @@ def check_traceability_and_monotonicity(report_doc=None, model_id=None) -> list[
 
 # ── compose ─────────────────────────────────────────────────────────────────
 def _split_skips(results):
-    skips = [r for r in results if r.startswith("SKIPPED")]
-    fails = [r for r in results if not r.startswith("SKIPPED")]
+    """(fails, skips) — **반환 형태 불변**(promotion.parse_gate_verdict 계약).
+
+    skips 통에는 SKIPPED 와 DESCOPED 가 함께 들어간다. 둘의 구분은 승격 판정을
+    내리는 곳(blocking_skips)에서만 쓰고, 소비자 계약은 건드리지 않는다.
+    """
+    skips = [r for r in results if r.startswith(_NON_FAIL_PREFIXES)]
+    fails = [r for r in results if not r.startswith(_NON_FAIL_PREFIXES)]
     return fails, skips
+
+
+def blocking_skips(skips):
+    """승격을 막아야 하는 skip 만 — 즉 DESCOPED 를 뺀 SKIPPED."""
+    return [s for s in skips if not s.startswith(DESCOPED)]
+
+
+def descoped_only(skips):
+    """선언된 범위 밖 항목 — 표시는 하되 막지 않는다."""
+    return [s for s in skips if s.startswith(DESCOPED)]
 
 
 def run_all_checks(model_id: str) -> dict:
@@ -463,26 +506,49 @@ def main(argv=None) -> int:
     results = run_all_checks(args.model)
     failures = [f for fails, _ in results.values() for f in fails]
     skipped = [s for _, skips in results.values() for s in skips]
+    # 독트린 SKIPPED vs DESCOPED — 승격을 막는 것은 "못 잰 것"뿐이다.
+    blocking = blocking_skips(skipped)
+    descoped = descoped_only(skipped)
+
+    def _print_notes():
+        for s in blocking:
+            print("  ·", s)
+        for d in descoped:
+            print("  ·", d)
 
     if failures:
         print("Phase 22-07 gates FAIL:")
         for f in failures:
             print("  -", f)
-        for s in skipped:
-            print("  ·", s)
+        _print_notes()
         return 1
-    if args.require_pass and skipped:
-        print("Phase 22-07 gates NOT ALL PASS (--require-pass — SKIPPED 잔존):")
-        for s in skipped:
+    if args.require_pass and blocking:
+        print("Phase 22-07 gates NOT ALL PASS (--require-pass — 측정 못한 게이트 잔존):")
+        for s in blocking:
             print("  ·", s)
+        # 범위 밖 항목은 차단 사유가 아니지만 같이 보여준다 — 무엇이 안 재졌는지와
+        # 무엇이 애초에 범위 밖인지를 사람이 한 화면에서 갈라 봐야 한다.
+        for d in descoped:
+            print("  ·", d)
         return 3
-    verdict = "PASS" if not skipped else "PASS (with SKIPPED — artifact 부재 경고)"
+    if blocking:
+        verdict = "PASS (with SKIPPED — artifact 부재 경고)"
+    elif descoped:
+        verdict = f"PASS (DESCOPED {len(descoped)}건 — 선언된 범위 밖, 승격 무차단)"
+    else:
+        verdict = "PASS"
     print(f"Phase 22-07 gates {verdict}")
     for label, (fails, skips) in results.items():
-        state = "SKIPPED" if skips and not fails else "PASS"
+        if fails:
+            state = "FAIL"
+        elif blocking_skips(skips):
+            state = SKIPPED
+        elif skips:
+            state = DESCOPED
+        else:
+            state = "PASS"
         print(f"  {label}: {state}")
-    for s in skipped:
-        print("  ·", s)
+    _print_notes()
     return 0
 
 

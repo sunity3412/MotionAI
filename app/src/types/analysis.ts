@@ -1168,6 +1168,10 @@ export interface AnalysisDoc {
   // 필터는 Phase 22 후속에서 반영해야 함). loading.tsx 가 항상 boolean 으로 기록.
   // 3-way lockstep: models.py + docs/contract.md §3 과 동시 갱신 (계약 변경 규약).
   learningOptIn?: boolean;
+  // quick-260918-0q8 — 강사 교정 (v2). 앱(학생 세션)이 쓰고 백엔드는 읽지도 쓰지도
+  // 않는다. `result` 밖 최상위인 이유는 CoachReview 주석 참조 — 사후 부분갱신이
+  // result 를 건드려도 이 값은 안전하다.
+  coachReview?: CoachReview | null;
 }
 
 // 기준 모션 (Firestore: reference/{motionId}, 읽기 전용)
@@ -1720,6 +1724,34 @@ export interface ForcePatternInference {
   warnings: string[];
   /** Phase 11 (COACH-01) — 리포트별 LLM 코칭 코멘트 hook. v1 nullable (백필 전 / 미생성). */
   coachCommentHook?: CoachCommentHook | null;
+}
+
+/**
+ * quick-260918-0q8 — 강사 교정 (v2 개시, belle 2026-09-17 승인).
+ *
+ * **왜 doc 최상위인가**: `CoachCommentHook.coachComment` 는 리포트 1건 단위(D-02)로
+ * 설계됐고 `result` 안에 중첩돼 있다. 그런데 (a) 학원 현장에서 강사는 분석 1건에
+ * 한 번 답한다 — 리포트별로 나눠 쓰지 않는다. (b) 백엔드 사후 부분갱신이 `result`
+ * 를 건드리므로 그 안에 앱이 쓴 값을 두면 덮일 위험이 있다
+ * ([[partial-field-writes-invisible-to-inmemory-doc]]). 그래서 v1 루프는 doc
+ * 최상위 flat 맵으로 받는다. CoachCommentHook 의 per-report 필드는 향후 강사 콘솔
+ * 용으로 그대로 남긴다(여전히 null).
+ *
+ * **누가 쓰는가**: 학생 세션이다. 강사가 학생 폰에서 직접 입력한다 — 학원에서
+ * 강사가 옆에 서서 봐주는 실제 모습 그대로다. 그래서 새 인증도 새 엔드포인트도
+ * Firestore 규칙 변경도 필요 없다(`users/{uid}/**` 본인 쓰기 허용).
+ * `reviewedBy` 는 자유 입력 이름 — 신원 증명이 아니라 출처 표기다.
+ *
+ * Python lockstep: backend/shared/python/sunity_shared/models.py COACH_REVIEW_KEYS.
+ * 중첩 배열 금지 규율 준수 — 전부 스칼라.
+ */
+export interface CoachReview {
+  /** 강사가 남긴 교정 한 줄 이상. 공백만이면 저장하지 않는다. */
+  comment: string;
+  /** 작성자 이름(자유 입력). 비우면 빈 문자열. */
+  reviewedBy: string;
+  /** 저장 시각 epoch ms. */
+  updatedAt: number;
 }
 
 /**

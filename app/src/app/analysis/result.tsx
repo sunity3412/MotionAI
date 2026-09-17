@@ -35,6 +35,8 @@ import { ResultMomentList } from '../../components/result/ResultMomentList';
 import { ResultPointsCard } from '../../components/result/ResultPointsCard';
 import { ResultPointModal } from '../../components/result/ResultPointModal';
 import { ResultExerciseTab } from '../../components/result/ResultExerciseTab';
+import { CoachReviewModal } from '../../components/result/CoachReviewModal';
+import { clearCoachReview, saveCoachReview } from '../../lib/coachReview';
 import { riskFlagCopy, topRiskFlag } from '../../components/InjuryRiskSection';
 import { buildSummaryChips, summaryChipLabel } from '../../lib/resultSummary';
 import { formatAnalysisMoment } from '../../lib/analysisDate';
@@ -97,6 +99,7 @@ import type {
   BodyProfile,
   CoachingTip,
   CoachQuestion,
+  CoachReview,
   DeductionRecord,
   FaultZoomComparison,
   JointDirection,
@@ -410,6 +413,7 @@ export default function AnalysisResult() {
       createdAt={storedDoc.createdAt}
       anglesFrames={storedDoc.anglesFrames}
       analysisId={storedDoc.analysisId}
+      coachReview={storedDoc.coachReview ?? null}
     />
   );
 }
@@ -428,6 +432,7 @@ function AnalysisResultContent({
   createdAt,
   anglesFrames,
   analysisId,
+  coachReview,
 }: {
   result: AnalysisResult;
   name?: string;
@@ -445,6 +450,8 @@ function AnalysisResultContent({
   anglesFrames?: number;
   // 29 리뷰 WR-03 — 현재(좌측) 본인 영상 myVideoUrl TTL 재발급용 현재 doc ID.
   analysisId: string;
+  // quick-260918-0q8 — 강사 교정. doc 최상위 필드라 result 가 아니라 wrapper 가 넘긴다.
+  coachReview?: CoachReview | null;
 }) {
   const router = useRouter();
   // belle 09-08 재디자인 — 4탭 셸. 기존 섹션은 한 줄도 지우지 않고 탭으로 나눠 담았다
@@ -1236,6 +1243,10 @@ function AnalysisResultContent({
     () => normalizeMotionAlignment(result.motionAlignment ?? null),
     [result],
   );
+
+  // quick-260918-0q8 — 강사 교정 모달. 저장하면 useAnalysisDoc onSnapshot 이
+  // 자동 rerender 하므로 로컬 캐시를 따로 두지 않는다(추가 폴링 0).
+  const [coachReviewOpen, setCoachReviewOpen] = useState(false);
 
   // quick-260705-o0s — Phase 9 힘-패턴 원인 카드 섹션 삭제 (belle 실기기 캡처
   // 확인: 코칭 팁 '먼저 교정할 점'과 중복). ForcePatternCard/
@@ -2126,6 +2137,8 @@ function AnalysisResultContent({
             onSeeAllExercises={() => setExerciseModalOpen(true)}
             onReanalyze={() => router.replace('/(tabs)/analyze')}
             shareMessage={shareMessage}
+            coachReview={coachReview ?? null}
+            onPressCoachReview={() => setCoachReviewOpen(true)}
           />
 
           </>
@@ -2158,6 +2171,18 @@ function AnalysisResultContent({
         visible={detailTip != null}
         tip={detailTip}
         onClose={() => setDetailTip(null)}
+      />
+      {/* quick-260918-0q8 — 강사 교정 입력. 학원에서 강사가 학생 폰에 직접 쓴다. */}
+      <CoachReviewModal
+        visible={coachReviewOpen}
+        current={coachReview ?? null}
+        onSave={async (comment, by) => {
+          await saveCoachReview(analysisId, comment, by);
+        }}
+        onDelete={async () => {
+          await clearCoachReview(analysisId);
+        }}
+        onClose={() => setCoachReviewOpen(false)}
       />
       {/* Phase 13 (Plan 13-A) / quick-260910-pbs — "다른 운동 보기" 모달.
           이 분석의 것만 그린다: 운동은 result.recommendedExercises(전면 카드와

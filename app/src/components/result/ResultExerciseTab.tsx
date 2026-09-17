@@ -26,7 +26,11 @@ import { colors, fontFamily, layout, radius, typography } from '../../theme';
 import { CORRECTIVE_EXERCISES } from '../../data/correctiveExercises';
 import { resolveExerciseId } from '../../data/legacyExerciseNames';
 import { exerciseBadgeLabel } from '../../lib/resultSummary';
-import type { CoachQuestion, RecommendedExercise } from '../../types/analysis';
+import type {
+  CoachQuestion,
+  CoachReview,
+  RecommendedExercise,
+} from '../../types/analysis';
 
 const K = 390 / 467.206;
 
@@ -66,6 +70,13 @@ export interface ResultExerciseTabProps {
   onReanalyze?: () => void;
   /** 공유 문구. 미전달 시 공유 버튼 미렌더. */
   shareMessage?: string | null;
+  // ── quick-260918-0q8: 강사 교정 (belle 2026-09-17 승인) ──
+  // 질문이 이미 이 카드에 있으므로 **답도 같은 카드**에 받는다. 새 표면을 만들지
+  // 않는 것이 belle 09-09 규율("중복 표면은 옮기지 말고 지운다")과도 맞는다.
+  /** 저장된 강사 교정. 없으면 '남기기' 유도 행, 있으면 그 내용 행. */
+  coachReview?: CoachReview | null;
+  /** 행을 누르면 입력 모달을 연다. 미전달 시 행 자체를 안 그린다(옛 화면 보존). */
+  onPressCoachReview?: () => void;
 }
 
 export function ResultExerciseTab({
@@ -74,6 +85,8 @@ export function ResultExerciseTab({
   onSeeAllExercises,
   onReanalyze,
   shareMessage,
+  coachReview,
+  onPressCoachReview,
 }: ResultExerciseTabProps) {
   const hasExercises = exercises.length > 0;
   const hasQuestions = questions.length > 0;
@@ -153,6 +166,49 @@ export function ResultExerciseTab({
               </Text>
             </View>
           ))}
+          {/* quick-260918-0q8 — 강사 답. 질문 바로 밑이라 질문↔답이 한눈에 붙는다.
+              카드 높이가 시안 223.6pt 에서 이 한 행만큼 늘어난다(시안엔 없던 행).
+              onPressCoachReview 미전달이면 아예 안 그려서 옛 호출부는 1px 도 안 변한다. */}
+          {onPressCoachReview ? (
+            <Pressable
+              onPress={onPressCoachReview}
+              accessibilityRole="button"
+              accessibilityLabel={
+                coachReview ? '강사 메모 수정' : '강사 메모 남기기'
+              }
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.qRow,
+                styles.qDivided,
+                styles.coachNoteRow,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={[styles.qMark, styles.coachNoteMark]}>
+                <Ionicons
+                  name={coachReview ? 'create-outline' : 'add'}
+                  size={13}
+                  color={colors.textWhite}
+                />
+              </View>
+              {coachReview ? (
+                <View style={styles.coachNoteCol}>
+                  <Text style={styles.qText} lineBreakStrategyIOS="hangul-word">
+                    {coachReview.comment}
+                  </Text>
+                  {coachReview.reviewedBy ? (
+                    <Text style={styles.coachNoteBy}>
+                      {`— ${coachReview.reviewedBy} 강사`}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Text style={styles.coachNotePrompt}>
+                  강사 메모 남기기
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -265,6 +321,21 @@ const styles = StyleSheet.create({
     paddingLeft: D.qIndent,
     gap: D.qTextGap,
     minHeight: D.qGap,
+  },
+  // quick-260918-0q8 — 강사 메모 행. 질문 행과 같은 골격(들여쓰기·간격)을 쓰고
+  // 마커 색만 초록 pill 과 맞춘다 — 이 카드가 '강사' 카드임을 한 색으로 잇는다.
+  coachNoteRow: { alignItems: 'flex-start', paddingTop: 12 },
+  coachNoteMark: { backgroundColor: colors.resultCoachGreen, marginTop: 1 },
+  coachNoteCol: { flexShrink: 1, gap: 3 },
+  coachNoteBy: {
+    ...typography.captionSmall,
+    color: colors.textSecondary,
+  },
+  coachNotePrompt: {
+    ...typography.caption,
+    color: colors.resultCoachGreen,
+    fontWeight: '600',
+    flexShrink: 1,
   },
   // 질문 구분선 — 카드 안쪽 여백선에서 끝까지. 색·두께는 교정포인트 행 구분선과 같은 토큰.
   qDivided: {

@@ -1303,3 +1303,21 @@ SYNTHESIS_WARNING_CODES: frozenset[str] = frozenset(
         "ai_synthesis_partial",
     }
 )
+
+
+# ── quick-260918-0q8 (belle 2026-09-17): 강사 교정 v2 ──────────────────────
+#
+# `users/{uid}/analyses/{id}.coachReview` — **앱(학생 세션)이 쓰고 백엔드는 읽지도
+# 쓰지도 않는다.** 여기 두는 이유는 계약 lockstep 규율 때문이다
+# (app/src/types/analysis.ts `CoachReview` 와 짝). 백엔드가 이 필드를 소비하게 되면
+# (재학습 라벨·강사 콘솔 집계) 그때 이 상수가 검증기의 근거가 된다.
+#
+# 왜 `result` 밖 doc 최상위인가:
+#   · 학원 현장에서 강사는 분석 1건에 한 번 답한다 — CoachCommentHook 의 리포트별
+#     (D-02) 단위가 현장 행동과 안 맞는다.
+#   · 사후 부분갱신이 `result` 를 건드리므로 그 안에 앱이 쓴 값을 두면 덮일 위험이
+#     있다(2회 재발 이력).
+# CoachCommentHook.coachComment / reviewedBy 는 향후 강사 콘솔용으로 그대로 둔다.
+#
+# 전부 스칼라 — 중첩 배열 금지 규율 준수.
+COACH_REVIEW_KEYS = ("comment", "reviewedBy", "updatedAt")

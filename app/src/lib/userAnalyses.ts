@@ -17,6 +17,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { auth, db } from './firebase';
 import { normalizeBodyProfile } from './bodyProfile';
+import { normalizeCoachReview } from './coachReview';
 import type {
   AnalysisDoc,
   AnalysisStatus,
@@ -818,6 +819,12 @@ export function normalize(
     // AnalysisDoc.learningOptIn 을 읽을 때 정합. 계약 필드와 동일 명칭 (analysis.ts:619).
     ...(typeof raw.learningOptIn === 'boolean'
       ? { learningOptIn: raw.learningOptIn }
+      : {}),
+    // quick-260918-0q8 — 강사 교정. 앱이 쓰고 앱이 읽는 필드라 백엔드 계약과 무관하나,
+    // 형식이 깨진 doc 을 화면에 흘리지 않도록 같은 방어를 건다(normalizeCoachReview 가
+    // 공백-only comment 를 null 로 떨군다). 키가 없으면 undefined 유지.
+    ...('coachReview' in raw
+      ? { coachReview: normalizeCoachReview(raw.coachReview) }
       : {}),
     // 29 리뷰 WR-01 — 재생바 결함 틱 초 환산 기준. visionVeto 의
     // sourceFrameIndices 는 9fps angles 배열 공간 인덱스인데 keypointReport.frames

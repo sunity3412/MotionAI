@@ -1,0 +1,133 @@
+=== rot180=0 out=/workspace/ref11_off.json motions=ref-climb ref-combo ref-elbow-twist-sister ref-foxtop ref-foxtop-split ref-invert ref-kip-up ref-pdshape ref-peter-pan ref-power-spin ref-sideway-spin ===
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+
+[ref-climb]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-climb.mp4 → ref-climb.mp4
+  referenceSplitAngle=127.44° (peak frame 66)
+  frames=80  추출 17.4s  폐색 보간: 34 (관절별 합)
+
+[ref-combo]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-combo.mp4 → ref-combo.mp4
+  referenceSplitAngle=180.0° (peak frame 108)
+  frames=621  추출 62.5s  폐색 보간: 228 (관절별 합)
+
+[ref-elbow-twist-sister]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-elbow-twist-sister.mp4 → ref-elbow-twist-sister.mp4
+  referenceSplitAngle=180.0° (peak frame 54)
+  frames=220  추출 21.9s  폐색 보간: 146 (관절별 합)
+
+[ref-foxtop]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-foxtop.mp4 → ref-foxtop.mp4
+  referenceSplitAngle=180.0° (peak frame 145)
+  frames=284  추출 27.8s  폐색 보간: 66 (관절별 합)
+
+[ref-foxtop-split]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-foxtop-split.mp4 → ref-foxtop-split.mp4
+  referenceSplitAngle=180.0° (peak frame 138)
+  frames=324  추출 31.9s  폐색 보간: 70 (관절별 합)
+
+[ref-invert]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-invert.mp4 → ref-invert.mp4
+  referenceSplitAngle=180.0° (peak frame 98)
+  frames=174  추출 17.2s  폐색 보간: 111 (관절별 합)
+
+[ref-kip-up]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-kip-up.mp4 → ref-kip-up.mp4
+  referenceSplitAngle=180.0° (peak frame 69)
+  frames=79  추출 8.1s  폐색 보간: 59 (관절별 합)
+
+[ref-pdshape]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-pdshape.mp4 → ref-pdshape.mp4
+  referenceSplitAngle=180.0° (peak frame 22)
+  frames=159  추출 15.3s  폐색 보간: 98 (관절별 합)
+
+[ref-peter-pan]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-peter-pan.mp4 → ref-peter-pan.mp4
+  referenceSplitAngle=57.57° (peak frame 45)
+  frames=87  추출 8.9s  폐색 보간: 61 (관절별 합)
+
+[ref-power-spin]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-power-spin.mp4 → ref-power-spin.mp4
+  referenceSplitAngle=179.1° (peak frame 87)
+  frames=106  추출 11.2s  폐색 보간: 82 (관절별 합)
+
+[ref-sideway-spin]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-sideway-spin.mp4 → ref-sideway-spin.mp4
+  referenceSplitAngle=86.16° (peak frame 15)
+  frames=199  추출 21.2s  폐색 보간: 146 (관절별 합)
+
+완료. 결과 → /workspace/ref11_off.json (143.5 KB) — motions=11 jointKeys=('left_elbow', 'right_elbow', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_knee', 'right_knee')
+belle: 이 파일을 로컬로 받아 app/scripts/seed-reference-motions.mjs 옆에 두고
+       cd app && npm run seed:reference -- --angles ../backend/scripts/reference-angles.json
+
+real	19m18.544s
+user	5m25.798s
+sys	0m55.224s
+=== rot180=1 out=/workspace/ref11_on.json motions=ref-climb ref-combo ref-elbow-twist-sister ref-foxtop ref-foxtop-split ref-invert ref-kip-up ref-pdshape ref-peter-pan ref-power-spin ref-sideway-spin ===
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+
+[ref-climb]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-climb.mp4 → ref-climb.mp4
+  referenceSplitAngle=127.44° (peak frame 66)
+  frames=80  추출 19.9s  폐색 보간: 34 (관절별 합)
+
+[ref-combo]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-combo.mp4 → ref-combo.mp4
+  referenceSplitAngle=180.0° (peak frame 353)
+  frames=621  추출 91.5s  폐색 보간: 56 (관절별 합)
+
+[ref-elbow-twist-sister]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-elbow-twist-sister.mp4 → ref-elbow-twist-sister.mp4
+  referenceSplitAngle=179.86° (peak frame 24)
+  frames=220  추출 32.0s  폐색 보간: 27 (관절별 합)
+
+[ref-foxtop]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-foxtop.mp4 → ref-foxtop.mp4
+  referenceSplitAngle=179.52° (peak frame 208)
+  frames=284  추출 40.5s  폐색 보간: 9 (관절별 합)
+
+[ref-foxtop-split]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-foxtop-split.mp4 → ref-foxtop-split.mp4
+  referenceSplitAngle=179.38° (peak frame 201)
+  frames=324  추출 47.6s  폐색 보간: 17 (관절별 합)
+
+[ref-invert]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-invert.mp4 → ref-invert.mp4
+  referenceSplitAngle=179.7° (peak frame 92)
+  frames=174  추출 25.3s  폐색 보간: 8 (관절별 합)
+
+[ref-kip-up]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-kip-up.mp4 → ref-kip-up.mp4
+  referenceSplitAngle=180.0° (peak frame 69)
+  frames=79  추출 8.1s  폐색 보간: 59 (관절별 합)
+
+[ref-pdshape]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-pdshape.mp4 → ref-pdshape.mp4
+  referenceSplitAngle=176.65° (peak frame 151)
+  frames=159  추출 22.9s  폐색 보간: 20 (관절별 합)
+
+[ref-peter-pan]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-peter-pan.mp4 → ref-peter-pan.mp4
+  referenceSplitAngle=57.57° (peak frame 45)
+  frames=87  추출 8.9s  폐색 보간: 61 (관절별 합)
+
+[ref-power-spin]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-power-spin.mp4 → ref-power-spin.mp4
+  referenceSplitAngle=179.1° (peak frame 87)
+  frames=106  추출 11.0s  폐색 보간: 82 (관절별 합)
+
+[ref-sideway-spin]
+  S3 download s3://sunity-motion-pilot-videos/reference/ref-sideway-spin.mp4 → ref-sideway-spin.mp4
+  referenceSplitAngle=86.16° (peak frame 15)
+  frames=199  추출 20.9s  폐색 보간: 146 (관절별 합)
+
+완료. 결과 → /workspace/ref11_on.json (144.1 KB) — motions=11 jointKeys=('left_elbow', 'right_elbow', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_knee', 'right_knee')
+belle: 이 파일을 로컬로 받아 app/scripts/seed-reference-motions.mjs 옆에 두고
+       cd app && npm run seed:reference -- --angles ../backend/scripts/reference-angles.json
+
+real	22m2.527s
+user	6m48.866s
+sys	0m58.108s
+ALLDONE

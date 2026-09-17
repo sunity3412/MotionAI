@@ -1,0 +1,415 @@
+{
+ "analysisId": "63701c81623e4189bbc9538f2e06084f",
+ "status": "done",
+ "mode": "mode1",
+ "referenceMotionId": "ref-pdshape",
+ "anglesFrames": 182,
+ "result": {
+  "overallScore": 87,
+  "dimensionScores": {
+   "stability": 91,
+   "angle": 87
+  },
+  "deductionBreakdown": {
+   "executionRawTotal": -13.3,
+   "executionCappedTotal": -13.3,
+   "records": [
+    {
+     "measuredValue": 31.09,
+     "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요",
+     "exerciseId": "grip_weak",
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "baselineValue": 0.0,
+     "statusLine": "왼쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요",
+     "deviationSource": "reference_relative",
+     "tolerance": 20.0,
+     "deviation": 11.09,
+     "atVideoSec": 6.50216738912971,
+     "baselineKind": null,
+     "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+     "coachQuestion": "이 셰이프에서 그립 팔을 어떻게 잡아야 안정적인지 강사님께 여쭤보고 싶어요",
+     "points": -13.3,
+     "whyLine": "폴을 잡은 팔 각이 달라지면 셰이프 지지가 흔들리는 부분이에요",
+     "exerciseReason": "그립 팔 각을 유지하려면 손과 팔 그립 유지력이 받쳐줘야 하기 때문이에요",
+     "source": "geometry",
+     "atFrameIdx": 65,
+     "recordId": "r00:angle_vs_reference__left_elbow",
+     "criterion": "angle_vs_reference__left_elbow",
+     "unit": "deg"
+    }
+   ],
+   "fallback": "gemini_silent",
+   "coverageGaps": [],
+   "baseline": 100,
+   "executionCap": 40.0,
+   "scoreFloor": 25.0,
+   "criticalTotal": 0,
+   "final": 87
+  },
+  "visionVeto": {
+   "primaryFault": "없음",
+   "tallyFinal": 87,
+   "collectionStatus": "no_fault",
+   "faultJointDeficits": {
+    "left_hip": 30.0,
+    "right_hip": 30.0,
+    "left_knee": 30.0,
+    "right_knee": 30.0
+   },
+   "status": "applied",
+   "faultJoints": [
+    "left_knee",
+    "left_hip",
+    "right_knee",
+    "right_hip"
+   ],
+   "alignment": {
+    "adoption": "window_union",
+    "refFramePresent": true,
+    "visibility": 0.7867208018022425,
+    "distance": 46.86850702565277,
+    "localPathCount": 26
+   },
+   "windowMedianAngleDeltas": {
+    "sourceFrameIndices": {
+     "reference": [
+      93,
+      94,
+      95,
+      96,
+      97
+     ],
+     "user": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    },
+    "windowPolicy": "worst_pose_center_pm_2_median",
+    "deltas": [
+     {
+      "delta_deg": 11.007186612678836,
+      "joint": "left_elbow",
+      "reference_deg": 68.58,
+      "direction": "더 펴짐",
+      "student_deg": 79.58718661267883,
+      "source": "geometry"
+     },
+     {
+      "delta_deg": 39.50310685073394,
+      "joint": "right_elbow",
+      "reference_deg": 99.01,
+      "direction": "더 펴짐",
+      "student_deg": 138.51310685073395,
+      "source": "geometry"
+     },
+     {
+      "delta_deg": 45.16361459364539,
+      "joint": "left_shoulder",
+      "reference_deg": 87.98,
+      "direction": "더 펴짐",
+      "student_deg": 133.1436145936454,
+      "source": "geometry"
+     },
+     {
+      "delta_deg": -34.98864807405185,
+      "joint": "right_shoulder",
+      "reference_deg": 57.4,
+      "direction": "더 굽음",
+      "student_deg": 22.41135192594815,
+      "source": "geometry"
+     },
+     {
+      "delta_deg": -0.28234566700177766,
+      "joint": "left_hip",
+      "reference_deg": 122.09,
+      "direction": "더 굽음",
+      "student_deg": 121.80765433299823,
+      "source": "geometry"
+     },
+     {
+      "delta_deg": -5.393400270957017,
+      "joint": "right_hip",
+      "reference_deg": 113.05,
+      "direction": "더 굽음",
+      "student_deg": 107.65659972904298,
+      "source": "geometry"
+     },
+     {
+      "delta_deg": 10.600306989860584,
+      "joint": "left_knee",
+      "reference_deg": 108.98,
+      "direction": "더 펴짐",
+      "student_deg": 119.58030698986059,
+      "source": "geometry"
+     },
+     {
+      "delta_deg": 10.685980528805857,
+      "joint": "right_knee",
+      "reference_deg": 47.72,
+      "direction": "더 펴짐",
+      "student_deg": 58.405980528805856,
+      "source": "geometry"
+     }
+    ]
+   },
+   "quantificationStatus": "available",
+   "angleDeltas": [
+    {
+     "delta_deg": 8.973496964592513,
+     "joint": "left_elbow",
+     "reference_deg": 68.58,
+     "direction": "더 펴짐",
+     "student_deg": 77.55349696459251,
+     "source": "geometry"
+    },
+    {
+     "delta_deg": 45.33661001582895,
+     "joint": "right_elbow",
+     "reference_deg": 94.64,
+     "direction": "더 펴짐",
+     "student_deg": 139.97661001582895,
+     "source": "geometry"
+    },
+    {
+     "delta_deg": 43.04610959618107,
+     "joint": "left_shoulder",
+     "reference_deg": 87.98,
+     "direction": "더 펴짐",
+     "student_deg": 131.02610959618107,
+     "source": "geometry"
+    },
+    {
+     "delta_deg": -34.98864807405185,
+     "joint": "right_shoulder",
+     "reference_deg": 57.4,
+     "direction": "더 굽음",
+     "student_deg": 22.41135192594815,
+     "source": "geometry"
+    },
+    {
+     "delta_deg": 5.17765433299823,
+     "joint": "left_hip",
+     "reference_deg": 116.63,
+     "direction": "더 펴짐",
+     "student_deg": 121.80765433299823,
+     "source": "geometry"
+    },
+    {
+     "delta_deg": 24.782971851513693,
+     "joint": "right_hip",
+     "reference_deg": 82.55,
+     "direction": "더 펴짐",
+     "student_deg": 107.33297185151369,
+     "source": "geometry"
+    },
+    {
+     "delta_deg": 21.28030698986059,
+     "joint": "left_knee",
+     "reference_deg": 98.3,
+     "direction": "더 펴짐",
+     "student_deg": 119.58030698986059,
+     "source": "geometry"
+    },
+    {
+     "delta_deg": 8.465980528805858,
+     "joint": "right_knee",
+     "reference_deg": 49.94,
+     "direction": "더 펴짐",
+     "student_deg": 58.405980528805856,
+     "source": "geometry"
+    }
+   ],
+   "severity": "none"
+  },
+  "faultZoomStatus": "done",
+  "faultZoomComparisons": [
+   {
+    "imageUrlPlain": "https://sunity-motion-pilot-videos.s3.amazonaws.com/results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/zoom_angle_vs_reference__left_elbow__plain.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA6GVBF6WH2SEVBQ5W%2F20260917%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Date=20260917T152009Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=9ed3393ef0ce5ed87a12aef3d4da6e9c89be640cd5d5abdf5063fd83f1303a6a",
+    "imageKeyPlain": "results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/zoom_angle_vs_reference__left_elbow__plain.png",
+    "refMatched": true,
+    "imageKey": "results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/zoom_angle_vs_reference__left_elbow.png",
+    "refMarked": true,
+    "kind": "deficit",
+    "refVideoSec": 6.829594911282223,
+    "userMarked": true,
+    "refMatch": "dtw",
+    "atMatched": true,
+    "refFrameIdx": 102,
+    "userVideoSec": 6.50216738912971,
+    "userFrameIdx": 130,
+    "tier": "confirmed",
+    "joint": "left_elbow",
+    "imageUrl": "https://sunity-motion-pilot-videos.s3.amazonaws.com/results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/zoom_angle_vs_reference__left_elbow.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA6GVBF6WH2SEVBQ5W%2F20260917%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Date=20260917T152009Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=b49a8fc52596c7b7b3e5a1e25b20a559f8e89a379dc03b47e26ff12c4ed5690c",
+    "criterion": "angle_vs_reference__left_elbow",
+    "deficitDeg": 37.6
+   },
+   {
+    "region": "arms",
+    "imageUrlPlain": "https://sunity-motion-pilot-videos.s3.amazonaws.com/results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/zoom_adv_left_shoulder__plain.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA6GVBF6WH2SEVBQ5W%2F20260917%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Date=20260917T152011Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=3a6a192ab1b87ea3b334c3d1355d0d8d56b82c662a87b91e39b8ad9cbf0aac7c",
+    "imageKeyPlain": "results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/zoom_adv_left_shoulder__plain.png",
+    "refMatched": true,
+    "imageKey": "results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/zoom_adv_left_shoulder.png",
+    "refVideoSec": 11.04787412119183,
+    "userMarked": true,
+    "refMatch": "dtw",
+    "refFrameIdx": 164,
+    "userVideoSec": 7.002334111370457,
+    "userFrameIdx": 140,
+    "tier": "advisory",
+    "joint": "left_shoulder",
+    "imageUrl": "https://sunity-motion-pilot-videos.s3.amazonaws.com/results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/zoom_adv_left_shoulder.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA6GVBF6WH2SEVBQ5W%2F20260917%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Date=20260917T152011Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=21eff4e3c962f7788e46f0c81a7916f6b3af132b566105e8fafe6a97b517acdc",
+    "deficitDeg": 45.16361459364539
+   }
+  ],
+  "coachStatus": "done",
+  "coachAudio": {
+   "status": "done",
+   "items": [
+    {
+     "key": "results/t58gzBEa61gAMZdq1UL0AA360hE3/63701c81623e4189bbc9538f2e06084f/coach_audio_r00:angle_vs_reference__left_elbow.mp3",
+     "recordId": "r00:angle_vs_reference__left_elbow"
+    }
+   ]
+  },
+  "tips": [
+   {
+    "detail": "왼쪽 팔꿈치의 굽힘 정도에 차이가 있어, 정확한 자세는 강사와 함께 영상 확인 권고드립니다.",
+    "joint": "left_elbow",
+    "detail2": {
+     "causes": [
+      {
+       "fix": "팔꿈치를 몸통에 가깝게 붙이고, 팔을 수직으로 올려 90° 유지하며, 거울 앞에서 팔꿈치 각도를 확인하고 5초씩 유지, 10회 반복하세요.",
+       "explanation": "팔꿈치가 과도하게 굽혀짐으로써 견갑의 안정성이 무너지고, 그로 인해 상체를 지지하는 힘이 분산될 수 있습니다.",
+       "title": "상체 지지력 저하"
+      },
+      {
+       "fix": "양쪽 어깨를 내리고, 팔을 몸통 앞쪽에 두어 어깨와 팔이 일직선이 되도록 하고, 팔꿈치를 90° 유지하며 5초씩 유지, 10회 반복하세요.",
+       "explanation": "코어의 긴장이 풀림으로써 체중이 팔에 과하게 실리게 되고, 이로 인해 팔꿈치 굽힘 각도가 커질 수 있습니다.",
+       "title": "코어 긴장도 부족"
+      },
+      {
+       "fix": "고개를 중립 위치로 되돌리고, 머리-척추 정렬을 바로 잡은 뒤 팔꿈치를 90°에 맞추어 유지, 거울 앞에서 자세 확인 후 5초씩 유지, 10회 반복하세요.",
+       "explanation": "머리-척추 정렬이 5도 정도 더 펴짐으로써 흉추의 움직임이 제한되고, 그 결과 팔꿈치에 보상 작용이 발생할 수 있습니다.",
+       "title": "머리-척추 정렬의 영향"
+      }
+     ],
+     "injuryRisk": "과도한 굴곡은 팔꿈치 관절 연골에 지속적인 압박을 주어 염증이나 인대 손상 위험이 있습니다.",
+     "coachNote": "왼쪽 팔꿈치의 굽힘 정도에 차이가 있어, 정확한 자세는 강사와 함께 영상 확인 권고드립니다"
+    },
+    "title": "왼쪽 팔꿈치 정렬"
+   },
+   {
+    "detail": "오른쪽 팔꿈치의 펴짐 각도 차이가 발생할 수 있는 원인을 파악하기 위해, 정확한 자세는 강사와 함께 영상 확인 권고드립니다.",
+    "joint": "right_elbow",
+    "detail2": {
+     "causes": [
+      {
+       "fix": "팔꿈치를 몸통 옆에 두고, 팔을 90° 굽힌 상태로 유지하며, 거울 앞에서 각도를 확인하고 5초씩 유지, 10회 반복하세요.",
+       "explanation": "폴을 잡는 위치가 멀어짐으로써 회전근개의 활성도가 떨어지고, 그로 인해 팔꿈치가 과하게 펴지는 현상이 나타날 수 있습니다.",
+       "title": "그립의 위치 불안정"
+      },
+      {
+       "fix": "상체를 중립으로 세우고, 어깨를 내린 상태에서 팔꿈치를 90°에 맞추어 유지, 거울 앞에서 자세를 점검하고 5초씩 유지, 10회 반복하세요.",
+       "explanation": "하체로 가야 할 체중이 상체로 쏠림으로써 요추의 부담이 커지고, 이를 버티기 위해 팔꿈치가 펴질 수 있습니다.",
+       "title": "체중 분산의 불균형"
+      },
+      {
+       "fix": "고개를 기준 각도로 되돌리고, 머리-척추 정렬을 바로 잡은 뒤 팔꿈치를 90°에 맞추어 유지, 거울 앞에서 확인 후 5초씩 유지, 10회 반복하세요.",
+       "explanation": "시선이 위로 향해 머리-척추 정렬이 5도 정도 펴짐으로써 경추와 흉추의 연결이 불안정해지고, 팔의 펴짐 각도에 영향을 줄 수 있습니다.",
+       "title": "시선 처리와 척추 정렬"
+      }
+     ],
+     "injuryRisk": "지속적인 과도 신전은 팔꿈치 인대와 삼두근에 과부하를 주어 염증 및 인대 손상 위험을 높입니다.",
+     "coachNote": "오른쪽 팔꿈치의 펴짐 각도 차이가 발생할 수 있는 원인을 파악하기 위해, 정확한 자세는 강사와 함께 영상 확인 권고드립니다"
+    },
+    "title": "오른쪽 팔꿈치 정렬"
+   },
+   {
+    "detail": "왼쪽 어깨가 들리는 현상에 대해, 정확한 자세는 강사와 함께 영상 확인 권고드립니다.",
+    "joint": "left_shoulder",
+    "detail2": {
+     "causes": [
+      {
+       "fix": "고개를 중립 위치로 되돌리고, 머리-척추 정렬을 바로 잡은 뒤 어깨를 내리며 팔을 몸통 옆에 두고, 거울 앞에서 어깨 높이를 확인하고 5초씩 유지, 10회 반복하세요.",
+       "explanation": "등 근육을 충분히 끌어내리지 못함으로써 견갑이 위로 들리게 되고, 그로 인해 어깨가 솟아오르는 결과가 발생할 수 있습니다.",
+       "title": "광배근 활용 부족"
+      },
+      {
+       "fix": "팔을 몸통 옆에 두고 어깨를 내리며, 어깨와 팔이 일직선이 되도록 유지하고, 거울 앞에서 어깨 높이를 체크, 5초씩 유지, 10회 반복하세요.",
+       "explanation": "고관절의 움직임이 제한됨으로써 상체로만 자세를 유지하려 하게 되고, 이로 인해 어깨 주변 근육이 과긴장될 수 있습니다.",
+       "title": "하체와의 연결성 부족"
+      },
+      {
+       "fix": "상체를 중립으로 세우고, 어깨를 내린 상태에서 팔을 몸통 옆에 두어 어깨 높이를 기준과 맞추고, 거울 앞에서 자세 확인 후 5초씩 유지, 10회 반복하세요.",
+       "explanation": "머리-척추 정렬이 5도 정도 더 펴짐으로써 상부 흉추가 뻣뻣해지고, 이를 보상하기 위해 어깨가 위로 들릴 수 있습니다.",
+       "title": "척추 정렬에 따른 보상 작용"
+      }
+     ],
+     "injuryRisk": "어깨가 지속적으로 상승하면 견갑골 불안정과 회전근개 과부하가 발생해 어깨 통증 및 회전근개 손상 위험이 있습니다.",
+     "coachNote": "왼쪽 어깨가 들리는 현상에 대해, 정확한 자세는 강사와 함께 영상 확인 권고드립니다"
+    },
+    "title": "왼쪽 어깨 자세각"
+   }
+  ],
+  "unjudgedJoints": [],
+  "timingsMs": {
+   "frame_extract": 27632,
+   "dtw_scoring": 121,
+   "ref_fetch_download": 4923,
+   "assemble_misc": 3,
+   "rtmw": 134320,
+   "veto_collect": 81773,
+   "s3_download": 752814,
+   "scene_finder": 0,
+   "recognizer": 1337
+  },
+  "spotCheck": {
+   "status": "done",
+   "promptVersion": "v1.0",
+   "praiseMismatch": false,
+   "model": "gemini-3.1-pro-preview",
+   "hiddenRecordIds": [],
+   "verdicts": [
+    {
+     "verdict": "uncertain",
+     "reason": "(비교 측정) 문장이므로 현재 프레임만으로는 기준 영상과의 차이를 확인할 수 없습니다.",
+     "recordId": "r00:angle_vs_reference__left_elbow"
+    }
+   ]
+  },
+  "aiSynthesisMeta": {
+   "synthesizedFrameCount": 0,
+   "synthesisPath": "none",
+   "degraded": true,
+   "geminiCalls": 0,
+   "framesSkipped": 0,
+   "framesSynthesized": 0,
+   "warnings": [],
+   "synthesizedJointKeys": [],
+   "modelId": "",
+   "framesConsidered": 0,
+   "promptHash": "",
+   "modelVersion": "",
+   "framesFailed": 0,
+   "estCostUsd": 0.0,
+   "debugWarnings": []
+  },
+  "dimensionExplanation": {
+   "stability": {
+    "baseline": "hold 구간 안정성 (절대 지표)",
+    "weightPercent": 0,
+    "deficitSummary": "hold 구간 떨림 작음",
+    "contributesToOverall": false
+   },
+   "angle": {
+    "baseline": "정은지 선수 기준 관절 각도",
+    "weightPercent": 100,
+    "deficitSummary": "관절 각도 안정",
+    "contributesToOverall": true
+   }
+  }
+ }
+}

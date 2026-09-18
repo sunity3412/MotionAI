@@ -6,6 +6,10 @@ created: 2026-06-27
 updated: 2026-06-27
 ---
 
+> **판정 정정 (2026-09-18, quick-260918-qm2): 해소** — REGISTERED_MOTIONS 10개 + criteria yaml
+> 전수 생성, 인식기는 상시 gemini 다. EXTEND 부재는 belle 2026-06-27 결정의 결과다.
+> 원장 = `.planning/STATE.md` "미종결 트랙 판정 원장". 다시 열지 말 것.
+
 # Debug: recognizer IPSF 라우팅 폴백 (P1 본체)
 
 ## Symptoms

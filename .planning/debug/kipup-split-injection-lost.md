@@ -5,6 +5,10 @@ created: 2026-07-04T00:00:00+09:00
 updated: 2026-07-04T21:30:00+09:00
 ---
 
+> **판정 정정 (2026-09-18, quick-260918-qm2): 해소** — 요청된 combined 라우팅 fix 가 같은 날
+> `3399fd78` 로 적용됐고, enum 1순위가 `e697364e` 로 추가됐다.
+> 원장 = `.planning/STATE.md` "미종결 트랙 판정 원장". 다시 열지 말 것.
+
 ## Current Focus
 
 hypothesis: CONFIRMED — criteria_for_fault rule 1 inspects body_part only for _SPLIT_KEYWORDS; v10.1 Gemini output puts split vocabulary in fault_state, so no member routes to split_angle and belle-A vision injection never executes.

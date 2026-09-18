@@ -9,6 +9,10 @@ goal: find_and_fix
 tdd_mode: false
 ---
 
+> **판정 정정 (2026-09-18, quick-260918-qm2): 사문** — 축 버그는 `89402fc5` 로 수리됐고,
+> 카드를 쓰던 ReferenceCornerSection 은 09-09 `aadf0375` 로 철거됐다(소비처 0).
+> 원장 = `.planning/STATE.md` "미종결 트랙 판정 원장". 다시 열지 말 것.
+
 # Debug: viewer-axis-flat-skeleton — 2D 비교 뷰어 가로 막대 뭉개짐
 
 인계 원본: `.planning/phases/31-api-visual-correction/31-DEBUG-HANDOFF.md` §1 (2026-07-20 세션 종료 시점 작성)

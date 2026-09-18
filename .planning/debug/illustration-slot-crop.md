@@ -6,6 +6,10 @@ created: 2026-07-31
 updated: 2026-07-31
 ---
 
+> **판정 정정 (2026-09-18, quick-260918-qm2): 사문** — 일러스트 전면 제거(2026-08-24 `fb2eef19`)로
+> 표면이 소멸했고, 문서 자신의 Resolution 도 오측 판정으로 닫혀 있다.
+> 원장 = `.planning/STATE.md` "미종결 트랙 판정 원장". 다시 열지 말 것.
+
 # illustration-slot-crop — 일러스트 슬롯이 에셋을 잘라낸다 (33-G V-3)
 
 ## Symptoms

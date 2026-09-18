@@ -10,6 +10,10 @@ next: "belle IN-01 앱측 변경 선택(추천). 결과화면이 attributionReli
 pod: "e73rm2lpev5x1b (RTX 4090) — 스윕 완료. belle 콘솔 Stop 권장(Volume 생존, 데이터 안 휘발). IN-01은 앱측이라 Pod 불필요."
 ---
 
+> **판정 정정 (2026-09-18, quick-260918-qm2): 살았다** — 마커 배선은 완료됐다
+> (pipeline/app.py:2399, result.tsx:858). 원장 = `.planning/STATE.md` "미종결 트랙 판정 원장".
+> 남은 것 = 회전 ON 이후 발화 재측정 — 역립 케이스의 tol 초과 관절이 8→2 로 줄었는데 임계는 5 다.
+
 # Debug: 역립 관절 귀속 정밀도 (균일 다관절 편차 근본원인)
 
 > 출처 SEED: `.planning/phases/33-result-trust-recovery/33-NEXT-JOINT-ATTRIBUTION-SEED.md`

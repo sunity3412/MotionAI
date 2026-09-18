@@ -6,6 +6,10 @@ created: 2026-07-22
 updated: 2026-07-22
 ---
 
+> **판정 정정 (2026-09-18, quick-260918-qm2): 보류** — 출발점이던 비대칭은 09-17 묶음으로
+> 해소됐다(pdshape 60→87, 정은지 자기비교 60→100). 원장 = `.planning/STATE.md` "미종결 트랙 판정 원장".
+> 남은 것 = elbow-twist 학생 ON 재분석 1편 — Pod 기동이 조건이다.
+
 # ref-student-substrate-gap
 
 ## Symptoms

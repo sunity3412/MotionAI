@@ -1,0 +1,6 @@
+{
+ "power-spin__r1": {
+  "status": "error",
+  "error": "Error code: 400 - {'error': {'message': 'The legacy Interactions API schema is no longer supported. Please upgrade your google-genai Python SDK to version >= 2.0.0 (e.g., run pip install -U google-genai) to use the Interactions API. For details and migration examples, see: https://ai.google.dev/gemi"
+ }
+}

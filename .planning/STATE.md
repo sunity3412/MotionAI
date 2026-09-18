@@ -31,14 +31,21 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 > 2026-08-30 정리. 아래 수치는 `.planning/phases/` 실측(PLAN vs SUMMARY 개수)이다.
 
+> **2026-09-18 판정 (quick-260918-qm2):** 아래 설명 열은 09-18 판정, 숫자 열은 08-30 실측.
+> 판정 전문 = 이 절 아래 "미종결 트랙 판정 원장".
+
 **로드맵 38 페이즈 — 완료 30 / 진행중 4 / 미착수 4** (01·12_5·20·24·25 는 2026-08-31 quick/260831-c3l 스텁 마감으로 완료 편입)
 
 진행중 (남은 plan 수):
 ```
-22-custom-vlm-finetune               4   v34 gates FAIL — belle: 데이터 더 쌓고 재시도
-31-api-visual-correction             1   31-12 배포 게이트
-33-result-trust-recovery             3   33-07 flip(belle 보류) · 33-16 UAT · 33-21 조건부
-36-account-system                    2   36-01/02 실행, SUMMARY 미작성
+22-custom-vlm-finetune               4   22-06 완료(SUMMARY 미작성) · 22-08/09/10 보류
+                                         (재개 = promotion_ledger.current 가 null 을 벗어남 + RunPod 충전)
+31-api-visual-correction             1   31-12 사문(belle 2026-07-20 축소마감 + CALIBRATION blocked
+                                         + 09-09 소비처 제거)
+33-result-trust-recovery             3   33-07/16/21 사문(2026-09-18 판정 — flip 은 09-17 rot180_v1 로
+                                         실행됨 · 게이트 화면 소멸 · no-op)
+36-account-system                    2   36-01 완료(SUMMARY 미작성) · 36-02 살았다(belle 실계정 로그인
+                                         1건, 파일럿 비차단) · 카카오·네이버 보류(belle 08-31 "출시 준비 때")
 ```
 
 > 2026-08-31 스텁 마감 (quick/260831-c3l): 01-24·12.5-01 사문 / 01-25·24-03·25-04 실질완료 / 20-04 파킹.
@@ -47,10 +54,51 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 미착수 (PLAN 0):
 ```
 18-expert-deliberate-fault-reference-eval-set
+                                     ← 보류: baseline·assert 실재(backend/evals/phase18).
+                                       남은 것 = Pod live sweep + sensitivity 셋(= SCORE-09 잔여)
 21-reference-angles-gpu              ← 프로 셀프서비스 기준 등록. belle 08-30 요구사항
+                                     · 살았다(2026-09-18): reference-motions.md §6 수동 절차가
+                                       이 페이즈의 제거 대상
 34-analysis-generalization           ← "어떤 영상이 올라가든". belle 결정 2건 대기
 35-server-rendered-comparison-video
+                                     ← 사문(표기 낡음): 합성 mp4 경로는 quick 트랙으로 배선·운영 중
+                                       (result.tsx:1720 RenderedComparePlayer)
 ```
+
+### 미종결 트랙 판정 원장 (2026-09-18, quick-260918-qm2)
+
+라벨 정의 — **사문** = 상위결정 기각·기능제거·소비처 0 / **완료** = 실행이 끝났고 원장 표기만
+누락 / **살았다** = 남은 일이 있다 / **보류** = 재개 조건이 있다.
+**완료는 사문이 아니다** (22-06 의 Qwen3-VL-8B 백본 결정은 기각된 적 없다).
+근거 = `.planning/quick/260918-qm2-doc-truth-repair-18/260918-qm2-FINDINGS.md` (파일:줄번호 실측).
+다시 조사하지 말 것.
+
+| 대상 | 판정 | 근거 (커밋 · 파일:줄) | 남은 것 / 재개 조건 |
+|---|---|---|---|
+| debug illustration-slot-crop | 사문 | 일러스트 전면 제거 `fb2eef19`(2026-08-24), 컴포넌트·lib·에셋 부재·참조 0. 문서 자신의 Resolution 도 오측 판정 | 없음 — 다시 열지 말 것 |
+| debug viewer-axis-flat-skeleton | 사문 | 축 버그는 `89402fc5` 수리, 카드를 쓰던 ReferenceCornerSection 은 09-09 `aadf0375` 철거(소비처 0) | 없음 — 다시 열지 말 것 |
+| debug kipup-split-injection-lost | 해소 | 요청된 combined 라우팅 fix 가 같은 날 `3399fd78` 적용, enum 1순위 `e697364e` 추가 (ipsf_criteria.py:330,348) | 없음 — status 만 미갱신이었다 |
+| debug recognizer-ipsf-fallback | 해소 | REGISTERED_MOTIONS 10개 + criteria yaml 전수 생성, 인식기 상시 gemini(start_server.sh:42). EXTEND 부재는 belle 2026-06-27 결정 | 없음 |
+| debug inversion-joint-attribution | 살았다 | 마커 배선 완료(pipeline/app.py:2399, result.tsx:858) | 회전 ON 이후 발화 재측정 — 초과 관절 8→2, 임계는 5 |
+| debug ref-student-substrate-gap | 보류 | 비대칭은 09-17 묶음으로 해소(pdshape 60→87, 자기비교 60→100), M3 도 수리(motiondtw.py:177-216) | elbow-twist 학생 ON 재분석 1편 — Pod 필요 |
+| 22-06 | 완료(원장 표기만 누락) | bake-off 실행 완료 — Qwen3-VL-8B CONFIRMED(belle 2026-07-13), 산출물 2/2 커밋(`ab0f5124`·`2cdc76e0`) | SUMMARY 한 장만 미작성. 재개할 일 없음 |
+| 22-08 | 보류 | 미착수(artifact 3/3 부재, 운영 참조 0건) | `promotion_ledger.current` 가 null 을 벗어남 |
+| 22-09 | 보류 | 미착수 — 22-03 Task2~4 가 belle-gated 이월이라 `store_vlm_shadow` 호출자 0 | 22-08 이후 |
+| 22-10 | 보류 | 미착수(`VLM_JUDGE_BACKEND` 0건) | 승격 + 22-09 증거 + RunPod 충전. 실증 후 belle 판정 |
+| 31-12 | 사문 | belle 2026-07-20 축소마감(31-CLOSEOUT)이 원 플랜 기각 + CALIBRATION `blocked:true` + 09-09 재디자인이 앱 소비처 제거(`aadf0375`) | 없음 |
+| 33-07 | 사문 | flip 은 09-17 `rot180_v1` 로 실행됨(`02b1155a`). C(phase33-cm3-run1 9fps) 폐기, M3 상시 활성 | 잔여 = 기준 18fps vs 학생 9fps → Phase 34 |
+| 33-16 | 사문 | Task 0~3 실행·belle UAT ② 반려 12건까지 기록됨. 게이트 대상 화면이 08-24 일러스트 제거 + 09-09 4탭 재디자인으로 소멸 | 없음 |
+| 33-21 | 사문(no-op) | 33-06 elbow-twist 여유 +3.10 ≥ +2.0 이라 플랜 자신이 규정한 no-op. HALT 없음 | 없음 |
+| 36-01 | 완료(원장 표기만 누락) | 실행 완료 `f957bad9`. 전제 "시작하기=게스트 직행"은 belle 2026-09-01 로그인 게이트 결정으로 대체(app/src/app/index.tsx:12-18) | SUMMARY 만 미작성 |
+| 36-02 | 살았다 | Google 배선·게스트 승계 코드 배포됨(`41fa1abd`) | belle 실계정 로그인으로 linked/uid 유지 실측 1건. 파일럿 비차단 |
+| 36 카카오·네이버 | 보류 | `WIRED_PROVIDER_IDS=['google','apple']` 이라 버튼 미렌더, `POST /auth/social` 배포 라우트 0 | belle 2026-08-31 "출시 준비 때" |
+| ROADMAP 미체크 29건 | 표기 누락(실측 16건) | SUMMARY 가 디스크에 실재하는데 체크박스만 안 찍힘 — 01-23/24/25 · 05-03/04/05 · 12-01/02/03 · 23-03 · 24-03 · 25-01/02/03/04 · 32-15 (비평가 목록 14건 + 25-02·25-03 을 이번 전수 스캔이 추가) | Task 5 에서 `- [x]` 로 정정 완료 |
+| Phase 35 | 사문(표기 낡음) | 합성 mp4 경로는 quick 트랙으로 이미 배선·운영 중(result.tsx:1720 RenderedComparePlayer, s3keys.build_rendered_compare_key) | 플랜 트랙 재개 대상 아님. 세부 목표 전수 마감 여부는 미확인 |
+| Phase 18 | 보류 | baseline·assert 실재(`backend/evals/phase18`), 다른 게이트가 EVAL18 을 인용(ROADMAP:646) | Pod live sweep + sensitivity 셋(미보유+above-cutoff) = SCORE-09 잔여와 같은 물건 |
+| Phase 21 | 살았다 · 파일럿 Step 2 직결 | belle 2026-08-30 요구사항. `POST /reference/auto-register` 는 배포됐으나 name·athleteName·level 미기록 + angles 미생성 | docs/reference-motions.md §6 수동 절차를 없애는 것이 이 페이즈 |
+| REQUIREMENTS Pending | 재판정 필요 (실측 19행, CONTEXT 는 17) | 아무도 안 열어봤다. SCORE-10 은 구현 완료인데 Pending(`deduction_engine.tally:268` 실재, `vision_veto.SEVERITY_CAP`·`apply_downward_cap` 소멸) | SCORE-10 → Complete 정정 완료. SCORE-09 는 belle 지시로 열림. 나머지 17 = 재판정 대상 |
+| 플라이휠 크롭 반출 7사이클 0 | 정상 | 반출기 정상 — `admit && !uploaded` 행만 올리는데 admit 104건이 전부 uploaded 라 pending=0 (harvest_eye.py:700-707) | 진짜 미결 = 09-14 재판정이 admit→hold 로 강등한 40건이 `uploaded=True` 로 S3 잔류(해제 경로 0, 1건 사유 `customer_anonymize_required`) + 신규 63행 전량 hold |
+| 유령 worktree `.claude/worktrees/agent-a572524a5cb0c0b23` | 기록만(CONTEXT 범위 밖) | 2026-08-01 RED 커밋 `c0d662de` 에 물린 worktree+브랜치, `.planning` 사본이 전수 검색을 오염 | 제거는 별도 판정 |
 
 **현재 우선순위 = 분석** (belle 2026-08-30: "중요한건 로그인이니 게스트보단 분석잉게")
 

@@ -3484,6 +3484,21 @@ def _make_card_anchor_check(*, api_key: str, analysis_id: str, path: str,
     재확인이 카드를 구제한 적이 한 번도 없다(틀린 좌표는 이웃 프레임에서도 틀리다).
     게다가 이 두 경로는 이미 관절별 confidence 최대 프레임을 스스로 고른다.
 
+    ★ 2단 판정 (quick-260918-gpx): 1단(part, 무표시 정중앙)이 mismatch 라고 해도
+    **그것만으로 지우지 않는다.** 설계가 이미 그렇게 적혀 있었는데 운영에만 빠져 있었다
+    — card_photo_audit.adjudicate 주석 원문: *"crop 정중앙이 이웃 부위로 읽히는 것은
+    정상이고, 카드가 실제로 가리키는 지점은 표시다"*. 1단 질문은 "정중앙에 **가장 크게**
+    보이는 부위"라 역립·접힌 자세에서 어깨 크롭에 머리가 더 크게 들어오면 눈은 질문대로
+    head 라고 **정확히** 답하고, 그걸 좌표 오류로 읽으면 맞는 표식이 지워진다.
+    그래서 지우기 직전에 **표시를 그린 크롭**으로 2단(mark_part, "표시가 놓인 부위")을
+    묻고 `adjudicate` 로 종결한다:
+      · ok=True  (mark_in_expected)      → 지우지 않는다 — 1단은 인접 맥락이었다
+      · ok=False (mark_elsewhere)        → 지운다 — 사진이 정말 다른 부위를 가리킨다
+      · ok=None  (못 읽음/표시 불일치)    → 지우지 않는다 — **감사 불가는 불일치가 아니다**
+        (anchor_verdict 의 unreadable 규칙과 동형: "눈이 못 본 것은 틀린 게 아니다")
+    1단 보정값(ANCHOR_CHECK_CROP_FRAC 0.18, 질문 원문)은 36패널 계기라 **무접촉**이다 —
+    2단은 1단이 mismatch 라고 한 뒤에만 돈다.
+
     호출 0 인 경우(= unbound): 크롭 중심 없음 / 전신 폴백(kind='full', 표시 자체가
     없음) / 기대 부위 파생 불가 / API 키 부재. 감사 불가는 불일치가 아니다.
     """
@@ -3520,8 +3535,60 @@ def _make_card_anchor_check(*, api_key: str, analysis_id: str, path: str,
             )
             stats["sides"] += 1
             stats[res.action] += 1
+            mark_tok = ""
+            adj_reason = ""
             if res.action == "suppressed":
-                out.add(side)
+                # ★ 2단 — 지우기 직전에만 (quick-260918-gpx). 실패는 비차단:
+                # 2단을 못 물으면 1단 판정(지움)을 그대로 따른다.
+                # ★ 2단이 **돌았을 때만** 1단 판정을 뒤집을 수 있다.
+                #   눈이 못 읽음(mark_unobserved/unreadable) = 2단이 돈 결과이고
+                #   "감사 불가는 불일치가 아니다" 규칙으로 구제한다.
+                #   2단을 **아예 못 돌림**(키 부재·크롭 실패) = 2단 증거 0 이므로
+                #   1단 판정(지움)을 그대로 따른다. 둘을 섞으면 인프라 장애가
+                #   조용히 표시를 되살린다.
+                center_tok = res.trail[-1][1] if res.trail else None
+                stage2_ran = False
+                if api_key:
+                    try:
+                        _h, _w = frame.shape[:2]
+                        _mcrop, _ = cg.mark_crop(
+                            frame, (float(xy[0]) * _w, float(xy[1]) * _h)
+                        )
+                        _m = cg.eye_part_token(
+                            _mcrop, api_key=api_key, claim="mark_part"
+                        )
+                        stats["eye_calls"] += int(_m["calls"])
+                        stats["mark_calls"] = (
+                            stats.get("mark_calls", 0) + int(_m["calls"])
+                        )
+                        mark_tok = str(_m["observed"])
+                        stage2_ran = True
+                    except Exception:  # noqa: BLE001 - 2단 불가는 1단 유지
+                        log.warning(
+                            "anchor stage2 mark query 실패 side=%s joint=%s",
+                            side, joint,
+                        )
+                if not stage2_ran:
+                    out.add(side)
+                    stats["stage2_unavailable"] = (
+                        stats.get("stage2_unavailable", 0) + 1
+                    )
+                else:
+                    adj = cpa.adjudicate(expected, center_tok, mark_tok or None,
+                                         marked=True)
+                    adj_reason = str(adj.get("reason") or "")
+                    if adj.get("ok") is False:
+                        out.add(side)
+                        stats["stage2_confirmed"] = (
+                            stats.get("stage2_confirmed", 0) + 1
+                        )
+                    else:
+                        # 구제 — 지우지 않는다. 집계도 되돌린다(판정 분포가 실제
+                        # 처분과 어긋나면 로그를 못 믿는다).
+                        stats["suppressed"] -= 1
+                        stats["stage2_rescued"] = (
+                            stats.get("stage2_rescued", 0) + 1
+                        )
             log.info(
                 "fault_zoom_anchor_check analysis_id=%s path=%s side=%s joint=%s "
                 "criterion=%s expected=%s action=%s trail=%s eye_calls=%d",
@@ -3530,6 +3597,13 @@ def _make_card_anchor_check(*, api_key: str, analysis_id: str, path: str,
                 ",".join(f"{o}/{v}" for _f, o, v in res.trail) or "-",
                 res.eye_calls,
             )
+            if adj_reason:
+                log.info(
+                    "fault_zoom_anchor_stage2 analysis_id=%s path=%s side=%s "
+                    "joint=%s mark=%s adjudicated=%s disposition=%s",
+                    analysis_id, path, side, joint, mark_tok or "-", adj_reason,
+                    "suppressed" if side in out else "kept",
+                )
         return frozenset(out)
 
     return _check

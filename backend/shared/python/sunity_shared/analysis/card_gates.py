@@ -874,8 +874,14 @@ def part_crop(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float], *,
 
 
 def eye_part_token(crop, *, api_key: str, model: str = DEFAULT_C_MODEL,
-                   rounds: int = ANCHOR_CHECK_ROUNDS, timeout_s: float = 60.0) -> dict:
-    """크롭 정중앙의 부위 토큰 — eye_judge(claim="part") 를 최대 rounds 회, **토큰 최빈**.
+                   rounds: int = ANCHOR_CHECK_ROUNDS, timeout_s: float = 60.0,
+                   claim: str = "part") -> dict:
+    """크롭의 부위 토큰 — eye_judge 를 최대 rounds 회, **토큰 최빈**.
+
+    claim="part" (기본, 1단): 무표시 좁은 크롭의 **정중앙** 부위.
+    claim="mark_part" (2단, quick-260918-gpx): 표시가 그려진 크롭에서 **표시가 놓인**
+      부위. 어휘에 no_mark 가 추가된다(MARK_VOCAB) — 눈이 표시를 못 봤다는 답 자체가
+      판정 재료다(card_photo_audit.adjudicate 의 mark_disagreement).
 
     운영 질문·스키마 그대로(_CLAIM_QUESTION["part"] — 좌우·기대 관절 0). expected_limb /
     joint_kind 는 넘기지 않는다 — 기대가 질문에 새면 감사의 전제(눈은 관측만)가 깨진다
@@ -890,20 +896,23 @@ def eye_part_token(crop, *, api_key: str, model: str = DEFAULT_C_MODEL,
     """
     if rounds < 1 or rounds % 2 == 0:
         raise ValueError(f"rounds must be a positive odd int, got {rounds}")
+    if claim not in ("part", "mark_part"):
+        raise ValueError(f"claim must be 'part' or 'mark_part', got {claim!r}")
+    vocab = cpa.PART_VOCAB if claim == "part" else cpa.MARK_VOCAB
     need = rounds // 2 + 1
     results: list[dict] = []
     tokens: list[str] = []
     counts: dict[str, int] = {}
     for _ in range(rounds):
-        r = eye_judge(crop, "part", api_key=api_key, model=model, timeout_s=timeout_s)
+        r = eye_judge(crop, claim, api_key=api_key, model=model, timeout_s=timeout_s)
         results.append(r)
         tok = str(r.get("observed"))
         tokens.append(tok)
-        if tok in cpa.PART_VOCAB:
+        if tok in vocab:
             counts[tok] = counts.get(tok, 0) + 1
             if counts[tok] >= need:
                 break
-    observed = cpa.modal_token(tokens)
+    observed = cpa.modal_token(tokens, vocab)
     first = next((r for r in results if str(r.get("observed")) == observed), None)
     return {
         "observed": observed,

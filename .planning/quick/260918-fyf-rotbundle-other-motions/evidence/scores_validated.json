@@ -1,0 +1,34 @@
+[
+ {
+  "move": "ref-elbow-twist-sister",
+  "before": 63,
+  "after": 60,
+  "rot_noop": false,
+  "before_raw": 36.7314708614029,
+  "after_raw": 42.21910067102848
+ },
+ {
+  "move": "ref-kip-up",
+  "before": 99,
+  "after": 99,
+  "rot_noop": true,
+  "before_raw": 0.8013236748973298,
+  "after_raw": 0.8013236748973298
+ },
+ {
+  "move": "ref-pdshape",
+  "before": 100,
+  "after": 60,
+  "rot_noop": false,
+  "before_raw": 0.22340648103616445,
+  "after_raw": 42.01766136907623
+ },
+ {
+  "move": "ref-power-spin",
+  "before": 73,
+  "after": 73,
+  "rot_noop": true,
+  "before_raw": 26.85383571663879,
+  "after_raw": 26.85383571663879
+ }
+]

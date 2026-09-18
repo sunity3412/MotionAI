@@ -1,0 +1,79 @@
+[
+ {
+  "move": "ref-climb",
+  "ref_shift_max_deg": 68.28,
+  "rotation_contrib_deg": 0.0,
+  "exceeds_tolerance": true,
+  "has_student_doc": false
+ },
+ {
+  "move": "ref-combo",
+  "ref_shift_max_deg": 20.68,
+  "rotation_contrib_deg": 25.74,
+  "exceeds_tolerance": true,
+  "has_student_doc": false
+ },
+ {
+  "move": "ref-elbow-twist-sister",
+  "ref_shift_max_deg": 25.62,
+  "rotation_contrib_deg": 25.72,
+  "exceeds_tolerance": true,
+  "has_student_doc": true
+ },
+ {
+  "move": "ref-foxtop",
+  "ref_shift_max_deg": 24.09,
+  "rotation_contrib_deg": 23.42,
+  "exceeds_tolerance": true,
+  "has_student_doc": false
+ },
+ {
+  "move": "ref-foxtop-split",
+  "ref_shift_max_deg": 7.38,
+  "rotation_contrib_deg": 10.54,
+  "exceeds_tolerance": false,
+  "has_student_doc": false
+ },
+ {
+  "move": "ref-invert",
+  "ref_shift_max_deg": 26.34,
+  "rotation_contrib_deg": 26.93,
+  "exceeds_tolerance": true,
+  "has_student_doc": false
+ },
+ {
+  "move": "ref-kip-up",
+  "ref_shift_max_deg": 0.0,
+  "rotation_contrib_deg": 0.0,
+  "exceeds_tolerance": false,
+  "has_student_doc": true
+ },
+ {
+  "move": "ref-pdshape",
+  "ref_shift_max_deg": 46.67,
+  "rotation_contrib_deg": 55.27,
+  "exceeds_tolerance": true,
+  "has_student_doc": true
+ },
+ {
+  "move": "ref-peter-pan",
+  "ref_shift_max_deg": 0.0,
+  "rotation_contrib_deg": 0.0,
+  "exceeds_tolerance": false,
+  "has_student_doc": false
+ },
+ {
+  "move": "ref-power-spin",
+  "ref_shift_max_deg": 0.09,
+  "rotation_contrib_deg": 0.0,
+  "exceeds_tolerance": false,
+  "has_student_doc": true
+ },
+ {
+  "move": "ref-sideway-spin",
+  "ref_shift_max_deg": 0.06,
+  "rotation_contrib_deg": 0.0,
+  "exceeds_tolerance": false,
+  "has_student_doc": false
+ }
+]

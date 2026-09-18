@@ -1,11 +1,11 @@
 # 학원 실증 점검 카드 — 2026-09-18
 
-## 지금 상태 (기동 완료)
+## 지금 상태 (기동 후 기입)
 
 | | |
 |---|---|
-| Pod | `elevev58iv4mox` · L4 · **루마니아(RO)** · $0.49/hr |
-| 서버 | `https://elevev58iv4mox-8000.proxy.runpod.net` |
+| Pod | `{podId}` · GPU · 리전 · 시간당 비용 — 기동 후 채워넣기 |
+| 서버 | `https://{podId}-8000.proxy.runpod.net` |
 | 서빙 코드 | `8c64b941` (health 의 commitSha 로 확인됨) |
 | Lambda | RUNPOD_ANALYZE_URL 동기화 완료 |
 | SSM | pod-expected = **up** |
@@ -15,7 +15,7 @@
 ## 실증 직전 30초 점검
 
 ```bash
-curl -s https://elevev58iv4mox-8000.proxy.runpod.net/health | python3 -m json.tool
+curl -s https://{podId}-8000.proxy.runpod.net/health | python3 -m json.tool
 ```
 
 이 셋을 보세요:
@@ -40,10 +40,20 @@ curl -s https://elevev58iv4mox-8000.proxy.runpod.net/health | python3 -m json.to
 ```
 그리고 SSM `pod-expected` 를 `down` 으로.
 
+Lambda `RUNPOD_ANALYZE_URL` 을 자리표시자 `https://pod-down.invalid/analyze` 로 되돌린다
+(`aws lambda update-function-configuration` 은 병합이 아니라 치환 — 나머지 변수를 통째로 다시 넣는다).
+**값을 지우거나 SSM `/sunity/motion/runpod-analyze-url` 을 삭제하지 말 것** — SSM 은 Type=String 이라
+빈 값이 안 들어가고, `backend/template.yaml:342/481` 이 `{{resolve:ssm:...}}` 로 이 이름을 해석하므로
+삭제하면 다음 `sam deploy` 가 그 자리에서 깨진다. 그리고 **Pod 이 없으면 분석은 어차피 실패한다** —
+URL 을 비워도 CPU 폴백은 배포 환경에서 ImportError 로 막혀 있다
+(`backend/functions/pipeline/requirements.txt:1-4`). 이 되돌리기는 '죽은 주소로 위임' 대신
+'즉시 실패'로 만드는 것이지 분석을 살리는 것이 아니다.
+
 ## 알려진 제약 (실증 중 당황하지 않기)
 
 - **Pod 이 EU, 버킷이 서울** — 영상이 크면 다운로드가 분석 시간의 상당 부분입니다.
-  (오늘 실측: 88MB 가 25초 미만 — 종전 기록 752초보다 훨씬 빨랐습니다.)
+  (2026-09-18 실측: 88.7MB 가 156초 — 아래 단계별 표와 같은 값입니다.
+  종전 기록 752초는 재현되지 않았습니다.)
 - **Pod 이 없으면 분석은 그냥 실패합니다.** 폴백 경로가 없습니다.
 - 확대 카드·음성은 분석 완료 **후 3~5분** 더 걸려 만들어집니다. 바로 안 보여도 정상입니다.
 

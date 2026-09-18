@@ -98,6 +98,17 @@ aws lambda update-function-configuration \
 
 ★**쓰고 나면 반드시 terminate + `pod-expected=down`.** 켜둔 채 세션이 끝나면 돈이 샌다.
 
+그리고 Lambda `RUNPOD_ANALYZE_URL` 을 자리표시자 `https://pod-down.invalid/analyze` 로 되돌린다
+(`aws lambda update-function-configuration` 은 병합이 아니라 치환 — 나머지 변수를 통째로 다시 넣는다).
+**값을 지우거나 SSM `/sunity/motion/runpod-analyze-url` 을 삭제하지 말 것** — SSM 은 Type=String 이라
+빈 값이 안 들어가고, `backend/template.yaml:342/481` 이 `{{resolve:ssm:...}}` 로 이 이름을 해석하므로
+삭제하면 다음 `sam deploy` 가 그 자리에서 깨진다. 그리고 **Pod 이 없으면 분석은 어차피 실패한다** —
+URL 을 비워도 CPU 폴백은 배포 환경에서 ImportError 로 막혀 있다
+(`backend/functions/pipeline/requirements.txt:1-4`). 이 되돌리기는 '죽은 주소로 위임' 대신
+'즉시 실패'로 만드는 것이지 분석을 살리는 것이 아니다.
+(자리표시자로 `.invalid` 를 쓰는 이유 = RFC 2606 예약 TLD 라 DNS 가 즉시 실패하고,
+이름만 봐도 Pod 이 내려갔다는 것을 안다.)
+
 ---
 
 ## 2. 앱 설치 안내

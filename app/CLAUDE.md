@@ -54,13 +54,10 @@ CTA 버튼            : 전체너비, 높이 54pt, radius 13pt (design.md §5-3)
 ## 차트 라이브러리
 
 ```
-Victory Native        : 성장 그래프 (시계열 관절 데이터 — 추천)
-react-native-gifted-charts : 세부 점수 차트 (상체/하체/코어)
-
-설치:
-  npm install victory-native
-  npm install react-native-gifted-charts
-  expo install react-native-svg   ← 두 라이브러리 공통 의존성
+react-native-svg : 성장 그래프·점수 위젯을 직접 그린다
+                   (GrowthChart.tsx / OctagonScore.tsx / ResultScoreDial.tsx)
+차트 전용 라이브러리는 쓰지 않는다 — Victory Native / react-native-gifted-charts 는
+도입된 적 없음(package.json 에 없음). 설치 지시 삭제 2026-09-18.
 ```
 
 ## 영상 업로드 방식 (S3 Presigned URL)

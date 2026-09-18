@@ -3,6 +3,12 @@
 > 피그마 파일: https://www.figma.com/design/jrdI7kp245HkPfLB0nclsz/모션-분석-디자인
 > (이전엔 펀딩 플랫폼 Figma 가 잘못 적혀 있었음 — 2026-05-23 정정)
 
+> **주의 (2026-09-18):** 본 문서는 2026-05-28 이 마지막 갱신이다. 분석 결과 화면은
+> 2026-09-09 에 피그마 시안으로 전면 재디자인됐다(곡선 빨강 헤더 + 흰 점수 원 +
+> 상단 4탭: 요약/동작비교/교정포인트/보완운동). §7·§8·§10-5 는 그 이전 서술이다 —
+> 결과 화면 작업은 `app/src/app/analysis/result.tsx` 와 `app/src/components/result/` 를
+> 정본으로 볼 것.
+
 ---
 
 ## 0. 미설계 컴포넌트 자율 설계 원칙
@@ -424,17 +430,17 @@ React Native에서는 PanResponder 또는 react-native-gesture-handler로 구현
   → 카메라 / 갤러리
   → AI 분석 로딩
   → 기준 모션 선택 (또는 플랜 페이월)
-  → [미완성] 분석 결과 화면
+  → 분석 결과 화면 (4탭: 요약/동작비교/교정포인트/보완운동)
 ```
 
 ---
 
-## 8. 미완성 화면 (개발 시 설계 필요)
+## 8. 미완성 화면 (2026-05-28 시점 — 결과/기록/마이는 이후 구현 완료)
 
 피그마에 아직 없는 화면들. 개발 전 IA 참조해서 설계 필요.
 
 ```
-❌ 분석 결과 화면
+[구현됨 — app/src/app/analysis/result.tsx] 분석 결과 화면
    - 종합 점수 (원형 게이지)
    - IPSF 실행 차원별 세부 점수 (각도/라인/균형/안정성) — 신체 부위 아님.
      mode3 는 절대 3차원(라인/균형/안정성) + 이전 분석 대비 발전 델타.
@@ -442,12 +448,12 @@ React Native에서는 PanResponder 또는 react-native-gesture-handler로 구현
    - 틀린 관절 하이라이트
    - 코칭 팁 카드 3개
 
-❌ 기록 탭
+[구현됨 — app/src/app/(tabs)/history.tsx] 기록 탭
    - 분석 기록 리스트
    - 성장 그래프 (꺾은선)
    - 전후 비교 기능
 
-❌ 마이페이지
+[구현됨 — app/src/app/(tabs)/profile.tsx] 마이페이지
    - 프로필 / 구독 / 알림 / 계정
 
 ❌ 게이미피케이션 UI
@@ -481,7 +487,7 @@ React Native에서는 PanResponder 또는 react-native-gesture-handler로 구현
 
 2. 홈 배경은 LinearGradient 컴포넌트로 구현
    → 이미지 에셋 아님! CSS/RN linear-gradient 사용
-   → react-native-linear-gradient 설치 필요
+   → expo-linear-gradient (설치됨, app/package.json)
 
 3. 원형 다이얼 UI (레벨 선택)
    → 직접 구현 필요. 라이브러리 없음
@@ -490,7 +496,7 @@ React Native에서는 PanResponder 또는 react-native-gesture-handler로 구현
 4. 폴스포츠 특성상 세로 영상이 많을 수 있음
    → 영상 플레이어는 가로/세로 모두 대응
 
-5. AI 분석 대기 시간 (30~60초)
+5. AI 분석 대기 시간 (실측 3~6분 — 88MB 영상 352초, 2026-09-18)
    → 단순 스피너 금지. 단계별 메시지로 체류감 유지
 
 6. 피그마 색상값은 반드시 직접 확인 후 하드코딩

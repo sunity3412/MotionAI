@@ -1,5 +1,10 @@
 # RunPod 빠른 재셋업 체크리스트
 
+> **사문 (2026-08-31 이후).** 서빙 Pod 부트스트랩 정본은
+> `backend/runpod_inference/bootstrap_full.sh` (rtmlib + onnxruntime-gpu) 이고
+> 기동 절차는 `/start` 다. 본 문서의 mmcv/mmpose 절차는
+> `backend/research/spikes/spike_rtmpose.py` 를 돌릴 때만 쓴다 — 서빙에 쓰면 15~45분을 태운다.
+
 > belle 가 Pod 끄고 다음에 다시 켤 때 사용하는 박제 — 새 Pod launch ~15-20분 안에 spike 실행 가능 상태로 복구.
 > 본 docs 는 `backend/runpod_inference/setup.sh` 의 **보완** (mmpose/RTMPose/numpy 1.x 4함정 박제).
 >

@@ -1,6 +1,11 @@
 # RunPod GPU 분석 서버
 
-`#7-follow 유닛 4 (운영 GPU 인프라)`. Lambda 가 NLF GPU 추론을 직접 못 돌리는 문제(CPU NaN)를 풀기 위한 위임 서버. **Pod 24/7 운영**, NLF 모델 메모리 상주.
+> **주의 (2026-09-18):** 아래 "한 번에 띄우기 2)" 의 setup.sh / NLF 모델 다운로드,
+> 환경변수 표의 `NLF_MODEL_PATH`·`MOTIONBERT_*`, "운영 메모" 의 NLF 서술은
+> 2026-06 NLF 시절 것이다. 서빙 부트스트랩 정본 = `backend/runpod_inference/bootstrap_full.sh`,
+> 기동 정본 = `start_server.sh`, 절차 = `/start`.
+
+`#7-follow 유닛 4 (운영 GPU 인프라)`. Lambda 가 GPU 추론을 직접 못 돌리는 문제를 풀기 위한 RTMW GPU 추론 위임 서버. **시연·실증 때만 기동**(belle 2026-08-28 결정), RTMW-x ONNX 모델 VRAM 상주.
 
 ## 전체 흐름
 
@@ -15,7 +20,7 @@
                                                   RunPod Pod
                                                        │
                                   ┌───────────────────────────────────┐
-                                  │ S3 다운로드 → NLF 추출 → reference 비교 │
+                                  │ S3 다운로드 → RTMW 추출 → reference 비교 │
                                   │ → Firestore Admin: complete_analysis │
                                   └───────────────────────────────────┘
                                                        │
@@ -33,8 +38,10 @@
 > Gemini 코치·veto 계열).
 > 미주입은 조용한 OFF 함정이라 결과가 달라진 줄 모른 채 넘어간다 — 실제로
 > 인버전(32-15)·렌더 정렬 결정론(08-08) 이 이 경로로 두 번 누락됐다.
-> `ROT180_INVERSION_ENABLED` 는 off 가 기본이라 지금은 누락돼도 그 함정이 아니지만,
-> 켠 뒤(quick-260913-udr 후속, belle 승인)에는 같은 함정이 된다.
+> `ROT180_INVERSION_ENABLED` 는 코드 기본이 off 이고 켜는 곳은 `start_server.sh:24` 한 곳뿐이다.
+> 2026-09-17 belle 승인 이후 운영 Pod 에서는 ON 이며 기준 라이브러리 `rot180_v1` 승격과
+> 한 묶음이다 — 맨손 기동에서 이 값을 누락하면 학생만 비회전인 비대칭 비교가 되어
+> 정은지 자기비교 100 -> 60 으로 떨어진다(조용한 OFF 함정).
 > 맨손 기동은 스모크용으로만 쓰고, 분석·판정용 기동은 정본 스크립트로 할 것.
 
 ```bash

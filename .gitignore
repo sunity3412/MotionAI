@@ -45,3 +45,13 @@ app/scripts/_viz_*.py
 # Phase 33 롤백 원천 — reference 11 doc 백업 (~7.4 MiB, git 추적 금지 · 로컬+S3 이중 보관).
 # backup_reference_docs.py 산출 (reference-11-preC-*.json + .MANIFEST.json). S3 미러가 원천.
 .planning/debug/backups/
+
+# 사업 문서 — belle 의 외주용역 제출 서류(사업자등록증·전자세금계산서·용역계약서·견적서, 22MB/32파일). git 추적 금지. 파일은 지우지 말 것.
+외주용역 제출 서류/
+
+# 작업용 임시 스크린샷 (2026-09-18 정리)
+_cap/
+
+# 도구 산출물 — 다른 머신에서 다시 생성
+skills-lock.json
+.agents/

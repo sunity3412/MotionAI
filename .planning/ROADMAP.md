@@ -103,9 +103,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 01-20-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 가중치 라이선스 audit (D-25) + weights_manifest.json + belle 검토 checkpoint (Wave 1, gap_closure 2026-06-02) — **완료 (2026-06-02)**: belle 승급, Production=`rtmw-x-384x288` (commercial_ok, validation-pilot scope), Fallback=`rtmw-l-384x288`. 출시 전 clean weight 교체 hard gate (별도 plan 작성·시작 belle 지시).
   - [x] 01-21-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 133 wholebody 통합 + RTMW133ToCOCO17Adapter + POSE_ENGINE config (D-17/D-20/D-21/D-22/D-24/D-25) (Wave 2, gap_closure 2026-06-02)
   - [x] 01-22-PLAN.md — **NEW (RTMW pivot)** 단일 카메라 3D path 결정 — 옵션 A (RTMW3D 직접) vs 옵션 B (RTMW + MotionBERT lifter) — belle checkpoint (D-18) (Wave 3, gap_closure 2026-06-02)
-  - [ ] 01-23-PLAN.md — **NEW (RTMW pivot)** RTMW vs IPSF GeometricCriterion 5영상 회귀 검증 sweep — Wave 5 진입 게이트 (IPSF tolerance + line/angle 5/5 PASS) — plan 14 supersede (Wave 4, gap_closure 2026-06-02)
-  - [ ] 01-24-PLAN.md — **NEW (RTMW pivot)** NLF + MediaPipe + 비선택 3D path R&D 격리 (D-23) + .samignore + import 차단 단위 테스트 — plan 04 supersede + 확장 (Wave 5, gap_closure 2026-06-02)
-  - [ ] 01-25-PLAN.md — **NEW (RTMW pivot)** pipeline/app.py + RunPod atomic swap NLF→RTMW (D-08/D-21/D-23/D-24) + belle Pod end-to-end 검증 — plan 05 supersede (Wave 6, gap_closure 2026-06-02)
+  - [x] 01-23-PLAN.md — **NEW (RTMW pivot)** RTMW vs IPSF GeometricCriterion 5영상 회귀 검증 sweep — Wave 5 진입 게이트 (IPSF tolerance + line/angle 5/5 PASS) — plan 14 supersede (Wave 4, gap_closure 2026-06-02)
+  - [x] 01-24-PLAN.md — **NEW (RTMW pivot)** NLF + MediaPipe + 비선택 3D path R&D 격리 (D-23) + .samignore + import 차단 단위 테스트 — plan 04 supersede + 확장 (Wave 5, gap_closure 2026-06-02)
+  - [x] 01-25-PLAN.md — **NEW (RTMW pivot)** pipeline/app.py + RunPod atomic swap NLF→RTMW (D-08/D-21/D-23/D-24) + belle Pod end-to-end 검증 — plan 05 supersede (Wave 6, gap_closure 2026-06-02)
 
 ### Phase 2: BodyNormalizationProfile 자동 측정 (RTMW segment 기반)
 
@@ -193,9 +193,9 @@ Plans:
   - [x] 05-00-PLAN.md — yaml source 정은지 reference 측정값 정정 (Plan 5-00 선행 필수, D-17/D-18 박제) + belle 승인 checkpoint (Wave 0)
   - [x] 05-01-PLAN.md — GeminiTechniqueRecognizer 어댑터 신설 + 3-case fallback + motion_name 정규화 spike + response_schema 작동 spike (Wave 1)
   - [x] 05-02-PLAN.md — TechniqueCache 영상 hash 캡싱 + firestore_admin helper 3종 (D-14 박제) (Wave 1)
-  - [ ] 05-03-PLAN.md — pipeline _RECOGNIZER lazy swap + env switch + _process recognize(angles, frames) wiring (Wave 2)
-  - [ ] 05-04-PLAN.md — Pod requirements/setup.sh + server.py _warmup fail-loud (D-13/D-15, Common Pitfall 4) (Wave 3)
-  - [ ] 05-05-PLAN.md — sweep --recognizer gemini flag + belle Pod sweep checkpoint (Phase 5 게이트 = 정은지 reference 기준 5/5 PASS) (Wave 4)
+  - [x] 05-03-PLAN.md — pipeline _RECOGNIZER lazy swap + env switch + _process recognize(angles, frames) wiring (Wave 2)
+  - [x] 05-04-PLAN.md — Pod requirements/setup.sh + server.py _warmup fail-loud (D-13/D-15, Common Pitfall 4) (Wave 3)
+  - [x] 05-05-PLAN.md — sweep --recognizer gemini flag + belle Pod sweep checkpoint (Phase 5 게이트 = 정은지 reference 기준 5/5 PASS) (Wave 4)
 
 ### Phase 6: 체형 정규화 비교 엔진 (coaching 모드)
 
@@ -374,9 +374,9 @@ Plans:
 
 **Plans**: 3 plans
 
-- [ ] 12-01-PLAN.md — Wave 0: kismam.assess() wiring fix + KeypointReport 3-way schema lockstep (single atomic commit per D-09-U1 mirror)
-- [ ] 12-02-PLAN.md — Wave 1: UI 신영역 3 component 신설 (KeypointOverlay + ForcePatternCard + ForcePatternDetailModal) + result.tsx 6 영역 layout 재정비
-- [ ] 12-03-PLAN.md — Wave 2: Frame 동기화 (useEvent timeUpdate) + delta 강조 + confidence/occlusion 표기 + 토글 + iOS belle UAT
+- [x] 12-01-PLAN.md — Wave 0: kismam.assess() wiring fix + KeypointReport 3-way schema lockstep (single atomic commit per D-09-U1 mirror)
+- [x] 12-02-PLAN.md — Wave 1: UI 신영역 3 component 신설 (KeypointOverlay + ForcePatternCard + ForcePatternDetailModal) + result.tsx 6 영역 layout 재정비
+- [x] 12-03-PLAN.md — Wave 2: Frame 동기화 (useEvent timeUpdate) + delta 강조 + confidence/occlusion 표기 + 토글 + iOS belle UAT
 
 **UI hint**: yes
 
@@ -591,6 +591,10 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 **Depends on:** Phase 15 (Mode 1·3 실영상 + 신뢰도 게이트가 동작해야 fault 검증 의미)
 **Plans:** 3/2 plans complete
 
+> **2026-09-18 판정 (quick-260918-qm2): 보류.** baseline·assert 실재(`backend/evals/phase18`).
+> 남은 것 = Pod live sweep + sensitivity 셋(미보유+above-cutoff) — REQUIREMENTS SCORE-09 잔여와
+> 같은 물건이고, 재개 조건은 Pod 이다.
+
 **주의 (plan 시 박제):**
 
 - 임계값 calibration 에 직접 쓰면 사람-라벨 ground-truth 경계 — 신중 ([[analysis-objectivity-no-human-scores]]). v1 은 "fault 가 잡히는지" 검증용으로 한정.
@@ -708,6 +712,11 @@ Plans:
 
 **Plans:** 0 plans
 
+> **2026-09-18 판정 (quick-260918-qm2): 살았다 · 파일럿 Step 2 직결.** belle 2026-08-30 요구사항.
+> `docs/reference-motions.md` §6 의 수동 절차(S3 → seed → Pod GPU reprocess(ROT180 env) → backfill →
+> promote)가 이 페이즈가 없애려는 것이다. `POST /reference/auto-register` 는 배포돼 있으나
+> name·athleteName·level 미기록 + angles 미생성이라 등록이 완결되지 않는다.
+
 Plans:
 
 - [ ] TBD (run /gsd-plan-phase 21 to break down)
@@ -751,7 +760,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 22-06-PLAN.md — 학습 Pod 임대(belle 승인) + bake-off 실행 + 백본 확정 checkpoint (Wave 3, FT-01)
+- [x] 22-06-PLAN.md — 학습 Pod 임대(belle 승인) + bake-off 실행 + 백본 확정 checkpoint (Wave 3, FT-01) — **완료(원장 표기만 누락, 2026-09-18 판정)**: bake-off 실행 완료, Qwen3-VL-8B CONFIRMED(belle 2026-07-13), 산출물 2/2 커밋(ab0f5124·2cdc76e0). SUMMARY 만 미작성
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -759,15 +768,15 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 22-08-PLAN.md — VlmJudge Protocol/어댑터 + vLLM 동거 서빙(D-14) + 동거 판정 (Wave 5, FT-05)
+- [ ] 22-08-PLAN.md — VlmJudge Protocol/어댑터 + vLLM 동거 서빙(D-14) + 동거 판정 (Wave 5, FT-05) — **보류(2026-09-18)**: 미착수(artifact 부재, 운영 참조 0). 재개 = promotion_ledger.current 가 null 을 벗어남 + RunPod 충전
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 22-09-PLAN.md — shadow 병행 배선(D-13) + verdict diff 누적 + Gemini-이상 리포트 (Wave 6, FT-05)
+- [ ] 22-09-PLAN.md — shadow 병행 배선(D-13) + verdict diff 누적 + Gemini-이상 리포트 (Wave 6, FT-05) — **보류(2026-09-18)**: 미착수(artifact 부재, 운영 참조 0). 재개 = promotion_ledger.current 가 null 을 벗어남 + RunPod 충전
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 22-10-PLAN.md — 역할별 순차 swap(veto→recognizer→coach D-02 게이트) + Wave 4 RL 후속 경계 (Wave 7, FT-05/FT-04)
+- [ ] 22-10-PLAN.md — 역할별 순차 swap(veto→recognizer→coach D-02 게이트) + Wave 4 RL 후속 경계 (Wave 7, FT-05/FT-04) — **보류(2026-09-18)**: 미착수(artifact 부재, 운영 참조 0). 재개 = promotion_ledger.current 가 null 을 벗어남 + RunPod 충전
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
@@ -821,7 +830,7 @@ Plans:
 
 - [x] 23-01-PLAN.md — still-frame 입력 swap + 부위별 key-frame union + DTW-confidence 게이팅(low_alignment_confidence status) (VETO-01/02/03)
 - [x] 23-02-PLAN.md — 기준선 정량화 레이어(각도 직접 + 몸-상대 칸/층 텍스트) + 증상→root cause "~로 보임" 가설 코칭 (VETO-04/05)
-- [ ] 23-03-PLAN.md — [POD] still-frame veto eval — kip-up recall 재현 + 위양성 0 + 결정론 + 정렬-약 보류 + non-zero assert 게이트(frozen manifest+lock) + **Phase 20-04 regression subset 흡수 게이트(정은지 95~100 / kip-up fault moderate≤75 / 결정론 cold+warm / EVAL18 변별 4쌍 퇴행0, D-14 amended + D-15 — regression subset 만 supersedes 20-04, SCORE-09 별도 pending)** (VETO-06/SCORE-08/TRUST-06)
+- [x] 23-03-PLAN.md — [POD] still-frame veto eval — kip-up recall 재현 + 위양성 0 + 결정론 + 정렬-약 보류 + non-zero assert 게이트(frozen manifest+lock) + **Phase 20-04 regression subset 흡수 게이트(정은지 95~100 / kip-up fault moderate≤75 / 결정론 cold+warm / EVAL18 변별 4쌍 퇴행0, D-14 amended + D-15 — regression subset 만 supersedes 20-04, SCORE-09 별도 pending)** (VETO-06/SCORE-08/TRUST-06)
 
 > ⚠️ **2026-06-24 belle 채점 철학 결정타 — 23-03 의 "kip-up fault moderate≤75" 같은 케이스별 기대점수 밴드는 curve-fit 으로 Phase 24 가 제거·교체.** 23-03 eval 은 recall/위양성0/결정론 게이트로 유지하되, 기대점수 밴드 assert 는 Phase 24 의 추적성·단조성 게이트로 대체된다.
 
@@ -873,7 +882,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 24-03-PLAN.md — phase24/assert_gates.py 4 게이트(추적성/단조성[fixed-set]/결정성[math+criterion-selection]/일반화) + phase18 verdict·margin assert 제거(밴드 문자열 아님) + Pod-serial 일반화 sweep belle 검증(cold-rerun selection 동일) (Wave 3, SCORE-16/09)
+- [x] 24-03-PLAN.md — phase24/assert_gates.py 4 게이트(추적성/단조성[fixed-set]/결정성[math+criterion-selection]/일반화) + phase18 verdict·margin assert 제거(밴드 문자열 아님) + Pod-serial 일반화 sweep belle 검증(cold-rerun selection 동일) (Wave 3, SCORE-16/09)
 
 ---
 
@@ -897,10 +906,10 @@ Plans:
 
 Plans:
 
-- [ ] 25-01-PLAN.md — 좁은 pointed-joint 매퍼 + 관절 단위 seed merge 배선 (짚인 관절만 window, silent=full-path 유지) (Wave 1, pod-free)
-- [ ] 25-02-PLAN.md — 짚기 커버리지: support 집계 fragment fold + upper_body 프롬프트 구조화 강제 + AGGREGATION_VERSION/PROMPT_VERSION 캐시 bump (Wave 1, pod-free)
-- [ ] 25-03-PLAN.md — 확대 카드 정밀도: reference 저신뢰 완화(relaxed) crop + 카드별 차별화 + 앵커 관절-좌표 고정 (Wave 1, pod-free)
-- [ ] 25-04-PLAN.md — [POD] phase25 eval harness(짚기-FP 최초 관측 포함) + 6페어 serial sweep 게이트(success 6/6==100 + kip-up 구조 assert + 결정론) + belle 크레딧 checkpoint (Wave 2)
+- [x] 25-01-PLAN.md — 좁은 pointed-joint 매퍼 + 관절 단위 seed merge 배선 (짚인 관절만 window, silent=full-path 유지) (Wave 1, pod-free)
+- [x] 25-02-PLAN.md — 짚기 커버리지: support 집계 fragment fold + upper_body 프롬프트 구조화 강제 + AGGREGATION_VERSION/PROMPT_VERSION 캐시 bump (Wave 1, pod-free)
+- [x] 25-03-PLAN.md — 확대 카드 정밀도: reference 저신뢰 완화(relaxed) crop + 카드별 차별화 + 앵커 관절-좌표 고정 (Wave 1, pod-free)
+- [x] 25-04-PLAN.md — [POD] phase25 eval harness(짚기-FP 최초 관측 포함) + 6페어 serial sweep 게이트(success 6/6==100 + kip-up 구조 assert + 결정론) + belle 크레딧 checkpoint (Wave 2)
 
 ### Phase 26: 온보딩·기대설정 + 원본 업로드 가이드 (onboarding-upload-guide)
 
@@ -1076,7 +1085,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 31-12-PLAN.md — fail-closed 배포 게이트: live mutation checkpoint(H2-09) + belle deploy(OFF→ON) + IAM 실검증(H2-02) + 실 E2E 2종 = phase 완료 필요조건 [W5]
+- [x] ~~31-12-PLAN.md~~ — fail-closed 배포 게이트: live mutation checkpoint(H2-09) + belle deploy(OFF→ON) + IAM 실검증(H2-02) + 실 E2E 2종 = phase 완료 필요조건 [W5] — **사문(2026-09-18)**: belle 2026-07-20 축소마감(31-CLOSEOUT)이 원 플랜 기각 + CALIBRATION blocked:true + 09-09 재디자인이 앱 소비처 제거(aadf0375)
 
 ---
 
@@ -1130,7 +1139,7 @@ Plans:
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [ ] 32-15-PLAN.md — PR 인버전 조건부 보정 + 최종 전수 스윕 게이트 + belle 마감 확인 (w10, checkpoint)
+- [x] 32-15-PLAN.md — PR 인버전 조건부 보정 + 최종 전수 스윕 게이트 + belle 마감 확인 (w10, checkpoint)
 
 ### Phase 33: 결과 신뢰 회복 — "궁금만 하는 앱" 끝내기 (result-trust-recovery)
 
@@ -1171,7 +1180,7 @@ Plans:
 
 **Wave 7** *(blocked on 33-06 — 조건부 HALT loop)*
 
-- [ ] 33-21-PLAN.md — 신규(조건부): elbow-twist HALT gap-closure. 33-06 여유 ≥+2.0° → no-op / <+2.0° → belle 단일질문 + substrate loop 재검증. 33-07 차단 [Pod+belle, checkpoint] (codex concern 13)
+- [x] ~~33-21-PLAN.md~~ — 신규(조건부): elbow-twist HALT gap-closure. 33-06 여유 ≥+2.0° → no-op / <+2.0° → belle 단일질문 + substrate loop 재검증. 33-07 차단 [Pod+belle, checkpoint] (codex concern 13) — **사문(no-op, 2026-09-18)**: 33-06 elbow-twist 여유 +3.10 ≥ +2.0 이라 플랜 자신이 규정한 no-op
 
 **웨이브 R — 채점 산식 재설계 (2026-07-24 PIVOT, 권위 스펙 33-SPEC.md — flip 33-07 선행 게이트)**
 
@@ -1185,7 +1194,7 @@ Plans:
 
 **Wave 8** *(blocked on 33-06,21,17,18)*
 
-- [ ] 33-07-PLAN.md — SEED Task 5: atomic tuple flip (M3 commit prod deploy + global-pointer 11-doc flip + 11/11 hash verify + maintenance window/deployment status + tuple-consistent rollback) [Pod+belle, checkpoint] (codex concern 5/7, suggestion 7)
+- [x] ~~33-07-PLAN.md~~ — SEED Task 5: atomic tuple flip (M3 commit prod deploy + global-pointer 11-doc flip + 11/11 hash verify + maintenance window/deployment status + tuple-consistent rollback) [Pod+belle, checkpoint] (codex concern 5/7, suggestion 7) — **사문(2026-09-18)**: flip 은 09-17 rot180_v1 로 실행됨(02b1155a). 잔여 = 기준 18fps vs 학생 9fps → Phase 34
 
 **웨이브 A — 표현 계층 (substrate 전항 PASS 후에만 — D-28)**
 
@@ -1225,7 +1234,7 @@ Plans:
 
 **Wave 17** *(blocked on Wave 16 — phase gate)*
 
-- [ ] 33-16-PLAN.md — phase gate: belle GPU greenlight(blocking) + 6동작 Pod 전수 재분석 + 시뮬 렌더 전수 → belle 실기기 UAT ② [checkpoint] (codex concern 15)
+- [x] ~~33-16-PLAN.md~~ — phase gate: belle GPU greenlight(blocking) + 6동작 Pod 전수 재분석 + 시뮬 렌더 전수 → belle 실기기 UAT ② [checkpoint] (codex concern 15) — **사문(2026-09-18)**: 게이트 대상 화면이 08-24 일러스트 제거 + 09-09 4탭 재디자인으로 소멸
 
 ### Phase 34: 분석 일반화 — 같은 자세면 같은 점수 (촬영조건·동작·기준버전 불변)
 
@@ -1281,9 +1290,14 @@ Plans:
 **Depends on:** Phase 33 (완료) — Phase 34 와 독립·병행 가능
 **Plans:** 0 plans
 
+> **2026-09-18 판정 (quick-260918-qm2): 사문(표기 낡음).** 핵심 산출물(단일 합성 mp4 재생 경로)은
+> quick 트랙으로 이미 배선·운영 중이다 — `app/src/app/analysis/result.tsx:1720` RenderedComparePlayer,
+> `s3keys.build_rendered_compare_key`, playback-url 재서명. 플랜 트랙으로 재개할 대상이 아니다.
+> 세부 목표(전 동작 프로토타입 배치 → belle 느낌 평가) 전수 마감 여부는 미확인.
+
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 35 to break down)
+- [ ] TBD (run /gsd-plan-phase 35 to break down) (2026-09-18: 플랜 트랙 재개 대상 아님 — 위 판정)
 
 ### Phase 36: 계정 시스템 — 게스트 유지 + 소셜 로그인 4종 (카카오·네이버·Google·Apple)
 
@@ -1322,11 +1336,13 @@ Plans:
 5. Figma 대조 판정 — 승인 목업 대조까지가 검증 (memory `verify-against-approved-mockup-not-just-code`)
 
 **Depends on:** 없음 — 분석 트랙(Phase 34·35)과 독립. belle 콘솔 등록은 Success #3 만 게이트.
-**Plans:** 0 plans
+**Plans:** 2 plans (36-01 완료 · 36-02 살았다)
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 36 to break down)
+- [x] 36-01-PLAN.md — 계정 화면 3종 + 라우팅 — **완료(원장 표기만 누락, 2026-09-18)**: f957bad9. 전제 "시작하기=게스트 직행"은 belle 2026-09-01 로그인 게이트 결정으로 대체(app/src/app/index.tsx:12-18)
+- [ ] 36-02-PLAN.md — Google 로그인 + 게스트 승계 — **살았다**: 코드 배포됨(41fa1abd). 남은 것 1건 = belle 실계정 로그인으로 linked/uid 유지 실측(Success #4). 파일럿 비차단
+- [ ] 카카오·네이버 — **보류**: belle 2026-08-31 "출시 준비 때". WIRED_PROVIDER_IDS=['google','apple'] 이라 버튼 미렌더, POST /auth/social 배포 라우트 0
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

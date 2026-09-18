@@ -1,3 +1,5 @@
+> **이 파일은 이력이다.** 착수점은 `.planning/quick/260918-day-closeout/HANDOFF.md` 하나다. (2026-09-18 정리)
+
 # plan.md — Sunity AI Coach 작업 현황
 
 > 매 Claude Code 세션 시작 시 반드시 읽을 것.

@@ -1,6 +1,6 @@
 # CLAUDE.md — Sunity AI Coach
 
-> 작업 시작 전 반드시 이 순서로 읽을 것: CLAUDE.md → design.md → plan.md
+> 작업 시작 전 반드시 이 순서로 읽을 것: CLAUDE.md → design.md → 착수점(.planning/quick/260918-day-closeout/HANDOFF.md)
 
 ---
 
@@ -80,7 +80,7 @@ LLM       : Cerebras (빠른 추론)
 ML 파이프라인 작업   → /ml/CLAUDE.md
 앱 (React Native)   → /app/CLAUDE.md
 백엔드 (Lambda)     → /backend/CLAUDE.md
-현재 할 일          → /plan.md         ← 매 세션 반드시 확인
+현재 할 일          → .planning/quick/260918-day-closeout/HANDOFF.md  ← 착수점(유일). 매 세션 반드시 확인. plan.md 는 이력
 개발 원칙/에이전트   → /docs/principles.md
 화면 스펙 (IA)      → /docs/ia.md      ← 특정 화면 작업 시 참조
 ```
@@ -96,11 +96,11 @@ ML 파이프라인 작업   → /ml/CLAUDE.md
 
 전환 전 반드시:
 
-  1. plan.md 업데이트 (완료/진행중/다음 할 것)
+  1. 착수점 HANDOFF + .planning/STATE.md 갱신 (완료/진행중/다음 할 것)
   2. 미완성 파일에 TODO 주석 삽입
 
 새 플랫폼 세션 시작:
-  CLAUDE.md → design.md → plan.md 읽기 → "현재 상태 요약해줘" 확인
+  CLAUDE.md → design.md → 착수점(.planning/quick/260918-day-closeout/HANDOFF.md) 읽기 → "현재 상태 요약해줘" 확인
 ```
 
 **모델 선택**
@@ -121,7 +121,7 @@ UI 빠른 생성 : Codex Sub-Agents
 - 의미있는 테스트만. 수치 채우기 금지.
 - 이모지 금지. 슬롭 코드 금지.
 - 막히면 "Do not work yet" 후 질문 먼저.
-- 작업 완료 시 plan.md 업데이트.
+- 작업 완료 시 착수점 HANDOFF + .planning/STATE.md 갱신.
 
 ```
 

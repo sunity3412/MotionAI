@@ -16,9 +16,10 @@
 ③ 고속 회전(Spin): 빠른 회전 동작
    → 프레임 간 관절 연속성 깨짐.
 
-→ 2D 포즈 추정(ViTPose 포함)은 접힌 인버트에서 천장 확인(plan.md #7-follow).
-   3D HMR 백본 NLF 로 전환 — 인체 prior 로 가려진 관절을 3D 복원하고,
-   시간축 보간으로 단일 프레임이 못 푸는 폐색 구간을 시퀀스로 메운다.
+→ 2D 포즈 추정 단독은 접힌 인버트에서 천장. 운영 백본 = RTMW-x 133 wholebody
+   (rtmlib ONNX, Apache-2.0) + YOLOX-m 검출; 역립은 ROT180 회전 2-pass
+   (ROT180_INVERSION_ENABLED, 2026-09-17 운영 ON)와 시간축 보간으로 메운다.
+   NLF 3D HMR 은 라이선스(Max Planck 비상업)로 폐기, backend/research 전용.
 ```
 
 ## 모델 선택 근거
@@ -26,18 +27,18 @@
 | 모델 | 역할 | 단계 |
 |------|------|------|
 | MediaPipe BlazePose | 폐색 취약 — 사용 안 함 | - |
-| YOLO11n | 인체 bbox 탐지 (NLF 입력 박스) | 현행 |
-| NLF (Neural Localizer Fields) | 3D 포즈 백본 — 17 COCO joint 3D + 불확실도 | 현행 |
-| ViTPose-S/H (2D) | 폴 폐색·인버트 천장 — 폐기 | - |
+| YOLOX-m (onnx, rtmlib) | 인체 bbox 탐지 (RTMW 입력 박스, Apache-2.0) | 현행 |
+| RTMW-x 133 wholebody (rtmlib ONNX) | 포즈 백본 — 133 → COCO-17 변환 + score | 현행 |
+| NLF / ViTPose-S/H | 라이선스·정확도 사유로 폐기 — NLF 는 backend/research 전용 | - |
 
 ## 파이프라인 구조
 
 ```
 영상 입력
   → ffmpeg 프레임 추출
-  → YOLO11 (인체 bbox 탐지 — NLF 입력 박스)
-  → NLF (박스마다 17 COCO joint 3D 좌표 + per-joint 불확실도)
-  → 3D 관절각 계산 (compute_joint_angles — 투영 왜곡 자유)
+  → YOLOX-m (인체 bbox 탐지)
+  → RTMW-x 133 → COCO-17 어댑터 (17 keypoint + score)
+  → 관절각 계산 (compute_joint_angles; 저장 joints3d 의 z 는 전부 0 — 사실상 2D)
   → 시간축 폐색 보간 (temporal — 불확실도로 접힌 프레임 복원)
   → FastDTW MotionDTW (기준 모션과 비교)
   → KISMAM 점수 계산 (0~100)

@@ -3,7 +3,9 @@
 Phase 1 D-06/D-07 박제:
   - MediaPipePoseEngine: 제품 경로 (sunity_shared 안)
   - MediaPipeWithLifterEngine: MP 2D + MotionBERT 3D lift 복합 (Plan 01-08)
-  - NlfPoseEngine: R&D 격리 (backend/research/pose_engines/nlf/ — 제품 import 경로 밖)
+  - NLF: 클래스는 없다. sunity_shared/analysis/pose_estimator.py 의 NlfPoseEstimator 가
+    DEPRECATED 로 남아 있고(interfaces.py:6), 호출처는 backend/research/ 와
+    backend/scripts/verify_nlf_pipeline.py 뿐 — 제품 파이프라인 호출 0건.
 
 Plan 01-21 추가 (D-17 운영 백본 RTMW pivot):
   - RTMWPoseEngine: RTMW 133 wholebody 어댑터 (Apache-2.0)

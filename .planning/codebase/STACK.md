@@ -35,7 +35,7 @@ Sunity AI Coach is a three-component monorepo. Each component has its own runtim
 **RunPod GPU Server:**
 - PyTorch + CUDA base image (RunPod PyTorch 2.4 or similar; `torch`/`torchvision` supplied by base image, not pinned)
 - Uvicorn single worker: `uvicorn runpod_inference.server:app --host 0.0.0.0 --port 8000 --workers 1`
-- CUDA required — NLF model diverges to NaN on CPU (`backend/shared/python/sunity_shared/analysis/pose_estimator.py`)
+- CUDA required — RTMW ONNX 추론은 onnxruntime-gpu 로 돈다 (`backend/shared/python/sunity_shared/analysis/pose_engines/rtmw/rtmw_engine.py`). NLF CPU-NaN 서술은 폐기된 백본 이야기
 
 **Package Manager:**
 - App: npm (lockfile `app/package-lock.json` expected; `package.json` `private: true`)
@@ -90,8 +90,8 @@ Sunity AI Coach is a three-component monorepo. Each component has its own runtim
 - `numpy` >=1.26,<2.0 (RunPod) / >=1.26,<3 (Lambda + dev) - Analysis algorithm core (DTW, joint angles, scoring)
 
 **ML / Inference (RunPod-only, `backend/runpod_inference/requirements.txt`):**
-- `ultralytics` >=8.2 - YOLO11n person bounding-box detection (`pose_estimator.py`)
-- NLF (Neural Localizer Fields, NeurIPS'24) - 3D HMR model, TorchScript `backend/scripts/nlf_l_multi.torchscript`, downloaded from GitHub release in `setup.sh`
+- YOLOX-m ONNX (rtmlib) - person bounding-box detection (`rtmw_engine.py`). `ultralytics` 는 requirements 에 남아 있으나 운영 경로 호출 0
+- RTMW-x 133 wholebody (rtmlib ONNX, Apache-2.0) - 포즈 백본, 133 → COCO-17 변환; 가중치 `/workspace/rtmw_weights/rtmw-x-384.onnx`. NLF TorchScript 는 `backend/research` 전용 잔재
 - `torch` / `torchvision` - Supplied by RunPod base image (not pinned); `torchvision` import required for TorchScript op registration
 - `imageio` >=2.34 + `imageio-ffmpeg` >=0.5.1 - Frame extraction (`frame_extractor.py`, 9 fps / 640px downsample)
 - Pillow (`PIL`) - Frame resize + YOLO image input
@@ -120,7 +120,7 @@ Sunity AI Coach is a three-component monorepo. Each component has its own runtim
 - `backend/template.yaml` - SAM template (functions, SQS, HTTP API, log groups w/ 30-day retention)
 - `backend/samconfig.toml` - Deploy defaults (stack `sunity-motion-pilot`, region `ap-northeast-2`, `Stage=pilot`)
 - Secrets live in AWS SSM Parameter Store (`/sunity/motion/firebase-sa`, `CEREBRAS_KEY_PARAM`) — never hardcoded. Lambda env vars: `VIDEO_BUCKET`, `FIREBASE_SA_PARAM`, `RUNPOD_ANALYZE_URL`, `RUNPOD_AUTH_TOKEN`.
-- RunPod env vars: `RUNPOD_AUTH_TOKEN`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `FIREBASE_SA_JSON`/`FIREBASE_SA_PATH`, `CUDA_VISIBLE_DEVICES`, optional `NLF_MODEL_PATH`/`YOLO_WEIGHTS_PATH`.
+- RunPod env vars: `RUNPOD_AUTH_TOKEN`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `FIREBASE_SA_JSON`/`FIREBASE_SA_PATH`, `CUDA_VISIBLE_DEVICES`, `RTMW_ONNX_PATH` / `YOLOX_ONNX_PATH` / `RTMW_DEVICE` / `ROT180_INVERSION_ENABLED` / `PR_INVERSION_ENABLED` / `RTMW_DETERMINISTIC` (정본 `backend/runpod_inference/start_server.sh`).
 
 **Secret files present (gitignored — contents not read):**
 - `firebase-sa.json`, `sunity-ai-coach-firebase-adminsdk-fbsvc-7055d7d3d1.json` - Firebase Admin service-account keys
@@ -138,7 +138,7 @@ Sunity AI Coach is a three-component monorepo. Each component has its own runtim
 **Production:**
 - iOS/Android via EAS Build; iOS submit to App Store Connect app `6772934567`
 - Backend on AWS Lambda (ARM64) + API Gateway HTTP API + SQS, stack `sunity-motion-pilot`
-- GPU inference on RunPod pod (CUDA GPU required; NLF model loaded into VRAM at startup)
+- GPU inference on RunPod pod (CUDA GPU required; RTMW-x ONNX loaded into VRAM at startup)
 - Video storage on S3 bucket `sunity-motion-pilot-videos` (created out-of-band, not by SAM template)
 
 ## Declared-but-Not-Yet-Implemented
@@ -148,7 +148,7 @@ These appear in `CLAUDE.md` / `app/CLAUDE.md` as the intended stack but are NOT 
 - RevenueCat / `react-native-purchases` - No payment SDK in `app/package.json` (pilot intentionally has no billing)
 - CloudFront - Not referenced; video delivery uses S3 presigned URLs directly
 - `victory-native` / `react-native-gifted-charts` - Documented in `app/CLAUDE.md` but not installed; charts currently use `react-native-svg` directly
-- ViTPose-S - Listed in `CLAUDE.md` 2D pipeline but superseded by NLF 3D backbone (see `pose_estimator.py` docstring)
+- ViTPose-S / NLF - 운영 경로에 없음. 백본은 RTMW-x 133 (`pose_engines/rtmw`). NLF 는 `backend/research` + `pose_estimator.py`(DEPRECATED) 잔재, 상업 라이선스 차단
 
 ---
 

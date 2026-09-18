@@ -34,7 +34,7 @@ Sunity AI Coach is a three-component monorepo. A React Native app uploads practi
            │                   │  ML core `backend/shared/.../sunity_shared/  │
            │                   │  analysis/` — features→temporal→DTW→KISMAM→  │
            │                   │  dimensions→assemble (model-agnostic, pure)  │
-           │                   │  Adapters: ffmpeg / NLF 3D pose / Cerebras   │
+           │                   │  Adapters: ffmpeg / RTMW-x pose / Cerebras   │
            │                   └─────────────────────────────────────────────┘
            │                   ┌─────────────────────────────────────────────┐
            └──────────────────▶│  RunPod GPU server (FastAPI)                 │
@@ -53,9 +53,9 @@ Sunity AI Coach is a three-component monorepo. A React Native app uploads practi
 | upload-url Lambda | Issue presigned S3 PUT URL + analysisId | `backend/functions/upload-url/app.py` |
 | reference Lambda | List reference motions (GET /reference) | `backend/functions/reference-api/app.py` |
 | pipeline Lambda | SQS consumer: orchestrate analysis OR delegate to RunPod | `backend/functions/pipeline/app.py` |
-| RunPod GPU server | Run the same `_process` on GPU (NLF 3D pose) | `backend/runpod_inference/server.py` |
+| RunPod GPU server | Run the same `_process` on GPU (RTMW-x 133 pose) | `backend/runpod_inference/server.py` |
 | ML analysis core | Pure algorithm modules (no model/AWS deps) | `backend/shared/python/sunity_shared/analysis/` |
-| ML adapters | Heavy-dependency boundary (ffmpeg / NLF / Cerebras) | `backend/shared/.../analysis/{frame_extractor,pose_estimator,coach_writer}.py` |
+| ML adapters | Heavy-dependency boundary (ffmpeg / RTMW / Cerebras) | `backend/shared/.../analysis/{frame_extractor,pose_estimator,coach_writer}.py` |
 | Firestore Admin client | Backend-only write/read bypassing security rules | `backend/shared/.../firestore_admin.py` |
 | Data contract (Python) | Mirror of TS contract: statuses, modes, errors | `backend/shared/.../models.py` |
 | Infra | SAM template: API, SQS, layer, functions, log retention | `backend/template.yaml` |
@@ -68,7 +68,7 @@ Sunity AI Coach is a three-component monorepo. A React Native app uploads practi
 - **Contract-first:** `app/src/types/analysis.ts` and `backend/shared/.../models.py` mirror each other and `docs/contract.md`. Changing one requires changing all three.
 - **No video through Lambda:** App PUTs video directly to S3 via presigned URL; S3 `ObjectCreated` → SQS → pipeline. Avoids Lambda payload/timeout limits.
 - **Single pipeline, two runtimes:** `pipeline/app.py::_process` runs either on Lambda (CPU fallback, produces NaN without GPU) or RunPod GPU (operational). RunPod imports the Lambda module by path and reuses `_process` — zero branching.
-- **Adapter boundary:** Algorithm core (`features`/`temporal`/`motiondtw`/`kismam`/`dimensions`/`assemble`) is pure and unit-tested; heavy deps (ffmpeg, torch/NLF, Cerebras) sit behind `Protocol`-typed adapters and are lazy-imported.
+- **Adapter boundary:** Algorithm core (`features`/`temporal`/`motiondtw`/`kismam`/`dimensions`/`assemble`) is pure and unit-tested; heavy deps (ffmpeg, rtmlib+onnxruntime, Cerebras) sit behind `Protocol`-typed adapters and are lazy-imported.
 - **Live state via Firestore:** App never polls the backend; it subscribes to `users/{uid}/analyses/{id}` with `onSnapshot` and reacts to status transitions.
 
 ## Layers
@@ -111,8 +111,8 @@ Sunity AI Coach is a three-component monorepo. A React Native app uploads practi
 **ML adapter layer:**
 - Purpose: Bridge core to heavy/external dependencies
 - Location: `backend/shared/.../analysis/{frame_extractor,pose_estimator,coach_writer}.py`, contracts in `interfaces.py`
-- Contains: `FrameExtractor` (ffmpeg), `PoseEstimator` (NLF 3D), `CoachWriter` (Cerebras LLM)
-- Depends on: imageio/ffmpeg, torch/NLF, requests
+- Contains: `FrameExtractor` (ffmpeg), `PoseEstimator` (RTMW-x 133 via `_RTMWNlfCompat`), `CoachWriter` (Cerebras LLM)
+- Depends on: imageio/ffmpeg, rtmlib/onnxruntime-gpu, requests
 - Used by: pipeline `_process` (lazy-imported in `_ensure_adapters()`)
 
 ## Data Flow
@@ -125,8 +125,8 @@ Sunity AI Coach is a three-component monorepo. A React Native app uploads practi
 4. S3 `ObjectCreated` → SQS `AnalysisQueue` (`backend/template.yaml:79`)
 5. pipeline Lambda consumes message, parses uid/analysisId from key (`backend/functions/pipeline/app.py:315` `lambda_handler`, `backend/shared/.../s3keys.py:34`)
 6. **Delegate path (prod):** Lambda sets `status='queued'`, POSTs to RunPod `/analyze`; RunPod runs `_process` on GPU (`backend/runpod_inference/server.py:163`)
-7. **Fallback path (dev):** Lambda runs `_process` directly (`backend/functions/pipeline/app.py:206`)
-8. `_process`: status transitions → extract frames → NLF 3D keypoints → joint angles → temporal fill → technique profile → dimensions (line/stability) → mode branch
+7. **Fallback path (dev):** Lambda runs `_process` directly (`backend/functions/pipeline/app.py:206`) — 배포 환경에선 ImportError 로 의도적 차단(`pipeline/requirements.txt:1-4`), 폴백 없음
+8. `_process`: status transitions → extract frames → RTMW COCO-17 keypoints → joint angles → temporal fill → technique profile → dimensions (line/stability) → mode branch
 9. Mode 1: load reference motion, DTW align, KISMAM deviation, `not_pole_motion` guard, segment scores; Mode 3: absolute dims + delta vs previous analysis (`_mode3_comparison`)
 10. Assemble `AnalysisResult`, write `status='done'` + result + flat angles to Firestore (`firestore_admin.complete_analysis`)
 11. App's `useAnalysisDoc` `onSnapshot` fires → loading screen auto-navigates to `/analysis/result`
@@ -192,12 +192,12 @@ Sunity AI Coach is a three-component monorepo. A React Native app uploads practi
 
 ## Architectural Constraints
 
-- **Threading:** App is single-threaded JS (React Native). Lambdas are single-invocation. RunPod runs FastAPI with `--workers 1` (NLF holds GPU VRAM) and uses `BackgroundTasks` for analysis; a module-load lock guards pipeline import (`backend/runpod_inference/server.py:59`).
+- **Threading:** App is single-threaded JS (React Native). Lambdas are single-invocation. RunPod runs FastAPI with `--workers 1` (RTMW ONNX holds GPU VRAM) and uses `BackgroundTasks` for analysis; a module-load lock guards pipeline import (`backend/runpod_inference/server.py:59`).
 - **Global state / singletons:** Firestore Admin client (`firestore_admin._client`), ML adapters (`pipeline._FRAME_EXTRACTOR/_POSE_ESTIMATOR/_COACH_WRITER`), recognizer (`_RECOGNIZER`), RunPod pipeline module (`_pipeline_module`), and app auth (`globalThis.__sunityAuth`) are all module/global cached.
 - **Firestore nested-array ban:** Firestore forbids nested arrays, so the `(T, J)` angle matrix is stored flat (`angles` + `anglesJointKeys` + `anglesFrames`) and reshaped on read. See `firestore_admin.complete_analysis` and `app/src/types/analysis.ts` `AnalysisDoc`.
 - **Infra separation:** Motion AI must run on its own Lambda/S3 infra, fully separate from the existing sunity.ai EC2 platform (`CLAUDE.md §3`, `template.yaml` description).
 - **External S3 bucket:** The video bucket is NOT created by the SAM template (preserves a pre-existing bucket with reference videos); bucket notification/lifecycle/CORS are configured out-of-band (`backend/template.yaml:67`).
-- **GPU requirement:** NLF 3D pose inference requires GPU; the Lambda CPU fallback path produces NaN and exists only for flow validation.
+- **GPU requirement:** RTMW ONNX inference requires CUDA; the Lambda CPU fallback path is blocked by ImportError in deploy (`pipeline/requirements.txt`) — there is no fallback.
 - **No dark theme:** Light theme only; dark backgrounds banned except the analysis loading screen's intentional navy exception (`app/src/app/analysis/loading.tsx`).
 
 ## Anti-Patterns
@@ -222,7 +222,7 @@ Sunity AI Coach is a three-component monorepo. A React Native app uploads practi
 
 ### Calling ML adapters in the RunPod-delegate path
 
-**What happens:** Importing ffmpeg/torch/NLF at module top level in `pipeline/app.py`.
+**What happens:** Importing ffmpeg/onnxruntime/rtmlib at module top level in `pipeline/app.py`.
 **Why it's wrong:** In delegate mode the Lambda never runs `_process`; eager imports add cold-start cost for nothing.
 **Do this instead:** Keep adapters lazy inside `_ensure_adapters()` (`backend/functions/pipeline/app.py:123`).
 

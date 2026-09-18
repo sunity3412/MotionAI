@@ -95,7 +95,7 @@ export type AnalysisStatus =
   | 'uploading' // 앱이 S3 업로드 중 (앱이 설정)
   | 'queued' // S3 트리거됨, 파이프라인 대기
   | 'frame_extraction' // 프레임 추출
-  | 'pose_analysis' // YOLO11 + ViTPose-S
+  | 'pose_analysis' // YOLOX 사람검출 + RTMW-x 133 wholebody → COCO-17
   | 'comparison' // MotionDTW 비교 + 점수
   | 'done'
   | 'failed';
@@ -153,7 +153,7 @@ export const DIMENSION_ORDER: readonly ScoreDimension[] = [
 export type JointDirection = 'extend' | 'flex' | 'raise' | 'lower' | 'open' | 'close';
 
 export interface JointScore {
-  key: string; // ViTPose 17 keypoint 이름 (예: 'left_knee')
+  key: string; // COCO-17 keypoint 이름 (예: 'left_knee')
   labelKo: string; // 표시용 (예: '왼쪽 무릎')
   score: number; // 0~100
   // 구조화 가이드 (있으면 UI가 "현재 145°→기준 168°·더 펴주세요" 형태로 표시).
@@ -1199,7 +1199,7 @@ export interface ClipRange {
 
 // KISMAM 채점 가중 관절 (reference-motions.md §3). weight 합 = 1.0.
 export interface Checkpoint {
-  joint: string; // ViTPose 17 keypoint 이름 (spine_mid 등 보간 관절 포함)
+  joint: string; // COCO-17 keypoint 이름 (spine_mid 등 보간 관절 포함)
   weight: number;
   note?: string;
 }
@@ -1223,7 +1223,7 @@ export interface ReferenceMotion {
   baseUntilS?: number;
   updatedAt?: number; // epoch ms — 시드/관리자 등록 시 갱신. NEW 배너 정렬용
 
-  // NLF 추출 시퀀스 (extract_reference_angles.py 결과를 seed-reference-motions
+  // RTMW 추출 시퀀스 (extract_reference_angles.py 결과를 seed-reference-motions
   // 가 Firestore 에 채움). nested-array 금지 회피로 flat 저장 — 백엔드/앱에서
   // anglesJointKeys 길이로 reshape. 결과 화면 코칭팁이 reference 실측 각도를
   // 표시하려면 meanAngles 가 필요. 시드 전이거나 등록 안 된 모션은 모두 undef.

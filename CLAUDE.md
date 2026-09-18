@@ -45,12 +45,14 @@ Step 3. 폴스포츠 학원 파일럿 실증
 백엔드     : AWS Lambda (Python) + API Gateway + SQS
 DB        : Firebase Firestore
 스토리지   : AWS S3 + CloudFront
-ML        : YOLO11 → ViTPose-S → MotionDTW (FastDTW)
+ML        : YOLOX-m(검출) → RTMW-x 133 wholebody → COCO-17 → MotionDTW (Sakoe-Chiba band)
 LLM       : Cerebras (빠른 추론)
 결제       : RevenueCat (iOS/Android 통합)
 배포       : EAS Build (Expo)
 시크릿     : AWS Parameter Store (.env 하드코딩 금지)
 ```
+
+> NLF/ViTPose 는 운영 경로에 없다 — NLF 는 backend/research/ 와 backend/scripts/verify_nlf_pipeline.py 에만 남은 R&D 잔재이고 상업 라이선스가 막혀 있다. 운영 백본 정본 = backend/shared/python/sunity_shared/analysis/pose_engines/rtmw/.
 
 > ⚠️ 서니티에는 이미 sunity.ai 운영 플랫폼(EC2: Next.js+Spring Boot)이 있음.
 > Motion AI는 반드시 별도 Lambda+S3 인프라로 분리. 기존 EC2에 얹지 말 것.
@@ -77,11 +79,11 @@ LLM       : Cerebras (빠른 추론)
 ## 5. 세부 컨텍스트 파일 위치
 
 ```
-ML 파이프라인 작업   → /ml/CLAUDE.md
+ML 파이프라인 작업   → /ml/ml_CLAUDE.md
 앱 (React Native)   → /app/CLAUDE.md
-백엔드 (Lambda)     → /backend/CLAUDE.md
+백엔드 (Lambda)     → /backend/runpod_inference/README.md + /backend/template.yaml (전용 CLAUDE.md 없음)
 현재 할 일          → .planning/quick/260918-day-closeout/HANDOFF.md  ← 착수점(유일). 매 세션 반드시 확인. plan.md 는 이력
-개발 원칙/에이전트   → /docs/principles.md
+개발 원칙/에이전트   → CLAUDE.md §7 (docs/principles.md 는 없음)
 화면 스펙 (IA)      → /docs/ia.md      ← 특정 화면 작업 시 참조
 ```
 
@@ -137,11 +139,11 @@ UI 빠른 생성 : Codex Sub-Agents
 
 ### Constraints
 
-- **Tech stack**: 결정 완료, 변경 금지 — Expo+RN(TS) / Lambda(Python)+SAM / Firestore / S3 / YOLO11→NLF 3D→MotionDTW / Cerebras LLM / EAS Build. (CLAUDE.md §3)
+- **Tech stack**: 결정 완료, 변경 금지 — Expo+RN(TS) / Lambda(Python)+SAM / Firestore / S3 / YOLOX→RTMW-x 133→MotionDTW / Cerebras LLM / EAS Build. (CLAUDE.md §3)
 - **인프라**: Motion AI는 반드시 별도 Lambda+S3. 기존 sunity.ai EC2에 얹지 말 것.
 - **시크릿**: AWS Parameter Store 사용. `.env` 하드코딩 금지.
 - **디자인**: 브랜드 컬러 #FF4B33 (변경 금지), Pretendard, 라이트 전용. UI는 Figma 우선(fileKey jrdI7kp245HkPfLB0nclsz), design.md는 보조.
-- **GPU 의존**: NLF 3D는 CUDA 필수 (CPU에서 NaN). 실분석은 RunPod Pod에 위임. Pod 생명주기 수동 — 재생성 시 proxy URL 변경 → Lambda env 동기화 필요.
+- **GPU 의존**: RTMW ONNX 추론은 CUDA 필요(onnxruntime-gpu). 실분석은 RunPod Pod에 위임. Pod 생명주기 수동 — 재생성 시 proxy URL 변경 → Lambda env 동기화 필요.
 - **외부 의존**: Gemini 기술 인식기는 belle의 Gemini API 키(Google AI Studio) 필요 → Parameter Store/Pod env 주입.
 - **품질 원칙**: 작은 단위 작업, 의미있는 테스트만, 이모지·슬롭 코드 금지. (CLAUDE.md §7)
 
@@ -174,7 +176,7 @@ UI 빠른 생성 : Codex Sub-Agents
 - `boto3` provided by the Lambda runtime (not vendored in `requirements.txt`)
 - PyTorch + CUDA base image (RunPod PyTorch 2.4 or similar; `torch`/`torchvision` supplied by base image, not pinned)
 - Uvicorn single worker: `uvicorn runpod_inference.server:app --host 0.0.0.0 --port 8000 --workers 1`
-- CUDA required — NLF model diverges to NaN on CPU (`backend/shared/python/sunity_shared/analysis/pose_estimator.py`)
+- CUDA required — RTMW ONNX 추론은 onnxruntime-gpu 로 돈다 (`backend/shared/python/sunity_shared/analysis/pose_engines/rtmw/rtmw_engine.py`). NLF CPU-NaN 서술은 폐기된 백본 이야기
 - App: npm (lockfile `app/package-lock.json` expected; `package.json` `private: true`)
 - Backend: pip via SAM build; per-function `requirements.txt` + dev `backend/requirements-dev.txt`
 - No `.nvmrc` or `.python-version` files detected; Python version is pinned in `backend/template.yaml`.
@@ -211,8 +213,8 @@ UI 빠른 생성 : Codex Sub-Agents
 - `firebase-admin` ^13.10.0 (devDependency) - Admin SDK for the reference-motion seed script only
 - `firebase-admin` >=6,<7 - Firestore Admin + Firebase Auth ID-token verification (all 3 functions)
 - `numpy` >=1.26,<2.0 (RunPod) / >=1.26,<3 (Lambda + dev) - Analysis algorithm core (DTW, joint angles, scoring)
-- `ultralytics` >=8.2 - YOLO11n person bounding-box detection (`pose_estimator.py`)
-- NLF (Neural Localizer Fields, NeurIPS'24) - 3D HMR model, TorchScript `backend/scripts/nlf_l_multi.torchscript`, downloaded from GitHub release in `setup.sh`
+- YOLOX-m ONNX (rtmlib) - person bounding-box detection (`rtmw_engine.py`). `ultralytics` 는 requirements 에 남아 있으나 운영 경로 호출 0
+- RTMW-x 133 wholebody (rtmlib ONNX, Apache-2.0) - 포즈 백본, 133 → COCO-17 변환; 가중치 `/workspace/rtmw_weights/rtmw-x-384.onnx`. NLF TorchScript 는 `backend/research` 전용 잔재
 - `torch` / `torchvision` - Supplied by RunPod base image (not pinned); `torchvision` import required for TorchScript op registration
 - `imageio` >=2.34 + `imageio-ffmpeg` >=0.5.1 - Frame extraction (`frame_extractor.py`, 9 fps / 640px downsample)
 - Pillow (`PIL`) - Frame resize + YOLO image input
@@ -232,7 +234,7 @@ UI 빠른 생성 : Codex Sub-Agents
 - `backend/template.yaml` - SAM template (functions, SQS, HTTP API, log groups w/ 30-day retention)
 - `backend/samconfig.toml` - Deploy defaults (stack `sunity-motion-pilot`, region `ap-northeast-2`, `Stage=pilot`)
 - Secrets live in AWS SSM Parameter Store (`/sunity/motion/firebase-sa`, `CEREBRAS_KEY_PARAM`) — never hardcoded. Lambda env vars: `VIDEO_BUCKET`, `FIREBASE_SA_PARAM`, `RUNPOD_ANALYZE_URL`, `RUNPOD_AUTH_TOKEN`.
-- RunPod env vars: `RUNPOD_AUTH_TOKEN`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `FIREBASE_SA_JSON`/`FIREBASE_SA_PATH`, `CUDA_VISIBLE_DEVICES`, optional `NLF_MODEL_PATH`/`YOLO_WEIGHTS_PATH`.
+- RunPod env vars: `RUNPOD_AUTH_TOKEN`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `FIREBASE_SA_JSON`/`FIREBASE_SA_PATH`, `CUDA_VISIBLE_DEVICES`, `RTMW_ONNX_PATH` / `YOLOX_ONNX_PATH` / `RTMW_DEVICE` / `ROT180_INVERSION_ENABLED` / `PR_INVERSION_ENABLED` / `RTMW_DETERMINISTIC` (정본 `backend/runpod_inference/start_server.sh`).
 - `firebase-sa.json`, `sunity-ai-coach-firebase-adminsdk-fbsvc-7055d7d3d1.json` - Firebase Admin service-account keys
 - `sunity-api_accessKeys.csv` - AWS access keys
 - `.firebaserc` - Firebase project alias (`sunity-ai-coach`)
@@ -245,7 +247,7 @@ UI 빠른 생성 : Codex Sub-Agents
 - AWS account (region `ap-northeast-2`), Firebase project `sunity-ai-coach`
 - iOS/Android via EAS Build; iOS submit to App Store Connect app `6772934567`
 - Backend on AWS Lambda (ARM64) + API Gateway HTTP API + SQS, stack `sunity-motion-pilot`
-- GPU inference on RunPod pod (CUDA GPU required; NLF model loaded into VRAM at startup)
+- GPU inference on RunPod pod (CUDA GPU required; RTMW-x ONNX loaded into VRAM at startup)
 - Video storage on S3 bucket `sunity-motion-pilot-videos` (created out-of-band, not by SAM template)
 
 ## Declared-but-Not-Yet-Implemented
@@ -253,7 +255,7 @@ UI 빠른 생성 : Codex Sub-Agents
 - RevenueCat / `react-native-purchases` - No payment SDK in `app/package.json` (pilot intentionally has no billing)
 - CloudFront - Not referenced; video delivery uses S3 presigned URLs directly
 - `victory-native` / `react-native-gifted-charts` - Documented in `app/CLAUDE.md` but not installed; charts currently use `react-native-svg` directly
-- ViTPose-S - Listed in `CLAUDE.md` 2D pipeline but superseded by NLF 3D backbone (see `pose_estimator.py` docstring)
+- ViTPose-S / NLF - 운영 경로에 없음. 백본은 RTMW-x 133 (`pose_engines/rtmw`). NLF 는 `backend/research` + `pose_estimator.py`(DEPRECATED) 잔재, 상업 라이선스 차단
 
 <!-- GSD:stack-end -->
 
@@ -411,9 +413,9 @@ UI 빠른 생성 : Codex Sub-Agents
 | upload-url Lambda | Issue presigned S3 PUT URL + analysisId | `backend/functions/upload-url/app.py` |
 | reference Lambda | List reference motions (GET /reference) | `backend/functions/reference-api/app.py` |
 | pipeline Lambda | SQS consumer: orchestrate analysis OR delegate to RunPod | `backend/functions/pipeline/app.py` |
-| RunPod GPU server | Run the same `_process` on GPU (NLF 3D pose) | `backend/runpod_inference/server.py` |
+| RunPod GPU server | Run the same `_process` on GPU (RTMW-x 133 pose) | `backend/runpod_inference/server.py` |
 | ML analysis core | Pure algorithm modules (no model/AWS deps) | `backend/shared/python/sunity_shared/analysis/` |
-| ML adapters | Heavy-dependency boundary (ffmpeg / NLF / Cerebras) | `backend/shared/.../analysis/{frame_extractor,pose_estimator,coach_writer}.py` |
+| ML adapters | Heavy-dependency boundary (ffmpeg / RTMW / Cerebras) | `backend/shared/.../analysis/{frame_extractor,pose_estimator,coach_writer}.py` |
 | Firestore Admin client | Backend-only write/read bypassing security rules | `backend/shared/.../firestore_admin.py` |
 | Data contract (Python) | Mirror of TS contract: statuses, modes, errors | `backend/shared/.../models.py` |
 | Infra | SAM template: API, SQS, layer, functions, log retention | `backend/template.yaml` |
@@ -423,7 +425,7 @@ UI 빠른 생성 : Codex Sub-Agents
 - **Contract-first:** `app/src/types/analysis.ts` and `backend/shared/.../models.py` mirror each other and `docs/contract.md`. Changing one requires changing all three.
 - **No video through Lambda:** App PUTs video directly to S3 via presigned URL; S3 `ObjectCreated` → SQS → pipeline. Avoids Lambda payload/timeout limits.
 - **Single pipeline, two runtimes:** `pipeline/app.py::_process` runs either on Lambda (CPU fallback, produces NaN without GPU) or RunPod GPU (operational). RunPod imports the Lambda module by path and reuses `_process` — zero branching.
-- **Adapter boundary:** Algorithm core (`features`/`temporal`/`motiondtw`/`kismam`/`dimensions`/`assemble`) is pure and unit-tested; heavy deps (ffmpeg, torch/NLF, Cerebras) sit behind `Protocol`-typed adapters and are lazy-imported.
+- **Adapter boundary:** Algorithm core (`features`/`temporal`/`motiondtw`/`kismam`/`dimensions`/`assemble`) is pure and unit-tested; heavy deps (ffmpeg, rtmlib+onnxruntime, Cerebras) sit behind `Protocol`-typed adapters and are lazy-imported.
 - **Live state via Firestore:** App never polls the backend; it subscribes to `users/{uid}/analyses/{id}` with `onSnapshot` and reacts to status transitions.
 
 ## Layers
@@ -455,8 +457,8 @@ UI 빠른 생성 : Codex Sub-Agents
 - Used by: pipeline `_process`
 - Purpose: Bridge core to heavy/external dependencies
 - Location: `backend/shared/.../analysis/{frame_extractor,pose_estimator,coach_writer}.py`, contracts in `interfaces.py`
-- Contains: `FrameExtractor` (ffmpeg), `PoseEstimator` (NLF 3D), `CoachWriter` (Cerebras LLM)
-- Depends on: imageio/ffmpeg, torch/NLF, requests
+- Contains: `FrameExtractor` (ffmpeg), `PoseEstimator` (RTMW-x 133 via `_RTMWNlfCompat`), `CoachWriter` (Cerebras LLM)
+- Depends on: imageio/ffmpeg, rtmlib/onnxruntime-gpu, requests
 - Used by: pipeline `_process` (lazy-imported in `_ensure_adapters()`)
 
 ## Data Flow
@@ -503,12 +505,12 @@ UI 빠른 생성 : Codex Sub-Agents
 
 ## Architectural Constraints
 
-- **Threading:** App is single-threaded JS (React Native). Lambdas are single-invocation. RunPod runs FastAPI with `--workers 1` (NLF holds GPU VRAM) and uses `BackgroundTasks` for analysis; a module-load lock guards pipeline import (`backend/runpod_inference/server.py:59`).
+- **Threading:** App is single-threaded JS (React Native). Lambdas are single-invocation. RunPod runs FastAPI with `--workers 1` (RTMW ONNX holds GPU VRAM) and uses `BackgroundTasks` for analysis; a module-load lock guards pipeline import (`backend/runpod_inference/server.py:59`).
 - **Global state / singletons:** Firestore Admin client (`firestore_admin._client`), ML adapters (`pipeline._FRAME_EXTRACTOR/_POSE_ESTIMATOR/_COACH_WRITER`), recognizer (`_RECOGNIZER`), RunPod pipeline module (`_pipeline_module`), and app auth (`globalThis.__sunityAuth`) are all module/global cached.
 - **Firestore nested-array ban:** Firestore forbids nested arrays, so the `(T, J)` angle matrix is stored flat (`angles` + `anglesJointKeys` + `anglesFrames`) and reshaped on read. See `firestore_admin.complete_analysis` and `app/src/types/analysis.ts` `AnalysisDoc`.
 - **Infra separation:** Motion AI must run on its own Lambda/S3 infra, fully separate from the existing sunity.ai EC2 platform (`CLAUDE.md §3`, `template.yaml` description).
 - **External S3 bucket:** The video bucket is NOT created by the SAM template (preserves a pre-existing bucket with reference videos); bucket notification/lifecycle/CORS are configured out-of-band (`backend/template.yaml:67`).
-- **GPU requirement:** NLF 3D pose inference requires GPU; the Lambda CPU fallback path produces NaN and exists only for flow validation.
+- **GPU requirement:** RTMW ONNX inference requires CUDA; the Lambda CPU fallback path is blocked by ImportError in deploy (`pipeline/requirements.txt`) — there is no fallback.
 - **No dark theme:** Light theme only; dark backgrounds banned except the analysis loading screen's intentional navy exception (`app/src/app/analysis/loading.tsx`).
 
 ## Anti-Patterns

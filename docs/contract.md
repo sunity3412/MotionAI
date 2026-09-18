@@ -35,7 +35,7 @@
   ▼
 [백엔드] (Admin SDK 로 문서 갱신)
   status: queued → frame_extraction → pose_analysis → comparison → done
-  YOLO11 → ViTPose-S → MotionDTW → KISMAM → Cerebras
+  YOLOX-m → RTMW-x 133 → COCO-17 → MotionDTW → KISMAM → Cerebras
   실패 시 status='failed' + error{code,message}
   완료 시 status='done' + result{...}
   ▼

@@ -18,7 +18,7 @@
 - ✓ Firebase 익명 인증 + Firestore (회원가입 없이 게스트 진입) — existing
 - ✓ S3 presigned 업로드 (앱 → S3 직접 PUT) — existing
 - ✓ Lambda 비동기 분석 파이프라인 (SQS 트리거, 결과 Firestore 기록) — existing
-- ✓ RunPod NLF 3D 실분석 end-to-end (YOLO11n → NLF 3D → band-constrained DTW) — existing (2026-05-29 최초 통과)
+- ✓ RunPod GPU 실분석 end-to-end (YOLOX-m → RTMW-x 133 → COCO-17 → band-constrained DTW; 2026-05-29 NLF 로 최초 통과, 이후 RTMW 로 교체)
 - ✓ IPSF 기반 채점 엔진 (각도/라인/안정성 차원, 균형·대칭 제거) — existing
 - ✓ Cerebras LLM 한국어 코칭 문장 생성 (키 없으면 graceful no-op) — existing
 - ✓ TestFlight 빌드/제출 파이프라인 (EAS Build + ASC API Key 무인 submit) — existing
@@ -71,7 +71,7 @@
 
 - **Brownfield, 3-component monorepo**: `/app` (RN+Expo, TS), `/backend` (Lambda Python + SAM + RunPod FastAPI GPU 서버), `/ml` (문서만 — 실 ML 코드는 `backend/shared/python/sunity_shared/analysis/`).
 - **인프라 분리**: 서니티에는 이미 sunity.ai 운영 플랫폼(EC2)이 있음. Motion AI는 별도 Lambda+S3 인프라로 분리 운영. 기존 EC2에 얹지 않음.
-- **분석 측정 한계 (정직)**: 현 포즈 = NLF 3D, COCO-17 8관절각 기반 → 라인/유지/각도만 측정 가능. 정렬·자세는 keypoint 부족으로 측정 불가 (Phase 3 업그레이드 대상).
+- **분석 측정 한계 (정직)**: 현 포즈 = RTMW-x 133 wholebody → COCO-17 변환, 8관절각(JOINT_KEYS) 기반 → 라인/유지/각도만 측정 가능. 정렬·자세는 keypoint 부족으로 측정 불가 (Phase 3 업그레이드 대상).
 - **현 핵심 블로커**: 실분석은 2026-05-29 최초 통과했으나 점수 신뢰도가 미해결 — fallback 인식기가 굽은 그립 자세에서 EXTEND 관절을 못 찾아 line이 None으로 빠지고, overall이 사실상 한 차원으로 결정됨. Gemini 인식기가 핵심 레버.
 - **팀**: belle = 창업자/비개발자. 콘솔·멀티스텝 작업은 직접 넘기지 않고 Claude가 CLI/도구로 수행. 분석 도메인 정확도가 의사결정의 최우선 기준.
 - **이해관계자 역학 (현장 리서치)**: 수강생(직접 사용자)은 "AI가 일반 답변만 하면" 이탈한다. 강사/선수·학원 운영자는 **도입 결정권자이자 동시에 가장 큰 저항 세력** — 설득 못 하면 학원 파일럿이 막힌다. 핵심 우려: ① AI가 강사를 대체할까 (도입 거부 원인) ② 스피닝 폴에서 분석이 정확한가 (신뢰) ③ 부상 유발 ④ 분석 자료 무분별 배포. 강사 철학: "각도가 중요한 게 아니라 힘·유연성 한계 인식이 핵심."
@@ -79,11 +79,11 @@
 
 ## Constraints
 
-- **Tech stack**: 결정 완료, 변경 금지 — Expo+RN(TS) / Lambda(Python)+SAM / Firestore / S3 / YOLO11→NLF 3D→MotionDTW / Cerebras LLM / EAS Build. (CLAUDE.md §3)
+- **Tech stack**: 결정 완료, 변경 금지 — Expo+RN(TS) / Lambda(Python)+SAM / Firestore / S3 / YOLOX→RTMW-x 133→MotionDTW / Cerebras LLM / EAS Build. (CLAUDE.md §3)
 - **인프라**: Motion AI는 반드시 별도 Lambda+S3. 기존 sunity.ai EC2에 얹지 말 것.
 - **시크릿**: AWS Parameter Store 사용. `.env` 하드코딩 금지.
 - **디자인**: 브랜드 컬러 #FF4B33 (변경 금지), Pretendard, 라이트 전용. UI는 Figma 우선(fileKey jrdI7kp245HkPfLB0nclsz), design.md는 보조.
-- **GPU 의존**: NLF 3D는 CUDA 필수 (CPU에서 NaN). 실분석은 RunPod Pod에 위임. Pod 생명주기 수동 — 재생성 시 proxy URL 변경 → Lambda env 동기화 필요.
+- **GPU 의존**: RTMW ONNX 추론은 CUDA 필요(onnxruntime-gpu). 실분석은 RunPod Pod에 위임. Pod 생명주기 수동 — 재생성 시 proxy URL 변경 → Lambda env 동기화 필요.
 - **외부 의존**: Gemini 기술 인식기는 belle의 Gemini API 키(Google AI Studio) 필요 → Parameter Store/Pod env 주입.
 - **분석 동작 범위**: 초기 분석은 3~5개 동작군(후굴 계열·인버트 계열·특정 기본 포징)으로 한정. 모든 동작 범용 모델 금지 — 처음부터 전 동작 커버는 실패 가능성 큼.
 - **품질 원칙**: 작은 단위 작업, 의미있는 테스트만, 이모지·슬롭 코드 금지. (CLAUDE.md §7)

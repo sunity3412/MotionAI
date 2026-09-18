@@ -19,6 +19,9 @@ status: 카메라앵글 트랙 종결 · 회전 묶음 검증 · 게이트 2단 
 - ★ **확대 카드 게이트에 2단 판정을 넣었다** — 1단만으로 맞는 표식을 지우던 것을 수리.
 - ★ **실증 환경 기동 완료** — Pod·Lambda·SSM·OTA 전부 섰고 **E2E 완주(100점)**.
 - ★ **belle 질문("왜 Pod 에 없는 게 있냐")의 근본 원인 제거** — 미푸시 29커밋 푸시 + Pod 리포 정상화.
+- ★ **belle 판정 대기 5건** = `.planning/quick/260918-qm2-doc-truth-repair-18/260918-qm2-BELLE-JUDGMENT.md`
+  (sam deploy 불가 · template 사문 파라미터 · 스택 1커밋 낙후 · Pod 세대 불일치 · 죽은 코드).
+  문서 18곳 정정 + 판정 원장 = `.planning/STATE.md` "미종결 트랙 판정 원장".
 - 오늘 지출: Gemini **$1.66** · RunPod 가동 중
 - HEAD `eaafcfbe` (푸시 완료) · 게이트 **4835 passed / 0 failed** · 앱 tsc CLEAN · 304 passed
 
@@ -31,6 +34,7 @@ Pod  elevev58iv4mox  sunity-serve-demo   L4 / 루마니아   $0.49/hr   ← 실�
 Pod  ht8ig4qprtol36  sunity-pipe-writer-q9b  RTX4090 / US  $0.74/hr  ← ❓ 용도 불명
 SSM  pod-expected = up
 Lambda RUNPOD_ANALYZE_URL = https://elevev58iv4mox-8000.proxy.runpod.net/analyze
+       (2026-09-18 실측: 이 주소는 404 — 종료 절차의 자리표시자 복귀는 /start 1-6 참조)
 RunPod 잔액 $19.92
 ```
 
@@ -96,6 +100,7 @@ belle 에게 확인하고 안 쓰면 종료할 것 — 시간당 $0.74 다.
 | 3 | ★ **한쪽만 동그라미 되는 다른 원인** | 오늘 실측: 게이트는 양쪽 `pass` 인데 `userMarked=True / refMarked=None`. **게이트 말고 또 있다** |
 | 4 | 회전 묶음 남은 4편 측정 | elbow-twist(학생 ON 재분석 1편) · climb/combo/foxtop/invert(학생 영상 없음) |
 | 5 | ref-climb 옛 기준이 틀렸던 건 | 배포가 고친 것으로 보이나 점수 영향 미측정 |
+| 6 | **belle 판정 대기 5건** | `.planning/quick/260918-qm2-doc-truth-repair-18/260918-qm2-BELLE-JUDGMENT.md` — 실증 결과 들은 뒤 (1) sam deploy 부터 |
 
 ---
 

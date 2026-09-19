@@ -114,6 +114,46 @@ _CROP_INCLUSION_MARGIN_PX = int(_OUT * 0.10)
 # keypoint(RTMW 몸통 붕괴 등)를 crop 중심으로 쓰면 엉뚱한 부위(뒤통수)가 확대됨.
 _KP_CONF_MIN = 0.5
 
+# ── 각도 표시 2번째 축: 시간축 안정성 (quick-260919-oxg, belle 2026-09-19) ──
+# belle: "분석의 정도를 높여서 왠만하면 다 찾아내야지."
+#
+# 왜 문턱을 안 내리고 축을 더하나 — 2026-09-19 라이브 실측(doc 25건 / 표본 1.5만,
+# 지표 = |각도(t) − 시간축 이웃 중앙값|, joints3d 공간 도):
+#     신뢰도 0.45-0.50 : 중앙값 6.23  p75 12.74  >20도 9.2%   (버려진다)
+#     신뢰도 0.50-0.60 : 중앙값 5.06  p75 10.54  >20도 6.3%   (통과한다)
+# 문턱 바로 위아래가 같은 품질이다. 0.5 는 좋은 좌표와 나쁜 좌표를 **가르지 않는 선**
+# 이고(예측력은 0.6 위부터 생긴다), 같은 실측에서 각도 대상 카드 109장 중 55장(50%)
+# 만 통과했다. 그래서 문턱을 유지한 채 **실제로 재는 축**을 하나 더 세운다:
+#     conf >= _KP_CONF_MIN  OR  (conf >= _ANGLE_DIR_CONF_MIN AND 시간축 안정)
+# 순수 additive — 종전 통과분은 첫 항에서 그대로 통과하고 두 번째 항은 불리지 않는다.
+# 표시 전용, **채점 무접촉** (점수·감점·veto 경로 0줄).
+_ANGLE_DIR_CONF_MIN = 0.35
+# 0.35 근거 2줄: (a) card_gates.HOLD_CONF_MIN/PAIR_CONF_MIN 과 같은 값 — 이 리포가
+# 이미 "측정용 하한"으로 쓰는 층이다(card_gates.py:63 주석: "fz._KP_CONF_MIN 0.5 는
+# 확정 시각 언어용"). (b) 0.35 만으로 109장 중 99장(91%)이 열려 더 내려서 얻는 장수는
+# 적은 반면 <0.30 구간은 >20도 비율 9.8% 로 표 전체에서 튐 꼬리가 가장 굵다.
+
+_ANGLE_STABILITY_MAX_DEV_DEG = 28.5
+# 유도: 260919-oxg-CALIBRATION.md 의 **0.50-0.60 행 p75 칸**(학생 28.52 / 기준 39.61
+# 중 작은 쪽 = 학생, 소수 첫째 자리 내림). 그 밴드 = 지금 실제로 통과하고 있는
+# 품질이므로, 새로 여는 점은 "이미 나가는 것의 4분의 3이 보이는 안정성" 이상을
+# 증명해야 한다. 중앙값은 지금 나가는 것의 절반을 거절해 여는 목적을 없애고,
+# p90(학생 58.47)은 >20도 튐 꼬리에 붙는다.
+# ★ 계기와 게이트는 **같은 정규화 좌표 공간**에서 잰다 — 라이브 doc 에 영상 W·H 가
+# 없어(keypointReport 화이트리스트에 width/height 없음) px 공간 도를 잴 수 없다.
+# 그래서 이 값을 "화면에서 보이는 28.5도"로 읽으면 안 된다. 위 실측표(joints3d 공간
+# p75 10.54)와 숫자가 다른 것도 같은 이유 — 공간이 다르다.
+
+_ANGLE_STABILITY_HALF_WINDOW_SEC = 2.0 / 9.0
+# 실측 표가 쓴 창과 같은 시간 폭 — 9fps 각도축 ±2프레임 = ±0.222초. report fps 는
+# 측마다 다르므로(학생 라벨 fps / 기준 18.0) 프레임이 아니라 **초**로 옮긴다.
+# fps 라벨 오차 ~10% 는 창 폭 10% 오차이고 지표가 중앙값이라 무해하다.
+
+_ANGLE_STABILITY_MIN_NEIGHBORS = 2
+# 실측 표는 중앙을 뺀 이웃의 중앙값을 기준선으로 썼다. 이웃이 1점이면 "중앙값"이
+# 그 1프레임 자신이라 튐 하나가 기준선이 되어 판정이 우연에 걸린다. 2점 미만 = 측정불가
+# = FAIL (fail-closed — 잴 수 없는 순간에 확정 시각 언어를 그리지 않는다).
+
 # 결함단위(region) grouping — 같은 결함(스플릿 등)에서 온 좌+우 동일 부위 관절들을
 # 카드 1장으로 묶는다 (quick-260702-sic). keypointReport 의 8-keypoint 이름공간
 # (left/right_hand = COCO wrist 매핑) + 향후 확장 이름(ankle/elbow/wrist)을 함께 커버.
@@ -1180,6 +1220,32 @@ def _gated_kp(
     return xy
 
 
+def _relaxed_dir_kp(
+    report: dict, frame_idx: int, joint: str
+) -> tuple[float, float] | None:
+    """**방향점 전용** 완화 게이트 — `_gated_kp` 와 같은 형태, 하한만 0.35.
+
+    꼭짓점에는 **절대 주입하지 않는다**(quick-260919-oxg 판정 1). 크롭 중심의 단일
+    출처가 `criterion_vertex_xy` 라, 꼭짓점을 완화하면 V 의 꼭짓점이 패널 정중앙을
+    벗어나 belle 승인 문법 4R#1("두 패널 모두 꼭짓점 = 패널 정중앙")이 깨진다.
+    막힌 카드의 병목은 실측상 **이웃(방향) 관절 44장 : 꼭짓점 10장** 이라, 방향점만
+    열어도 막힌 것의 81% 가 열린다.
+
+    이 완화는 **그 자체로는 아무것도 열지 않는다** — 반드시
+    `build_stable_angle_bake_spec` 의 시간축 안정성 검사와 짝으로만 쓰인다.
+    conf 부재(legacy report)는 `_gated_kp` 와 똑같이 거부한다: 완화는 "낮은 신뢰"를
+    여는 것이지 "증명 없음"을 여는 것이 아니다(2026-07-05 pod 실측 — confidence 없는
+    기준 report 가 통과해 선이 폭주했다). 표시 전용, 채점 무접촉.
+    """
+    xy = _kp_xy(report, frame_idx, joint)
+    if xy is None:
+        return None
+    c = _kp_conf(report, frame_idx, joint)
+    if c is None or c < _ANGLE_DIR_CONF_MIN:
+        return None
+    return xy
+
+
 def _leg_line_pts(
     report: dict,
     frame_idx: int,
@@ -1438,6 +1504,7 @@ def make_reference_anchor_resolver(
     criterion: str | None,
     *,
     anchors: dict | None = None,
+    gated_kp=_gated_kp,
 ):
     """기준측 관절 좌표 조회자 — 앵커 대입 선언(reference_anchors) 경유 (33-G S8/S9).
 
@@ -1445,8 +1512,14 @@ def make_reference_anchor_resolver(
     `criterion_vertex_xy`/`build_angle_bake_spec` 이 앵커 이름공간을 모른 채 주입만
     받는다 (`angle_key_to_keypoint`/`select_advisory_joints` 관례 유지).
 
-    주석 없음/모션 미지정 → `_gated_kp` 그대로(=대입 0). `anchors` 는 테스트·스위프
+    주석 없음/모션 미지정 → `gated_kp` 그대로(=대입 0). `anchors` 는 테스트·스위프
     주입용 override 로, 지정 시 디스크 로드를 건너뛴다.
+
+    `gated_kp` (quick-260919-oxg): 대입이 얹힐 **밑바탕 게이트**. 기본값이 `_gated_kp`
+    라 기존 호출 2곳은 무변경이다. 기준측 **방향점** 해상기를 만들 때만
+    `_relaxed_dir_kp` 를 넘긴다 — 앵커 대입과 완화를 각각 따로 만들 수 없기 때문
+    (대입 선언은 criterion 단위라 꼭짓점·방향점 해상기가 둘 다 이 팩토리를 거친다).
+    꼭짓점용 해상기는 **기본값 그대로** 만들어 판정 1(꼭짓점 비완화)을 지킨다.
     """
     table = anchors if anchors is not None else (
         reference_anchors.load_reference_anchors(motion_id) if motion_id else {}
@@ -1454,15 +1527,15 @@ def make_reference_anchor_resolver(
     entry = (table or {}).get(criterion or "") or {}
     subs = entry.get("joint_substitutions") or {}
     if not subs:
-        return _gated_kp
+        return gated_kp
 
     def _resolve(report: dict, frame_idx: int, joint: str):
         decl = subs.get(joint)
         if decl is None:
-            return _gated_kp(report, frame_idx, joint)
+            return gated_kp(report, frame_idx, joint)
         # report 우선(대입은 부재 관절 전용) 규칙은 resolve_anchor_joint_xy 소유.
         return reference_anchors.resolve_anchor_joint_xy(
-            report, frame_idx, joint, decl, gated_kp=_gated_kp
+            report, frame_idx, joint, decl, gated_kp=gated_kp
         )
 
     return _resolve
@@ -2094,6 +2167,7 @@ def build_angle_bake_spec(
     report: dict,
     frame_idx: int,
     resolver=None,
+    direction_resolver=None,
 ) -> tuple[
     tuple[float, float], tuple[float, float], tuple[float, float]
 ] | None:
@@ -2102,6 +2176,14 @@ def build_angle_bake_spec(
     꼭짓점은 `criterion_vertex_xy` 재사용 — crop 중심과 각도 꼭짓점이 **같은 단일
     출처**여야 마커/각/호가 패널 정중앙에 앉는다(승인 4R#1). 방향점은
     `ANGLE_BAKE_MAP` 선언 관절을 resolver 로 조회한다.
+
+    `direction_resolver` (quick-260919-oxg): 방향 2점 **전용** 해상기. 미지정이면
+    `resolver` 를 그대로 쓴다 = **기존 호출 전부 무변경**. 꼭짓점에는 어떤 경우에도
+    `resolver` 를 넘긴다(판정 1 — 꼭짓점 비완화).
+    ★ 두 역할을 **관절명으로는 가를 수 없어서** 해상기를 나눈다: 어깨 계열은
+    꼭짓점이 겨드랑이 내분점(`{side}_shoulder`+`{side}_hip`)인데
+    `ANGLE_BAKE_MAP["shoulder"]` 의 몸통 방향점도 **같은 `{side}_hip`** 이다.
+    이름으로 완화 대상을 고르면 꼭짓점까지 함께 열려 승인 4R#1 이 깨진다.
 
     None 인 경우 (전부 fail-closed — 호출측이 원 마커로 폴백):
       · 단일 관절 계열 criterion 이 아님 (split/다관절 → 다리 사이각이 담당).
@@ -2121,14 +2203,116 @@ def build_angle_bake_spec(
     if decl is None:
         return None
     get = resolver if resolver is not None else _gated_kp
+    get_dir = direction_resolver if direction_resolver is not None else get
     vertex = criterion_vertex_xy(criterion, members, report, frame_idx, None, get)
     if vertex is None:
         return None
-    limb = get(report, frame_idx, f"{side}_{decl[0]}")
-    torso = get(report, frame_idx, f"{side}_{decl[1]}")
+    limb = get_dir(report, frame_idx, f"{side}_{decl[0]}")
+    torso = get_dir(report, frame_idx, f"{side}_{decl[1]}")
     if limb is None or torso is None:
         return None
     return vertex, limb, torso
+
+
+def _spec_inner_deg_norm(
+    spec: tuple[
+        tuple[float, float], tuple[float, float], tuple[float, float]
+    ] | None,
+) -> float | None:
+    """스펙 3점의 V 내각을 **정규화 좌표 공간**에서 (도). 퇴화 = None.
+
+    `_spec_inner_deg_px`(패널 px 공간 = 하이브리드 이식각용)와 **일부러 다른 함수**다.
+    시간축 안정성은 여러 프레임을 서로 비교하는데, px 공간 각은 프레임별 crop 박스에
+    의존해 같은 자를 못 댄다. 게다가 라이브 doc 은 영상 W·H 를 저장하지 않아
+    (keypointReport 화이트리스트에 width/height 없음) 임계를 px 공간에서 교정할 수도
+    없다 — 그래서 계기(260919-oxg-CALIBRATION.md)와 게이트를 **둘 다 정규화 공간**
+    으로 통일했다. 종횡비 왜곡은 t 와 이웃 프레임에 같은 값으로 걸리므로 "튐 탐지"는
+    보존되고, 임계를 같은 공간에서 읽으므로 계기와 게이트가 자가 일치한다.
+    순수 — 채점 무접촉.
+    """
+    if spec is None:
+        return None
+    v, limb, torso = spec
+
+    def _unit(p):
+        dx, dy = float(p[0]) - float(v[0]), float(p[1]) - float(v[1])
+        n = math.hypot(dx, dy)
+        if n <= 0.0 or not math.isfinite(n):
+            return None
+        return dx / n, dy / n
+
+    ul, ut = _unit(limb), _unit(torso)
+    if ul is None or ut is None:
+        return None
+    d = max(-1.0, min(1.0, ul[0] * ut[0] + ul[1] * ut[1]))
+    return math.degrees(math.acos(d))
+
+
+def build_stable_angle_bake_spec(
+    criterion: str | None,
+    members: tuple[str, ...],
+    report: dict,
+    frame_idx: int,
+    *,
+    vertex_resolver,
+    direction_resolver,
+) -> tuple[
+    tuple[float, float], tuple[float, float], tuple[float, float]
+] | None:
+    """완화 방향점 + **시간축 안정성**으로 성립하는 각도 스펙 | None (quick-260919-oxg).
+
+    각도 표시의 **두 번째 축**. 첫 축(`_KP_CONF_MIN` 0.5)은 그대로 두고, 그 문턱에서
+    죽은 카드만 여기로 온다. 여는 조건은 신뢰도가 아니라 **실제로 잰 안정성**이다:
+
+        ① 완화 스펙 성립 (꼭짓점은 엄격, 방향 2점만 `_ANGLE_DIR_CONF_MIN`)
+        ② report fps 유효 → 창 폭 w = round(_ANGLE_STABILITY_HALF_WINDOW_SEC * fps)
+        ③ 기준선 = [frame_idx±w] 에서 frame_idx 를 **뺀** 프레임들의 사이각 중앙값
+           (같은 해상기로 다시 만든다 — 이웃도 같은 자격을 통과해야 기준선이 된다)
+        ④ 유효 이웃 < _ANGLE_STABILITY_MIN_NEIGHBORS → None (fail-closed)
+        ⑤ |사이각(frame_idx) − 기준선| > _ANGLE_STABILITY_MAX_DEV_DEG → None
+
+    **증명하지 못하는 것 (과장 금지):** 이 축은 좌표가 **튀는** 것을 잡지 **일관되게
+    틀린** 것은 못 잡는다. 매끄럽게 틀린 팔은 매끄럽게 통과한다
+    ([[keypoints-are-wrong-not-the-frame-choice]]). 새로 열린 카드의 V 가 실제로 옳은
+    부위에 앉았는지는 완성된 사진을 belle 눈으로 봐야 닫힌다.
+
+    순수 — 채점 무접촉. 표시 전용.
+    """
+    spec = build_angle_bake_spec(
+        criterion, members, report, frame_idx,
+        vertex_resolver, direction_resolver,
+    )
+    if spec is None:
+        return None
+    cur = _spec_inner_deg_norm(spec)
+    if cur is None:
+        return None
+    try:
+        fps = float(report.get("fps") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if not (math.isfinite(fps) and fps > 0.0):
+        return None
+    n_frames = int(report.get("frames") or 0)
+    if n_frames <= 0:
+        return None
+    w = max(1, int(round(_ANGLE_STABILITY_HALF_WINDOW_SEC * fps)))
+    neighbors: list[float] = []
+    for k in range(max(0, frame_idx - w), min(n_frames, frame_idx + w + 1)):
+        if k == frame_idx:
+            continue
+        deg = _spec_inner_deg_norm(build_angle_bake_spec(
+            criterion, members, report, k,
+            vertex_resolver, direction_resolver,
+        ))
+        if deg is not None:
+            neighbors.append(deg)
+    if len(neighbors) < _ANGLE_STABILITY_MIN_NEIGHBORS:
+        return None
+    baseline = float(np.median(neighbors))
+    if abs(cur - baseline) > _ANGLE_STABILITY_MAX_DEV_DEG:
+        return None
+    return spec
 
 
 def align_bake_spec(

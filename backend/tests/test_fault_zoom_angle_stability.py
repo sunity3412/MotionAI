@@ -387,6 +387,25 @@ def test_strict_batch_never_takes_the_relaxed_path(caplog):
     assert _brand_px_left_panel(items[0]["png"]) > 0
 
 
+# ── ⑩⑪ 새로 열린다 + 양측 대칭 ───────────────────────────────────────────────
+
+
+def test_relaxed_direction_opens_the_card_on_both_panels(caplog):
+    """방향점 conf 0.42 + 안정 → 양 패널에 V 가 새로 그려지고 인증도 함께 선다."""
+    caplog.set_level("INFO")
+    rep = _report({"right_ankle": 0.42})
+    items = _build(rep)
+    assert len(items) == 1
+    it = items[0]
+    logs = _bake_logs(caplog)
+    assert any(":stable(" in m for m in logs), logs
+    assert any("angle_bake=drawn" in m for m in logs)
+    assert _brand_px_left_panel(it["png"]) > 0
+    assert _brand_px_right_panel(it["png"]) > 0
+    assert it["userMarked"] is True
+    assert it["refMarked"] is True
+
+
 # ── ⑫ 불안정은 계속 침묵 ─────────────────────────────────────────────────────
 
 

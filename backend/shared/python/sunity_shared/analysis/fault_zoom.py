@@ -3210,6 +3210,20 @@ def build_fault_zoom_comparisons(
       align 유도 스펙의 꼭짓점은 display_anchor 와 같은 출처(align freeze
       좌표)라 `shift_bake_spec` 이 구조적으로 0-이동 — 이중 적용이 생기지
       않는다. None(default) = 전 경로 byte-동일 (display_anchor 선례).
+
+    각도 표시의 **두 번째 축 — 시간축 안정성** (quick-260919-oxg, belle 2026-09-19):
+      위 두 경로(rep12 엄격 스펙 → align 유도 폴백)가 **둘 다 None 일 때만** 한 번
+      더 시도한다. 신뢰도 문턱(`_KP_CONF_MIN` 0.5)은 그대로 두고 **방향 2점만**
+      `_ANGLE_DIR_CONF_MIN`(0.35)까지 열되, `build_stable_angle_bake_spec` 이
+      시간축 이웃과의 사이각 편차를 **실제로 재서** 통과시킨다. 즉 위 align_bake
+      문단의 "conf 게이트는 호출측 소유"와 모순되지 않는다 — 호출측이 넘긴 점에는
+      손대지 않고, report 직접 조회 경로에서만·방향점에만·안정성 확인 후에만
+      적용된다. 꼭짓점은 어느 경우에도 엄격(`_gated_kp`) — 크롭 중심의 단일 출처라
+      완화하면 승인 4R#1("꼭짓점 = 패널 정중앙")이 깨진다.
+      순수 additive: 종전 통과분은 첫 경로에서 그대로 통과해 이 경로가 불리지 않고,
+      완화를 시도했다가 안정성에서 탈락하면 종전과 같은 사유(`omitted:*_gate`)로
+      침묵한다. 성립한 경우만 로그 접미사 `drawn:stable(user|ref|user+ref)` 로
+      드러난다 — 페이로드·계약(새 필드)·카드 장수·크롭 치수는 무변경.
     label_fps (quick-260813-u8i, ÷9.0 라벨 사슬 소멸): (user 실효 fps, ref 실효
       fps) — **초 라벨 환산 분모만** 측별 교체한다 (`_stamp_time` 픽셀 +
       userVideoSec/refVideoSec 필드 = 같은 변수 하나, F-3 단일 산출 유지).
@@ -3901,6 +3915,8 @@ def build_fault_zoom_comparisons(
             u_drew_angle = False
             r_drew_angle = False
             _hybrid_note = ""  # 하이브리드 문법 상태 (로그 표기 — quick-260813-fxx)
+            # seam 2 (quick-260919-oxg) 로 성립한 측 — 로그 접미사 재료. 판정 무관.
+            _stable_sides: list[str] = []
             # quick-260809-jnb — 진입 게이트 사유를 **초기값 unmapped 로 뭉개지 않는다**.
             # 종전엔 크롭이 relaxed 라 각도 블록에 들어오지도 못한 카드가 로그에
             # `omitted:unmapped`(=각도 대상 아님)로 찍혔다. 실측 1건(엘보 5카드)에서
@@ -3943,6 +3959,28 @@ def build_fault_zoom_comparisons(
                         u_spec = align_bake_spec(
                             unit.criterion, unit.members, _ab_user
                         )
+                    if u_spec is None:
+                        # ★ 안정성 seam (quick-260919-oxg 의 "seam 2",
+                        # belle 2026-09-19) — 각도 표시의 두 번째 축.
+                        # (위 align_bake 의 seam 1/2 와는 다른 층이다 — 저기는
+                        #  좌표 출처 폴백, 여기는 게이트 축 추가.)
+                        # 여기까지 왔다는 것은 rep12 엄격 경로도 align 폴백도 좌표를
+                        # 못 준 것이고, 종전에는 이 자리에서 그대로 침묵했다(원 마커
+                        # 폴백). 실측: 각도 대상 카드 109장 중 54장이 여기서 죽고 그중
+                        # **44장(81%)의 병목이 꼭짓점이 아니라 이웃(방향) 관절**이다.
+                        # 신뢰도 0.45-0.50 과 0.50-0.60 의 좌표 품질은 사실상 같으므로
+                        # (중앙값 6.23 vs 5.06도) 문턱을 내리는 대신, 방향점만
+                        # _ANGLE_DIR_CONF_MIN 까지 열고 **시간축 안정성을 실제로 재서**
+                        # 통과시킨다. 꼭짓점은 엄격 유지 — 크롭 중심의 단일 출처라
+                        # 완화하면 승인 4R#1(꼭짓점 = 패널 정중앙)이 깨진다.
+                        u_spec = build_stable_angle_bake_spec(
+                            unit.criterion, unit.members, user_report,
+                            u_kp_idx_unit,
+                            vertex_resolver=_gated_kp,
+                            direction_resolver=_relaxed_dir_kp,
+                        )
+                        if u_spec is not None:
+                            _stable_sides.append("user")
                     r_spec = build_angle_bake_spec(
                         unit.criterion, unit.members, ref_report, r_kp_idx_unit,
                         make_reference_anchor_resolver(
@@ -3954,6 +3992,26 @@ def build_fault_zoom_comparisons(
                         r_spec = align_bake_spec(
                             unit.criterion, unit.members, _ab_ref
                         )
+                    if r_spec is None:
+                        # 기준측 대칭 — 방향 해상기는 앵커 대입을 **얹어서** 만든다.
+                        # 기준 report(legacy 8관절)는 부재 관절을 대입 선언으로 메우는
+                        # 경로가 이미 있고, 완화는 그 밑바탕 게이트만 바꾼다.
+                        # 꼭짓점 해상기는 기본값(=_gated_kp 밑바탕) 그대로 — 판정 1.
+                        r_spec = build_stable_angle_bake_spec(
+                            unit.criterion, unit.members, ref_report,
+                            r_kp_idx_unit,
+                            vertex_resolver=make_reference_anchor_resolver(
+                                motion_id, unit.criterion,
+                                anchors=reference_anchor_overrides,
+                            ),
+                            direction_resolver=make_reference_anchor_resolver(
+                                motion_id, unit.criterion,
+                                anchors=reference_anchor_overrides,
+                                gated_kp=_relaxed_dir_kp,
+                            ),
+                        )
+                        if r_spec is not None:
+                            _stable_sides.append("ref")
                     if u_spec is None:
                         angle_reason = "user_gate"
                     elif r_spec is None:
@@ -4023,11 +4081,18 @@ def build_fault_zoom_comparisons(
                                     _hybrid_note = "_hybrid"
                             else:
                                 angle_reason = "degenerate"
+            # seam 2 로 성립한 측만 접미사로 드러낸다 (배선의 증인). 완화를 **시도했다가
+            # 탈락한** 카드는 종전과 같은 사유(user_gate/ref_gate)로 남는다 — 잴 수
+            # 없어서 안 그린 것이 맞고, angle_reason 문자열은 앱·시험이 부분문자열로
+            # 잠그고 있어 바꾸지 않는다.
+            _stable_note = (
+                f":stable({'+'.join(_stable_sides)})" if _stable_sides else ""
+            )
             log.info(
                 "fault_zoom_angle_bake analysis_id=%s criterion=%s angle_bake=%s",
                 analysis_id,
                 unit.criterion or "none",
-                f"drawn{_hybrid_note}" if u_drew_angle
+                f"drawn{_hybrid_note}{_stable_note}" if u_drew_angle
                 else f"omitted:{angle_reason}",
             )
             # user 측: 사이각/각도를 그렸으면 원 생략(선/호와 시각 언어 충돌 방지),

@@ -50,3 +50,48 @@ find runpod_inference -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null ||
 
 nohup uvicorn runpod_inference.server:app --host 0.0.0.0 --port 8000 --workers 1 > /tmp/runpod_server.log 2>&1 &
 echo "SERVER_PID $!"
+
+# ── Lambda/SSM 주소 자동 동기 (quick-260919-t2v, belle 2026-09-19) ────────────
+# belle: "pod 주소는 매일매일 새롭게 하는데" — Pod ID 는 재생성마다 바뀌는데
+# Lambda RUNPOD_ANALYZE_URL 은 Pod 생성의 부수효과로 안 바뀐다. 손으로 맞추는
+# 절차는 빠뜨리면 **분석이 통째로 실패**하고(폴백 없음), 실제로 빠뜨려서 라이브
+# Lambda 가 3세대 전 Pod(elevev58iv4mox)을 가리키고 있었다(2026-09-19 실측).
+# → 주소를 **아는 쪽**(=이 Pod)이 직접 쓴다. 사람 절차에서 제거.
+#
+# health 통과 뒤에 쓴다 — 모델 로딩에 실패한 Pod 으로 Lambda 를 돌려놓으면
+# "주소는 맞는데 분석은 실패"라는 더 나쁜 상태가 된다(fail-closed).
+sync_endpoint() {
+  local url="https://${RUNPOD_POD_ID}-8000.proxy.runpod.net/analyze"
+  for _ in $(seq 1 60); do
+    if curl -sf -m 5 http://127.0.0.1:8000/health 2>/dev/null | grep -q '"pipeline_loaded": *true'; then
+      python3 - "$url" <<'PY'
+import sys, boto3
+url = sys.argv[1]
+fn = "sunity-motion-pilot-pipeline"
+lam = boto3.client("lambda", region_name="ap-northeast-2")
+cfg = lam.get_function_configuration(FunctionName=fn)
+env = dict(cfg.get("Environment", {}).get("Variables", {}))
+if env.get("RUNPOD_ANALYZE_URL") == url:
+    print(f"endpoint_sync 이미 일치 {url}")
+else:
+    env["RUNPOD_ANALYZE_URL"] = url          # 나머지 키 보존 — 통째 치환 금지
+    lam.update_function_configuration(FunctionName=fn, Environment={"Variables": env})
+    print(f"endpoint_sync Lambda 갱신 {url}")
+ssm = boto3.client("ssm", region_name="ap-northeast-2")
+for name, val in (("/sunity/motion/runpod-analyze-url", url),
+                  ("/sunity/motion/runpod-pod-expected", "up")):
+    ssm.put_parameter(Name=name, Value=val, Type="String", Overwrite=True)
+print("endpoint_sync SSM 갱신 (pod-expected=up)")
+PY
+      return 0
+    fi
+    sleep 5
+  done
+  echo "endpoint_sync SKIP — health 미통과(5분). Lambda 는 종전 값 유지(fail-closed)." >&2
+  return 1
+}
+if [ -n "${RUNPOD_POD_ID:-}" ]; then
+  ( sync_endpoint ) &
+else
+  echo "endpoint_sync SKIP — RUNPOD_POD_ID 없음(로컬 실행?)" >&2
+fi

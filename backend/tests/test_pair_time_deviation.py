@@ -268,3 +268,126 @@ def test_build_motion_alignment_output_unchanged_by_this_unit() -> None:
     assert ma.RATE_MIN == 0.5 and ma.RATE_MAX == 2.0
     assert ma.MAX_ANCHOR_FLOATS == 512
     assert callable(ma.build_motion_alignment)
+
+
+# ── 3. 배선 source 단언 — app.py 는 env 의존이라 import 금지, 텍스트로 읽는다 ─────
+# (선례 test_anchor_part_check.py `_gated_body()` / test_gated_frame_skips_collapse.py)
+
+_ATTACH = "_attach_pair_time_deviation("
+_UPLOAD = "_fault_zoom_upload_items("
+
+
+def _app_src() -> str:
+    return _APP.read_text(encoding="utf-8")
+
+
+def _app_code() -> str:
+    """주석 줄 제거본 — 주석에 든 단어가 카운트 단언을 무효화하지 않게."""
+    return "\n".join(
+        ln for ln in _app_src().splitlines() if not ln.lstrip().startswith("#")
+    )
+
+
+def _func_body(name: str) -> str:
+    """`def <name>(` 부터 다음 컬럼0 `def ` 직전까지."""
+    src = _app_src()
+    start = src.index(f"def {name}(")
+    end = src.index("\ndef ", start + 1)
+    return src[start:end]
+
+
+def test_mapper_copies_pair_deviation_to_item() -> None:
+    """화이트리스트 매퍼가 값을 doc item 까지 흘린다 — 여기 없으면 영영 못 본다."""
+    body = _func_body("_fault_zoom_upload_items")
+    assert 'item["pairDeviationSec"] = float(_dev)' in body
+    assert 'isinstance(_dev, (int, float)) and not isinstance(_dev, bool)' in body
+    # tier 동반 필드도 같은 매퍼를 통과해야 한다 (값만 실리면 새 거짓 라벨).
+    assert 'item["pairDeviationTier"] = _dev_tier' in body
+
+
+def test_render_path_attaches_before_upload_mapper() -> None:
+    """stage-1 + advisory 경로: 부착 호출이 업로드 매퍼 호출보다 앞선다."""
+    body = _func_body("_render_fault_zoom")
+    assert _ATTACH in body, "_render_fault_zoom 에 짝 이탈 부착 호출 없음"
+    assert body.index(_ATTACH) < body.index(_UPLOAD), (
+        "부착이 업로드 매퍼보다 뒤면 값이 doc 에 실리지 않는다"
+    )
+
+
+def test_render_path_covers_both_confirmed_and_advisory() -> None:
+    """advisory 카드도 doc 에 남는다 — 한쪽만 실으면 구멍을 설명할 수 없다."""
+    body = _func_body("_render_fault_zoom")
+    call = body[body.index(_ATTACH):body.index(_UPLOAD)]
+    assert "comps + adv_comps" in call
+
+
+def test_gated_path_attaches_before_upload_mapper() -> None:
+    """게이트-상속 경로: 부착 호출이 업로드 매퍼 호출보다 앞선다."""
+    body = _func_body("_run_gated_card_inherit")
+    assert _ATTACH in body, "_run_gated_card_inherit 에 짝 이탈 부착 호출 없음"
+    assert body.index(_ATTACH) < body.index(_UPLOAD), (
+        "부착이 업로드 매퍼보다 뒤면 값이 doc 에 실리지 않는다"
+    )
+
+
+def _executable_body(name: str) -> str:
+    """함수 본문에서 docstring 과 주석 줄을 뺀 실행 코드만 — 설명문의 숫자가
+    '리터럴 금지' 단언을 무효화하지 않게 한다."""
+    body = _func_body(name)
+    # docstring 은 첫 `"""` 부터 그 다음 `"""` 까지.
+    first = body.index('"""')
+    second = body.index('"""', first + 3)
+    code = body[second + 3:]
+    return "\n".join(
+        ln for ln in code.splitlines() if not ln.lstrip().startswith("#")
+    )
+
+
+def test_anchor_fps_is_single_source_not_literal() -> None:
+    """anchors 분모는 `_pipeline_frame_fps()` 단일 출처 — 리터럴 9.0 금지 (I1)."""
+    code = _executable_body("_attach_pair_time_deviation")
+    assert "anchor_fps = float(_pipeline_frame_fps())" in code
+    assert "9.0" not in code, "anchor_fps 를 리터럴로 박으면 단일 출처가 깨진다"
+
+
+def test_attach_is_graceful_and_never_kills_a_card() -> None:
+    """어떤 실패도 카드를 죽이지 않는다 — try/except + log.exception (사후 스테이지 규율)."""
+    body = _func_body("_attach_pair_time_deviation")
+    assert "try:" in body and "except Exception:" in body
+    assert "log.exception(" in body
+    # 카드를 지우거나 거르는 연산이 없다 (관측 전용).
+    for banned in ("del ", ".pop(", ".remove(", "return []"):
+        assert banned not in body, f"부착 헬퍼에 카드 제거 연산 '{banned}' 존재"
+
+
+# ── 게이트 무접촉 가드 ────────────────────────────────────────────────────
+
+
+def test_no_code_gates_cards_on_pair_deviation() -> None:
+    """pairDeviationSec 을 기준으로 카드를 버리거나 게이트하는 코드가 없다.
+
+    이 필드는 관측 전용이다 — 통과선은 belle 판정 대기라 임계 비교가 있으면 안 된다.
+    """
+    code = _app_code()
+    for banned in (
+        "pairDeviationSec >",
+        "pairDeviationSec <",
+        "pairDeviationSec >=",
+        "pairDeviationSec <=",
+        "abs(pairDeviation",
+        "PAIR_DEVIATION_MAX",
+    ):
+        assert banned not in code, f"관측 전용 필드에 임계 비교 '{banned}' 등장"
+
+
+def test_existing_pair_gate_surface_unchanged() -> None:
+    """종전 짝 게이트 축(PAIR_POSE_MAX / pairState)의 코드 표면이 그대로다.
+
+    이번 단위는 **축을 교체하지 않는다** — 자세 지표 제거·임계 변경은 belle 판정 대기.
+    숫자가 움직이면 누군가 게이트를 건드린 것이다.
+    """
+    code = _app_code()
+    assert code.count("PAIR_POSE_MAX") == 2
+    assert code.count("pair_state") == 1
+    assert code.count("pairState") == 3
+    assert 'c["pairState"] = decision.pair_state' in code

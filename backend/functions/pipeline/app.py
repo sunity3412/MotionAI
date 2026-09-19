@@ -92,7 +92,11 @@ from sunity_shared.analysis.motiondtw import (
     per_joint_representative_frames,
     ref_boundary_step_mask,
 )
-from sunity_shared.analysis.motion_alignment import build_motion_alignment  # Phase 28 (ALGN-01)
+from sunity_shared.analysis.motion_alignment import (  # Phase 28 (ALGN-01)
+    build_motion_alignment,
+    # quick-260919-mhl — 확대 비교 카드 짝 시간 정렬 이탈 (관측 전용, 게이트 아님).
+    pair_time_deviation_sec,
+)
 from sunity_shared.analysis import side_match  # Phase 34 수술 ③ (quick-260808-r82)
 from sunity_shared.analysis.pole_geometry import (
     PoleAxisMeasurement,
@@ -3812,6 +3816,16 @@ def _render_fault_zoom(
         _anchor_stats["pass"], _anchor_stats["suppressed"],
         _anchor_stats["unbound"],
     )
+    # quick-260919-mhl — 짝 시간 정렬 이탈 부착 (업로드 매퍼 통과 전). confirmed 와
+    # advisory **둘 다** 대상이다 — advisory 카드도 doc 에 남으므로 한쪽만 실으면
+    # "왜 어떤 카드만 값이 없나"를 설명할 수 없다. alignment 는 이 스테이지보다 앞선
+    # _attach_motion_alignment 가 같은 result 객체에 붙여 둔 것 (재조회 0).
+    _attach_pair_time_deviation(
+        comps + adv_comps,
+        alignment=result.get("motionAlignment"),
+        user_label_fps=_label_eff["user"],
+        ref_label_fps=_label_eff["ref"],
+    )
     out: list[dict] = []
     for tier, batch in (
         ("confirmed", comps),
@@ -3824,6 +3838,88 @@ def _render_fault_zoom(
         )
     # Phase 27 SPD-04 (D-06) — result 부착 대신 comparisons 반환 (사후 update 경로).
     return out
+
+
+def _attach_pair_time_deviation(
+    cards: list[dict],
+    *,
+    alignment: dict | None,
+    user_label_fps: float | None,
+    ref_label_fps: float | None,
+) -> None:
+    """확대 비교 카드에 짝 **시간 정렬 이탈**(초)을 싣는다 — 관측 전용, 게이트 아님.
+
+    왜 (belle 2026-09-19 판정): 종전 짝 품질 축은 자세 거리(card_gates.PAIR_POSE_MAX)
+    였는데, 카드의 존재 이유가 "자세가 다르다"를 보여주는 것이라 자세로 짝을 재면
+    "같은 순간인데 자세가 다르다"(정상)와 "다른 순간이라 자세가 다르다"(결함)를
+    구분할 수 없다. 대체 축 = 시간 정렬 이탈. **지금은 짝 품질을 사후에 알 방법이
+    아예 없다** — 그 구멍만 메운다.
+
+    경계: 카드를 버리지 않고, 장수·사진·기존 키를 바꾸지 않고, 채점/감점 경로에
+    닿지 않는다. `pairState`/`PAIR_POSE_MAX`/`refMatched`/`refMatch` 무접촉.
+    통과선(threshold)은 belle 판정 대기 — 이 값으로 카드를 숨기거나 문구를 내지 말 것.
+
+    재료는 이미 메모리에 다 있다 (재조회 0): `result["motionAlignment"]` 는
+    `_attach_motion_alignment` 가 complete_analysis **직전**에 붙이고, 카드 두 경로는
+    전부 그 뒤의 사후 스테이지라 같은 `result` 객체를 받는다. 카드에는
+    `userVideoSec`/`refVideoSec`(실영상 초)이 이미 실려 있다.
+
+    분모 주의 — 카드의 초와 anchors 의 초는 타임베이스가 다르다. anchors 분모는
+    `_pipeline_frame_fps()`(라벨 9.0) 단일 출처이고(리터럴 9.0 금지 — I1),
+    카드 분모는 측별 **실효** rate 다. 환산은 순수 층
+    (`motion_alignment.pair_time_deviation_sec`)이 소유한다. 라벨 판정 불가 측은
+    anchor_fps 로 폴백 — `fault_zoom.build_fault_zoom_comparisons` 의 frames_fps(9.0)
+    폴백과 **같은 값**이어야 카드가 쓴 분모와 여기 분모가 어긋나지 않는다.
+
+    부재 = 정상 (fail-closed, 조용히). 어떤 실패도 카드를 죽이지 않는다
+    (`_attach_motion_alignment` 선례 — 사후 스테이지 graceful 규율).
+
+    3-way lockstep: analysis.ts FaultZoomComparison.pairDeviationSec?/
+    pairDeviationTier? + `_fault_zoom_upload_items` 매퍼 + docs/contract.md §11.12.
+    """
+    try:
+        anchor_fps = float(_pipeline_frame_fps())
+        u_fps = (
+            float(user_label_fps)
+            if isinstance(user_label_fps, (int, float)) and user_label_fps > 0
+            else anchor_fps
+        )
+        r_fps = (
+            float(ref_label_fps)
+            if isinstance(ref_label_fps, (int, float)) and ref_label_fps > 0
+            else anchor_fps
+        )
+        _tier = (alignment or {}).get("tier") if isinstance(alignment, dict) else None
+        emitted = 0
+        for c in cards:
+            if not isinstance(c, dict):
+                continue
+            v = pair_time_deviation_sec(
+                alignment,
+                user_video_sec=c.get("userVideoSec"),
+                ref_video_sec=c.get("refVideoSec"),
+                user_label_fps=u_fps,
+                ref_label_fps=r_fps,
+                anchor_fps=anchor_fps,
+            )
+            if v is None:
+                continue
+            c["pairDeviationSec"] = float(v)
+            # tier 동반 — 이 수가 **어떤 정렬 아래** 나온 것인지 값과 같이 싣는다.
+            # 라이브 실측(2026-09-19, alignment 보유 doc 36건)은 trim_only 35 ·
+            # disabled 1 · warped 0 이고 거의 모든 doc 에서 us[0]=rs[0]=0 이라
+            # warp 가 사실상 항등함수다 → 'trim_only' 로 나온 이탈은 사실상 생짜
+            # 시간차다. tier 를 빼면 이름이 값보다 커 보여 새 거짓 라벨이 된다.
+            if isinstance(_tier, str) and _tier:
+                c["pairDeviationTier"] = _tier
+            emitted += 1
+        log.info(
+            "pair_time_deviation attached cards=%d emitted=%d tier=%s "
+            "anchor_fps=%.4f label_fps=%.4f/%.4f",
+            len(cards), emitted, _tier or "-", anchor_fps, u_fps, r_fps,
+        )
+    except Exception:  # noqa: BLE001 - 관측 필드 실패가 카드를 죽이지 않는다
+        log.exception("pair_time_deviation 부착 실패 — 카드는 그대로 방출")
 
 
 def _fault_zoom_upload_items(
@@ -3953,6 +4049,19 @@ def _fault_zoom_upload_items(
             _sec = c.get(_sec_key)
             if isinstance(_sec, (int, float)) and not isinstance(_sec, bool):
                 item[_sec_key] = float(_sec)
+        # quick-260919-mhl — 짝 시간 정렬 이탈 pass-through. 이 매퍼는 화이트리스트라
+        # 여기 없으면 앱·감사가 이 값을 영영 못 본다. bool 은 int 서브클래스라 명시
+        # 배제. 부재(alignment 없음·disabled·기준 대응 실패)=키 부재 = 정상.
+        # 게이트 아님 — 이 값으로 카드를 버리는 코드는 어디에도 없다.
+        # TS lockstep: FaultZoomComparison.pairDeviationSec?/pairDeviationTier?
+        # + docs/contract.md §11.12.
+        _dev = c.get("pairDeviationSec")
+        if isinstance(_dev, (int, float)) and not isinstance(_dev, bool):
+            item["pairDeviationSec"] = float(_dev)
+            # tier 는 이탈값이 실렸을 때만 동반한다 (짝 없는 라벨 방지).
+            _dev_tier = c.get("pairDeviationTier")
+            if isinstance(_dev_tier, str) and _dev_tier:
+                item["pairDeviationTier"] = _dev_tier
         # 33-12 (A-5 seam #1) — criterion pass-through (region/tier 선례 동일
         # 조건부 복사). scalar str — flat 제약 통과. TS lockstep:
         # FaultZoomComparison.criterion? + contract.md §11.7. 부재(legacy/
@@ -5938,6 +6047,14 @@ def _run_gated_card_inherit(
                         c["attribution"] = "pole_proximity"
                     gated_raw.append(c)
 
+        # quick-260919-mhl — 짝 시간 정렬 이탈 부착 (업로드 매퍼 통과 전). 이 경로는
+        # 실효 rate 판정 불가 시 이미 early return 이라 eff 가 항상 유효하다.
+        _attach_pair_time_deviation(
+            gated_raw,
+            alignment=result.get("motionAlignment"),
+            user_label_fps=eff["user"],
+            ref_label_fps=eff["ref"],
+        )
         items = _fault_zoom_upload_items(
             gated_raw, "confirmed", uid, analysis_id, bucket
         )

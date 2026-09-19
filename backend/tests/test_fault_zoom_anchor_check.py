@@ -10,8 +10,16 @@ stage-1·advisory 는 카드 여러 장을 `build_fault_zoom_comparisons` **한 
   ① 콜백은 카드마다 1회, `_side_crop` 이 실제로 쓴 **크롭 중심**(vertex 우선, 없으면
      anchor)과 kind 를 양측 모두 받는다 — 게이트가 검사할 좌표가 카드가 보여주는
      좌표와 같아야 한다.
-  ② 반환한 측만 무표시가 된다. **카드는 그대로 나간다** (belle 09-03 규칙 1
+  ② 반환한 측만 억제된다. **카드는 그대로 나간다** (belle 09-03 규칙 1
      "검사는 표시만 정한다") — 장수 불변.
+     ★ quick-260919-o8v (belle 2026-09-18 규칙 2) 개정: 억제가 지우는 것은 **원
+     마커·화살표뿐**이고 각도·사이각은 남는다. 이 파일의 픽스처 카드 2장은
+     `angle_bake=drawn`(shoulder/knee 접미사 + conf 0.9, 2026-09-19 로그 실측)이라
+     억제돼도 그림과 인증이 함께 산다 — 그래서 아래 ②·⑤ 의 기대값이 뒤집혔다.
+     플래그가 더 이상 "반환한 측만"의 증인이 아니므로 **증인을 억제 로그로 바꾼다**
+     (시험 삭제 0 — phase33/test_zoom_join_joint_exact.py:199 선례).
+     각도가 없어 원만 그리던 카드의 억제는 종전 그대로이고, 그쪽 경계는
+     tests/test_fault_zoom_suppress_keeps_angle.py 가 잠근다.
   ③ 콜백 예외 = fail-open. 검사가 깨져도 카드도 표시도 살아남는다.
   ④ 콜백 미전달 = 종전 동작 불변 (png 바이트까지).
   ⑤ 기존 `suppress_marks` 와 **합집합** — 두 출처가 서로를 지우지 않는다.
@@ -21,10 +29,14 @@ stage-1·advisory 는 카드 여러 장을 `build_fault_zoom_comparisons` **한 
 
 from __future__ import annotations
 
+import io
+import logging
+import re
 import sys
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
 
 _SHARED = Path(__file__).resolve().parents[1] / "shared" / "python"
 if str(_SHARED) not in sys.path:
@@ -74,6 +86,34 @@ def _frames():
     for f in range(_N):
         base[f, 0, 0, :] = np.uint8((f * 11) % 256)
     return base
+
+
+def _brand_px_left_panel(png: bytes) -> int:
+    """합성 PNG 왼쪽(학생) 패널의 브랜드색 픽셀 수 — 표시가 그려졌는지의 픽셀 증거.
+
+    tests/test_fault_zoom.py 복제 (테스트 모듈 간 import 금지 관행).
+    """
+    arr = np.asarray(Image.open(io.BytesIO(png)).convert("RGB"))[:, : fz._OUT, :]
+    return int(np.all(arr == np.asarray(fz._BRAND, dtype=np.uint8), axis=-1).sum())
+
+
+def _suppressed_sides_by_criterion(caplog) -> dict[str, str]:
+    """`fault_zoom_marks_suppressed` 로그 → {criterion: "user,ref"}.
+
+    quick-260919-o8v — 억제가 각도를 더 이상 지우지 않으면서 userMarked/refMarked 는
+    "어느 측이 억제됐는가"의 증인이 아니게 됐다. 억제가 **카드마다 / 두 출처의
+    합집합으로** 성립하는지는 이 로그로 잠근다 (판정 자체는 무접촉이므로 로그가
+    유일하게 남은 관측점이다).
+    """
+    out: dict[str, str] = {}
+    pat = re.compile(
+        r"fault_zoom_marks_suppressed analysis_id=\S+ criterion=(\S+) sides=(\S+)"
+    )
+    for rec in caplog.records:
+        m = pat.search(rec.getMessage())
+        if m:
+            out[m.group(1)] = m.group(2)
+    return out
 
 
 def _unit(criterion, joints, region=None):
@@ -162,24 +202,41 @@ def test_anchor_check_center_matches_side_crop_center(monkeypatch):
 # ── ② 반환한 측만 무표시 — 카드는 그대로 나간다 ─────────────────────────────
 
 
-def test_anchor_check_suppresses_only_returned_side():
+def test_anchor_check_suppresses_only_returned_side(caplog):
     base = _build()
-    items = _build(anchor_check=lambda ctx: frozenset({"user"}))
+    with caplog.at_level(logging.INFO, logger=fz.__name__):
+        items = _build(anchor_check=lambda ctx: frozenset({"user"}))
     assert len(items) == len(base), "검사는 표시만 정한다 — 장수 불변"
+    # quick-260919-o8v (belle 2026-09-18): 억제는 원만 지운다 — 이 픽스처는 각도가
+    # 그려지는 카드라 플래그가 산다.
     for it, b in zip(items, base):
-        assert it["userMarked"] is False
+        assert it["userMarked"] is True
+        assert _brand_px_left_panel(it["png"]) > 0, "각도 픽셀이 남아 있다"
         assert it["refMarked"] == b["refMarked"], "반대측은 무접촉"
+    # "반환한 측만"의 증인 = 억제 로그. 플래그가 더 이상 그 성질을 못 말한다.
+    sides = _suppressed_sides_by_criterion(caplog)
+    assert sides, "억제가 아예 안 걸렸으면 이 시험은 아무것도 안 잰다"
+    assert set(sides.values()) == {"user"}, "반환하지 않은 ref 는 억제 대상이 아니다"
 
 
-def test_anchor_check_can_suppress_per_card():
+def test_anchor_check_can_suppress_per_card(caplog):
     """카드마다 다른 판정 — 호출 전체 인자(suppress_marks)로는 못 하던 것."""
     def _cb(ctx):
         return frozenset({"ref"}) if ctx["joint"] == "right_knee" else frozenset()
 
-    items = _build(anchor_check=_cb)
+    with caplog.at_level(logging.INFO, logger=fz.__name__):
+        items = _build(anchor_check=_cb)
     by_joint = {it["joint"]: it for it in items}
-    assert by_joint["right_knee"]["refMarked"] is False
+    # quick-260919-o8v (belle 2026-09-18): 억제는 원만 지운다 — 이 픽스처는 각도가
+    # 그려지는 카드라 플래그가 산다(양쪽 다 True). 그래서 **카드별 판정**의 증인을
+    # 플래그에서 억제 로그로 옮긴다: right_knee 만 로그에 오르고 left_shoulder 는
+    # 아예 안 오른다.
+    assert by_joint["right_knee"]["refMarked"] is True
     assert by_joint["left_shoulder"]["refMarked"] is True
+    sides = _suppressed_sides_by_criterion(caplog)
+    assert sides == {"angle_vs_reference__right_knee": "ref"}, (
+        "카드별 판정이 안 걸렸다 — 콜백 반환이 카드 경계를 넘었거나 안 불렸다"
+    )
 
 
 # ── ③ 예외 = fail-open ──────────────────────────────────────────────────────
@@ -209,12 +266,21 @@ def test_no_anchor_check_is_byte_identical():
 # ── ⑤ 기존 suppress_marks 와 합집합 ─────────────────────────────────────────
 
 
-def test_anchor_check_unions_with_suppress_marks():
-    items = _build(
-        suppress_marks=frozenset({"ref"}),
-        anchor_check=lambda ctx: frozenset({"user"}),
-    )
+def test_anchor_check_unions_with_suppress_marks(caplog):
+    with caplog.at_level(logging.INFO, logger=fz.__name__):
+        items = _build(
+            suppress_marks=frozenset({"ref"}),
+            anchor_check=lambda ctx: frozenset({"user"}),
+        )
     assert items
+    # quick-260919-o8v (belle 2026-09-18): 억제는 원만 지운다 — 이 픽스처는 각도가
+    # 그려지는 카드라 플래그가 산다(양측 억제여도 True). **합집합**의 증인은 억제
+    # 로그의 sides 다: 인자(ref) ∪ 콜백(user) = 두 측 모두.
     for it in items:
-        assert it["userMarked"] is False
-        assert it["refMarked"] is False
+        assert it["userMarked"] is True
+        assert it["refMarked"] is True
+    sides = _suppressed_sides_by_criterion(caplog)
+    assert len(sides) == len(items), "카드마다 억제가 걸려야 한다"
+    assert set(sides.values()) == {"user,ref"}, (
+        "두 출처가 서로를 지웠다 — 합집합이 아니라 덮어쓰기가 됐다"
+    )

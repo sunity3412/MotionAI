@@ -3038,13 +3038,16 @@ def build_fault_zoom_comparisons(
       display_anchor 만 fail-closed 인 층위 유지). None(default) = 전 경로
       byte-동일 (하위호환).
     suppress_marks (quick-260903-upx — "게이트는 표시만 정한다"): {"user","ref"}
-      부분집합. 지정 측 패널에 원·선·호·화살표를 **그리지 않는다** — 크롭은
+      부분집합. 지정 측 패널에서 **원 마커·화살표를 지운다** — 크롭은
       그대로(전신 폴백 아님), 표시만 생략. 구현은 드로잉 로직 무접촉: `_side_crop`
       직후 무표시 원본을 떠 두고 스탬프 직전에 그 원본으로 되돌린다 (angle_bake
       `omitted:*` 침묵 선례 — 반대측 표시는 그대로). 호출측(pipeline
       `_run_gated_card_inherit`)이 기계 눈 실제 불일치(학생 측)·display_anchor
-      부재 측을 넣는다. 그 측 인증(userMarked/refMarked)은 False. 기본
-      frozenset() = 전 경로 byte-동일.
+      부재 측을 넣는다. 기본 frozenset() = 전 경로 byte-동일.
+      ★ quick-260919-o8v (belle 2026-09-18): **각도·사이각은 지우지 않는다.**
+      각도를 그린 패널은 되돌리지 않으므로 그 측 인증(userMarked/refMarked)도
+      True 로 남는다 — 그림과 플래그가 어긋나면 앱이 없는 사실을 말하게 된다.
+      각도가 없던(원만 그린) 패널만 종전대로 무표시 + 인증 False.
     anchor_check (quick-260906-n2j): 카드마다 부르는 **표시 여부 판정** 콜백.
       `anchor_check(ctx) -> {"user","ref"} 부분집합` — 반환 측은 그 카드에서만
       suppress_marks 와 **합집합**으로 무표시가 된다. ctx =
@@ -3916,17 +3919,43 @@ def build_fault_zoom_comparisons(
             # 되돌리고 인증 플래그를 내린다 (드로잉 코드 무접촉, 반대측 그대로).
             # 표시 억제 게이트 — 판정은 종전대로 _supp 가 한다. (_u_plain/_r_plain
             # 은 이제 항상 존재하므로 None 검사로 억제 여부를 판정하면 안 된다.)
+            #
+            # ★ quick-260919-o8v (belle 2026-09-18 규칙 2) — 억제는 **원 마커만**
+            # 지운다. 각도·사이각을 그린 패널은 되돌리지 않는다. 종전에는 드로잉
+            # **이전** 스냅샷(_u_plain)으로 되돌려 각도까지 함께 사라졌다. belle 이
+            # 09-06 원문의 "사진 **대신** 각도"를 09-18 에 "**함께**"로 개정한 것이
+            # 이 결정이다 — 게이트가 사진을 없앨 권한이 없듯(규칙 1) 각도를 없앨
+            # 권한도 없다. 두려워할 것은 fail-open 보다 false-suppress 다
+            # (belle 09-18: 좁은 크롭 기계 눈은 2연속으로 틀렸다).
+            # 되돌릴 필요가 없는 이유: 각도와 원은 이미 배타적이다(위 u_drew_legs/
+            # u_drew_angle 분기). 각도를 그린 패널에는 지울 원이 애초에 없고,
+            # 화살표도 같은 배타 분기 안이라 원과 함께만 존재한다.
+            # 범위 밖: 좌표 저신뢰(conf<0.5 → angle_reason=user_crop_relaxed 등)로
+            # 각도가 **애초에 안 그려진** 카드는 종전대로 사진만 남는다 — 그건
+            # 문구로 풀 문제가 아니라 좌표 정확도 문제다.
+            _kept_angle: list[str] = []
             if "user" in _supp:
-                u_crop = _u_plain.copy()
-                u_drew_legs = u_drew_angle = u_drew_circle = False
+                if u_drew_legs or u_drew_angle:
+                    _kept_angle.append("user")
+                else:
+                    u_crop = _u_plain.copy()
+                    u_drew_legs = u_drew_angle = u_drew_circle = False
             if "ref" in _supp:
-                r_img = _r_plain.copy()
-                r_drew_legs = r_drew_angle = r_drew_circle = False
+                if r_drew_legs or r_drew_angle:
+                    _kept_angle.append("ref")
+                else:
+                    r_img = _r_plain.copy()
+                    r_drew_legs = r_drew_angle = r_drew_circle = False
             if _supp:
+                # kept_angle = **로그가 배선의 증인**(quick-260919-o8v). 라이브에서
+                # 이 변경이 실제로 발화하는지(억제 ∧ 각도-그림 교집합)를 사후에
+                # 셀 수 있는 유일한 수단이다 — 지금은 그 교집합의 크기를 모른다.
                 log.info(
-                    "fault_zoom_marks_suppressed analysis_id=%s criterion=%s sides=%s",
+                    "fault_zoom_marks_suppressed analysis_id=%s criterion=%s "
+                    "sides=%s kept_angle=%s",
                     analysis_id, unit.criterion or "none",
                     ",".join(s for s in ("user", "ref") if s in _supp),
+                    ",".join(_kept_angle) or "none",
                 )
             u_crop = _stamp_time(u_crop, u_video_sec)
             if stamp_ref:

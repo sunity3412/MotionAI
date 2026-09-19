@@ -54,7 +54,7 @@ from typing import Iterator, NamedTuple
 import boto3  # Lambda 런타임 제공
 import numpy as np
 
-from sunity_shared import firestore_admin, models
+from sunity_shared import firestore_admin, models, provenance
 from sunity_shared.analysis import (
     assemble,
     body_normalizer,
@@ -7240,6 +7240,54 @@ def _attach_motion_alignment(
         )
 
 
+def _attach_analysis_version(
+    result: dict,
+    *,
+    reference_release: str | None,
+    uid: str,
+    analysis_id: str,
+) -> None:
+    """result["analysisVersion"] 방출 — 이 결과를 낳은 판의 기록 (quick-260919-tkv).
+
+    왜 (belle 2026-09-19): "분석이 할 때마다 다르니까 문제 아냐. 언제는 3장이라
+    보고하고 6장이라 보고하고 5장이라 보고하고 ... 몇 일은 이렇게 몇 일은 이렇게
+    해서 꼬이는 거 아냐."  같은 pdshape 영상의 라이브 이전 이력을 실측했다:
+
+      3판(9/02~9/03) 60점 / 감점 5 / 지문 389f9b31 / 버전 기록 없음
+      3판(9/09)      60점 / 감점 6 / 지문 3ac37f2f / 버전 기록 없음
+      오늘           80점 / 감점 1 / 지문 c162916  / 버전 기록 없음
+
+    (1) 비결정성이 아니다 — 같은 코드에서 3번 돌려 3번 다 지문이 같다(두 묶음 3/3).
+    (2) 어느 판이 어느 코드/기준에서 나왔는지 기록이 doc 어디에도 없다 → 답이
+        바뀌면 **분석이 바뀐 건지 우리가 바꾼 건지** 구분할 수단이 없다. 이것이
+        belle 이 말한 "꼬임"의 기계적 원인이고, 이 함수가 그 기록을 남긴다.
+
+    **채점 무접촉** — 점수·감점·카드 수를 읽지도 쓰지도 않는다. 유일한 부작용 =
+    analysisVersion 키 1개 추가. 과거 doc 소급 채움 없음(앞으로 나올 분석부터).
+
+    `_attach_motion_alignment` 와 같은 규율: complete_analysis **직전** 에만 호출
+    (27-06 게이트 — complete 후 result.* write 금지), 실패는 graceful skip
+    (기록 실패가 완료된 분석을 fail 시키지 않는다).
+
+    poseEngine 은 /health model-init canary 와 **같은 출처** 를 쓴다 — 모듈 전역
+    `_RTMW_ENGINE` (runpod_inference/server.py `_model_init_canary`). 어댑터가
+    안 올라온 경로(테스트/CPU 폴백)면 None → 키 생략.
+    """
+    try:
+        engine = _RTMW_ENGINE
+        version = provenance.build_analysis_version(
+            reference_release=reference_release,
+            pose_engine=type(engine).__name__ if engine is not None else None,
+        )
+        if version:
+            result["analysisVersion"] = version
+    except Exception:  # noqa: BLE001 - 기록 실패는 분석 비차단 (graceful)
+        log.exception(
+            "analysisVersion 방출 실패 — graceful skip uid=%s analysis_id=%s",
+            uid, analysis_id,
+        )
+
+
 # ── Phase 32 (Plan 32-09) — 번역 레이어·미션 루프 방출 배선 ─────────────────────
 #
 # 32-CONTEXT D-08(감점 카드 3단)/D-11(문구집 골격 소유)/D-19(미션 선정)/D-26(미션
@@ -8010,11 +8058,29 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # Task 3 가 firestore_admin.complete_analysis 에 wiring (camelCase 변환).
         body_comparison_report = None
 
+        # quick-260919-tkv — 이 분석이 읽은 기준 라이브러리 판(candidate version).
+        # mode3 는 기준 자체가 없으므로 None 유지 → analysisVersion 에서 키 생략.
+        reference_release: str | None = None
+
         if mode == models.MODE_EXPERT:
             with _stage(timings_ms, analysis_id, "ref_fetch_download"):  # Phase 27 SPD-01
                 ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
             if ref is None or "angles" not in ref:
                 raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
+            # 기준 판 기록 (채점 무접촉 — 읽기만, 실패는 무기록). 여기서 잡는 이유는
+            # 실제 소비 지점 바로 옆이라야 "이 분석이 무엇을 읽었나" 가 성립하기
+            # 때문이다. belle 2026-09-19 결론 (2): 답이 바뀌었을 때 분석이 바뀐
+            # 건지 기준이 바뀐 건지 가를 기록이 doc 에 없었다.
+            try:
+                reference_release = firestore_admin.get_active_reference_release(
+                    meta.get("referenceMotionId")
+                )
+            except Exception:  # noqa: BLE001 - 기록 실패가 분석을 막지 않는다 (graceful)
+                log.exception(
+                    "referenceRelease 조회 실패 — 키 생략 uid=%s analysis_id=%s",
+                    uid, analysis_id,
+                )
+                reference_release = None
             # R2 wiring — reference 의 bodyNormalizationProfile + bodyComparisonSourcePose 둘 다 fetch.
             # CR-01 fix — Firestore camelCase → snake_case 변환 (_coerce_body_profile_dict).
             ref_profile_dict = ref.get("bodyNormalizationProfile")
@@ -9079,6 +9145,15 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # _run_deferred_coach_text 의 부분 갱신 (contract.md coachStatus 절).
         result["coachStatus"] = models.COACH_STATUS_PENDING
         result["timingsMs"] = timings_ms
+        # quick-260919-tkv — 이 결과를 낳은 판(코드 SHA·기준 릴리스·플래그·엔진)
+        # 기록. complete_analysis **직전** (27-06 게이트 — motionAlignment 선례).
+        # 채점 무접촉, 실패는 graceful skip.
+        _attach_analysis_version(
+            result,
+            reference_release=reference_release,
+            uid=uid,
+            analysis_id=analysis_id,
+        )
         with _stage(timings_ms, analysis_id, "firestore_complete"):  # Phase 27 SPD-01
             firestore_admin.complete_analysis(
                 uid,

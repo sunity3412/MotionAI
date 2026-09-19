@@ -1,0 +1,423 @@
+openapi: 3.0.3
+
+info:
+  title: Sunity AI Coach — Motion Analysis Backend API
+  description: |
+    폴스포츠 동작 분석 AI 추론 백엔드의 공개 API 명세.
+
+    설계 원칙
+      1. 영상 본체는 API 를 경유하지 않는다. 앱이 presigned URL 로 S3 에 직접 PUT 한다.
+      2. 분석은 비동기다. S3 업로드 이벤트가 SQS 를 통해 분석 파이프라인을 트리거하고,
+         진행 상태와 결과는 Firestore 문서로 전달되어 앱이 실시간 구독한다.
+         따라서 "분석 요청 → 결과 응답" 형태의 동기 엔드포인트는 존재하지 않는다.
+      3. 클라이언트는 S3 객체 키를 지정할 수 없다. 서명 대상 키는 항상 서버가 선택한다.
+      4. 존재하지 않음 / 권한 없음 / 상태 미충족은 모두 동일한 404 로 응답한다
+         (리소스 존재 여부 노출 차단).
+
+    데이터 계약 원본: docs/contract.md
+  version: 1.0.0
+  contact:
+    name: Sunity AI Coach Backend
+
+servers:
+  - url: https://{apiId}.execute-api.ap-northeast-2.amazonaws.com/{stage}
+    description: AWS API Gateway HTTP API
+    variables:
+      apiId:
+        default: xxxxxxxxxx
+      stage:
+        default: pilot
+
+security:
+  - FirebaseIdToken: []
+
+tags:
+  - name: upload
+    description: 분석 영상 업로드
+  - name: playback
+    description: 영상·산출물 재생 URL 재발급
+  - name: reference
+    description: 기준 모션(레퍼런스)
+
+paths:
+  /upload-url:
+    post:
+      tags: [upload]
+      summary: 분석 영상 업로드용 presigned PUT URL 발급
+      description: |
+        분석 건(analysisId)을 생성하고 S3 presigned PUT URL 을 발급한다.
+        앱은 반환된 uploadUrl 로 영상을 직접 PUT 하며, 업로드 완료 시 S3 이벤트가
+        분석 파이프라인을 자동 트리거한다.
+        서버는 파일 크기(최대 100MB)와 확장자를 재검증한다.
+      operationId: createUploadUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+            examples:
+              mode1:
+                summary: Mode 1 — 기준 모션(전문가) 대비 분석
+                value:
+                  mode: mode1
+                  fileName: practice.mp4
+                  fileSizeBytes: 18234221
+                  format: mp4
+                  referenceMotionId: ref-power-spin
+              mode3:
+                summary: Mode 3 — 본인 영상 간 성장 비교
+                value:
+                  mode: mode3
+                  fileName: practice.mov
+                  fileSizeBytes: 24110043
+                  format: mov
+      responses:
+        '200':
+          description: 발급 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+              example:
+                analysisId: 8f2c1d94a6b34e7f
+                uploadUrl: https://sunity-motion-pilot-videos.s3.ap-northeast-2.amazonaws.com/uploads/...
+                s3Key: uploads/{uid}/8f2c1d94a6b34e7f.mp4
+                expiresInSec: 900
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: 파일 크기 초과 (100MB)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /playback-url:
+    post:
+      tags: [playback]
+      summary: 재생용 presigned GET URL 재발급
+      description: |
+        서명 URL 은 저장하지 않고 필요할 때마다 재발급한다(TTL 연장 금지).
+
+        요청 변형 (상호 배타 — 동시 지정 시 400)
+          (1) analysisId  : 본인이 업로드한 영상
+          (2) referenceMotionId : 기준 모션 영상
+          (3) analysisId + asset : 분석 산출물(교정 자세 이미지 / 회전 참고 영상 / 코칭 음성)
+
+        클라이언트는 S3 키를 지정할 수 없다. 서버가 소유·상태·prefix 를 검증한 뒤
+        canonical 키를 스스로 구성해 서명한다.
+        영상은 7일(604800초), 산출물은 1시간(3600초) TTL 로 발급한다.
+      operationId: createPlaybackUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybackUrlRequest'
+            examples:
+              ownVideo:
+                summary: 본인 업로드 영상
+                value:
+                  analysisId: 8f2c1d94a6b34e7f
+                  ext: mp4
+              referenceVideo:
+                summary: 기준 모션 영상
+                value:
+                  referenceMotionId: ref-power-spin
+              asset:
+                summary: 분석 산출물(회전 참고 영상)
+                value:
+                  analysisId: 8f2c1d94a6b34e7f
+                  asset: rotation
+              coachAudio:
+                summary: 코칭 음성 큐
+                value:
+                  analysisId: 8f2c1d94a6b34e7f
+                  asset: coachAudio
+                  recordId: r01:knee_extension
+      responses:
+        '200':
+          description: 발급 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackUrlResponse'
+              example:
+                playbackUrl: https://sunity-motion-pilot-videos.s3.ap-northeast-2.amazonaws.com/reference/...
+                expiresInSec: 604800
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /reference:
+    get:
+      tags: [reference]
+      summary: 기준 모션 목록 조회
+      description: 앱의 기준 모션 선택 화면에 표시할 활성 레퍼런스 목록을 반환한다.
+      operationId: listReferenceMotions
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReferenceMotion'
+              example:
+                - motionId: ref-power-spin
+                  name: 파워스핀
+                  athleteName: 정은지
+                  level: intermediate
+                  entryType: swing_entry
+                  thumbnailUrl: https://.../reference/ref-power-spin.jpg
+                  isActive: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /reference/auto-register:
+    post:
+      tags: [reference]
+      summary: 기준 모션 자동 등록
+      description: |
+        업로드된 레퍼런스 영상으로부터 동작을 인식하고 키포인트를 추출·정규화하여
+        기준 모션 문서를 생성한다(영상 → 키포인트 추출 → 정규화 → S3/DB 저장).
+        생성된 문서는 검수 전까지 비활성 상태로 등록된다.
+      operationId: autoRegisterReferenceMotion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutoRegisterRequest'
+            example:
+              s3Key: reference/ref-new-motion.mp4
+              studioAlias: 폭스탑
+      responses:
+        '200':
+          description: 등록 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoRegisterResponse'
+              example:
+                motionId: ref-new-motion
+                name: 폭스탑
+                isActive: false
+                confidence: 0.91
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  securitySchemes:
+    FirebaseIdToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Firebase Authentication ID 토큰(익명 인증 포함).
+        Authorization: Bearer {idToken} 헤더로 전달하며, 서버가 Firebase Admin SDK 로 검증한다.
+
+  schemas:
+    UploadUrlRequest:
+      type: object
+      required: [mode, fileName, fileSizeBytes, format]
+      properties:
+        mode:
+          type: string
+          enum: [mode1, mode3]
+          description: mode1 = 기준 모션 대비 분석, mode3 = 본인 영상 간 성장 비교
+        fileName:
+          type: string
+        fileSizeBytes:
+          type: integer
+          format: int64
+          maximum: 104857600
+          description: 최대 100MB. 서버에서 재검증한다.
+        format:
+          type: string
+          enum: [mp4, mov]
+        referenceMotionId:
+          type: string
+          description: mode1 에서 필수. 비교 대상 기준 모션 ID.
+
+    UploadUrlResponse:
+      type: object
+      required: [analysisId, uploadUrl, s3Key, expiresInSec]
+      properties:
+        analysisId:
+          type: string
+          description: 분석 건 ID (= Firestore 문서 ID)
+        uploadUrl:
+          type: string
+          format: uri
+        s3Key:
+          type: string
+          description: uploads/{uid}/{analysisId}.{ext}
+        expiresInSec:
+          type: integer
+
+    PlaybackUrlRequest:
+      type: object
+      description: analysisId 변형과 referenceMotionId 변형은 상호 배타이다.
+      properties:
+        analysisId:
+          type: string
+        ext:
+          type: string
+          enum: [mp4, mov]
+          default: mp4
+        referenceMotionId:
+          type: string
+          description: 영숫자와 하이픈만 허용. reference/ prefix 화이트리스트 경유로만 서명된다.
+        asset:
+          type: string
+          enum: [correctedPose, rotation, coachAudio]
+          description: 지정 시 analysisId 와 함께 사용한다. 서버가 키를 선택한다.
+        recordId:
+          type: string
+          description: asset=coachAudio 일 때 필수. 형식 r{2자리}:{criterion}.
+
+    PlaybackUrlResponse:
+      type: object
+      required: [playbackUrl, expiresInSec]
+      properties:
+        playbackUrl:
+          type: string
+          format: uri
+        expiresInSec:
+          type: integer
+          description: 영상 604800(7일), 산출물 3600(1시간)
+
+    ReferenceMotion:
+      type: object
+      properties:
+        motionId:
+          type: string
+          description: ref-{기술명-소문자-하이픈}
+        name:
+          type: string
+        athleteName:
+          type: string
+        level:
+          type: string
+          enum: [basic, intermediate, advanced]
+        entryType:
+          type: string
+          enum: [step_entry, jump_entry, swing_entry, lift_entry, invert_entry, combo_entry]
+        thumbnailUrl:
+          type: string
+          format: uri
+        isActive:
+          type: boolean
+
+    AutoRegisterRequest:
+      type: object
+      required: [s3Key]
+      properties:
+        s3Key:
+          type: string
+          description: reference/ prefix 의 업로드된 영상 키
+        studioAlias:
+          type: string
+          description: 학원 통용 동작명(선택)
+        overrideMotionId:
+          type: string
+          description: 자동 생성 ID 대신 지정할 motionId(선택)
+
+    AutoRegisterResponse:
+      type: object
+      properties:
+        motionId:
+          type: string
+        name:
+          type: string
+        isActive:
+          type: boolean
+          description: 자동 등록 직후에는 false(검수 전)
+        confidence:
+          type: number
+          format: float
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - bad_request
+                - unauthorized
+                - not_found
+                - unsupported_format
+                - file_too_large
+                - server_error
+            message:
+              type: string
+              description: 사용자에게 노출 가능한 한국어 메시지
+
+  responses:
+    BadRequest:
+      description: 요청 형식 오류
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: bad_request
+              message: 요청 형식이 올바르지 않아요.
+    Unauthorized:
+      description: 인증 토큰 부재 또는 검증 실패
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: unauthorized
+              message: 로그인이 필요해요.
+    NotFound:
+      description: |
+        존재하지 않음 / 소유자 아님 / 상태 미충족을 단일 응답으로 합산한다.
+        어느 조건에서 걸렸는지 응답으로 구분되지 않는다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: not_found
+              message: 요청한 항목을 찾을 수 없어요.
+    ServerError:
+      description: 서버 오류
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: server_error
+              message: 잠시 후 다시 시도해 주세요.

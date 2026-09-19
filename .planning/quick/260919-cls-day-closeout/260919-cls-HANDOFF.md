@@ -63,7 +63,7 @@ Pod            0대          (오늘 L4 1대 띄워 E2E 2회 검증 후 종료)
 RunPod 잔액    $10.95       (오늘 $0.93 사용)
 SSM            pod-expected = down
 Lambda         RUNPOD_ANALYZE_URL = https://pod-down.invalid/analyze   ← 자리표시자(정상)
-HEAD           40e62ae9     전부 푸시됨
+HEAD           0b982f46     전부 푸시됨 (오늘 커밋 18건)
 게이트          4945 passed / 20 skipped / 0 failed   (backend/.venv 로 직접 실측)
 앱             tsc --noEmit clean
 ```
@@ -167,6 +167,7 @@ wobble 이 임계의 58%→38% 로 떨어지니 **선수가 안정돼진 게 아
 | `796932fb`·`23f0b6d6` | **tkv** — `result.analysisVersion` 각인(커밋sha·기준판·플래그) |
 | `40e62ae9` | **cnc** — 동시 오염 조사 |
 | `1defb9d2` | openapi.yaml 커밋 + 낡은 backfill 삭제(belle 판정) |
+| `cf9eb488`·`275829ca`·`0b982f46` | **cls** — 이 인계서 + 착수점 이전 + 분석 결함 ③ + 판정 요청 1건 철회 |
 
 ---
 

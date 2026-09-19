@@ -613,6 +613,37 @@ def _validate_coach_questions(
         _require_str_or_none(item.get("recordId"), path=f"{item_path}.recordId")
 
 
+# ── quick-260919-tkv — analysisVersion scoped validator ──────────────────────
+#
+# belle 2026-09-19 "할 때마다 다르니까 문제 아냐 ... 몇 일은 이렇게 몇 일은 이렇게
+# 해서 꼬이는 거 아냐" 를 실측해 가른 결론 (2): 어느 판이 어느 코드/기준에서 나왔는지
+# 기록이 doc 어디에도 없어서, 답이 바뀌면 **분석이 바뀐 건지 우리가 바꾼 건지**
+# 구분할 수단이 없었다. `result.analysisVersion` 이 그 기록이다 — 채점 무접촉.
+#
+# 계약은 flat scalar dict 뿐이라 generic `_validate_dict_only_scalars` 로 바로
+# 라우팅한다(본체 변경 영구 0 — Plan 08-03 NEW HIGH #3 규율). 추가로 미등재 키를
+# 거부한다: 이 필드의 값어치는 "적힌 것이 곧 사실" 이라는 데 있으므로, 계약 밖 키가
+# 조용히 섞이면 기록 자체를 못 믿게 된다.
+# 3-way lockstep: app/src/types/analysis.ts AnalysisVersion ↔ models.py
+# ANALYSIS_VERSION_KEYS ↔ docs/contract.md §11.13.
+def _validate_analysis_version(payload, *, path: str = "analysisVersion") -> None:  # noqa: ANN001
+    """analysisVersion scoped validator — flat scalar dict + 등재 키만."""
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"{path} must be flat dict (firestore-nested-array-flat): "
+            f"got {type(payload).__name__}"
+        )
+    _validate_dict_only_scalars(payload, path=path)
+    unknown = [k for k in payload if k not in models.ANALYSIS_VERSION_KEYS]
+    if unknown:
+        raise ValueError(
+            f"{path} 미등재 키 {sorted(unknown)} — 등재 키: "
+            f"{list(models.ANALYSIS_VERSION_KEYS)} (contract.md §11.13 lockstep)"
+        )
+
+
 def _validate_metric_dict_with_scalar_lists(d: dict, *, path: str) -> None:
     """metric dict 안 검증 — scalar / list[str] (화이트리스트 한정) 박제 허용.
 
@@ -1277,6 +1308,9 @@ def complete_analysis(
         _validate_mission_outcome((result or {}).get("missionOutcome"))
         _validate_summary_praise((result or {}).get("summaryPraise"))
         _validate_coach_questions((result or {}).get("coachQuestions"))
+        # quick-260919-tkv — analysisVersion 단일 persistence path (신규 kwarg 0,
+        # safetyFlags 선례). 부재/None graceful — legacy doc 하위호환.
+        _validate_analysis_version((result or {}).get("analysisVersion"))
     payload: dict = {
         "status": models.STATUS_DONE,
         "result": dict(result) if result else {},
@@ -2471,6 +2505,56 @@ def _angles_content_hash(angles) -> str:
     return hashlib.sha256(blob).hexdigest()[:8]
 
 
+def _resolve_reference_version_pointer() -> tuple[str | None, str | None]:
+    """활성 candidate version 포인터 해석 → (version, source). 없으면 (None, None).
+
+    순서 = 33-17 계약 그대로: SUNITY_SHADOW_REFERENCE_VERSION(eval shadow) → 전역
+    포인터 `reference/_release.activeCandidate`. **문서 실재 여부는 보지 않는다** —
+    그건 motion 별이라 호출부 몫이다.
+
+    quick-260919-tkv 에서 `get_reference_motion` 본문에서 뽑아냈다. 이유는 하나 —
+    `get_active_reference_release` 가 doc 에 박제할 값을 여기서 가져가므로, 두
+    경로가 **같은 판정** 을 써야 한다.
+    """
+    import os
+
+    shadow = os.environ.get(_SHADOW_REFERENCE_ENV)
+    if shadow:
+        return shadow, "shadow_env"
+    release_snap = _doc(_RELEASE_POINTER_PATH).get()
+    if release_snap.exists:
+        rel = release_snap.to_dict() or {}
+        if rel.get(_RELEASE_POINTER_FIELD):
+            return rel[_RELEASE_POINTER_FIELD], "release_pointer"
+    return None, None
+
+
+def get_active_reference_release(motion_id: str) -> str | None:
+    """이 motion 에 **실제로 overlay 되는** candidate version id (예 'rot180_v1').
+
+    quick-260919-tkv — `result.analysisVersion.referenceRelease` 의 유일한 출처.
+    belle 2026-09-19 의 "할 때마다 다르다" 를 가른 결론 (2) 가 근거다: 답이 바뀌었을
+    때 **분석이 바뀐 건지 기준 라이브러리가 바뀐 건지** 구분할 기록이 doc 에 없었다.
+
+    판정은 `get_reference_motion` 과 정확히 같다 — 포인터가 가리키는
+    `reference/{id}/versions/{v}` 문서가 **실재할 때만** 그 값을 돌려준다. 문서가
+    없으면 `get_reference_motion` 이 top-level 로 폴백하므로 여기서도 None 이다
+    (실제로 안 쓴 릴리스를 박제하지 않는다 — fail-closed). 포인터 자체가 없는
+    (구) 환경도 None.
+
+    호출은 분석 1건당 1회이고 읽기는 최대 2건(포인터 + 버전 문서) —
+    [[firestore-spark-50k-read-cap]] 대비 무시할 수준. 실패는 호출부가 graceful
+    처리한다(분석 무훼손).
+    """
+    version, _source = _resolve_reference_version_pointer()
+    if not version or not motion_id:
+        return None
+    vsnap = _doc(
+        f"{models.REFERENCE_MOTIONS_COLLECTION}/{motion_id}/versions/{version}"
+    ).get()
+    return str(version) if vsnap.exists else None
+
+
 def get_reference_motion(motion_id: str) -> dict | None:
     """기준 모션 1건. keyframe 각도 데이터(angles) + 메타 포함(ml_CLAUDE.md 등록).
 
@@ -2481,9 +2565,12 @@ def get_reference_motion(motion_id: str) -> dict | None:
       (2) 아니면 reference/_release.activeCandidate (전역 포인터) 로 해석 —
           reference/{id}/versions/{activeCandidate} 를 읽는다.
       (3) 둘 다 없으면 기존 top-level 읽기 (하위호환).
+
+    quick-260919-tkv — (1)(2) 의 포인터 해석은 `_resolve_reference_version_pointer`
+    로 분리했다. `get_active_reference_release` 가 같은 판정을 써야 하기 때문이다
+    (두 곳이 서로 다른 버전을 말하면 doc 에 박제되는 provenance 가 거짓말이 된다).
     """
     import logging
-    import os
 
     log = logging.getLogger(__name__)
 
@@ -2491,19 +2578,7 @@ def get_reference_motion(motion_id: str) -> dict | None:
     base = base_snap.to_dict() if base_snap.exists else None
 
     # 해석할 candidate version 결정 (shadow env → 전역 포인터 → None).
-    shadow = os.environ.get(_SHADOW_REFERENCE_ENV)
-    resolved_version = None
-    source = None
-    if shadow:
-        resolved_version = shadow
-        source = "shadow_env"
-    else:
-        release_snap = _doc(_RELEASE_POINTER_PATH).get()
-        if release_snap.exists:
-            rel = release_snap.to_dict() or {}
-            if rel.get(_RELEASE_POINTER_FIELD):
-                resolved_version = rel[_RELEASE_POINTER_FIELD]
-                source = "release_pointer"
+    resolved_version, source = _resolve_reference_version_pointer()
 
     if resolved_version:
         vsnap = _doc(

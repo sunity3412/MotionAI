@@ -2165,6 +2165,72 @@ pairDeviationSec = (r_anchor - warpTime(alignment, u_anchor)) * (anchor_fps / r_
 
 ---
 
+### §11.13 AnalysisResult.analysisVersion — 이 결과를 낳은 판의 기록 (quick-260919-tkv)
+
+> 절 번호 주의: 이 파일에는 `§11.11` 이 **두 개** 있다(quick-260903-upx / belle 2026-09-09). 새 번호는 그 뒤 `§11.12`(quick-260919-mhl) 다음인 `§11.13` 이다.
+
+**왜 만드는가 (belle 2026-09-19).** "분석이 할 때마다 다르니까 문제 아냐. 언제는 3장이라 보고하고 6장이라 보고하고 5장이라 보고하고 ... 몇 일은 이렇게 몇 일은 이렇게 해서 꼬이는 거 아냐."
+
+같은 pdshape 영상의 라이브 이전 이력을 실측했다 (belle 계정 실 doc):
+
+| 언제 | 점수 | 감점 | 결과 지문 | 버전 기록 |
+|---|---|---|---|---|
+| 3판 (9/02~9/03) | 60 | 5 | `389f9b31` | **없음** |
+| 3판 (9/09) | 60 | 6 | `3ac37f2f` | **없음** |
+| 오늘 | 80 | 1 | `c162916` | **없음** |
+
+1. **비결정성은 아니다.** 같은 코드에서 3번 돌려 3번 다 지문이 같다(두 묶음 모두 3/3). 주사위가 아니라 우리가 바꿀 때마다 움직이는 것이다.
+2. **어느 판이 어느 코드/기준에서 나왔는지 기록이 doc 어디에도 없다.** 그래서 답이 바뀌면 **분석이 바뀐 건지 우리가 바꾼 건지 구분할 수단이 없다.** 이것이 belle 이 말한 "꼬임"의 기계적 원인이다.
+
+이 절은 그 기록을 정의한다. **숫자를 바꾸는 계약이 아니다.**
+
+```
+result.analysisVersion  object  optional   ← flat scalar dict (nested 금지)
+
+  commitSha               string   optional  ← 코드 판
+  referenceRelease        string   optional  ← 기준 라이브러리 판
+  poseEngine              string   optional  ← 포즈 엔진 클래스명
+  rot180InversionEnabled  boolean            ← 켜져 있던 플래그
+  prInversionEnabled      boolean
+  rtmwDeterministic       boolean
+```
+
+**출처 (전부 실존 코드 1벌).**
+
+- `commitSha` — `SUNITY_COMMIT_SHA` env → `git rev-parse HEAD`(backend/ 기준), 프로세스 1회 캐시. 정본 = `sunity_shared/provenance.py::resolve_commit_sha`. 이 구현은 원래 `runpod_inference/server.py` 안에만 있었는데(Pod 전용 — Lambda 가 import 불가) 같은 SHA 를 분석 doc 에도 실어야 해서 `sunity_shared` 로 옮겼고 **server.py 가 그것을 호출한다**. 중복 구현 0.
+- `referenceRelease` — `reference/_release.activeCandidate`(예 `rot180_v1`). 정본 = `firestore_admin.get_active_reference_release`. `get_reference_motion` 과 **같은 포인터 판정**(`_resolve_reference_version_pointer`)을 쓰고, 포인터가 가리키는 `reference/{id}/versions/{v}` 문서가 **실재할 때만** 실린다 — 버전 문서가 없으면 `get_reference_motion` 이 top-level 로 폴백하므로 그때는 키를 생략한다(실제로 안 쓴 릴리스를 박제하지 않는다).
+- `poseEngine` — `/health` 의 `modelInitCanary.poseEngine` 과 **같은 출처**(pipeline 모듈 전역 `_RTMW_ENGINE` 의 클래스명).
+- 플래그 3종 — 정본 = `provenance.PROVENANCE_FLAGS`.
+
+**★ 플래그 판정 규칙은 플래그마다 다르다 (2026-09-19 실측).** 이 절이 정본이다.
+
+| doc 키 | env | True 조건 | 규칙 소유자 |
+|---|---|---|---|
+| `rot180InversionEnabled` | `ROT180_INVERSION_ENABLED` | `strip().lower() in ("1","true")` | `pose_engines/rtmw/rtmw_engine.py::_env_on` |
+| `prInversionEnabled` | `PR_INVERSION_ENABLED` | `strip().lower() in ("1","true")` | 같은 `_env_on` |
+| `rtmwDeterministic` | `RTMW_DETERMINISTIC` | **정확히 `"1"`** (`"true"` 는 OFF) | `pose_engines/rtmw/ort_determinism.py::deterministic_enabled` |
+
+`runpod_inference/server.py::_env_flag`(= `/health` 의 `envFlags`)는 `("1","true","on","yes")` 라 셋 모두에 더 느슨하다. 즉 `RTMW_DETERMINISTIC=true` 면 **`/health` 는 `true`, 엔진은 OFF, 이 필드는 `false`** 다. **둘이 다르면 버그가 아니라 이 불일치다.** provenance 는 "실제로 켜졌던 것"을 적어야 하므로 엔진 쪽을 따른다. `/health` 계약을 바꾸는 정리는 이 단위 범위 밖이다.
+
+**값 없음 = 키 생략 (fail-closed).** 빈 문자열·`'unknown'`·추측값으로 채우지 않는다. 모르는 것을 아는 척하면 기록이 거짓말이 된다.
+
+- `commitSha` 부재 = `SUNITY_COMMIT_SHA` 미주입 + `git` 없음(레이어로 배포된 Lambda 경로).
+- `referenceRelease` 부재 = mode3(기준 자체가 없다) / 포인터 없음 / 버전 문서 부재 폴백 / 조회 실패.
+- `poseEngine` 부재 = 어댑터 미로드(테스트·CPU 경로).
+- 플래그 3종은 **항상 실린다** — env 미설정의 사실값이 `false` 이기 때문이다. 따라서 `analysisVersion` 은 절대 빈 객체가 아니고, **필드의 존재 자체가 "quick-260919-tkv 이후 분석" 표식**이며 그 안의 키 부재가 "그 항목을 못 구했다"는 뜻이다.
+
+**부재 = legacy doc. 소급 채움 없음.** 위 표의 과거 3묶음을 포함해 **기존 doc 은 하나도 고치지 않는다**(migration 0). 앞으로 나올 분석부터 실린다.
+
+**채점 무접촉.** 점수·감점·카드 수를 읽지도 쓰지도 않는다. 이 값으로 분기하는 코드는 리포에 0건이고 **앱은 한 줄도 읽지 않는다**(`AnalysisVersion` 타입은 기록의 모양을 박제할 뿐 UI 소비 금지).
+
+**방출 지점.** `pipeline/app.py::_attach_analysis_version` 를 `complete_analysis` **직전** 에 1회 호출 — `_attach_motion_alignment`(§11) 와 같은 규율이다(27-06 게이트: complete 이후 `result.*` write 금지, 사후 업데이트 경로 신설 금지). 실패는 graceful skip — 기록 실패가 완료된 분석을 fail 시키지 않는다. `complete_analysis` 신규 kwarg 0(`safetyFlags` 선례), 검증은 scoped validator `firestore_admin._validate_analysis_version`(flat scalar + **미등재 키 거부** — 계약 밖 키가 섞이면 기록 자체를 못 믿게 된다).
+
+**이 단위가 하지 않는 것.** 답이 왜 60→80 으로 움직였는지는 이 필드가 설명하지 않는다. 남은 절반 = **고정 영상 묶음 회귀 대조**(같은 입력을 판마다 돌려 산출 지문을 비교하는 것) — 별도 단위다.
+
+- 3-way lockstep: `app/src/types/analysis.ts AnalysisVersion` ↔ `models.py ANALYSIS_VERSION_KEYS` + `sunity_shared/provenance.py` + `firestore_admin._validate_analysis_version` ↔ 본 절. `provenance.ANALYSIS_VERSION_KEYS` 와 `models.ANALYSIS_VERSION_KEYS` 의 drift 는 `backend/tests/test_analysis_provenance.py` 가 막는다(플래그 판정 규칙의 소비처 parity 도 같은 파일).
+
+---
+
 ## §12. 미션 루프 + 번역 레이어 방출 (Phase 32 Plan 32-06 신설 — D-08/D-19/D-26/D-27/D-28/D-29/D-14)
 
 미션→연습→확인 루프(D-19/D-26/D-27)와 감점 카드 번역 레이어(D-08)의 데이터 계약. 전부 `result` 안으로 흐르며(`complete_analysis` 신규 kwarg 0 — safetyFlags 선례), `firestore_admin` scoped validator(`_validate_mission`/`_validate_mission_outcome`/`_validate_summary_praise`/`_validate_coach_questions`)로만 검증한다. **방출은 32-09 파이프라인 배선부터** — 이전 doc 은 전 필드 부재(legacy 하위호환, `tier?` 서술 모범, no migration). 3-way lockstep: `app/src/types/analysis.ts` `Mission`/`MissionOutcome`/`SummaryPraise`/`CoachQuestion` + `DeductionRecord` 확장 ↔ `models.py` `MISSION_KEYS` 블록 ↔ 본 §12.

@@ -10,4 +10,5 @@ __all__ = [
     "auth",
     "firestore_admin",
     "events",
+    "provenance",  # quick-260919-tkv — result.analysisVersion 출처 기록
 ]

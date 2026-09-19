@@ -233,6 +233,46 @@ MOTION_ALIGNMENT_TIERS = ("warped", "trim_only", "disabled")
 MOTION_ALIGNMENT_SOURCES = ("dtw", "vlm")
 MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS = 512
 
+# ── quick-260919-tkv: result.analysisVersion — 이 결과를 낳은 판(version) 기록 ──
+#
+# belle 2026-09-19: "분석이 할 때마다 다르니까 문제 아냐. 언제는 3장이라 보고하고
+# 6장이라 보고하고 5장이라 보고하고 ... 몇 일은 이렇게 몇 일은 이렇게 해서 꼬이는
+# 거 아냐."  라이브 이전 이력 실측(같은 pdshape 영상, belle 계정 실 doc):
+#
+#   3판(9/02~9/03) 점수 60 / 감점 5 / 결과 지문 389f9b31 / 버전 기록 없음
+#   3판(9/09)      점수 60 / 감점 6 / 결과 지문 3ac37f2f / 버전 기록 없음
+#   오늘           점수 80 / 감점 1 / 결과 지문 c162916  / 버전 기록 없음
+#
+# (1) 비결정성이 아니다 — 같은 코드에서 3번 돌려 3번 다 지문이 같다(두 묶음 3/3).
+# (2) 어느 판이 어느 코드/기준에서 나왔는지 기록이 없어 **분석이 바뀐 건지 우리가
+#     바꾼 건지** 구분할 수단이 없다. 이 필드가 그 기록이다.
+#
+# **채점 무접촉** — 점수·감점·카드 수에 관여하지 않는다. 앱은 읽지 않는다(기록 전용).
+# 전부 flat scalar (nested 금지 — [[firestore-nested-array-flat]]).
+# 값 없음 = **키 생략** (fail-closed): 빈 문자열·'unknown'·추측값으로 채우지 않는다.
+#   commitSha         str   코드 판. SUNITY_COMMIT_SHA env → `git rev-parse HEAD`.
+#                           부재 = 못 구했다(git 없는 Lambda 에 env 미주입).
+#   referenceRelease  str   기준 라이브러리 판 (reference/_release.activeCandidate,
+#                           예 'rot180_v1'). mode3 등 기준 없는 경로는 부재.
+#                           실제로 overlay 된 경우에만 실린다(firestore_admin.
+#                           get_active_reference_release — 폴백 시 부재).
+#   poseEngine        str   포즈 엔진 클래스명(예 'RTMWPoseEngine'). /health canary 와
+#                           같은 출처(pipeline `_RTMW_ENGINE`). 어댑터 미로드면 부재.
+#   rot180InversionEnabled / prInversionEnabled / rtmwDeterministic  bool
+#                           켜져 있던 플래그. 판정 규칙은 **소비처마다 다르다** —
+#                           정본과 근거는 sunity_shared/provenance.py PROVENANCE_FLAGS.
+# **부재 = quick-260919-tkv 이전 doc** (legacy 하위호환, 소급 채움 없음).
+# 3-way lockstep: app/src/types/analysis.ts AnalysisVersion + docs/contract.md §11.13
+# + provenance.ANALYSIS_VERSION_KEYS (같은 튜플 — 테스트가 drift 를 막는다).
+ANALYSIS_VERSION_KEYS = (
+    "commitSha",
+    "referenceRelease",
+    "poseEngine",
+    "rot180InversionEnabled",
+    "prInversionEnabled",
+    "rtmwDeterministic",
+)
+
 # ── Phase 32 (Plan 32-06): 미션 루프 + 번역 레이어 방출 계약 ─────────────
 # D-19/D-26/D-27/D-14 미션 엔진(analysis/mission.py 순수 함수 산출)과 D-08 감점
 # 카드 3단 문구·recordId·summaryPraise·coachQuestions 의 계약 상수. 전부

@@ -1004,7 +1004,35 @@ export interface UnjudgedJoint {
   reason: UnjudgedReason;
 }
 
+// quick-260919-tkv — 이 결과를 낳은 "판"의 기록. **앱은 읽지 않는다** (기록 전용).
+//
+// belle 2026-09-19: "분석이 할 때마다 다르니까 문제 아냐. 언제는 3장이라 보고하고
+// 6장이라 보고하고 5장이라 보고하고 ... 몇 일은 이렇게 몇 일은 이렇게 해서 꼬이는
+// 거 아냐."  같은 pdshape 영상의 라이브 이전 이력 실측:
+//   3판(9/02~9/03) 60점 / 감점 5 / 결과 지문 389f9b31 / 버전 기록 없음
+//   3판(9/09)      60점 / 감점 6 / 결과 지문 3ac37f2f / 버전 기록 없음
+//   오늘           80점 / 감점 1 / 결과 지문 c162916  / 버전 기록 없음
+// (1) 비결정성이 아니다 — 같은 코드로 3번 돌려 3번 다 지문이 같다(두 묶음 3/3).
+// (2) 어느 판이 어느 코드/기준에서 나왔는지 기록이 없어 **분석이 바뀐 건지 우리가
+//     바꾼 건지** 구분할 수단이 없었다. 이 필드가 그 기록이다.
+//
+// 값 없음 = **키 생략**(fail-closed) — 빈 문자열이나 'unknown' 으로 채우지 않는다.
+// 필드 전체 부재 = quick-260919-tkv 이전 doc (소급 채움 없음).
+// Python lockstep: models.py ANALYSIS_VERSION_KEYS + sunity_shared/provenance.py +
+// firestore_admin._validate_analysis_version + docs/contract.md §11.13.
+export interface AnalysisVersion {
+  commitSha?: string; // 코드 판. 부재 = 못 구했다(git 없는 런타임 + env 미주입).
+  referenceRelease?: string; // 기준 라이브러리 판 (예 'rot180_v1'). mode3 는 부재.
+  poseEngine?: string; // 포즈 엔진 클래스명 (예 'RTMWPoseEngine').
+  rot180InversionEnabled?: boolean;
+  prInversionEnabled?: boolean;
+  rtmwDeterministic?: boolean;
+}
+
 export type AnalysisResult = ScoreSuppression & {
+  // quick-260919-tkv — 출처 기록 전용. 점수·감점·카드 수와 무관하며 UI 소비 금지.
+  // OPTIONAL — legacy doc 호환(부재 = 기록 도입 이전 분석).
+  analysisVersion?: AnalysisVersion;
   // quick-260910-ovo — 붕괴로 감점을 방출하지 않은 관절. **빈 배열 = 봤는데 붕괴 0**,
   // **부재 = 안 봤다**(legacy doc 또는 판정기 미산출 경로). 앱은 둘 다 아무것도 그리지
   // 않으므로 소비처는 length > 0 으로만 분기할 것 (필드 존재로 분기 금지).

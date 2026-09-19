@@ -46,7 +46,7 @@ _BACKEND = _HERE.parent
 # shared 레이어 경로 추가 (Lambda 와 동일한 sunity_shared 임포트 가능)
 sys.path.insert(0, str(_BACKEND / "shared" / "python"))
 
-from sunity_shared import firestore_admin, models  # noqa: E402
+from sunity_shared import firestore_admin, models, provenance  # noqa: E402
 from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # noqa: E402
 from sunity_shared.s3keys import parse_upload_key  # noqa: E402
 
@@ -72,39 +72,26 @@ _AUTH_TOKEN = os.environ.get("RUNPOD_AUTH_TOKEN", "")
 # (T-04-W5-01). 기존 liveness 계약(외부 모니터가 무인증 호출)은 유지한다.
 
 
-def _resolve_commit_sha() -> str:
-    """부팅 시점 1회 확정. 우선순위: SUNITY_COMMIT_SHA env → `git rev-parse HEAD`.
-
-    warm 재사용 중 코드가 바뀌어도 이 값은 **부팅 시점 리비전** 을 가리킨다 — 그게
-    핵심이다(프로세스가 실제로 로드한 코드). 둘 다 실패하면 'unknown'.
-    """
-    sha = os.environ.get("SUNITY_COMMIT_SHA", "").strip()
-    if sha:
-        return sha
-    try:
-        import subprocess
-
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=str(_BACKEND),
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if out.returncode == 0 and out.stdout.strip():
-            return out.stdout.strip()
-    except Exception:  # noqa: BLE001 - git 부재/타임아웃은 unknown 으로 강등
-        pass
-    return "unknown"
-
-
 def _env_flag(name: str) -> bool:
-    """1/true/on 계열만 True (대소문자 무시). env 원문 값은 반환하지 않는다."""
+    """1/true/on 계열만 True (대소문자 무시). env 원문 값은 반환하지 않는다.
+
+    ⚠ 이 규칙은 **실제 소비처보다 느슨하다** (quick-260919-tkv 실측). 엔진을 켜는
+    쪽은 rtmw_engine._env_on = ("1","true") 이고 ort_determinism.deterministic_enabled
+    는 정확히 "1" 이다. 즉 `RTMW_DETERMINISTIC=true` 면 /health 는 True 라 말하고
+    엔진은 OFF 다. 분석 doc 에 박제되는 provenance 는 **엔진 쪽 규칙** 을 따른다
+    (sunity_shared/provenance.py PROVENANCE_FLAGS) — /health 의 이 값과 doc 의
+    analysisVersion 이 다르면 그것은 버그가 아니라 이 불일치다. 이 함수를 손대면
+    기존 /health 계약이 바뀌므로 그 정리는 별도 단위로 남겼다.
+    """
     return os.environ.get(name, "").strip().lower() in ("1", "true", "on", "yes")
 
 
 # 부팅 시점 리비전 각인 — warm 재사용 시에도 이 프로세스가 로드한 커밋을 가리킨다.
-_COMMIT_SHA = _resolve_commit_sha()
+# 구현 정본은 sunity_shared.provenance.resolve_commit_sha (quick-260919-tkv 에서
+# 이 파일 밖으로 옮겼다 — server 는 Pod 전용이라 Lambda 가 import 할 수 없는데,
+# 같은 SHA 를 분석 doc 의 result.analysisVersion 에도 실어야 했다. 구현은 한 벌뿐).
+# /health 의 기존 계약(항상 문자열, 못 구하면 'unknown')은 여기서만 유지한다.
+_COMMIT_SHA = provenance.resolve_commit_sha() or "unknown"
 
 # pipeline/app.py 를 모듈로 1회 로드. Lambda 와 동일 코드라 분기 0.
 _pipeline_lock = threading.Lock()

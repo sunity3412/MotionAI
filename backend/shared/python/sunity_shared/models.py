@@ -675,6 +675,9 @@ PIPELINE_SEQUENCE = (
 #   contract.md §11.7 (본 모듈은 status enum 만 소유 — §11.6 refMatch 선례).
 #   quick-260903-upx: item 에 userMarked(bool)·holdState/pairState/eyeState(str) 조건부
 #   추가 — 게이트는 표시만 정한다(카드 삭제 0). lockstep = analysis.ts + contract.md §11.11.
+#   quick-260919-mhl: item 에 `pairDeviationSec`(float) + `pairDeviationTier`(str) 조건부
+#   추가 — 짝 시간 정렬 이탈(관측 전용, 게이트 미적용 — 통과선 belle 판정 대기).
+#   lockstep = analysis.ts + contract.md §11.12.
 FAULT_ZOOM_STATUS_PENDING = "pending"
 FAULT_ZOOM_STATUS_DONE = "done"
 FAULT_ZOOM_STATUS_FAILED = "failed"

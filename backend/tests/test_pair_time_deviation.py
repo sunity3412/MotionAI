@@ -391,3 +391,69 @@ def test_existing_pair_gate_surface_unchanged() -> None:
     assert code.count("pair_state") == 1
     assert code.count("pairState") == 3
     assert 'c["pairState"] = decision.pair_state' in code
+
+
+# ── 4. 3-way lockstep 텍스트 대조 ─────────────────────────────────────────
+# (선례 test_motion_alignment_contract.py::test_models_keys_present_in_ts_source)
+
+
+def test_ts_contract_declares_pair_deviation() -> None:
+    """analysis.ts FaultZoomComparison 에 두 optional 필드가 등재돼 있다."""
+    src = _TS_ANALYSIS.read_text(encoding="utf-8")
+    assert "pairDeviationSec?: number;" in src
+    assert "pairDeviationTier?: 'warped' | 'trim_only';" in src
+
+
+def test_ts_contract_warns_against_app_side_estimation() -> None:
+    """앱이 두 초를 빼서 추정하지 말라는 경고가 살아 있다 (§11.8 F-3 재발 방지)."""
+    src = _TS_ANALYSIS.read_text(encoding="utf-8")
+    block = src[src.index("pairDeviationSec?: number;") - 2200:
+                src.index("pairDeviationSec?: number;")]
+    assert "추정하지 말 것" in block
+    assert "11.8" in block
+
+
+def test_contract_md_has_section_11_12() -> None:
+    """contract.md 에 §11.12 절이 존재하고 두 필드를 담는다."""
+    src = _CONTRACT.read_text(encoding="utf-8")
+    assert "### §11.12 FaultZoomComparison.pairDeviationSec" in src
+    assert "pairDeviationTier" in src
+
+
+def test_contract_md_marks_section_provisional_and_ungated() -> None:
+    """§11.12 는 잠정이고 게이트가 아니라는 것을 절 안에서 못 박는다."""
+    src = _CONTRACT.read_text(encoding="utf-8")
+    sec = src[src.index("### §11.12"):src.index("## §12.")]
+    assert "잠정(provisional)" in sec
+    assert "게이트가 아니다" in sec
+    assert "belle 눈으로 재검증되지 않았다" in sec
+
+
+def test_contract_md_records_reproduction_failure_not_a_baseline() -> None:
+    """인계서 §6 4행 표는 '재현 실패 — 기준값 아님' 딱지와 함께만 실린다.
+
+    크기뿐 아니라 **순서도** 일치하지 않는다는 사실이 절 안에 있어야 한다 —
+    "순서는 보존된다"는 서술은 실측으로 반증됐다([[handoff-observation-not-diagnosis]]).
+    """
+    src = _CONTRACT.read_text(encoding="utf-8")
+    sec = src[src.index("### §11.12"):src.index("## §12.")]
+    assert "재현 실패 — 기준값 아님" in sec
+    assert "크기뿐 아니라 순서도 일치하지 않는다" in sec
+    assert "순서는 보존된다" not in sec
+
+
+def test_contract_md_does_not_create_a_third_section_11_11() -> None:
+    """기존 §11.11 중복 2건은 그대로 두고, 세 번째 충돌을 만들지 않는다."""
+    src = _CONTRACT.read_text(encoding="utf-8")
+    assert src.count("### §11.11") == 2
+    assert src.count("### §11.12") == 1
+
+
+def test_models_comment_block_mentions_pair_deviation() -> None:
+    """models.py 의 FAULT_ZOOM_STATUS 주석 블록이 신규 item 필드를 기록한다."""
+    src = _MODELS.read_text(encoding="utf-8")
+    block = src[src.index("# ── fault_zoom 사후 분리 상태"):
+                src.index("FAULT_ZOOM_STATUS_PENDING = ")]
+    assert "pairDeviationSec" in block
+    assert "pairDeviationTier" in block
+    assert "§11.12" in block

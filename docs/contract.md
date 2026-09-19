@@ -2098,6 +2098,67 @@ imageKeyPlain  string  optional  ← 그 판의 canonical S3 키 (…{criterion|
 - **재서명:** `POST /playback-url` `asset: 'faultZoom'` 이 표시 있는 판과 **같은 규율**로 처리한다 — canonical key 구성 + 저장 `imageKeyPlain` 과 exact 비교 후에만 `playbackUrlPlain` 을 실어 준다. legacy doc 은 URL 파싱 소급을 하지 않는다(애초에 그 판이 S3 에 없다).
 - 3-way lockstep: `analysis.ts FaultZoomComparison.imageUrlPlain?/imageKeyPlain?` ↔ `pipeline _fault_zoom_upload_items` 방출부 + `s3keys.build_fault_zoom_key(plain=True)` ↔ 본 절.
 
+### §11.12 FaultZoomComparison.pairDeviationSec / pairDeviationTier — 짝 시간 정렬 이탈 (quick-260919-mhl)
+
+> **이 절은 잠정(provisional)이다.** 공식은 **코드에서 유도한 것이고 belle 눈으로 재검증되지 않았다.** 다음 Pod 가동 때 라이브 doc 1건으로 belle 눈 대조가 선행되어야 한다. 통과선(threshold)은 belle 판정 대기이며 **이 값으로 카드를 숨기거나 문구를 내지 말 것.**
+
+확대 비교 카드 한 장의 **짝 품질을 시간 정렬 축으로** 재는 관측 필드. 종전 짝 품질 지표는 자세 거리(`card_gates.PAIR_POSE_MAX`)였는데 belle 2026-09-19 판정이 그 설계를 무너뜨렸다 — 카드의 존재 이유가 "자세가 다르다"를 보여주는 것이라, 자세로 짝을 재면 **"같은 순간인데 자세가 다르다"(정상)** 와 **"다른 순간이라 자세가 다르다"(결함)** 를 원리적으로 구분할 수 없다(감점이 클수록 지표가 커진다). 봉 동작은 같은 국면이라도 돌면 방향이 180° 바뀌어 회전이 벌점으로 잡힌다. belle 기준은 **"동작의 구간(phase)이 같은가"** 이고 회전량은 구간을 바꾸지 않는다.
+
+```
+pairDeviationSec   number  optional  ← 표시된 기준 초 − 정렬이 가리키는 기준 초
+pairDeviationTier  string  optional  ← 그 값을 낳은 정렬 tier ('warped' | 'trim_only')
+```
+
+**부호 규약: displayed − expected.** 양수 = 기준 패널이 정렬보다 **늦은** 순간을 보여준다. 음수 = **이른** 순간. 절대값만 실으면 "기준이 앞서냐 뒤서냐"를 잃으므로 부호를 보존한다. 판정은 나중에 `|값|` 으로 한다. **이 규약을 뒤집지 말 것.**
+
+**타임베이스 환산 (본 절이 정본).** 카드의 초와 정렬 앵커의 초는 **분모가 다르다.**
+
+- 카드: `userVideoSec = u_idx / u_label_fps`, `refVideoSec = r_display_idx / r_label_fps`. `*_label_fps` = 측별 **실효** rate(`probe_effective_fps`, 예: 30fps 원본 → 10.0). 판정 불가 시 `frames_fps`(9.0) 폴백.
+- 앵커: `uSec = user_frame / user_fps` 이고 `user_fps = _pipeline_frame_fps()` = **라벨 9.0**. ref 측 `rSec = ref_idx / ref_fps` 의 `ref_idx` 는 rep 공간(mode1 = 18fps) 인덱스인데 `fault_zoom._to_rep_idx = round(idx / frames_fps * rep_fps)` 이므로 `rep_idx ≈ ref9_idx × rep_fps/9.0` → **`rSec = ref9_idx / 9.0`** 로 수렴한다. 즉 양쪽 앵커 축은 공통적으로 "비디오 배열 인덱스 / 9.0(라벨 초)".
+
+라벨 9.0 과 실효 ~10.0 은 약 11% 어긋난다([[fps-label-vs-actual-decimation-rate]]). 변환 없이 빼면 warp 절편의 약 10%가 그대로 오차로 남는다. 그래서 양방향 환산한다:
+
+```
+anchor_fps = _pipeline_frame_fps()                              # 9.0 — 단일 출처, 리터럴 금지
+u_anchor   = userVideoSec * (u_label_fps / anchor_fps)
+r_anchor   = refVideoSec  * (r_label_fps / anchor_fps)
+pairDeviationSec = (r_anchor - warpTime(alignment, u_anchor)) * (anchor_fps / r_label_fps)
+```
+
+라벨 드리프트가 없으면(`label == anchor == 9.0`) 배율이 1.0 이라 `refVideoSec − warpTime(alignment, userVideoSec)` 으로 자연 축약된다.
+
+**`pairDeviationTier` 를 왜 같이 싣는가 (2026-09-19 라이브 실측).** `motionAlignment` 보유 doc 36건의 tier 는 `trim_only` 35 · `disabled` 1 · **`warped` 0** 이다. 전부 `reason='low_global_confidence'`(distance 52.8~72.0 = `DISTANCE_T2` 25.0 의 2~3배)라 `warpTime` 의 `trim_only` 분기가 앵커 곡선을 버리고 오프셋만 쓰고, 거의 모든 doc 에서 `us[0]=rs[0]=0` 이다. 즉 **현재 프로덕션에서 이 warp 는 사실상 항등함수이고, 이 필드는 거의 생짜 시간차에 가깝다.** tier 를 빼면 이름이 값보다 커 보여 새 거짓 라벨이 된다 — 그래서 값이 실릴 때만 tier 를 동반한다.
+
+**값 없음 = 키 생략 (fail-closed).** 0.0 이나 추정치로 채우지 않는다. 6조건:
+
+1. `motionAlignment` 부재 (legacy doc / mode3 첫 분석 / 방출 실패)
+2. `tier` 가 `warped`/`trim_only` 가 아님 (`disabled` 및 미등재 tier 포함 — identity warp 로 뺀 값은 근거가 없다)
+3. `anchors` 0쌍
+4. `userVideoSec` 부재
+5. `refVideoSec` 부재 (기준 대응 실패 카드는 애초에 안 싣는다 — §11.8)
+6. 비유한(NaN/Inf) 입력이거나 `label_fps`/`anchor_fps` <= 0
+
+**게이트가 아니다.** 이 값으로 카드를 버리거나 표시를 바꾸는 코드는 리포에 0건이고, 앱은 아직 한 줄도 읽지 않는다. `pairState` / `PAIR_POSE_MAX` 와는 **별개 축**이며 그 둘은 이번 단위에서 무접촉이다(축 교체는 통과선 확정 후 별도 단위). `refMatched`/`refMatch` 의 거짓 보증도 이 필드가 고치지 않는다 — 사후에 짝 품질을 알 수단을 하나 만들 뿐이다.
+
+**⚠️ 앱이 `userVideoSec` 과 `refVideoSec` 을 빼서 이 값을 추정하지 말 것.** 두 초는 측별 실효 rate 분모이고 앵커는 라벨 9.0 분모라 타임베이스가 다르다. 그 혼동이 정확히 §11.8 F-3 을 만들었다.
+
+**★ 재현 실패 기록 — 인계서 260919-0d3 §6 의 4행 표를 이 필드가 내야 할 값으로 인용하지 말 것.**
+
+라이브 doc(`01668c02…`, doc 47건 / 카드 192장 전수 조회)에서 그 표를 네 가지 해석 — (a) 계약 warp(카드 초 그대로) · (b) 앵커 곡선 보간 · (c) rep 공간 `refFrameIdx/18` · (d) 양측 앵커축 정정판(본 절 공식에 가장 가까운 것) — **전부로 재현에 실패했다.** 산출에 쓰인 세션 스크립트는 scratchpad 와 함께 사라졌다.
+
+| 카드 | 인계서 §6 값 (**재현 실패 — 기준값 아님**) | 재현 시도 (d) 실측 | belle 판정 (2026-09-19) |
+|---|---|---|---|
+| 팔꿈치 8.1초 | −4.28초 | −5.33초 | 확실히 다르다 |
+| 오른무릎 5.7초 | +0.67초 | −1.11초 | 살짝 비슷한데 같진 않음 |
+| 왼골반 16.7초 | −0.13초 | −6.00초 | 거의 같은 순간 · 구간 확실 |
+| 오른어깨 3.4초 | −0.20초 | −2.00초 | 거의 같은 순간 · 구간 확실 |
+
+**크기뿐 아니라 순서도 일치하지 않는다.** `|이탈|` 내림차순은 §6 이 팔꿈치 > 오른무릎 > 오른어깨 > **왼골반**(왼골반이 최선)인데, (d) 실측은 **왼골반** > 팔꿈치 > 오른어깨 > 오른무릎(왼골반이 최악)이다 — 왼골반이 정확히 반대 끝으로 간다. 오차가 전 카드 공통 절편이 아니라 **카드마다 다른 양**이라는 뜻이다(보정항이 `t` 에 비례하는 항을 포함하고 왼골반 카드만 시각이 다른 카드의 2~5배다). 통과선을 이 표로 정하지 말 것 — belle 눈 대조가 먼저다.
+
+**방출 경로 실측 (확정 수치, 2026-09-19).** 카드 192장 전수: `refMatched` True 163 / 키 부재 29(legacy) / False 0. `refMatch` `'dtw'` 163 / 부재 29 / `'failed'` 0 — 즉 `refMatch='failed'` 는 프로덕션 0건이다.
+
+- 3-way lockstep: `analysis.ts FaultZoomComparison.pairDeviationSec?/pairDeviationTier?` ↔ `motion_alignment.pair_time_deviation_sec` + `pipeline _attach_pair_time_deviation` + `_fault_zoom_upload_items` 매퍼 + `models.py FAULT_ZOOM_STATUS_*` 주석 블록 ↔ 본 절. warp 정본은 `app/src/lib/alignmentWarp.ts::warpTime` 이고 Python `motion_alignment.warp_time` 이 그 미러다(테스트가 TS 소스 텍스트로 drift 를 막는다).
+
 ---
 
 ## §12. 미션 루프 + 번역 레이어 방출 (Phase 32 Plan 32-06 신설 — D-08/D-19/D-26/D-27/D-28/D-29/D-14)

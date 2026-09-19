@@ -603,6 +603,37 @@ export interface FaultZoomComparison {
   holdState?: 'hold' | 'moving' | 'unmeasurable' | 'peak' | 'unmeasured';
   pairState?: 'match' | 'pose_far' | 'pole_mismatch' | 'unmeasured';
   eyeState?: 'match' | 'mismatch' | 'skip' | 'none';
+  /**
+   * quick-260919-mhl (belle 09-19 판정) — 이 카드 **짝의 시간 정렬 이탈**(초).
+   * `pairDeviationTier` 는 그 값이 어떤 정렬 tier 아래 나왔는지 동반 표기.
+   *
+   * 종전 짝 품질 축은 자세 거리였는데, 카드의 존재 이유가 "자세가 다르다"를 보여주는
+   * 것이라 자세로 짝을 재면 "같은 순간인데 자세가 다르다"(정상)와 "다른 순간이라
+   * 자세가 다르다"(결함)를 원리적으로 구분할 수 없다. 봉 동작은 같은 국면이라도 돌면
+   * 방향이 180° 바뀌어 회전이 벌점으로 잡힌다. belle 기준은 "동작의 **구간**이 같은가"
+   * 이고 회전량은 구간을 안 바꾼다 → 대체 축 = 시간 정렬 이탈.
+   *
+   * **부호 규약: 표시된 기준 초 − 정렬이 가리키는 기준 초** (displayed − expected).
+   * 양수 = 기준 패널이 정렬보다 늦은 순간. 음수 = 이른 순간. 판정은 |값| 으로.
+   *
+   * ⚠️ **앱은 이 값을 아직 한 줄도 읽지 않는다.** 통과선(threshold)은 belle 판정
+   * 대기다(표본 4) — 이 값으로 카드를 숨기거나 문구를 내지 말 것. `pairState` /
+   * 자세 거리 게이트와는 **별개 축**이며 이 필드는 게이트가 아니다.
+   *
+   * ⚠️ 앱이 `userVideoSec` 과 `refVideoSec` 을 빼서 이 값을 **추정하지 말 것.**
+   * 두 초는 측별 실효 rate 분모이고 정렬 앵커는 라벨 9.0 분모라 타임베이스가 다르다.
+   * 그 혼동이 정확히 §11.8 F-3 을 만들었다 (`atMatched` 경고와 같은 급).
+   *
+   * 부재 = 정상. 6조건: motionAlignment 부재(legacy doc·mode3 첫 분석·방출 실패) ·
+   * tier 가 warped/trim_only 아님(disabled 포함) · anchors 0쌍 · userVideoSec 부재 ·
+   * refVideoSec 부재(기준 대응 실패 카드) · 비유한 입력이거나 fps <= 0.
+   *
+   * Python lockstep: `motion_alignment.pair_time_deviation_sec` +
+   * pipeline `_attach_pair_time_deviation` + `_fault_zoom_upload_items` 매퍼 +
+   * docs/contract.md §11.12. warp 정본은 이 앱의 `lib/alignmentWarp.ts::warpTime`.
+   */
+  pairDeviationSec?: number;
+  pairDeviationTier?: 'warped' | 'trim_only';
 }
 
 // Phase 28 (ALGN-01 동작 기반 비교 정렬) — 학생(left)=master 시계 불변, 정은지(right)만

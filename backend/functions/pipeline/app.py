@@ -5954,8 +5954,10 @@ def _run_gated_card_inherit(
                             display_anchor = None
                             align_bake[_side] = {}
                         elif _out.action == "suppressed":
-                            # 기존 suppress_marks 경로 — 그 측 원·선·호·화살표 생략,
-                            # userMarked/refMarked=False 가 사실을 말한다. 새 필드 0.
+                            # 기존 suppress_marks 경로 — 원 마커·화살표 생략(각도·
+                            # 사이각은 남는다 — belle 2026-09-18, quick-260919-o8v).
+                            # userMarked/refMarked 는 그림을 인증한다 — 각도가 남으면
+                            # True 다. 새 필드 0.
                             suppress.add(_side)
                         log.info(
                             "fault_zoom_anchor_check analysis_id=%s rid=%s side=%s joint=%s expected=%s action=%s frame=%d->%d trail=%s eye_calls=%d",

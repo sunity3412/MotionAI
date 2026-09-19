@@ -585,6 +585,9 @@ export interface FaultZoomComparison {
    * 배경에 의존한다. 그리는 코드만 이 인증을 낼 수 있다 (`refMatched` 선례와 동형).
    * `refMatch==='failed'` 와는 다른 사실이다 — 그쪽은 "같은 순간을 못 찾음",
    * 이쪽은 "순간은 맞췄는데 표시를 못 그림".
+   *
+   * quick-260919-o8v (belle 2026-09-18): 기계 눈 억제는 원 마커만 지운다 — 각도가
+   * 그려진 패널은 억제돼도 `true` 다. 이 값은 **그림의 인증**이지 게이트 결과가 아니다.
    * Python lockstep: fault_zoom 방출부 + pipeline `_render_fault_zoom` 매퍼 +
    * docs/contract.md §11.9.
    */
@@ -596,6 +599,10 @@ export interface FaultZoomComparison {
    * 한 줄), 게이트 결과 `holdState`(멈춤: hold|moving|unmeasurable|peak|unmeasured) ·
    * `pairState`(짝 프레임: match|pose_far|pole_mismatch|unmeasured) · `eyeState`(기계 눈:
    * match|mismatch|skip|none). 전부 표시 전용·채점 무관. 부재(legacy doc)=종전 렌더.
+   *
+   * quick-260919-o8v (belle 2026-09-18): 기계 눈 억제는 원 마커만 지운다 — 각도가
+   * 그려진 패널은 억제돼도 `true` 다. 이 값은 **그림의 인증**이지 게이트 결과가 아니다.
+   * 따라서 위 한 줄은 종전보다 **덜 뜬다**(각도를 잴 수 없던 카드에만 남는다).
    * Python lockstep: fault_zoom 방출부(userMarked) + pipeline _run_gated_card_inherit
    * (holdState/pairState/eyeState) + _fault_zoom_upload_items 매퍼 + contract.md §11.11.
    */

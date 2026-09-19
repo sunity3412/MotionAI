@@ -2045,6 +2045,7 @@ refMarked  boolean  optional  ← 기준 패널에 마킹(원/사이각/각도)�
 
 - **왜 필요한가:** 확대비교 카드의 기준 패널이 비어 있는데(오버레이 0) 아무 말 없이 나가고 있었다. 원인은 keypoint 신뢰도 게이트(`fault_zoom._KP_CONF_MIN`)·crop 포함 게이트(`_pt_in_crop`)·기준 앵커 미선언이 fail-closed 로 닫힌 **정상 동작**이지만, 비교 카드인데 비교 대상 표시가 없는 채로 침묵하는 것은 틀린 출력이다. 이 필드는 그 사실을 말하기 위한 것이지 게이트를 여는 것이 아니다 — 임계값은 무변경.
 - **값의 출처:** 그리는 코드가 인증한다. `_draw_side_leg_angle`(다리 사이각, both-or-neither) · `_draw_side_joint_angle`(관절 각도 베이크, 양측 대칭) · `_mark(circle=True)`(원 마커) 중 하나라도 기준 패널에 그렸으면 `true`. **앱이 PNG 픽셀을 보고 추측하지 않는다** — 그러면 판정이 렌더 배경에 의존한다(`refMatched`/`atMatched` 와 동형·동의미).
+- **개정 (belle 2026-09-18, quick-260919-o8v):** 기계 눈 표시 억제(`suppress_marks`/`anchor_check`)는 **원 마커·화살표만** 지운다. 각도·사이각을 그린 패널은 그대로 남으므로 억제된 카드라도 `refMarked` 는 `true` 다. 플래그는 계속 **그림을 인증**한다 — 억제 여부를 인증하는 값이 아니다.
 - **방출 범위:** `criterion` 보유 카드만. legacy/advisory 카드는 게이트 B(quick-260705-wbs)로 기준측을 애초에 마킹하지 않는 **정책**이라 판정 대상이 아니다 — `false` 를 실으면 앱이 "게이트가 닫혔다"는 없는 이유를 말하게 된다.
 - **부재(legacy doc·advisory·criterion 부재) = 앱 종전대로**(문구 없음). optional, migration 없음 (`tier?`/`refMatch?`/`criterion?`/`atMatched?` 선례).
 - **`false` 일 때 앱 동작:** 카드를 숨기지 않고 짧은 한 줄을 덧붙인다(정보 보존). `refMatch='failed'` 캡션과 **자리를 나눠 쓴다** — 그쪽은 "같은 순간을 못 찾음"(프레임 대응 실패), 이쪽은 "순간은 맞췄는데 표시를 못 그림"(좌표 신뢰도)이다.
@@ -2057,7 +2058,9 @@ belle 2026-09-03: "확대사진을 그 멈추는 구간은 다 보여줘야 하�
 좌표 부재 어느 것도 사진을 없애지 않는다. 게이트는 **표시만** 정한다.
 
 ```
-userMarked  boolean  optional  ← 학생(왼쪽) 패널에 마킹이 그려졌는가 (refMarked §11.9 미러). false = 눈 실제 불일치·좌표 부재·전신 폴백
+userMarked  boolean  optional  ← 학생(왼쪽) 패널에 마킹이 그려졌는가 (refMarked §11.9 미러).
+                                 false = 좌표 부재·전신 폴백·저신뢰(각도 미성립) 또는
+                                 각도 없이 원만 그릴 수 있던 카드의 눈 불일치 억제
 holdState   string   optional  ← 'hold' | 'moving' | 'unmeasurable' | 'peak' | 'unmeasured'  (게이트-상속 카드만)
 pairState   string   optional  ← 'match' | 'pose_far' | 'pole_mismatch' | 'unmeasured'      (게이트-상속 카드만)
 eyeState    string   optional  ← 'match' | 'mismatch' | 'skip' | 'none'                    (게이트-상속 카드만)
@@ -2065,6 +2068,7 @@ eyeState    string   optional  ← 'match' | 'mismatch' | 'skip' | 'none'       
 
 - **앱 동작:** `userMarked === false` 면 시트에 "왼쪽 사진에는 관절 위치를 확인하지 못해 표시를 넣지 않았어요" 한 줄(§11.9 문장의 좌측판). 나머지 3개는 표시 전용 진단 재료 — 렌더 분기 없음(부재 = 종전).
 - **방출 범위 (quick-260906-vho):** `userMarked` 는 criterion 유무·tier 와 무관하게 모든 카드에 방출 — 학생 측 원 마커는 criterion 과 무관하게 그려지므로(게이트 B 는 기준 측 정책) 값이 사실이다. n2j 앵커 게이트가 advisory 학생 표시를 생략할 수 있어 감사가 추정 대신 이 값을 읽는다. `refMarked` 는 §11.9 그대로 criterion 카드만. 앱 동작 불변 — 시트 한 줄은 record 기준 매칭 카드(`sheetPrimaryZoom`)에만 걸린다.
+- **개정 (belle 2026-09-18, quick-260919-o8v) — 억제는 원 마커만 지운다:** belle 결정 3줄 — ① 사진은 9/03 규칙대로 전부 내보낸다(어떤 게이트도 사진을 없앨 권한이 없다), ② 게이트가 부위를 확인 못 해 표시가 생략된 자리에는 **각도 표시를 놓는다**(9/06 원문 "사진 **대신** 각도"의 "대신"을 "**함께**"로 개정), ③ **"확인 안 됨" 류 문구·배지·아이콘은 신설하지 않는다**(우리 불확실성을 수강생에게 방송해 신뢰를 깎는다). 실행 범위는 코드가 좁힌다: `fault_zoom` 드로잉에서 각도와 원(·화살표)은 이미 **배타적**이라(`if u_drew_legs or u_drew_angle: _mark(circle=False)`) 각도를 그린 패널에는 지울 원이 애초에 없다. 따라서 규칙 2 의 실행 가능한 형태는 "억제할 때 각도까지 지우지 마라" 하나뿐이고, **없던 각도를 새로 만들지는 않는다** — `angle_reason` 이 `unmapped`/`*_crop_relaxed` 등인 카드는 각도를 **잴 수 없어서** 안 그린 것이라 종전대로 억제 시 `userMarked=false`. 라이브 발화량은 아직 모른다(억제 ∧ 각도-그림 교집합) — 서버 로그 `fault_zoom_marks_suppressed … kept_angle=` 이 그 증인이다.
 - 불변식(서버 로그): `card_gates 대체 부착 완료 … expected_units=N emitted=N` — expected = 상한 없는 criterion unit 수. 부족 시 WARNING.
 - 3-way lockstep: `analysis.ts FaultZoomComparison.userMarked?/holdState?/pairState?/eyeState?` ↔ `fault_zoom.py` 방출부(userMarked) + `pipeline _run_gated_card_inherit`(상태 3종) + `_fault_zoom_upload_items` 매퍼 ↔ 본 절.
 

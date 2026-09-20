@@ -207,7 +207,7 @@ def test_lookup_miss_returns_none(
     from sunity_shared.analysis.technique_cache import TechniqueCache
 
     cache = TechniqueCache(yaml_version="v1")
-    assert cache.lookup(video_file) is None
+    assert cache.lookup(video_file, motion_query="auto") is None
     assert len(fake_firestore.get_calls) == 1  # Firestore 1회 조회
 
 
@@ -225,11 +225,11 @@ def test_lookup_then_store(
         ],
         "joint_expectations": {"left_shoulder": "extend"},
     }
-    cache.store(video_file, payload)
+    cache.store(video_file, payload, motion_query="ref-foxtop")
 
     # 새 인스턴스 (in-memory 의존 X) — Firestore 만 의지
     cache2 = TechniqueCache(yaml_version="v1", model_name="gemini-3.1-pro")
-    hit = cache2.lookup(video_file)
+    hit = cache2.lookup(video_file, motion_query="ref-foxtop")
 
     assert hit is not None
     assert hit["motion"] == "ref-foxtop"
@@ -244,10 +244,10 @@ def test_yaml_version_mismatch_invalidates(
     from sunity_shared.analysis.technique_cache import TechniqueCache
 
     writer = TechniqueCache(yaml_version="v1", model_name="gemini-3.1-pro")
-    writer.store(video_file, {"motion": "ref-foxtop", "moments": []})
+    writer.store(video_file, {"motion": "ref-foxtop", "moments": []}, motion_query="ref-foxtop")
 
     reader = TechniqueCache(yaml_version="v2", model_name="gemini-3.1-pro")
-    assert reader.lookup(video_file) is None
+    assert reader.lookup(video_file, motion_query="ref-foxtop") is None
 
 
 def test_model_mismatch_invalidates(
@@ -258,10 +258,10 @@ def test_model_mismatch_invalidates(
     from sunity_shared.gemini.config import DEFAULT_C_MODEL
 
     writer = TechniqueCache(yaml_version="v1", model_name="gemini-3.1-pro")
-    writer.store(video_file, {"motion": "ref-foxtop", "moments": []})
+    writer.store(video_file, {"motion": "ref-foxtop", "moments": []}, motion_query="ref-foxtop")
 
     reader = TechniqueCache(yaml_version="v1", model_name=DEFAULT_C_MODEL)
-    assert reader.lookup(video_file) is None
+    assert reader.lookup(video_file, motion_query="ref-foxtop") is None
 
 
 def test_in_memory_hit_skips_firestore(
@@ -271,10 +271,10 @@ def test_in_memory_hit_skips_firestore(
     from sunity_shared.analysis.technique_cache import TechniqueCache
 
     cache = TechniqueCache(yaml_version="v1")
-    cache.store(video_file, {"motion": "ref-foxtop", "moments": []})
+    cache.store(video_file, {"motion": "ref-foxtop", "moments": []}, motion_query="ref-foxtop")
     fake_firestore.get_calls.clear()  # store 시 호출 0 → 안전, 추적 reset
 
-    hit = cache.lookup(video_file)
+    hit = cache.lookup(video_file, motion_query="ref-foxtop")
     assert hit is not None
     assert len(fake_firestore.get_calls) == 0  # Firestore 미호출 박제
 
@@ -290,21 +290,24 @@ def test_in_memory_miss_firestore_hit_updates_memory(
 
     # Firestore 만 미리 박제
     video_hash = compute_video_hash(video_file)
-    fake_firestore.store[video_hash] = {
+    # 2026-09-20: Firestore doc id = {hash}__{질의}. 같은 영상의 mode1/mode3 산출이
+    # 서로 덮어쓰지 않고 공존해야 둘 다 캐시가 먹는다.
+    fake_firestore.store[f"{video_hash}__ref-foxtop"] = {
         "motion": "ref-foxtop",
         "moments": [],
         "yaml_version": "v1",
         "model": "gemini-3.1-pro",
+        "motion_query": "ref-foxtop",
         "video_hash": video_hash,
     }
 
     cache = TechniqueCache(yaml_version="v1", model_name="gemini-3.1-pro")
-    hit1 = cache.lookup(video_file)
+    hit1 = cache.lookup(video_file, motion_query="ref-foxtop")
     assert hit1 is not None
     assert len(fake_firestore.get_calls) == 1
 
     # 두 번째 lookup — in-memory hit 박제
-    hit2 = cache.lookup(video_file)
+    hit2 = cache.lookup(video_file, motion_query="ref-foxtop")
     assert hit2 is not None
     assert len(fake_firestore.get_calls) == 1  # 추가 호출 0
 
@@ -319,16 +322,129 @@ def test_store_includes_yaml_version_and_model(
     )
 
     cache = TechniqueCache(yaml_version="abc", model_name="gemini-3.1-pro")
-    cache.store(video_file, {"motion": "ref-foxtop", "moments": []})
+    cache.store(video_file, {"motion": "ref-foxtop", "moments": []}, motion_query="ref-foxtop")
 
     assert len(fake_firestore.set_calls) == 1
-    stored_hash, stored_doc = fake_firestore.set_calls[0]
+    stored_id, stored_doc = fake_firestore.set_calls[0]
     expected_hash = compute_video_hash(video_file)
-    assert stored_hash == expected_hash
+    # 2026-09-20: document **id** 는 해시+질의다(질의별 doc 공존).
+    assert stored_id == f"{expected_hash}__ref-foxtop"
+    # 그러나 doc 안의 video_hash **필드**는 순수 해시 그대로여야 한다 —
+    # 이 필드로 영상을 되찾는 소비처가 있다(id 와 필드를 섞으면 안 된다).
+    assert stored_doc["video_hash"] == expected_hash
     assert stored_doc["yaml_version"] == "abc"
     assert stored_doc["model"] == "gemini-3.1-pro"
-    assert stored_doc["video_hash"] == expected_hash
+    assert stored_doc["motion_query"] == "ref-foxtop"
     assert stored_doc["motion"] == "ref-foxtop"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2026-09-20 — 캐시 키에 동작 질의가 없어서 생긴 결함의 회귀
+#
+# Gemini 산출은 (video, motion_query) 의 함수다 — 질의가 프롬프트에 들어가고 거기서
+# profile 이 나온다. 그런데 키는 영상만 잡고 있었다. 그래서 같은 영상을 mode1 으로 먼저
+# 분석하면 그 판정이 박히고, 이후 같은 영상의 mode3 분석이 그걸 물려받았다
+# (실행 확인: 같은 mode3 분석이 종합 100 점도 0 점도 됐다).
+# Firestore layer 는 gemini_cache/{hash} top-level 전역 공유라 Pod 재기동을 넘어 살고
+# 사용자를 넘었다. 라이브 지문도 있었다 — mode3 는 자력으로 동작을 인식할 수 없는데
+# recognizedMotionId 를 가진 mode3 doc 이 표본 40건 중 1건 실재했다.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_different_motion_query_is_a_cache_miss(
+    fake_firestore: _FakeFirestoreAdmin, video_file: Path
+) -> None:
+    """같은 영상이라도 **질의가 다르면 히트가 아니다** — 이 결함의 핵심 회귀.
+
+    mode1(ref-power-spin)이 박은 답을 mode3(auto)가 물려받으면 안 된다.
+    """
+    from sunity_shared.analysis.technique_cache import TechniqueCache
+
+    cache = TechniqueCache(yaml_version="v1", model_name="m")
+    cache.store(
+        video_file,
+        {"motion": "ref-power-spin", "moments": [],
+         "joint_expectations": {"left_knee": "extend"}},
+        motion_query="ref-power-spin",
+    )
+
+    # 같은 영상, 같은 인스턴스, 다른 질의 → miss 여야 한다.
+    assert cache.lookup(video_file, motion_query="auto") is None, (
+        "mode3(auto) 분석이 mode1(ref-power-spin) 의 판정을 물려받았다 — "
+        "같은 영상의 같은 분석이 이력에 따라 다른 점수를 낸다."
+    )
+    # 자기 질의로는 여전히 히트.
+    own = cache.lookup(video_file, motion_query="ref-power-spin")
+    assert own is not None and own["motion"] == "ref-power-spin"
+
+
+def test_two_queries_coexist_instead_of_overwriting(
+    fake_firestore: _FakeFirestoreAdmin, video_file: Path
+) -> None:
+    """같은 영상의 두 질의 산출이 **서로 덮어쓰지 않고 공존**한다.
+
+    한 칸에 겹쳐 쓰면 두 모드가 번갈아 분석될 때마다 서로를 무효화해 매번
+    Gemini 를 다시 부른다. document id 에 질의를 넣어 공존시킨다.
+    """
+    from sunity_shared.analysis.technique_cache import TechniqueCache
+
+    cache = TechniqueCache(yaml_version="v1", model_name="m")
+    cache.store(video_file, {"motion": "ref-power-spin", "moments": []},
+                motion_query="ref-power-spin")
+    cache.store(video_file, {"motion": "auto", "moments": []},
+                motion_query="auto")
+
+    assert len(fake_firestore.set_calls) == 2
+    ids = {call[0] for call in fake_firestore.set_calls}
+    assert len(ids) == 2, f"두 질의가 같은 doc 에 겹쳐 쓰였다: {ids}"
+
+    fresh = TechniqueCache(yaml_version="v1", model_name="m")
+    a = fresh.lookup(video_file, motion_query="ref-power-spin")
+    b = fresh.lookup(video_file, motion_query="auto")
+    assert a is not None and a["motion"] == "ref-power-spin"
+    assert b is not None and b["motion"] == "auto"
+
+
+def test_legacy_doc_without_motion_query_is_invalidated(
+    fake_firestore: _FakeFirestoreAdmin, video_file: Path
+) -> None:
+    """2026-09-20 이전 doc 은 재사용하지 않는다 — 어떤 질의로 만든 건지 알 수 없다.
+
+    옛 doc 은 id 가 해시 단독이라 새 id 로는 조회되지 않고, 설령 조회돼도
+    motion_query 필드가 없어 mismatch 로 무효화된다(이중 방어).
+    """
+    from sunity_shared.analysis.technique_cache import (
+        TechniqueCache,
+        compute_video_hash,
+    )
+
+    video_hash = compute_video_hash(video_file)
+    legacy = {
+        "motion": "ref-power-spin", "moments": [],
+        "yaml_version": "v1", "model": "m", "video_hash": video_hash,
+    }
+    # 옛 레이아웃(해시 단독 id) + 새 레이아웃(해시+질의) 양쪽에 심어 이중 방어를 태운다.
+    fake_firestore.store[video_hash] = dict(legacy)
+    fake_firestore.store[f"{video_hash}__auto"] = dict(legacy)
+
+    cache = TechniqueCache(yaml_version="v1", model_name="m")
+    assert cache.lookup(video_file, motion_query="auto") is None, (
+        "motion_query 필드가 없는 옛 doc 을 재사용했다 — 어떤 질의로 만든 "
+        "판정인지 알 수 없으므로 무효화해야 한다."
+    )
+
+
+def test_memory_key_and_doc_id_both_carry_the_query(
+    video_file: Path,
+) -> None:
+    """키 구성 자체를 박제 — 질의가 빠지면 이 테스트가 깨진다."""
+    from sunity_shared.analysis.technique_cache import TechniqueCache
+
+    cache = TechniqueCache(yaml_version="v1", model_name="m")
+    assert cache._mem_key("H", "auto") != cache._mem_key("H", "ref-power-spin")
+    assert cache._doc_id("H", "auto") != cache._doc_id("H", "ref-power-spin")
+    # document id 안전화 — '/' 는 Firestore path 구분자다.
+    assert "/" not in cache._doc_id("H", "a/b")
 
 
 def test_store_rejects_nested_array_in_moments_value(
@@ -348,7 +464,7 @@ def test_store_rejects_nested_array_in_moments_value(
         ],
     }
     with pytest.raises(TypeError, match="firestore"):
-        cache.store(video_file, bad_payload)
+        cache.store(video_file, bad_payload, motion_query="ref-foxtop")
     # store 도 호출되지 않아야 함
     assert len(fake_firestore.set_calls) == 0
 
@@ -365,7 +481,7 @@ def test_store_rejects_non_dict_moment_entry(
         "moments": [["hold", 5.5]],  # entry 가 list → 거부
     }
     with pytest.raises(TypeError, match="flat dict"):
-        cache.store(video_file, bad_payload)
+        cache.store(video_file, bad_payload, motion_query="ref-foxtop")
 
 
 def test_lookup_skips_when_video_missing(
@@ -375,7 +491,7 @@ def test_lookup_skips_when_video_missing(
     from sunity_shared.analysis.technique_cache import TechniqueCache
 
     cache = TechniqueCache(yaml_version="v1")
-    result = cache.lookup(tmp_path / "no_such_video.mp4")
+    result = cache.lookup(tmp_path / "no_such_video.mp4", motion_query="auto")
     assert result is None
     assert len(fake_firestore.get_calls) == 0  # Firestore 미호출
 
@@ -387,7 +503,10 @@ def test_store_skips_when_video_missing(
     from sunity_shared.analysis.technique_cache import TechniqueCache
 
     cache = TechniqueCache(yaml_version="v1")
-    cache.store(tmp_path / "no_such.mp4", {"motion": "ref-foxtop", "moments": []})
+    cache.store(
+        tmp_path / "no_such.mp4", {"motion": "ref-foxtop", "moments": []},
+        motion_query="ref-foxtop",
+    )
     assert len(fake_firestore.set_calls) == 0
 
 

@@ -816,10 +816,15 @@ def test_recognizer_line_dim_determinism():
     }
 
     class _FakeCache:
-        def lookup(self, video_path):
+        # 2026-09-20: 캐시 키에 motion_query 가 들어갔다 — 같은 영상이라도 질의가 다르면
+        # 다른 답이므로 캐시도 질의별이다. 스텁도 그 계약을 따른다.
+        def lookup(self, video_path, *, motion_query):
+            assert motion_query == "auto", (
+                f"기준 동작 미지정 분석의 질의는 'auto' 여야 한다: {motion_query!r}"
+            )
             return dict(cached_payload)
 
-        def store(self, video_path, gemini_result):  # pragma: no cover - cache hit 경로만
+        def store(self, video_path, gemini_result, *, motion_query):  # pragma: no cover
             raise AssertionError("cache hit 이므로 store 호출되면 안 됨")
 
     class _FakeExtractor:

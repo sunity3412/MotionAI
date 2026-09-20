@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -200,14 +201,31 @@ class TechniqueCache:
     in-memory layer = Pod 단일 분석 내 중복 호출 흡수 (인스턴스 휘발).
     Firestore layer = Pod 재기동 / belle 시연 / sweep 재실행 영구 캡싱 (전역 공유).
 
-    Cache key tuple = (video_hash, model_name, yaml_version).
+    Cache key tuple = (video_hash, motion_query, model_name, yaml_version).
       · video_hash: SHA256 (D-14 박제 영상 정합)
+      · motion_query: Gemini 에 **실제로 던진 질의** (2026-09-20 신설 — 아래 ★)
       · model_name: 실호출 모델 식별자 (default = _active_model_name(), config 승계)
       · yaml_version: Plan 5-00 yaml 5개 SHA256 (Open Question 4 박제 invalidation)
 
-    호출 path (Plan 5-01 어댑터):
-      cache.lookup(video_path) → hit dict 또는 None
-      cache.store(video_path, gemini_result) → in-memory + Firestore 박제
+    ★ motion_query 가 키에 들어간 이유 (2026-09-20, 실행으로 확인한 결함):
+      Gemini 산출은 `(video, motion_query)` 의 함수다 — 질의가 프롬프트에 들어가고
+      거기서 profile 이 나온다. 그런데 키는 영상만 잡고 있었다. 결과:
+
+        같은 영상을 mode3 로 먼저 →  unregistered · dims={stability}        · 종합 100
+        같은 영상을 mode1 먼저→mode3 →  recognized  · dims={line, stability} · 종합 0
+
+      **같은 영상의 같은 mode3 분석이 이력에 따라 100 점도 0 점도 된다.** 코드도 영상도
+      그대로다. 게다가 Firestore layer 는 `gemini_cache/{hash}` top-level 전역 공유라
+      (firestore_admin.py:2652) Pod 재기동을 넘어 살고 **사용자를 넘는다**.
+      라이브 지문도 있었다 — mode3 는 자력으로 동작을 인식할 수 없는데(질의가 "auto")
+      `recognizedMotionId` 를 가진 mode3 doc 이 표본 40건 중 1건 실재했다.
+
+      → 캐시는 자기 입력으로 키를 잡아야 한다. 커브핏이 아니다(임계값·분포 무접촉).
+
+    호출 path (Plan 5-01 어댑터) — motion_query 는 **키워드 필수**다. 기본값을 주면
+    호출자가 질의를 안 밝히고도 컴파일돼 같은 결함이 조용히 돌아온다:
+      cache.lookup(video_path, motion_query=...) → hit dict 또는 None
+      cache.store(video_path, gemini_result, motion_query=...) → in-memory + Firestore 박제
 
     의존 박제:
       sunity_shared.firestore_admin.get_gemini_cache / store_gemini_cache
@@ -226,8 +244,12 @@ class TechniqueCache:
 
     # ── lookup ──────────────────────────────────────────────
 
-    def lookup(self, video_path: str | Path) -> dict | None:
-        """video_path → hash → cache lookup (in-memory → Firestore).
+    def lookup(self, video_path: str | Path, *, motion_query: str) -> dict | None:
+        """video_path + motion_query → cache lookup (in-memory → Firestore).
+
+        Args:
+          motion_query: 이 분석이 Gemini 에 던지는 질의("auto" 또는 motion id).
+            키워드 **필수** — 클래스 docstring ★ 참조.
 
         반환 dict schema (D-14 + Open Question 4 박제):
           {
@@ -237,11 +259,13 @@ class TechniqueCache:
             "joint_expectations": {"left_shoulder": "extend", ...},
             "model": "<실호출 모델 — config 승계>",
             "yaml_version": "abc123...",
+            "motion_query": "auto",      # 2026-09-20 신설
             "video_hash": "...",
           }
 
         Returns:
-          dict (hit) 또는 None (miss / 영상 없음 / Firestore 오류 / yaml/model mismatch).
+          dict (hit) 또는 None (miss / 영상 없음 / Firestore 오류 /
+          yaml·model·motion_query mismatch).
         """
         # 영상 없음 graceful (분석 흐름 박제 보호)
         try:
@@ -250,7 +274,7 @@ class TechniqueCache:
             log.warning("video path 없음 — cache lookup skip: %s", video_path)
             return None
 
-        mem_key = self._mem_key(video_hash)
+        mem_key = self._mem_key(video_hash, motion_query)
 
         # Step 1: in-memory hit (Pod 안 중복 흡수)
         if mem_key in self._memory:
@@ -261,7 +285,9 @@ class TechniqueCache:
         try:
             from sunity_shared import firestore_admin
 
-            doc = firestore_admin.get_gemini_cache(video_hash)
+            doc = firestore_admin.get_gemini_cache(
+                self._doc_id(video_hash, motion_query)
+            )
         except Exception as exc:  # noqa: BLE001 — Firestore 오류 graceful skip
             log.warning("Firestore gemini_cache lookup 실패: %s", exc)
             return None
@@ -284,6 +310,16 @@ class TechniqueCache:
                 self.model_name,
             )
             return None
+        # 2026-09-20 — 질의 정합. 2026-09-20 이전 doc 에는 이 필드가 없어 None 이 되고,
+        # 그러면 무조건 mismatch → 무효화된다. **의도한 동작이다**: 그 doc 들은 어떤
+        # 질의로 만들어졌는지 알 수 없으므로 재사용하면 안 된다(다음 분석 때 1회 재산출).
+        if doc.get("motion_query") != motion_query:
+            log.info(
+                "cache motion_query mismatch — invalidate: %r vs %r",
+                doc.get("motion_query"),
+                motion_query,
+            )
+            return None
 
         # in-memory 갱신 (다음 lookup Firestore 미호출 박제)
         self._memory[mem_key] = dict(doc)
@@ -292,10 +328,13 @@ class TechniqueCache:
 
     # ── store ───────────────────────────────────────────────
 
-    def store(self, video_path: str | Path, gemini_result: dict) -> None:
-        """video_path → hash → in-memory + Firestore 박제.
+    def store(
+        self, video_path: str | Path, gemini_result: dict, *, motion_query: str
+    ) -> None:
+        """video_path + motion_query → in-memory + Firestore 박제.
 
-        gemini_result 박제 시 yaml_version / model_name / video_hash 자동 추가.
+        gemini_result 박제 시 yaml_version / model_name / motion_query / video_hash
+        자동 추가. motion_query 는 키워드 **필수** — 클래스 docstring ★ 참조.
         [[firestore-nested-array-flat]] 정합 검증 — nested list/tuple → TypeError.
 
         Raises:
@@ -315,16 +354,23 @@ class TechniqueCache:
         doc = dict(gemini_result)
         doc["yaml_version"] = self.yaml_version
         doc["model"] = self.model_name
+        doc["motion_query"] = motion_query
         doc["video_hash"] = video_hash
 
         # in-memory 박제 (Pod 안 중복 흡수)
-        self._memory[self._mem_key(video_hash)] = dict(doc)
+        self._memory[self._mem_key(video_hash, motion_query)] = dict(doc)
 
         # Firestore 박제 (lazy import — D-16). 실패 시 in-memory 만 유효.
+        # doc id 에 질의를 넣는다 — 같은 영상의 mode1/mode3 산출이 서로 **덮어쓰지 않고**
+        # 공존해야 둘 다 캐시가 먹는다(질의별 doc). 선례 = gemini_vision_scorer._scoped.
+        # 2026-09-20 이전 doc(id = 해시 단독)은 이제 읽히지 않는다 — 어떤 질의로 만들어진
+        # 건지 알 수 없으므로 재사용하면 안 되는 것들이다.
         try:
             from sunity_shared import firestore_admin
 
-            firestore_admin.store_gemini_cache(video_hash, doc)
+            firestore_admin.store_gemini_cache(
+                self._doc_id(video_hash, motion_query), doc
+            )
         except Exception as exc:  # noqa: BLE001 — Firestore 오류 graceful
             log.warning(
                 "Firestore gemini_cache store 실패 (in-memory 만 유효): %s", exc
@@ -332,6 +378,19 @@ class TechniqueCache:
 
     # ── helpers ─────────────────────────────────────────────
 
-    def _mem_key(self, video_hash: str) -> str:
-        """in-memory cache key = (hash, model, yaml_version) tuple 직렬화."""
-        return f"{video_hash}:{self.model_name}:{self.yaml_version}"
+    def _mem_key(self, video_hash: str, motion_query: str) -> str:
+        """in-memory cache key = (hash, motion_query, model, yaml_version) 직렬화."""
+        return (
+            f"{video_hash}:{motion_query}:{self.model_name}:{self.yaml_version}"
+        )
+
+    @staticmethod
+    def _doc_id(video_hash: str, motion_query: str) -> str:
+        """Firestore document id — 영상 해시 + 질의.
+
+        질의가 다르면 다른 doc 이다. 같은 영상을 mode1/mode3 로 분석하면 서로 다른
+        질문에 대한 서로 다른 답이므로 한 칸에 겹쳐 쓰면 안 된다(2026-09-20).
+        '/' 는 document path 구분자라 치환 — 선례 = gemini_vision_scorer._scoped.
+        """
+        safe = re.sub(r"[^A-Za-z0-9_.\-]", "_", motion_query or "auto")[:200]
+        return f"{video_hash}__{safe}"

@@ -507,7 +507,10 @@ class TestCacheShortCircuit:
         profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
         assert profile.category == "recognized"
         assert ext.call_count == 0, "cache hit 시 extractor 호출 0"
-        cache.lookup.assert_called_once_with("/tmp/fake.mp4")
+        # 2026-09-20: 캐시는 질의별이다 — 같은 영상이라도 다른 질의면 다른 답이다.
+        cache.lookup.assert_called_once_with(
+            "/tmp/fake.mp4", motion_query="auto"
+        )
 
     def test_cache_miss_calls_extractor_and_stores(self) -> None:
         ext = _StubExtractor(

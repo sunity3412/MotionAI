@@ -234,10 +234,15 @@ class GeminiTechniqueRecognizer:
           TechniqueProfile — category ∈ {"recognized", "api_failure", "low_confidence",
           "unregistered"}. dimensions.py 가 joint_expectations 만 소비 (D-08).
         """
-        # Step 1: cache hit (Plan 5-02 wiring 전 = 항상 miss).
+        # 이 분석이 Gemini 에 던질 질의. 캐시 키와 프롬프트가 **같은 값**을 써야 한다 —
+        # 2026-09-20 이전에는 캐시가 영상만 키로 잡아서, 같은 영상을 다른 질의로 분석하면
+        # 앞 질의의 답을 물려받았다(같은 mode3 분석이 이력에 따라 100 점도 0 점도 됐다).
+        motion_query = motion_hint or "auto"
+
+        # Step 1: cache hit (질의별 — 다른 질의의 답은 히트가 아니다).
         if self.cache is not None and frames is not None:
             try:
-                cached = self.cache.lookup(frames)
+                cached = self.cache.lookup(frames, motion_query=motion_query)
                 if cached is not None:
                     log.info("GeminiTechniqueRecognizer cache hit")
                     return self._profile_from_cache(cached)
@@ -264,7 +269,7 @@ class GeminiTechniqueRecognizer:
         try:
             response_text, moments, raw_motion_name = self._call_extractor(
                 frames,
-                motion_query=motion_hint or "auto",
+                motion_query=motion_query,
                 preuploaded_handle=preuploaded_handle,
             )
         except (RuntimeError, ValueError) as exc:
@@ -348,6 +353,7 @@ class GeminiTechniqueRecognizer:
                             self.extractor, "model_name", _active_model_name()
                         ),
                     },
+                    motion_query=motion_query,
                 )
             except Exception as exc:  # noqa: BLE001 - cache 실패는 분석 흐름 차단 X
                 log.warning("cache.store 실패 (분석 결과 반환): %s", exc)

@@ -59,8 +59,10 @@ export function weekStartOf(millis: number): number {
 
 // (HIGH-1) 성장 지표에 쓸 수 있는 분석인지 단일 판별 predicate — 아래 세 selector 의
 // 유일한 집계 자격 관문. 결과화면에서 숨긴 점수(mode3 scoreSuppressed)를 홈 성장
-// 지표(평균·델타·기본모드)에도 되살리지 않는다 — result.tsx:657 isScoreSuppressed
-// 과 동일 기준(신뢰 계약). 조건 = done AND 모드 일치 AND overallScore 유한수치 AND
+// 지표(평균·델타·기본모드)에도 되살리지 않는다 — result.tsx 의 isScoreSuppressed
+// 와 동일 기준(신뢰 계약, belle D-08). ★그 게이트는 2026-09-09 재디자인에서 한 번
+// 사라졌다가 quick-260920 에 되살아났다 — 줄 번호로 가리키지 않는다(또 어긋난다).
+// 조건 = done AND 모드 일치 AND overallScore 유한수치 AND
 // scoreSuppressed !== true.
 export function hasUsableGrowthScore(
   doc: AnalysisDoc,
@@ -70,7 +72,7 @@ export function hasUsableGrowthScore(
   if (doc.mode !== mode) return false;
   const result = doc.result;
   if (!result) return false;
-  // result.tsx:657 과 동일 — mode3 결과화면이 점수카드를 숨긴 분석은 홈 지표에서도 제외.
+  // result.tsx 의 isScoreSuppressed 와 동일 — 결과화면이 숨긴 점수는 홈 지표에도 안 되살린다.
   if (result.scoreSuppressed === true) return false;
   const score = result.overallScore;
   return typeof score === 'number' && Number.isFinite(score);

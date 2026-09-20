@@ -67,12 +67,20 @@ export interface ResultScoreDialProps {
   /** 숫자 아래 한 줄. 시안은 'Today'. */
   label: string;
   accessibilityLabel?: string;
+  /** belle D-08 — 기준 미보유/저신뢰. 숫자도 진행 호도 그리지 않고 안내문만 남긴다.
+   *  원반 기하(지름·그림자·헤더 곡선을 덮는 위치)는 그대로 쓴다 — 치수를 복제하면
+   *  다음 시안 갱신에서 어긋나고, 빈 자리가 곡선 경계에 걸쳐 고장처럼 보인다. */
+  suppressed?: boolean;
+  /** suppressed 일 때 원반 안에 들어갈 안내문. */
+  suppressedCopy?: string;
 }
 
 export function ResultScoreDial({
   score,
   label,
   accessibilityLabel,
+  suppressed = false,
+  suppressedCopy,
 }: ResultScoreDialProps) {
   const { width } = useWindowDimensions();
   const s = width / DESIGN_W;
@@ -101,6 +109,18 @@ export function ResultScoreDial({
       accessibilityRole="image"
       accessibilityLabel={accessibilityLabel ?? `${Math.round(score)}점 ${label}`}
     >
+      {suppressed ? (
+        /* D-08 — 호도 숫자도 없다. 숫자만 지우면 호 길이가 점수를 그대로 그린다. */
+        <View style={[styles.suppressed, { paddingHorizontal: size * 0.12 }]}>
+          <Text style={styles.suppressedTitle}>기준 없음</Text>
+          {suppressedCopy ? (
+            <Text style={styles.suppressedBody} lineBreakStrategyIOS="hangul-word">
+              {suppressedCopy}
+            </Text>
+          ) : null}
+        </View>
+      ) : (
+        <>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Circle
           cx={c}
@@ -146,11 +166,31 @@ export function ResultScoreDial({
       >
         {label}
       </Text>
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // D-08 억제 상태 — 원반 안을 채운다. 배경은 원반 그대로(흰 cardBg)라 헤더 곡선을
+  // 덮는 시안 구조가 유지되고, 색은 요약 카드의 주의 박스 토큰을 그대로 쓴다.
+  suppressed: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suppressedTitle: {
+    ...typography.resultWarnTitle,
+    color: colors.resultWarnTitle,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  suppressedBody: {
+    ...typography.resultSub,
+    color: colors.resultWarnBody,
+    textAlign: 'center',
+  },
   wrap: {
     backgroundColor: colors.cardBg,
     alignItems: 'center',

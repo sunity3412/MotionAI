@@ -55,9 +55,11 @@ export interface ResultPointRow {
 }
 
 export interface ResultPointsCardProps {
-  baselineText: string;
+  /** null 이면 기준선 밴드를 그리지 않는다 — belle D-08 억제 상태 (result.tsx). */
+  baselineText: string | null;
   rows: readonly ResultPointRow[];
-  totalText: string;
+  /** null 이면 종합 밴드를 그리지 않는다 — belle D-08 억제 상태 (result.tsx). */
+  totalText: string | null;
   /** 펼쳐진 행의 recordId. null = 전부 접힘. */
   expandedId: string | null;
   onToggle: (recordId: string) => void;
@@ -79,10 +81,14 @@ export function ResultPointsCard({
 }: ResultPointsCardProps) {
   return (
     <View style={styles.card}>
-      <View style={styles.band}>
-        <Text style={styles.bandLabel}>기준 점수</Text>
-        <Text style={styles.bandValue}>{baselineText}</Text>
-      </View>
+      {/* D-08 — 기준선 100 · 감점 행 · 종합 N점 이 한 카드 안에서 뺄셈 항등식을
+          이룬다. 억제 상태에서 하나만 가리면 나머지로 복원되므로 양 끝을 함께 비운다. */}
+      {baselineText != null ? (
+        <View style={styles.band}>
+          <Text style={styles.bandLabel}>기준 점수</Text>
+          <Text style={styles.bandValue}>{baselineText}</Text>
+        </View>
+      ) : null}
 
       {rows.map((r, i) => {
         const open = r.recordId != null && r.recordId === expandedId;
@@ -155,10 +161,12 @@ export function ResultPointsCard({
         );
       })}
 
-      <View style={[styles.band, styles.bandBottom]}>
-        <Text style={styles.bandLabel}>종합</Text>
-        <Text style={styles.totalValue}>{totalText}</Text>
-      </View>
+      {totalText != null ? (
+        <View style={[styles.band, styles.bandBottom]}>
+          <Text style={styles.bandLabel}>종합</Text>
+          <Text style={styles.totalValue}>{totalText}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }

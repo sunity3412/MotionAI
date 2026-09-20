@@ -85,7 +85,9 @@ export interface ResultSummaryCardProps {
   /** 칩으로 못 보여준 나머지. 0 이면 '+N' 칩을 그리지 않는다. */
   overflow: number;
   /** 헤드라인 아래 한 줄. */
-  subline: string;
+  /** null 이면 서브라인을 그리지 않는다 — belle D-08 억제 상태에서는 '90점 이상'
+   *  같은 **척도 단언**을 하지 않는다(점수를 가려도 척도의 존재를 주장하게 된다). */
+  subline: string | null;
   /** 노란 경고 박스. 없으면 렌더하지 않는다 — 없는 경고를 지어내지 않는다. */
   warning?: ResultSummaryWarning | null;
   /** CTA. 미전달 시 버튼을 그리지 않는다. */
@@ -110,9 +112,11 @@ export function ResultSummaryCard({
         <Text style={styles.headline}>
           분석에서 <Text style={styles.headlineNum}>{total}개</Text> 교정할 점이 보여요
         </Text>
-        <Text style={styles.sub} lineBreakStrategyIOS="hangul-word">
-          {subline}
-        </Text>
+        {subline != null ? (
+          <Text style={styles.sub} lineBreakStrategyIOS="hangul-word">
+            {subline}
+          </Text>
+        ) : null}
 
         <View style={styles.chips}>
           {chips.map((c, i) => {

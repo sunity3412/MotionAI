@@ -482,6 +482,28 @@ function AnalysisResultContent({
     [createdAt],
   );
 
+  // ── belle D-08 (20-CONTEXT.md:35) — 기준 미보유/저신뢰 시 confident 숫자 억제 ──
+  // 원문: "미보유(분기 3) 표시 = confident 점수 억제 + '기준 없음'. … confident 97 금지".
+  // 백엔드가 `result.scoreSuppressed` + `scoreSuppressedReason` 으로 이미 판정해 보낸다
+  // (pipeline/app.py::_score_suppression_reason). 여기서는 **그 플래그만** 믿는다 —
+  // scoringBasis 로 추론하지 않는다(그건 source 라벨이고 suppression 은 표시/신뢰 정책이다).
+  //
+  // 2026-09-09 재디자인(aadf0375)이 옛 점수카드를 걷어내면서 이 게이트가 같이 사라졌고,
+  // 그 뒤 라이브 mode3 7건이 59~98 점을 띄우고 있었다(중앙 97 — D-08 이 이름으로 금지한 값).
+  // 되살리되 옛 카드를 되돌리지는 않는다(belle 09-09 "시안을 지켜줘야해").
+  const isScoreSuppressed = result.scoreSuppressed === true;
+  // 카피는 reason 이 소유한다(reason-owns-copy). reason 부재 시 '기준 없음' 단정 금지 —
+  // 중립 카피로 떨어뜨려 오라벨을 피한다. 문구는 c09dd494 승인본 그대로
+  // (29-CONTEXT D-03 — "제공 불가" 통보가 아니라 다음 행동으로 전진시킨다).
+  const suppressedCopy =
+    result.scoreSuppressed === true &&
+    result.scoreSuppressedReason === 'recognition_low_confidence'
+      ? '동작 인식 신뢰도가 낮아 기준을 확정하지 못했어요. 같은 동작을 더 또렷하게 담아 새 영상으로 다시 올려보세요.'
+      : result.scoreSuppressed === true &&
+          result.scoreSuppressedReason === 'unheld'
+        ? '아직 이 동작의 기준 데이터가 없어요. 코치님(정은지) 영상과 비교하거나, 같은 동작을 새 영상으로 올려 이전 연습과 비교해보세요.'
+        : '아직 이 동작의 기준을 확정하지 못했어요. 코치님 영상과 비교하거나, 같은 동작을 새 영상으로 올려 이전 연습과 비교해보세요.';
+
 
   // mode1 메타 카드용 풀데이터. 시드 전이거나 로딩 중이면 motion=null →
   // 화면은 cmp.referenceMotionName / cmp.athleteName 으로 폴백 표시.
@@ -783,8 +805,13 @@ function AnalysisResultContent({
       (r) =>
         `- ${r.sec != null ? `${r.sec.toFixed(1)}s ` : ''}${r.label} ${r.pointsText}`,
     );
-    return [head, `종합 ${Math.round(result.overallScore)}점`, ...lines].join('\n');
-  }, [cmp, pointRows, result.overallScore]);
+    // D-08 — 억제 분석은 점수 줄을 빼고 내보낸다. 화면을 가려도 이 경로가 남으면
+    // '미보유인데 97점'이 강사 카톡에 **기록으로** 남는다(파급 최대).
+    const scoreLine = isScoreSuppressed
+      ? '종합 점수 없음 (기준 데이터 미보유)'
+      : `종합 ${Math.round(result.overallScore)}점`;
+    return [head, scoreLine, ...lines].join('\n');
+  }, [cmp, pointRows, result.overallScore, isScoreSuppressed]);
   // 헤더 우상단 공유 아이콘 배선 (260909-ji1 — 4탭 모두 빠져 있었다). 보완운동 탭의 공유와
   // 같은 문구를 보낸다. 문구가 없으면 undefined 를 넘겨 아이콘을 그리지 않는다(ResultHeaderBar 규약).
   const onShareResult = useMemo(
@@ -1660,12 +1687,18 @@ function AnalysisResultContent({
               <ResultScoreDial
                 score={result.overallScore}
                 label={dialLabel}
+                /* belle D-08 — 기준 미보유/저신뢰면 숫자도 진행 호도 그리지 않는다.
+                   원반 기하는 그대로 써서 헤더 곡선을 덮는 시안 구조가 유지된다. */
+                suppressed={isScoreSuppressed}
+                suppressedCopy={isScoreSuppressed ? suppressedCopy : undefined}
                 // 날짜가 화면에 생겼으므로 음성 안내에도 넣는다. 빈 문자열(결측)이면
                 // 점수만 읽는다 — 꼬리 쉼표를 남기지 않는다.
                 accessibilityLabel={
-                  dialLabel
-                    ? `종합 ${Math.round(result.overallScore)}점, ${dialLabel}`
-                    : `종합 ${Math.round(result.overallScore)}점`
+                  isScoreSuppressed
+                    ? `기준 없음. ${suppressedCopy}`
+                    : dialLabel
+                      ? `종합 ${Math.round(result.overallScore)}점, ${dialLabel}`
+                      : `종합 ${Math.round(result.overallScore)}점`
                 }
               />
             </View>
@@ -1675,11 +1708,19 @@ function AnalysisResultContent({
             {unjudgedNote ? (
               <Text style={styles.unjudgedNote}>{unjudgedNote}</Text>
             ) : null}
+            {/* D-08 — 억제 분석은 감점 record 가 0이라(실측 7/7) 이 카드가
+                "0개 교정할 점이 보여요" + "교정 포인트 0개 보기" 를 띄운다. 바로 위
+                "기준 없음" 과 반대되는 말이라 함께 내린다. 관찰이 있으면(감점 1개 이상)
+                그대로 보여준다 — 가리는 것은 확신 숫자지 관찰이 아니다. */}
+            {isScoreSuppressed && summaryChips.total === 0 ? null : (
             <ResultSummaryCard
               total={summaryChips.total}
               chips={summaryChips.chips}
               overflow={summaryChips.overflow}
-              subline={SUMMARY_SUBLINE}
+              /* 억제 상태에선 '90점 이상' 이라는 **척도 단언**을 하지 않는다 —
+                 점수를 가려도 이 문장이 남으면 비교 가능한 척도의 존재를 계속
+                 주장한다(옛 LevelBenchmark 의 현재 대응물). D-08. */
+              subline={isScoreSuppressed ? null : SUMMARY_SUBLINE}
               warning={summaryWarning}
               onSeePoints={() => setResultTab('points')}
               onChipPress={(recordId) => {
@@ -1687,6 +1728,7 @@ function AnalysisResultContent({
                 if (idx >= 0) setDetailRecordIndex(idx);
               }}
             />
+            )}
 
           </>
         )}
@@ -2080,9 +2122,12 @@ function AnalysisResultContent({
               값은 '점수 계산 내역'과 같다(기준 100 에서 감점을 빼 종합). 시안이 더한
               것은 행을 펼쳤을 때의 확대 짝 사진과 왜 감점인지 문장뿐이다. */}
           <ResultPointsCard
-            baselineText="100"
+            baselineText={isScoreSuppressed ? null : '100'}
             rows={pointRows}
-            totalText={`${Math.round(result.overallScore)}점`}
+            /* D-08 — 기준선 100 과 종합 N점 사이에 감점 행이 놓여 한 카드 안에서
+               100 - 합계 = 종합 항등식이 완성된다. 하나만 가리면 나머지로 복원되므로
+               억제 시 양 끝(기준선·종합)을 함께 비운다. */
+            totalText={isScoreSuppressed ? null : `${Math.round(result.overallScore)}점`}
             expandedId={expandedPointId}
             onToggle={(id) =>
               setExpandedPointId((cur) => (cur === id ? null : id))

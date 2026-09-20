@@ -258,6 +258,10 @@ function RecentAnalysisCard({
     comparison?.mode === 'mode1'
       ? comparison.referenceMotionName
       : recognizedName ?? '내 동작 분석';
+  // belle D-08 — 결과화면이 숨긴 점수를 이 카드가 되살리면 뒤로가기 한 번에 같은
+  // 숫자가 8각형 게이지로 다시 뜬다. 같은 파일의 헤더 평균(averageScore)은 이미
+  // 거르고 있었는데 이 카드만 안 걸렀다(한 화면이 같은 분석을 두 번 다르게 대접).
+  const scoreSuppressed = doc.result?.scoreSuppressed === true;
   const score = doc.result?.overallScore ?? 0;
   return (
     <Pressable
@@ -272,7 +276,11 @@ function RecentAnalysisCard({
         </Text>
         <Text style={styles.recentDate}>최근 분석 | {formatRelative(doc.createdAt)}</Text>
       </View>
-      <OctagonScore score={score} />
+      {scoreSuppressed ? (
+        <Text style={styles.recentNoScore}>기준 없음</Text>
+      ) : (
+        <OctagonScore score={score} />
+      )}
     </Pressable>
   );
 }
@@ -553,6 +561,14 @@ const styles = StyleSheet.create({
   recentSport: { ...typography.boxLabel, color: colors.brand },
   recentMotion: { ...typography.listTitle, color: colors.textPrimary },
   recentDate: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  // D-08 억제 시 8각형 게이지 자리 — 게이지와 같은 폭을 차지해 카드 레이아웃이
+  // 흔들리지 않게 한다. 새 색 0 (기존 보조 텍스트 토큰).
+  recentNoScore: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    width: 64,
+    textAlign: 'center',
+  },
   emptyCard: {
     flexDirection: 'row',
     alignItems: 'center',

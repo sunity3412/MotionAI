@@ -40,9 +40,13 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 // (CLAUDE.md §2 파일럿 요건 = 회원가입 강제 없음).
 
 function averageScore(analyses: AnalysisDoc[]): number | null {
+  // belle D-08 — 결과화면이 숨긴 점수를 평균에 되살리지 않는다. 홈(index.tsx)과
+  // growthSelectors.hasUsableGrowthScore 는 이미 거르는데 이 파일만 빠져 있었다.
+  // Number.isFinite 도 같이 건다 — NaN 이 평균을 통째로 NaN 으로 만든다.
   const scores = analyses
+    .filter((a) => a.result?.scoreSuppressed !== true)
     .map((a) => a.result?.overallScore)
-    .filter((s): s is number => typeof s === 'number');
+    .filter((s): s is number => typeof s === 'number' && Number.isFinite(s));
   if (scores.length === 0) return null;
   return Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length);
 }

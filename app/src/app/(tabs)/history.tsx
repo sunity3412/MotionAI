@@ -135,7 +135,15 @@ export default function History() {
                 {motionLabel(doc, referenceNameById)}
               </Text>
             </View>
-            <Text style={styles.rowScore}>{doc.result?.overallScore ?? 0}</Text>
+            {/* belle D-08 — 기준 미보유 분석은 목록에서도 숫자를 띄우지 않는다.
+                (덤: 종전 `?? 0` 은 필드 부재를 0점으로 단정했다 — 그것도 없앤다.) */}
+            {doc.result?.scoreSuppressed === true ? (
+              <Text style={styles.rowNoScore}>기준 없음</Text>
+            ) : typeof doc.result?.overallScore === 'number' ? (
+              <Text style={styles.rowScore}>{doc.result.overallScore}</Text>
+            ) : (
+              <Text style={styles.rowNoScore}>—</Text>
+            )}
             <Ionicons name="chevron-forward" size={20} color={colors.textDisabled} />
           </Pressable>
         ))}
@@ -180,6 +188,8 @@ const styles = StyleSheet.create({
   rowDate: { ...typography.caption, color: colors.textSecondary },
   rowMotion: { ...typography.listTitle, color: colors.textPrimary },
   rowScore: { ...typography.bodyBold, color: colors.brand, minWidth: 44, textAlign: 'right' },
+  // 점수 자리를 비울 때 — 행 높이·정렬이 흔들리지 않게 같은 minWidth 를 쓴다.
+  rowNoScore: { ...typography.caption, color: colors.textSecondary, minWidth: 44, textAlign: 'right' },
   placeholder: { ...typography.caption, color: colors.textSecondary, marginTop: 32, textAlign: 'center' },
   error: { ...typography.caption, color: colors.inputError, marginTop: 32, textAlign: 'center' },
   emptyWrap: {

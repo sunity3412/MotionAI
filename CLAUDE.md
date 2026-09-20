@@ -1,6 +1,6 @@
 # CLAUDE.md — Sunity AI Coach
 
-> 작업 시작 전 반드시 이 순서로 읽을 것: CLAUDE.md → design.md → 착수점(.planning/quick/260919-cls-day-closeout/260919-cls-HANDOFF.md)
+> 작업 시작 전 반드시 이 순서로 읽을 것: CLAUDE.md → design.md → 착수점(.planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md)
 
 ---
 
@@ -82,7 +82,7 @@ LLM       : Cerebras (빠른 추론)
 ML 파이프라인 작업   → /ml/ml_CLAUDE.md
 앱 (React Native)   → /app/CLAUDE.md
 백엔드 (Lambda)     → /backend/runpod_inference/README.md + /backend/template.yaml (전용 CLAUDE.md 없음)
-현재 할 일          → .planning/quick/260919-cls-day-closeout/260919-cls-HANDOFF.md  ← 착수점(유일). 매 세션 반드시 확인. plan.md 는 이력
+현재 할 일          → .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md  ← 착수점(유일). 매 세션 반드시 확인. plan.md 는 이력
 개발 원칙/에이전트   → CLAUDE.md §7 (docs/principles.md 는 없음)
 화면 스펙 (IA)      → /docs/ia.md      ← 특정 화면 작업 시 참조
 ```
@@ -102,7 +102,7 @@ ML 파이프라인 작업   → /ml/ml_CLAUDE.md
   2. 미완성 파일에 TODO 주석 삽입
 
 새 플랫폼 세션 시작:
-  CLAUDE.md → design.md → 착수점(.planning/quick/260919-cls-day-closeout/260919-cls-HANDOFF.md) 읽기 → "현재 상태 요약해줘" 확인
+  CLAUDE.md → design.md → 착수점(.planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md) 읽기 → "현재 상태 요약해줘" 확인
 ```
 
 **모델 선택**

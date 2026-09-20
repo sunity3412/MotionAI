@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-18 착수점 정리(quick-260918-k06) 완료 — 다음 첫 일 = belle 학원 실증 결과 듣기. 착수점 = .planning/quick/260918-day-closeout/HANDOFF.md"
-last_updated: "2026-09-18T05:37:23.000Z"
-last_activity: 2026-09-18
+stopped_at: "2026-09-20 동시 분석 오염 수리 완료(quick-260920-cac) — 분석별 값을 전역 싱글턴에서 분리. 다음 첫 일 = 분석 결함 ①(정렬 축) 또는 ③(얼어붙은 허용오차). 착수점 = .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md"
+last_updated: "2026-09-20T02:00:00.000Z"
+last_activity: 2026-09-20
 progress:
   total_phases: 38
   completed_phases: 25
@@ -26,6 +26,14 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 
 ## Current Position
+
+> **2026-09-20 정리 (quick-260920-cac):** 착수점은
+> `.planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md` 하나다.
+> 260919-cls 인계서는 이력이고 배너가 붙어 있다 — **그 문서의 수치·진단은 사실 오류 6건이
+> 정정됐으므로 인용 전에 260920-cac-SUMMARY.md §4 를 먼저 읽을 것.**
+> 게이트 실측 = 4958 passed / 20 skipped / 0 failed (backend/.venv 직접 실행).
+> 아래 페이즈 수치(38 페이즈, plan 118/108)는 2026-08-30 실측 그대로이며 이번에도 재지 않았다.
+
 
 > **2026-09-18 정리 (quick-260918-k06):** 착수점은 `.planning/quick/260918-day-closeout/HANDOFF.md` 하나다. 아래 페이즈 수치(38 페이즈, 완료 30/진행 4/미착수 4, plan 118/108)는 2026-08-30 실측 그대로이며 이번 정리에서 다시 재지 않았다.
 

@@ -314,3 +314,76 @@ belle 이 본 pdshape 80 점이 아니라 **Mode 3 화면 전체**다.
 - 어제 ③ 표의 `wobble 8.70/5.72` 와 `stability 72/91` 은 **같은 계산에서 나올 수 없다**
   (산식으로 8.70→85, 5.72→93). 72/91 을 내려면 wobble 이 12.16/6.51 이어야 한다.
   그 표를 만든 스크립트가 리포에 없다 — **인용 금지, 다시 재라.**
+
+
+---
+
+## 8. ★★★★ `[확인]` 캐시 키에 동작 질의가 없다 — 같은 영상이 이력에 따라 다르게 분석된다
+
+§7 의 `[미확인]` 두 번째를 닫았다. **실행했고, 라이브 지문도 찾았다.**
+
+### 실행 — 같은 영상, 같은 mode3 호출, 결과가 갈린다
+
+```
+A. 이 영상을 mode3 로 먼저 (신규 학생 영상)
+   mode3(hint=None)  category=unregistered  motion_id=None   dims={'stability':100}  종합=100
+
+B. 같은 영상을 mode1 으로 먼저 → 그 다음 mode3
+   mode1(hint=ref-power-spin)   recognized  ref-power-spin   dims={'line':0,'stability':100}  종합=0
+   mode3(hint=None) ← 같은 영상  recognized  ref-power-spin   dims={'line':0,'stability':100}  종합=0
+```
+
+**같은 영상의 같은 mode3 분석이 100 점이 되기도 0 점이 되기도 한다** — 그 영상이 전에
+mode1 으로 분석된 적 있느냐에 따라. 코드도 영상도 그대로다.
+
+### 원인 — 캐시가 잡지 않는 입력에 결과가 의존한다
+
+```
+캐시 키 = {video_hash}:{model}:{yaml_version}    (technique_cache.py:335, 실행 출력으로 확인)
+         ↑ motion 질의 없음 · mode 없음 · uid 없음
+```
+Gemini 호출 결과는 `(video, motion_query)` 에 의존한다 — `motion_query` 가 프롬프트에
+들어가고 거기서 profile 이 나온다. **키가 입력을 다 안 담는다.** 무효화 조건도
+`yaml_version`/`model` 둘뿐이라(`technique_cache.py:273,280`) 질의가 달라도 안 깨진다.
+
+### `[확인]` 이 캐시는 전역이고 재기동을 넘어 산다
+
+코드가 스스로 적는다 — `firestore_admin.py:2652`
+`_GEMINI_CACHE_COLLECTION = "gemini_cache"  # top-level, uid 비의존 전역 공유`,
+`:2646` `D-14 박제 — 영상 hash 캡싱 (gemini_cache/{hash} top-level 전역 공유)`.
+Firestore 히트 시 in-memory 를 다시 채운다(`technique_cache.py:289`).
+→ 프로세스 안 quirk 가 아니라 **Pod 재기동을 넘어 살아남고 사용자를 넘는다.**
+
+### `[확인]` 라이브에 지문이 있다 (읽기 40건)
+
+지문 = **mode3 분석인데 `recognizedMotionId` 가 있다**. mode3 는 자력으로 그 값을 만들 수
+없다(hint=None → "auto" → unregistered → motion_id=None, §7).
+
+```
+표본 40건 (collection_group analyses)  →  mode1 35 · mode3 5
+★ mode3 인데 recognizedMotionId 보유 = 1 / 5
+   예: 53a3601...  recognizedMotionId='ref-peter-pan'  dims=['stability']  overall=98
+```
+
+### `[미확인]` — 정직하게: 그 라이브 1건은 **점수가 안 바뀌었다**
+
+상속된 `ref-peter-pan` 은 criteria yaml 에 EXTEND 관절이 없어 line 이 여전히 안 생겼다
+(리포 전체에서 EXTEND 보유는 `ref-power-spin.yaml` 하나뿐). 즉 **기전은 실재하고 실행으로
+확인됐지만, 점수 구성이 실제로 뒤집힌 라이브 사례는 아직 못 찾았다.** 뒤집히려면 상속
+동작이 `ref-power-spin` 이어야 한다 — 표본 40건에는 없었다.
+
+단 motion_id 상속 자체는 점수 말고도 `_match_reference_by_motion_id`(기준 체형 조회) ·
+md 키 · 코칭 · 카드 criterion 에 닿는다 — 그 파급은 아직 안 쟀다.
+
+### `[확인]` 부수 관측 — 라이브 mode3 점수는 전부 높다
+
+표본에서 본 mode3 3건: **98 · 98 · 93**. §7 대로 떨림만 재면 나올 값이다.
+`dimensionScores` 키도 `['stability']` 또는 `['angle','stability']` — **line 없음**이
+라이브에서 확인된다.
+
+### 수리 방향 (미착수)
+
+**캐시 키에 동작 질의를 넣는다.** 커브핏이 아니다 — 임계값·분포를 안 건드리고, 캐시가
+잡지 않던 입력을 키에 넣을 뿐이다. 비용은 같은 영상을 두 모드로 분석할 때 Gemini 호출이
+1회 늘어나는 것인데 **다른 질문을 하고 있으니 맞는 동작**이다.
+기존에 박힌 doc 처리(무효화/방치)는 별도 판정.

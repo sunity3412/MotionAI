@@ -254,3 +254,63 @@ promotion 큐(pending → reviewing → approved)에 최다 tie 로 올라 있�
 
 **프로세스**: 이 작업은 GSD 커맨드(`/gsd-quick`)를 거치지 않고 직접 편집으로 진행했다.
 산출물(quick 디렉터리 · SUMMARY · STATE 갱신 · 원자 커밋)은 같은 모양으로 남긴다.
+
+
+---
+
+## 7. ★★★★ `[확인]` Mode 3 종합점수는 **자세를 안 본다 — 떨림만 본다**
+
+§4 에서 내가 `[미확인]` 으로 남긴 문장("mode3 종합 = stability 단독")을 닫았다.
+**추론이 아니라 실행했다.** 결론은 더 셌다.
+
+### 사슬 — 전부 `[확인]`, 각 칸을 실행하거나 코드로 읽었다
+
+```
+mode3 는 기준 동작이 없다        → motion_hint = None                 (app.py:7862, 실행)
+  → Gemini 질의 = "auto"                                              (recognizer.py:265, 실행)
+  → classify_motion_name("auto") = ("auto", "unregistered")           (실행)
+  → joint_expectations = {}                                           (실행)
+  → line 차원이 **생성되지 않는다**                                    (실행)
+  → md(measured_deviations) = {}                                      (실행)
+  → deduction tally 분기가 `and measured_deviations` 에서 걸러진다     (app.py:3272)
+  → overallScore = overall_from_dimensions({stability}) = stability 단독
+  → 앱 옥타곤에 그대로 표시                                            (result.tsx:1661)
+```
+
+같은 각도(전 관절 150°, 신전 30° 부족)를 두 경로에 넣은 실행 결과:
+
+| | dimensionScores | md | 종합 |
+|---|---|---|---|
+| **mode3** (unregistered) | `{'stability': 100}` | `{}` | **100** |
+| mode1 (ref-power-spin) | `{'line': 0, 'stability': 100}` | `{'leg_extension': 30.0, 'line': 30.0}` | 0 |
+
+**같은 자세를 mode3 는 100 점, mode1 은 0 점으로 채점한다.** mode3 에서 차이를 만든 것은
+자세가 아니라 "그 동작이 뭔지 모른다"는 사실 하나뿐이다.
+
+### 그래서 ③ 은 내가 어제 말한 것보다 **더 중요하고, 이유가 다르다**
+
+`_STABILITY_TOL_DEG = 15.0` 은 pdshape mode1 의 80 점에 기여가 **0** 이었지만(§4),
+**mode3 점수의 100%** 다 — `round(100·exp(−½·(wobble/15)²))` 이 식 전부가 점수다.
+그리고 mode3 는 **파일럿 성공기준 1번**(수강생이 본인 영상 2개 비교 → 성장 확인)이다.
+
+즉 어제의 ③("잡음으로 잡은 허용오차가 얼었다")은 살아 있다. 다만 그게 닿는 화면은
+belle 이 본 pdshape 80 점이 아니라 **Mode 3 화면 전체**다.
+
+### `[확인]` 시스템은 이 사실을 절반만 고백한다
+
+`_mode3_scoring_basis`(app.py:6908)가 `reference_free_absolute` 라벨을 방출한다 —
+"기준 동작 없음"은 정직하게 밝힌다. 그런데 그 라벨이 뜻하는 **절대 트랙 = line + stability**
+인데, 실제로는 line 이 구조적으로 절대 안 생겨서 **stability 하나**다.
+라벨은 맞고 구성은 더 좁다.
+
+### `[미확인]` — 다음에 재야 할 것
+
+- **왜 mode3 에 동작 인식이 없나.** Gemini 프롬프트 스키마에 동작명 필드가 없어서
+  분류 결과가 돌아올 구조가 아니다(`_last_motion_name` 의 유일한 쓰기가 질의 문자열이었던
+  것과 같은 뿌리). **의도된 보류인지 빠진 배선인지 문서를 더 봐야 한다.** 단정하지 말 것.
+- **캐시가 이 구멍을 가끔 메운다.** 같은 영상을 mode1 로 먼저 돌리면 `gemini_cache` 가
+  video_hash 로만 키잉돼 있어 mode3 가 그 profile 을 상속한다 → 그 영상만 line 이 생긴다.
+  즉 **mode3 점수 구성이 영상마다 달라질 수 있다.** §6 의 캐시 미결과 같은 뿌리다.
+- 어제 ③ 표의 `wobble 8.70/5.72` 와 `stability 72/91` 은 **같은 계산에서 나올 수 없다**
+  (산식으로 8.70→85, 5.72→93). 72/91 을 내려면 wobble 이 12.16/6.51 이어야 한다.
+  그 표를 만든 스크립트가 리포에 없다 — **인용 금지, 다시 재라.**

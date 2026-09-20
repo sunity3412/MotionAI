@@ -8,6 +8,15 @@ mock 박제만 — google.genai / boto3 / firebase_admin 실 호출 0.
   · B2 fix: production classifier 직접 호출 검증
   · B3 fix: unregistered_hook 인자 = (keyword, video_hash) — video_path X
   · B5 fix: raw_text 가 reject patterns 입력으로 도달함 단위 시험
+
+2026-09-20 (동시 분석 오염 수리) 계약 변경 반영:
+  · extractor 가 (moments, raw_response) 를 **반환**한다 — `_last_raw_response` /
+    `_last_motion_name` 사이드카 속성 폐기. 전역 싱글턴 extractor 를 두 분석이 동시에
+    쓸 때, 값을 써 두고 Gemini 왕복 뒤에 되읽는 구조가 서로를 덮어썼다.
+  · 질의할 동작 이름은 `recognize(motion_hint=...)` 인자다. 예전 `raw_motion_name` 은
+    extractor 가 되돌려준 이름처럼 보였지만 프로덕션의 유일한 쓰기가
+    `self._last_motion_name = motion` (= 호출자가 넘긴 질의) 였다 — Gemini 자체 분류명이
+    그 필드에 들어간 적은 없다. 그래서 스텁도 이름을 "돌려주지" 않는다.
 """
 
 from __future__ import annotations
@@ -53,7 +62,12 @@ class _StubMoment:
 class _StubExtractor:
     """GeminiMomentExtractor 호환 mock.
 
-    _last_raw_response / _last_motion_name attribute + extract_key_moments 만 구현.
+    2026-09-20 동시 분석 오염 수리 — 운영 경로가 부르는 메서드는
+    `extract_key_moments_with_response` 하나이고, raw 응답을 **반환값**으로 준다.
+    스텁도 사이드카 속성을 두지 않는다 (속성을 두면 이 테스트가 없앤 고장을 다시 박제).
+
+    `last_motion_query` 는 스텁이 **받은** 질의 문자열 기록 — 분석-로컬 motion_hint 가
+    extractor 까지 그대로 도달하는지 검증용 (쓰기 아님, 호출 관찰).
     """
 
     def __init__(
@@ -61,23 +75,23 @@ class _StubExtractor:
         *,
         moments: list,
         raw_response: str = "",
-        raw_motion_name: str = "auto",
         raise_on_call: Exception | None = None,
     ) -> None:
         self._moments = list(moments)
-        self._last_raw_response = raw_response
-        self._last_motion_name = raw_motion_name
+        self._raw_response = raw_response
         self._raise = raise_on_call
         self.call_count = 0
+        self.last_motion_query: str | None = None
 
-    def extract_key_moments(
+    def extract_key_moments_with_response(
         self, video_uri: str, motion: str, *, preuploaded_handle=None
-    ) -> list:
+    ) -> tuple[list, str]:
         # 27-04: recognizer 가 preuploaded_handle 을 전달하므로 stub 도 수용 (무시).
         self.call_count += 1
+        self.last_motion_query = motion
         if self._raise is not None:
             raise self._raise
-        return list(self._moments)
+        return list(self._moments), self._raw_response
 
 
 def _angles_8j(rows: int = 20) -> np.ndarray:
@@ -96,14 +110,30 @@ class TestRecognizedPath:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 7.2, 0.85)],
             raw_response='{"motion_name": "ref-invert", "moments": []}',
-            raw_motion_name="ref-invert",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext)
-        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        # 2026-09-20 — 질의할 동작은 분석-로컬 인자다 (mode1 = referenceMotionId).
+        profile = rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+        )
         assert profile.category == "recognized"
         assert profile.name == "ref-invert"
         # joint_expectations 가 JOINT_KEYS 8개 모두 포함.
         assert set(profile.joint_expectations.keys()) == set(JOINT_KEYS)
+        # motion_hint 가 인스턴스를 경유하지 않고 extractor 까지 그대로 도달.
+        assert ext.last_motion_query == "ref-invert"
+
+    def test_no_motion_hint_queries_auto(self) -> None:
+        # mode3 처럼 기준 동작이 없으면 Gemini 자체 분류 질의 "auto".
+        # "auto" 는 REGISTERED_MOTIONS 밖 → unregistered (D-09 case 3).
+        ext = _StubExtractor(
+            moments=[_StubMoment("hold", 7.2, 0.85)],
+            raw_response='{"motion_name": "auto"}',
+        )
+        rec = GeminiTechniqueRecognizer(extractor=ext)
+        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        assert ext.last_motion_query == "auto"
+        assert profile.category == "unregistered"
 
 
 # ─────────────────── Test 2: API 실패 → api_failure ───────────────────
@@ -154,10 +184,11 @@ class TestLowConfidencePath:
                 _StubMoment("setup", 1.0, 0.3),
             ],
             raw_response='{"motion_name": "ref-invert"}',
-            raw_motion_name="ref-invert",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext, low_confidence_threshold=0.5)
-        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        profile = rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+        )
         assert profile.category == "low_confidence"
         assert profile.joint_expectations == {}
         assert profile.name == "신뢰도 낮음"
@@ -167,10 +198,11 @@ class TestLowConfidencePath:
         ext = _StubExtractor(
             moments=[],
             raw_response='{"motion_name": "ref-invert"}',
-            raw_motion_name="ref-invert",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext)
-        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        profile = rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+        )
         assert profile.category == "low_confidence"
 
 
@@ -178,16 +210,22 @@ class TestLowConfidencePath:
 
 
 class TestUnregisteredPath:
-    """D-09 case 3 — unregistered + hook 호출 + video_hash 인자 검증."""
+    """D-09 case 3 — unregistered + hook 호출 + video_hash 인자 검증.
+
+    2026-09-20 — 미등록 동작은 `motion_hint` 로 **질의**해서 표현한다. 예전 스텁의
+    raw_motion_name 은 프로덕션에 없는 동작(Gemini 가 질의와 다른 이름을 돌려주는 것)
+    이었다. hook 은 경로가 둘 — 생성 시점 기본값과 recognize() 인자.
+    """
 
     def test_unregistered_motion_returns_empty_expectations(self) -> None:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 5.0, 0.8)],
             raw_response='{"motion_name": "Aerial Yogi"}',
-            raw_motion_name="Aerial Yogi",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext)
-        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        profile = rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="Aerial Yogi"
+        )
         assert profile.category == "unregistered"
         assert profile.joint_expectations == {}
         assert "Aerial Yogi" in profile.name
@@ -197,11 +235,12 @@ class TestUnregisteredPath:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 5.0, 0.8)],
             raw_response='{"motion_name": "Aerial Yogi"}',
-            raw_motion_name="Aerial Yogi",
         )
         hook = MagicMock()
         rec = GeminiTechniqueRecognizer(extractor=ext, unregistered_hook=hook)
-        rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="Aerial Yogi"
+        )
         hook.assert_called_once()
         args, kwargs = hook.call_args
         # 시그너처 = (keyword, video_hash). 인자 2개.
@@ -217,7 +256,6 @@ class TestUnregisteredPath:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 5.0, 0.8)],
             raw_response='{"motion_name": "Unknown Move"}',
-            raw_motion_name="Unknown Move",
         )
 
         def _failing_hook(keyword: str, video_hash: str) -> None:
@@ -226,49 +264,120 @@ class TestUnregisteredPath:
         rec = GeminiTechniqueRecognizer(
             extractor=ext, unregistered_hook=_failing_hook
         )
-        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        profile = rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="Unknown Move"
+        )
         # hook 실패해도 unregistered profile 반환.
         assert profile.category == "unregistered"
+
+    def test_call_arg_hook_overrides_instance_default(self) -> None:
+        # 2026-09-20 신설 — 인자가 인스턴스 기본값을 이긴다.
+        # 프로덕션에서 분석마다 다른 것(caller uid 를 문 클로저)은 인자로 오고,
+        # 인스턴스 기본값은 전역 싱글턴이 물고 있는 상수다. 인자가 이겨야
+        # A 의 분석이 B 의 uid 로 수집되지 않는다.
+        ext = _StubExtractor(
+            moments=[_StubMoment("hold", 5.0, 0.8)],
+            raw_response='{"motion_name": "Aerial Yogi"}',
+        )
+        instance_hook = MagicMock()
+        call_hook = MagicMock()
+        rec = GeminiTechniqueRecognizer(
+            extractor=ext, unregistered_hook=instance_hook
+        )
+        rec.recognize(
+            _angles_8j(),
+            frames="/tmp/fake.mp4",
+            motion_hint="Aerial Yogi",
+            unregistered_hook=call_hook,
+        )
+        call_hook.assert_called_once()
+        assert call_hook.call_args[0][0] == "Aerial Yogi"
+        instance_hook.assert_not_called()
+
+    def test_instance_hook_used_when_call_arg_omitted(self) -> None:
+        # 인자 None → 인스턴스 기본값 사용 (기존 생성자 경로 유지).
+        ext = _StubExtractor(
+            moments=[_StubMoment("hold", 5.0, 0.8)],
+            raw_response='{"motion_name": "Aerial Yogi"}',
+        )
+        instance_hook = MagicMock()
+        rec = GeminiTechniqueRecognizer(
+            extractor=ext, unregistered_hook=instance_hook
+        )
+        rec.recognize(
+            _angles_8j(),
+            frames="/tmp/fake.mp4",
+            motion_hint="Aerial Yogi",
+            unregistered_hook=None,
+        )
+        instance_hook.assert_called_once()
+
+
+# ─────────────── Test 4-b (2026-09-20): 생성 이후 속성 대입 차단 ───────────────
+
+
+class TestPostConstructionAssignmentBlocked:
+    """동시 분석 오염 수리의 구조적 보증 — 분석별 값을 인스턴스에 써 둘 수 없다.
+
+    이 인식기는 pipeline 의 모듈 전역 싱글턴이다. 예전 호출자는 속성에 값을 써 두고
+    recognize() 가 포즈 추론(51~177초) **뒤에** 되읽었고, 그 창에서 다른 분석이
+    덮어썼다. 비-frozen dataclass 는 선언되지 않은 이름에도 대입이 조용히 성공하므로,
+    옛 호출자가 말없이 no-op 이 되지 않도록 AttributeError 로 막는다.
+    """
+
+    def test_motion_query_hint_assignment_raises(self) -> None:
+        rec = GeminiTechniqueRecognizer(extractor=_StubExtractor(moments=[]))
+        with pytest.raises(AttributeError, match="motion_hint"):
+            rec.motion_query_hint = "ref-invert"
+
+    def test_unregistered_hook_assignment_raises(self) -> None:
+        rec = GeminiTechniqueRecognizer(extractor=_StubExtractor(moments=[]))
+        with pytest.raises(AttributeError):
+            rec.unregistered_hook = MagicMock()
 
 
 # ─────────────────── Test 5: B5 fix — raw_text 2차 가드 ───────────────────
 
 
 class TestRejectPatternsSecondaryGuard:
-    """B5 fix 검증 — extractor._last_raw_response 가 좌표 포함 → 어댑터 2차 가드 ValueError.
+    """B5 fix 검증 — extractor 가 **반환한** raw 응답이 좌표 포함 → 어댑터 2차 가드 ValueError.
 
-    raw_text 가 reject patterns 입력으로 도달함을 단위 검증.
+    raw_text 가 reject patterns 입력으로 도달함을 단위 검증. 의도 불변, 전달 경로만
+    사이드카 속성(`_last_raw_response`) → 반환값으로 바뀌었다 (2026-09-20).
     """
 
     def test_coordinate_in_raw_response_triggers_value_error(self) -> None:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 7.0, 0.8)],
-            # B5 fix — _last_raw_response 가 좌표 포함.
+            # B5 fix — extractor 반환 raw 응답이 좌표 포함.
             raw_response='{"left_knee": "x=120 y=80"}',
-            raw_motion_name="ref-invert",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext)
         with pytest.raises(ValueError, match="좌표"):
-            rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+            rec.recognize(
+                _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+            )
 
     def test_score_in_raw_response_triggers_value_error(self) -> None:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 7.0, 0.8)],
             raw_response='{"description": "이 동작은 85점 입니다"}',
-            raw_motion_name="ref-invert",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext)
         with pytest.raises(ValueError, match="점수"):
-            rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+            rec.recognize(
+                _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+            )
 
     def test_clean_raw_response_passes_secondary_guard(self) -> None:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 7.0, 0.8)],
             raw_response='{"motion_name": "ref-invert", "description": "동작 완성"}',
-            raw_motion_name="ref-invert",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext)
-        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        profile = rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+        )
         assert profile.category == "recognized"
 
 
@@ -347,10 +456,11 @@ class TestJointExpectationsFromYaml:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 7.0, 0.85)],
             raw_response='{"motion_name": "ref-invert"}',
-            raw_motion_name="ref-invert",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext)
-        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        profile = rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+        )
         # 정상 path / yaml lookup fallback path 모두 8관절 전부 박제.
         assert set(profile.joint_expectations.keys()) == set(JOINT_KEYS)
         # 모든 값이 JOINT_EXTEND 또는 JOINT_BENT_OK.
@@ -365,10 +475,11 @@ class TestJointExpectationsFromYaml:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 5.0, 0.85)],
             raw_response='{"motion_name": "ref-climb"}',
-            raw_motion_name="ref-climb",
         )
         rec = GeminiTechniqueRecognizer(extractor=ext)
-        profile = rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        profile = rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-climb"
+        )
         assert set(profile.joint_expectations.keys()) == set(JOINT_KEYS)
         # ref-climb hold_moment = [] → 모든 관절 BENT_OK.
         assert all(
@@ -380,13 +491,12 @@ class TestJointExpectationsFromYaml:
 
 
 class TestCacheShortCircuit:
-    """cache.lookup 가 dict 반환 시 extractor.extract_key_moments 미호출."""
+    """cache.lookup 가 dict 반환 시 extractor 미호출."""
 
     def test_cache_hit_skips_extractor(self) -> None:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 7.0, 0.85)],
             raw_response='{"motion_name": "ref-invert"}',
-            raw_motion_name="ref-invert",
         )
         cache = MagicMock()
         cache.lookup.return_value = {
@@ -403,12 +513,13 @@ class TestCacheShortCircuit:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 7.0, 0.85)],
             raw_response='{"motion_name": "ref-invert"}',
-            raw_motion_name="ref-invert",
         )
         cache = MagicMock()
         cache.lookup.return_value = None
         rec = GeminiTechniqueRecognizer(extractor=ext, cache=cache)
-        rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        rec.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+        )
         assert ext.call_count == 1
         cache.store.assert_called_once()
         # store 인자 = (frames, payload dict)
@@ -462,12 +573,13 @@ class TestCacheHoldWindowRestore:
         ext = _StubExtractor(
             moments=[_StubMoment("hold", 7.2, 0.85)],
             raw_response='{"motion_name": "ref-invert"}',
-            raw_motion_name="ref-invert",
         )
         store_cache = MagicMock()
         store_cache.lookup.return_value = None
         rec_fresh = GeminiTechniqueRecognizer(extractor=ext, cache=store_cache)
-        fresh_profile = rec_fresh.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        fresh_profile = rec_fresh.recognize(
+            _angles_8j(), frames="/tmp/fake.mp4", motion_hint="ref-invert"
+        )
         assert fresh_profile.hold_window is not None, "신선 경로 hold_window 전제"
 
         # 신선 경로가 store 한 payload 그대로 캐시 히트로 재현.

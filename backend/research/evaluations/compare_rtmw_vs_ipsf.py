@@ -344,6 +344,7 @@ def compute_line_angle_gates(
     pole_axis: PoleAxis,
     recognizer: Any = None,
     video_path: str | None = None,
+    motion_hint: str | None = None,
 ) -> tuple[GateVerdict, GateVerdict]:
     """line_score + stability_score (angle proxy) 게이트 verdict 산정.
 
@@ -365,6 +366,9 @@ def compute_line_angle_gates(
             (회귀 보존). Plan 5-05 박제 — GeminiTechniqueRecognizer 주입 path.
         video_path: Gemini 어댑터 frames 인자 (영상 경로). None = FallbackRecognizer
             기본 동작 정합 (frames 미사용).
+        motion_hint: Gemini 어댑터 motion 질의 (2026-09-20 — 예전엔 caller 가
+            recognizer.motion_query_hint 속성에 대입했다. 동시 분석 오염 수리로
+            인자가 됐다). None = "auto". FallbackRecognizer 는 무시.
 
     Returns:
         (line_verdict, angle_verdict) — GateVerdict 3-state literal.
@@ -374,7 +378,9 @@ def compute_line_angle_gates(
 
     # Plan 5-05 박제 — GeminiTechniqueRecognizer 는 frames=video_path 사용.
     # FallbackRecognizer 는 frames 무시 (동일 시그너처 호환).
-    profile = recognizer.recognize(joint_angles, frames=video_path)
+    profile = recognizer.recognize(
+        joint_angles, frames=video_path, motion_hint=motion_hint
+    )
 
     # B1 fix 박제: profile.joint_expectations 빈 dict (ref-climb yaml hold_moment
     # 빈 list 정합) → out_of_scope_PASS (D-20 박제 정신 정합).
@@ -922,11 +928,11 @@ def main(argv: list[str] | None = None) -> int:
     for video_path in args.videos:
         motion_name = Path(video_path).stem  # 파일명에서 동작 ID 추출
 
-        # Path A fix (2026-06-05, 박제 함정 19): sweep 영상별 motion_query_hint 박제.
+        # Path A fix (2026-06-05, 박제 함정 19): sweep 영상별 motion hint 박제.
         # 박제 정신 = 정은지 reference 영상 = motion known case (file name = motion ID).
         # 미박제 시 recognizer default 'auto' → unregistered → 게이트 분모=0 통과 불가.
-        if args.recognizer == "gemini":
-            recognizer.motion_query_hint = motion_name
+        # 2026-09-20: 싱글턴 속성 대입 폐기 → recognize() 인자로 전달 (동시 분석 오염 수리).
+        sweep_motion_hint = motion_name if args.recognizer == "gemini" else None
 
         log.info("처리 중: %s (%s)", motion_name, video_path)
 
@@ -977,6 +983,7 @@ def main(argv: list[str] | None = None) -> int:
                     sliced_angles, pole_axis,
                     recognizer=recognizer,
                     video_path=str(local_video_path),
+                    motion_hint=sweep_motion_hint,
                 )
             except Exception as e:
                 log.warning("%s line/angle gate 오류: %s — FAIL 처리", motion_name, e)

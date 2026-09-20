@@ -7,6 +7,13 @@
   - line 322 _profile_from_cache → motion_id == cached["motion"]
 
 extractor monkeypatch 박제 — google.genai 실 호출 0.
+
+2026-09-20 (동시 분석 오염 수리) — extractor 의 `_last_raw_response` /
+`_last_motion_name` 사이드카 속성이 폐기되고 raw 응답이 **반환값**이 됐다. 전역
+싱글턴 extractor 에 값을 써 두고 Gemini 왕복 뒤에 되읽던 구조라, 동시 업로드가
+들어오면 남의 응답/동작 이름으로 채점됐다. 여기 stub 도 새 계약
+(`extract_key_moments_with_response` → (moments, raw_response)) 을 따른다.
+동작 이름도 마찬가지로 인스턴스가 아니라 recognize(motion_hint=...) 로 넘긴다.
 """
 
 from __future__ import annotations
@@ -25,21 +32,24 @@ class _MockMoment:
 
 
 class _MockExtractor:
-    """GeminiMomentExtractor mock — extract_key_moments + raw response attribute."""
+    """GeminiMomentExtractor mock — (moments, raw_response) 를 반환한다.
+
+    2026-09-20 동시 분석 오염 수리: raw 응답은 인스턴스 속성이 아니라 반환값이다.
+    """
 
     def __init__(
         self,
         moments: list[_MockMoment] | None = None,
-        motion_name: str = "inversion",
         raw_text: str = "ok",
     ) -> None:
         self._moments = moments if moments is not None else [_MockMoment()]
-        self._last_raw_response = raw_text
-        self._last_motion_name = motion_name
+        self._raw_text = raw_text
 
-    def extract_key_moments(self, *, video_uri, motion, preuploaded_handle=None):
+    def extract_key_moments_with_response(
+        self, video_uri, motion, *, preuploaded_handle=None
+    ):
         # 27-04: recognizer 가 preuploaded_handle 전달 → stub 수용 (무시).
-        return self._moments
+        return self._moments, self._raw_text
 
 
 def test_gemini_build_profile_populates_motion_id() -> None:
@@ -65,7 +75,7 @@ def test_gemini_low_confidence_path_motion_id_none(monkeypatch) -> None:
 
     # extractor 가 low confidence 반환
     low_moment = _MockMoment(confidence=0.1)
-    extractor = _MockExtractor(moments=[low_moment], motion_name="any")
+    extractor = _MockExtractor(moments=[low_moment])
 
     # _adapter_reject_guard 의 lazy import 우회 — _enforce_no_coordinate_or_score noop
     from sunity_shared.analysis import gemini_technique_recognizer as gtr_mod
@@ -96,11 +106,19 @@ def test_gemini_unregistered_path_motion_id_none(monkeypatch) -> None:
         lambda raw: (raw, "unregistered"),
     )
 
-    extractor = _MockExtractor(motion_name="obscure-move-9999")
+    # 2026-09-20 — 미등록 동작 이름은 **질의 문자열**로 표현한다. 예전엔 extractor 의
+    # `_last_motion_name` 사이드카를 되읽었는데, 프로덕션에서 그 필드의 유일한 쓰기가
+    # "호출자가 넘긴 질의" 였다 (Gemini 자체 분류명이 들어간 적 없음). 지금은
+    # raw_motion_name = motion_query 이므로 motion_hint 로 넣는다.
+    extractor = _MockExtractor()
     rec = GeminiTechniqueRecognizer(extractor=extractor)
-    profile = rec.recognize(np.zeros((10, 8)), frames="/tmp/fake.mp4")
+    profile = rec.recognize(
+        np.zeros((10, 8)), frames="/tmp/fake.mp4", motion_hint="obscure-move-9999"
+    )
     assert profile.motion_id is None
     assert profile.category == "unregistered"
+    # 미등록 이름이 profile 까지 흘러오는지 — 질의 문자열이 곧 raw_motion_name.
+    assert profile.name == "미등록: obscure-move-9999"
 
 
 def test_gemini_cache_path_motion_id_from_cached_motion() -> None:

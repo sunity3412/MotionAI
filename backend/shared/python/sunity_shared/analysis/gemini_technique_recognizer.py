@@ -19,8 +19,18 @@ Plan 5-01 (2026-06-04). Plan 01-13 spike `GeminiMomentExtractor` 를 wrap.
 
 reject patterns 2차 가드:
   extractor 가 1차로 _enforce_no_coordinate_or_score 통과시키지만, 어댑터 layer 가
-  raw_text (_last_raw_response) 를 다시 검사 — 다중 방어. extractor 가 미래에 reject
-  patterns 변경되어도 어댑터는 자체 가드 유지.
+  raw_text 를 다시 검사 — 다중 방어. extractor 가 미래에 reject patterns 변경되어도
+  어댑터는 자체 가드 유지. raw_text 는 extractor 의 **반환값**으로 받는다
+  (2026-09-20 이전에는 `_last_raw_response` 사이드카 속성이었다 — 동시 분석 오염).
+
+분석-로컬 인자 규약 (2026-09-20 동시 분석 오염 수리):
+  이 인식기는 pipeline/app.py 의 모듈 전역 싱글턴(`_RECOGNIZER`)으로 재사용된다.
+  예전에는 caller 가 `motion_query_hint` / `unregistered_hook` 을 **속성에 써 두고**
+  recognize() 가 나중에 읽었는데, 그 사이에 프레임 추출 + RTMW 추론(실측 warm 51.3초 /
+  cold 176.6초)이 통째로 끼어 있었다. Pod 은 `--workers 1` + BackgroundTasks(스레드풀)
+  이고 Lambda 는 ReservedConcurrentExecutions 가 없으므로, 학원처럼 동시 업로드가
+  들어오면 그 창에서 B 가 A 의 값을 덮어쓴다 → A 가 **B 의 동작 이름으로** 채점되고
+  예외도 로그도 남지 않는다. 지금은 둘 다 recognize() 의 키워드 인자다.
 
 unregistered_hook 시그너처 (B3 fix):
   (keyword: str, video_hash: str) -> None
@@ -31,6 +41,7 @@ unregistered_hook 시그너처 (B3 fix):
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 
@@ -146,23 +157,61 @@ class GeminiTechniqueRecognizer:
       cache: TechniqueCache (Plan 5-02 신설). None = no-cache. 단위 테스트에서 mock.
       fallback: TechniqueRecognizer — API 실패 시 위임. None = FallbackRecognizer().
       low_confidence_threshold: D-09 case 2 임계. D-10 박제 (5영상 sweep 실측 후 갱신).
-      motion_query_hint: extractor 호출 시 motion query 박제. None = "auto".
-      unregistered_hook: D-09 case 3 Firestore 트리거 (B3 fix: (keyword, video_hash)).
+      unregistered_hook: D-09 case 3 수집 콜백의 **인스턴스 기본값** (합성 시점 상수).
+        분석마다 달라지는 값(caller uid 를 문 클로저)은 여기가 아니라
+        recognize(unregistered_hook=...) 로 넘긴다 — 인자가 기본값을 이긴다.
+
+    설정은 생성 시점, 분석별 값은 recognize() 인자 (2026-09-20, 모듈 docstring 참조).
+    생성 이후의 속성 대입은 __setattr__ 이 막는다.
     """
 
     extractor: Any = None  # GeminiMomentExtractor (lazy)
     cache: Any = None  # TechniqueCache (Plan 5-02), default None = no-cache
     fallback: TechniqueRecognizer | None = None
     low_confidence_threshold: float = 0.5  # D-10 박제 — 5영상 sweep 후 갱신
-    motion_query_hint: str | None = None  # None = Gemini 자체 분류, str = caller hint
-    unregistered_hook: Callable[[str, str], None] | None = None  # B3 fix 시그너처
+    unregistered_hook: Callable[[str, str], None] | None = None  # 합성 시점 기본값
+    # extractor lazy init 직렬화. 이 인스턴스는 전역 싱글턴이라 두 분석이 동시에
+    # Step 3 에 진입할 수 있고, 락이 없으면 한쪽이 만든 인스턴스가 버려지면서
+    # 캐시가 쪼개진다. _ensure_recognizer 의 double-checked locking 과 같은 규율.
+    _extractor_lock: Any = field(
+        default_factory=threading.Lock, init=False, repr=False, compare=False
+    )
+    _frozen: bool = field(default=False, init=False, repr=False, compare=False)
+
+    # 생성 이후 대입을 막을 이름 (2026-09-20 동시 분석 오염 수리).
+    #   motion_query_hint — 필드 자체가 폐기됐다. 비-frozen dataclass 는 선언되지 않은
+    #     이름에도 대입이 **조용히 성공**하므로, 그냥 지우면 옛 호출자가 말없이 no-op 이
+    #     된다. 그건 이 수리가 없앤 고장과 같은 종류다 — 그래서 큰 소리로 막는다.
+    #   unregistered_hook — 합성 시점 상수로는 정당하다. 위험한 건 분석마다 갈아끼우는
+    #     쓰기이고(caller uid 클로저), 그것만 막는다.
+    _WRITE_ONCE_ATTRS = frozenset({"motion_query_hint", "unregistered_hook"})
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in GeminiTechniqueRecognizer._WRITE_ONCE_ATTRS and getattr(
+            self, "_frozen", False
+        ):
+            raise AttributeError(
+                f"{name} 은(는) 생성 이후 대입할 수 없다 "
+                "(2026-09-20 동시 분석 오염 수리 — 이 인식기는 전역 싱글턴이라 "
+                "쓰기와 읽기 사이의 포즈 추론 구간에서 다른 분석이 덮어쓴다). "
+                f"recognize(..., {name.replace('motion_query_hint', 'motion_hint')}=...) "
+                "키워드 인자로 넘겨라."
+            )
+        object.__setattr__(self, name, value)
 
     def __post_init__(self) -> None:
         if self.fallback is None:
             self.fallback = FallbackRecognizer()
+        self._frozen = True
 
     def recognize(
-        self, angles: Any, frames: Any = None, *, preuploaded_handle: Any = None
+        self,
+        angles: Any,
+        frames: Any = None,
+        *,
+        preuploaded_handle: Any = None,
+        motion_hint: str | None = None,
+        unregistered_hook: Callable[[str, str], None] | None = None,
     ) -> TechniqueProfile:
         """3-case fallback + reject patterns 2차 가드 + joint_expectations 빌드.
 
@@ -173,6 +222,13 @@ class GeminiTechniqueRecognizer:
           preuploaded_handle: GeminiFileSession File API 핸들(keyword-only, 27-04). 주입 시
                    moment extractor 가 업로드/폴링/delete 를 skip 하고 핸들 재사용 — 소유권=세션.
                    None 이면 기존 self-upload (byte-동일). Fallback 위임 경로엔 영향 0.
+          motion_hint: 이 분석이 질의할 motion id (keyword-only, 2026-09-20).
+                   None = Gemini 자체 분류("auto"). mode1 은 referenceMotionId, mode3 은 None.
+                   **호출 스택을 벗어나지 않는다** — 동시 분석이 섞일 수 없는 이유.
+          unregistered_hook: D-09 case 3 수집 콜백 (keyword, video_hash) -> None
+                   (keyword-only, 2026-09-20). caller uid 를 클로저로 물고 오므로 분석마다
+                   다른 객체다. None 이면 인스턴스 기본값(self.unregistered_hook) 사용,
+                   그것도 None 이면 수집 skip.
 
         Returns:
           TechniqueProfile — category ∈ {"recognized", "api_failure", "low_confidence",
@@ -194,16 +250,22 @@ class GeminiTechniqueRecognizer:
             profile = self.fallback.recognize(angles, frames=frames)
             return replace(profile, category="api_failure")
 
-        # Step 3: extractor lazy init.
+        # Step 3: extractor lazy init (double-checked locking — 전역 싱글턴이라
+        # 두 분석이 동시에 여기 들어올 수 있다. 락이 없으면 한쪽 인스턴스가 버려지고
+        # moment 캐시가 쪼개진다. _ensure_recognizer 와 같은 규율, 2026-09-20).
         if self.extractor is None:
-            from sunity_shared.judging import GeminiMomentExtractor
+            with self._extractor_lock:
+                if self.extractor is None:
+                    from sunity_shared.judging import GeminiMomentExtractor
 
-            self.extractor = GeminiMomentExtractor()
+                    self.extractor = GeminiMomentExtractor()
 
         # Step 4: Gemini 호출 (D-09 case 1 fallback).
         try:
             response_text, moments, raw_motion_name = self._call_extractor(
-                frames, preuploaded_handle=preuploaded_handle
+                frames,
+                motion_query=motion_hint or "auto",
+                preuploaded_handle=preuploaded_handle,
             )
         except (RuntimeError, ValueError) as exc:
             log.warning("Gemini API 실패 — FallbackRecognizer 위임: %s", exc)
@@ -244,11 +306,16 @@ class GeminiTechniqueRecognizer:
                 "Gemini motion 미등록='%s' — Page 9 단독 + 자동 수집 trigger",
                 raw_motion_name,
             )
-            if self.unregistered_hook is not None:
+            effective_hook = (
+                unregistered_hook
+                if unregistered_hook is not None
+                else self.unregistered_hook
+            )
+            if effective_hook is not None:
                 # B3 fix — hook 에 video_hash 전달 (video_path 박제 X, PII 미노출).
                 video_hash = _compute_video_hash(frames)
                 try:
-                    self.unregistered_hook(raw_motion_name, video_hash)
+                    effective_hook(raw_motion_name, video_hash)
                 except Exception:  # noqa: BLE001 - hook 실패는 분석 흐름 차단 X
                     log.exception("unregistered_hook 실패 (분석 계속)")
             return TechniqueProfile(
@@ -290,25 +357,24 @@ class GeminiTechniqueRecognizer:
     # ───────────────────────── 내부 helper ─────────────────────────
 
     def _call_extractor(
-        self, frames: Any, *, preuploaded_handle: Any = None
+        self, frames: Any, *, motion_query: str, preuploaded_handle: Any = None
     ) -> tuple[str, list, str]:
         """extractor 호출 + 응답 raw text + KeyMoment list + raw motion name 반환.
 
-        extractor 는 _last_raw_response / _last_motion_name attribute 박제 (B5/W3 fix).
-        spike 결과에서 Gemini 가 motion_name 응답 X 인 path 박제 시 motion_query_hint
-        로 대체. preuploaded_handle(27-04) 은 extract_key_moments 로 전달 — 세션 핸들 재사용.
+        2026-09-20 — 전부 **반환값**으로 받는다. 예전에는 extractor 의
+        `_last_raw_response` / `_last_motion_name` 사이드카 속성을 Gemini 왕복 **뒤에**
+        getattr 로 되읽었고, extractor 인스턴스가 프로세스에 1개뿐이라 그 창에서 다른
+        분석이 덮어쓸 수 있었다. `_last_motion_name` 은 애초에 이 함수가 넘긴
+        motion_query 를 되받는 왕복이었을 뿐이다 (extractor 는 Gemini 의 자체 분류명을
+        그 필드에 넣은 적이 없다 — 쓰기 지점이 `self._last_motion_name = motion` 하나뿐).
+        preuploaded_handle(27-04) 은 그대로 전달 — 세션 핸들 재사용.
         """
-        motion_query = self.motion_query_hint or "auto"
-        moments = self.extractor.extract_key_moments(
+        moments, raw_text = self.extractor.extract_key_moments_with_response(
             video_uri=frames,
             motion=motion_query,
             preuploaded_handle=preuploaded_handle,
         )
-        raw_text = getattr(self.extractor, "_last_raw_response", "") or ""
-        raw_motion_name = (
-            getattr(self.extractor, "_last_motion_name", "") or motion_query
-        )
-        return raw_text, list(moments), raw_motion_name
+        return raw_text or "", list(moments), motion_query
 
     def _classify_motion(self, raw_name: str) -> tuple[str, str]:
         """production 정규화 path (B2 fix).

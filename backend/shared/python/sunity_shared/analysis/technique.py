@@ -13,7 +13,7 @@ IPSF 심사는 '기술 조건부'다: 같은 굽은 무릎이 Attitude(의도)�
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol
 
 import numpy as np
 
@@ -75,10 +75,28 @@ class TechniqueProfile:
 
 
 class TechniqueRecognizer(Protocol):
-    """영상/관절각 → TechniqueProfile. 구현체는 swappable (Fallback/Gemini/Pole-arina)."""
+    """영상/관절각 → TechniqueProfile. 구현체는 swappable (Fallback/Gemini/Pole-arina).
+
+    분석-로컬 인자 규약 (2026-09-20, 동시 분석 오염 수리):
+      분석마다 달라지는 값은 **전부 키워드 인자**로 받는다. 인스턴스 속성에 담으면
+      안 된다. 이유 = 구현체가 모듈 전역 싱글턴으로 재사용된다(pipeline/app.py 의
+      `_RECOGNIZER`). 속성에 쓰고 나중에 읽으면 그 사이의 포즈 추론 구간(실측 warm
+      51.3초 / cold 176.6초)에 다른 분석이 덮어쓴다 — 예외 0, 로그 0, 숫자는 멀쩡한
+      채로 **남의 동작 기준으로 채점**된다. 선례 = `preuploaded_handle`(27-04).
+
+      · motion_hint: 이 분석이 질의할 motion id. None = 인식기 자체 분류("auto").
+      · unregistered_hook: 미등록 동작 수집 콜백 (keyword, video_hash) -> None.
+        caller uid 를 클로저로 물고 오므로 분석마다 다른 객체다.
+    """
 
     def recognize(
-        self, angles, frames=None, *, preuploaded_handle=None
+        self,
+        angles,
+        frames=None,
+        *,
+        preuploaded_handle=None,
+        motion_hint: str | None = None,
+        unregistered_hook: Callable[[str, str], None] | None = None,
     ) -> TechniqueProfile: ...
 
 
@@ -92,9 +110,17 @@ class FallbackRecognizer:
     """
 
     def recognize(
-        self, angles, frames=None, *, preuploaded_handle=None
+        self,
+        angles,
+        frames=None,
+        *,
+        preuploaded_handle=None,
+        motion_hint: str | None = None,
+        unregistered_hook: Callable[[str, str], None] | None = None,
     ) -> TechniqueProfile:
         # 27-04: preuploaded_handle 는 Gemini 어댑터 전용 — Fallback 은 영상 미사용이라 무시.
+        # 2026-09-20: motion_hint / unregistered_hook 도 Gemini 전용 — Fallback 은
+        # 기하만 보고 판단하므로 질의도 미등록 수집도 하지 않는다. graceful 무시.
         a = np.asarray(angles, dtype=float)
         if a.ndim == 2 and a.shape[0] > 0:
             rep = np.mean(a, axis=0)

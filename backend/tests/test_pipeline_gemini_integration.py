@@ -17,6 +17,22 @@ mock-based — 실 Gemini / 실 S3 / 실 Firestore / 실 NLF 호출 0.
   · test_gemini_api_failure_falls_back_to_fallback — Gemini RuntimeError 시
     api_failure category + 분석 흐름 계속 (D-09 case 1)
   · test_tempfile_cleanup — Gemini path 의 local_video_path 가 _process 종료 시 unlink
+
+2026-09-20 계약 갱신 (동시 분석 오염 수리):
+  recognizer / moment extractor 는 모듈 전역 싱글턴인데, 분석별 값(질의할 motion,
+  미등록 수집 hook, Gemini 원문)을 **인스턴스 속성**에 써 두고 Gemini 왕복 + RTMW
+  추론(실측 warm 51.3초 / cold 176.6초) **뒤에** 되읽었다. 학원처럼 동시 업로드가
+  들어오면 그 창에서 뒤 분석이 앞 분석의 값을 덮어쓴다 — 예외도 로그도 없이 남의
+  동작 이름으로 채점된다. 지금은 값이 호출 스택을 벗어나지 않도록 전부 인자/반환값이다.
+
+  이 파일에서의 번역:
+    · _StubExtractor 의 사이드카 속성(_last_raw_response / _last_motion_name) 폐기.
+      주 메서드 extract_key_moments_with_response 가 (moments, raw_response) 를 반환.
+    · raw motion name 은 이제 **질의 문자열** 이다. 프로덕션에서 그 필드의 유일한 쓰기가
+      "호출자가 넘긴 motion" 이었으므로 Gemini 자체 분류명이 들어간 적이 없다. 따라서
+      mode3(MODE_SELF) 분석의 raw motion name = 질의 "auto" → 미등록 경로가 정상이다.
+    · 통합 관점 검증점 추가 — _process 가 recognize 에 motion_hint / unregistered_hook 을
+      **인자로** 넘기는가. 속성 대입이 사라졌으니 여기가 전달을 볼 수 있는 유일한 지점이다.
 """
 
 from __future__ import annotations
@@ -59,30 +75,48 @@ class _StubMoment:
 
 
 class _StubExtractor:
-    """GeminiMomentExtractor 호환 mock — extract_key_moments 만 구현."""
+    """GeminiMomentExtractor 호환 mock.
+
+    2026-09-20 — 주 메서드가 extract_key_moments_with_response 이고 raw_response 를
+    **반환값**으로 돌려준다 (사이드카 속성 _last_raw_response 는 동시 분석에서 서로를
+    덮어써서 폐기). raw_motion_name 파라미터도 없앴다 — 그 이름은 이제 호출자가 넘긴
+    질의 문자열이라 stub 이 따로 정할 수 있는 값이 아니다.
+
+    받은 질의를 motion_queries 에 적어 둔다. 속성 대입 경로가 사라진 지금, _process 가
+    recognize(motion_hint=...) 로 제대로 넘겼는지 볼 수 있는 곳이 여기뿐이다.
+    """
 
     def __init__(
         self,
         *,
         moments: list,
         raw_response: str = "",
-        raw_motion_name: str = "ref-foxtop",
         raise_on_call: Exception | None = None,
     ) -> None:
         self._moments = list(moments)
-        self._last_raw_response = raw_response
-        self._last_motion_name = raw_motion_name
+        self._raw_response = raw_response
         self._raise = raise_on_call
         self.call_count = 0
+        self.motion_queries: list[str] = []
+
+    def extract_key_moments_with_response(
+        self, video_uri: str, motion: str, *, preuploaded_handle=None
+    ) -> tuple[list, str]:
+        # 27-04: recognizer 가 preuploaded_handle 전달 → stub 수용 (무시).
+        self.call_count += 1
+        self.motion_queries.append(motion)
+        if self._raise is not None:
+            raise self._raise
+        return list(self._moments), self._raw_response
 
     def extract_key_moments(
         self, video_uri: str, motion: str, *, preuploaded_handle=None
     ) -> list:
-        # 27-04: recognizer 가 preuploaded_handle 전달 → stub 수용 (무시).
-        self.call_count += 1
-        if self._raise is not None:
-            raise self._raise
-        return list(self._moments)
+        """moments 만 쓰는 호출자용 호환 래퍼 — 실물(GeminiMomentExtractor)과 같은 모양."""
+        moments, _raw = self.extract_key_moments_with_response(
+            video_uri, motion, preuploaded_handle=preuploaded_handle
+        )
+        return moments
 
 
 def _angles_8j(rows: int = 20) -> np.ndarray:
@@ -221,6 +255,28 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
     return _impl
 
 
+def _patch_unregistered_sink(monkeypatch, pipeline_mod) -> dict:
+    """D-09 case 3 미등록 수집 sink 를 가로챈다 (실 Firestore 호출 0).
+
+    2026-09-20 — mode3(MODE_SELF) 의 질의는 "auto" 이고, raw motion name = 질의 문자열이
+    됐으므로 classify_motion_name 이 unregistered 로 판정한다. 즉 이 경로에서 hook 이
+    실제로 발화한다. hook 이 **이 분석의** uid 를 물고 있는지가 곧 _process 의
+    unregistered_hook 인자 전달 검증이다 — "anonymous-pipeline" 이 찍히면 전역 싱글턴의
+    인스턴스 기본값이 샜다는 뜻이고, 다른 uid 가 찍히면 남의 분석 값이 넘어온 것이다.
+    """
+    recorded: dict = {"calls": []}
+
+    def _record(keyword: str, *, uid: str, video_hash: str) -> None:
+        recorded["calls"].append(
+            {"keyword": keyword, "uid": uid, "video_hash": video_hash}
+        )
+
+    monkeypatch.setattr(
+        pipeline_mod.firestore_admin, "record_unregistered_keyword", _record
+    )
+    return recorded
+
+
 def _patch_extract_inputs(monkeypatch, pipeline_mod, tmp_video_path: str):
     """27-05 seam 마이그레이션 — wrapper 단일 patch → 2-함수 patch 재배선 (stub 재배선만,
     assert·검증 로직 무변경). _process 가 2단 호출로 전환된 뒤에도 실 S3 접근 0."""
@@ -278,8 +334,7 @@ def test_process_with_gemini_recognizer_uses_gemini(
     # Inject mock extractor into recognizer (recognizer is lazy — force creation)
     stub_ext = _StubExtractor(
         moments=[_StubMoment("hold", 5.0, 0.85)],
-        raw_response='{"motion_name": "ref-foxtop"}',
-        raw_motion_name="ref-foxtop",
+        raw_response='{"moments": [{"moment": "hold"}]}',
     )
     recognizer = pipeline._ensure_recognizer()
     recognizer.extractor = stub_ext  # 박제 mock 주입
@@ -287,12 +342,27 @@ def test_process_with_gemini_recognizer_uses_gemini(
     # Bypass cache (lookup 결과 None 박제)
     recognizer.cache = None  # in-memory only — Firestore 호출 회피
 
+    # 2026-09-20 — mode3 질의 "auto" 는 미등록이라 D-09 case 3 hook 이 발화한다.
+    # 실 Firestore 대신 sink 를 가로채 hook 이 들고 온 uid 를 본다.
+    recorded = _patch_unregistered_sink(monkeypatch, pipeline)
+
     # 실행
     pipeline._process("test-bucket", "uploads/u1/a1.mp4", "u1", "a1")
 
-    # 검증 — extract_key_moments 1회 호출
+    # 검증 — Gemini 추출 1회 호출
     assert stub_ext.call_count == 1, (
-        f"Gemini extract_key_moments 호출 회수 박제 위반: {stub_ext.call_count}"
+        f"Gemini 추출 호출 회수 박제 위반: {stub_ext.call_count}"
+    )
+    # 2026-09-20 — 질의 문자열은 _process 가 recognize(motion_hint=...) 로 넘긴 값에서
+    # 온다. mode3(MODE_SELF) = motion 미상 → hint None → "auto". 전역 속성 경유가 아니라
+    # 인자 경유임을 여기서 확인한다 (사이드카 속성이 사라져 다른 관측점이 없다).
+    assert stub_ext.motion_queries == ["auto"], (
+        f"motion_hint 전달 박제 위반 — 질의={stub_ext.motion_queries}"
+    )
+    # unregistered_hook 도 인자로 넘어왔는지 — hook 은 이 분석의 uid 를 물고 있어야 한다.
+    # "anonymous-pipeline" = 전역 싱글턴의 인스턴스 기본값이 샌 것.
+    assert [c["uid"] for c in recorded["calls"]] == ["u1"], (
+        f"unregistered_hook 전달 박제 위반 — {recorded['calls']}"
     )
 
 
@@ -313,18 +383,35 @@ def test_process_without_env_uses_fallback(base_mocks, monkeypatch):
         sentinel_called["gemini_sdk_imported"] = True
         raise RuntimeError("회귀 박제 위반 — Gemini SDK 호출 발생")
 
-    # google.genai patch — env OFF path 에선 import 자체가 들어가면 안 됨
-    monkeypatch.setattr(
-        pipeline.technique.FallbackRecognizer,
-        "recognize",
-        lambda self, angles, frames=None, *, preuploaded_handle=None: pipeline.technique.TechniqueProfile(
+    # google.genai patch — env OFF path 에선 import 자체가 들어가면 안 됨.
+    # 2026-09-20 — Protocol 에 motion_hint / unregistered_hook 키워드 인자가 생겼다.
+    # 스텁이 그 인자를 받아 적어 두면, Fallback 경로에서도 _process 가 (속성 대입이
+    # 아니라) 인자로 넘기는지 확인할 수 있다.
+    seen_kwargs: dict = {}
+
+    def _fake_recognize(
+        self,
+        angles,
+        frames=None,
+        *,
+        preuploaded_handle=None,
+        motion_hint=None,
+        unregistered_hook=None,
+    ):
+        seen_kwargs["called"] = True
+        seen_kwargs["motion_hint"] = motion_hint
+        seen_kwargs["unregistered_hook"] = unregistered_hook
+        return pipeline.technique.TechniqueProfile(
             name="미상",
             category="unknown",
             joint_expectations={k: "bent_ok" for k in pipeline.skeleton.JOINT_KEYS},
             required_split_deg=None,
             requires_hold=True,
             is_symmetric=False,
-        ),
+        )
+
+    monkeypatch.setattr(
+        pipeline.technique.FallbackRecognizer, "recognize", _fake_recognize
     )
 
     # 실행
@@ -337,6 +424,15 @@ def test_process_without_env_uses_fallback(base_mocks, monkeypatch):
     # recognizer 가 FallbackRecognizer 인지 확인
     rec = pipeline._ensure_recognizer()
     assert isinstance(rec, pipeline.technique.FallbackRecognizer)
+    # 2026-09-20 — 분석-로컬 값이 인자로 도착했는지 (mode3 = motion 미상 → hint None,
+    # 미등록 수집 hook 은 caller uid 를 문 클로저라 항상 전달된다).
+    assert seen_kwargs.get("called") is True, "recognize 미호출 — 검증 전제 붕괴"
+    assert seen_kwargs["motion_hint"] is None, (
+        f"mode3 hint 박제 위반 — motion_hint={seen_kwargs['motion_hint']!r}"
+    )
+    assert callable(seen_kwargs["unregistered_hook"]), (
+        "unregistered_hook 이 인자로 전달되지 않음 (전역 속성 경유 잔재 의심)"
+    )
 
 
 # ─────────────────── Test 3: Gemini API 실패 → api_failure (D-09 case 1) ───────────────────
@@ -453,12 +549,14 @@ def test_tempfile_cleanup(base_mocks, monkeypatch, tmp_path):
     # 정상 Gemini 박제 (api_failure path 회피)
     stub_ext = _StubExtractor(
         moments=[_StubMoment("hold", 5.0, 0.85)],
-        raw_response='{"motion_name": "ref-foxtop"}',
-        raw_motion_name="ref-foxtop",
+        raw_response='{"moments": [{"moment": "hold"}]}',
     )
     recognizer = pipeline._ensure_recognizer()
     recognizer.extractor = stub_ext
     recognizer.cache = None
+    # 2026-09-20 — mode3 질의 "auto" 는 미등록 경로라 수집 hook 이 발화한다.
+    # 실 Firestore 대신 sink 가로채기 (이 테스트의 관심사는 임시 파일 cleanup).
+    _patch_unregistered_sink(monkeypatch, pipeline)
 
     # 실행
     pipeline._process("test-bucket", "uploads/u4/a4.mp4", "u4", "a4")

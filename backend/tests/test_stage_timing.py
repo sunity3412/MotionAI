@@ -101,16 +101,32 @@ class _StubMoment:
 
 
 class _StubExtractor:
-    """GeminiMomentExtractor 호환 — extract_key_moments 만 (Gemini SDK 호출 0)."""
+    """GeminiMomentExtractor 호환 스텁 (Gemini SDK 호출 0).
+
+    2026-09-20 동시 분석 오염 수리로 extractor 계약이 바뀌었다 — raw 응답을
+    `_last_raw_response` / `_last_motion_name` 사이드카 속성에 써 두고 Gemini 왕복
+    **뒤에** 되읽던 구조가, extractor 인스턴스 1개를 공유하는 동시 분석에서 서로를
+    덮어썼다. 지금은 `extract_key_moments_with_response` 가 (moments, raw_response)
+    를 **반환값**으로 돌려준다. 스텁도 같은 모양으로 맞춘다.
+    (이 테스트의 관심사는 단계 타이밍 로그 순서이지 recognizer 계약이 아니다.)
+    """
 
     def __init__(self) -> None:
-        self._last_raw_response = '{"motion_name": "ref-foxtop"}'
-        self._last_motion_name = "ref-foxtop"
+        self.raw_response = '{"motion_name": "ref-foxtop"}'
         self.call_count = 0
 
-    def extract_key_moments(self, video_uri, motion, *, preuploaded_handle=None):
+    def extract_key_moments_with_response(
+        self, video_uri, motion, *, preuploaded_handle=None
+    ):
         self.call_count += 1
-        return [_StubMoment("hold", 5.0, 0.85)]
+        return [_StubMoment("hold", 5.0, 0.85)], self.raw_response
+
+    def extract_key_moments(self, video_uri, motion, *, preuploaded_handle=None):
+        """호환 래퍼 — 실물 extractor 와 같은 모양 (moments 만)."""
+        moments, _raw = self.extract_key_moments_with_response(
+            video_uri, motion, preuploaded_handle=preuploaded_handle
+        )
+        return moments
 
 
 def _angles_8j(rows: int = 20):

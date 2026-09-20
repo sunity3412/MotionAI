@@ -248,6 +248,9 @@ _POLE_DETECTOR = None  # type: ignore[var-annotated]
 # 그 외 (미설정 / 다른 값) = FallbackRecognizer 박제 보존.
 _RECOGNIZER: technique.TechniqueRecognizer | None = None
 _RECOGNIZER_LOCK = threading.Lock()
+# 어댑터 싱글턴(_FRAME_EXTRACTOR/_POSE_ESTIMATOR/_RTMW_ENGINE/_COACH_WRITER/_POLE_DETECTOR)
+# 생성 직렬화 (2026-09-20). _ensure_recognizer 와 같은 규율 — 아래 _ensure_adapters 참조.
+_ADAPTERS_LOCK = threading.Lock()
 
 # env switch 박제 값 (case-insensitive lower).
 _GEMINI_ENV_TRUTHY = frozenset({"1", "true", "on", "yes", "gemini"})
@@ -1343,6 +1346,24 @@ def _ensure_adapters() -> None:
 
     Plan 06-02 R3 fix: _RTMW_ENGINE singleton 추가 — _extract_video_analysis_inputs
     가 RTMW 본체를 직접 호출 (pose_frames list[PoseFrame] 필요).
+
+    2026-09-20: 락 추가. 정상 운영에선 Pod startup 워밍업이 먼저 돌지만 그 워밍업은
+    실패해도 예외를 삼키고 로그만 남긴다(runpod_inference/server.py). 그러면 첫 동시
+    2건이 각각 RTMW 엔진을 만들어 VRAM 2배 + 채점용 세션이 ort_determinism 의 전역
+    monkeypatch 창에 노출된다. _ensure_recognizer 와 같은 double-checked locking.
+    """
+    with _ADAPTERS_LOCK:
+        _ensure_adapters_locked()
+
+
+def _ensure_adapters_locked() -> None:
+    """_ensure_adapters 의 실제 생성부. 반드시 _ADAPTERS_LOCK 을 쥔 채 부른다.
+
+    빠른 경로(이미 다 만들어졌으면 락 없이 return)를 두지 않는 이유: _POLE_DETECTOR 는
+    cv2 부재 시 정상적으로 None 으로 남는다(graceful). 그 None 을 "미생성"으로 읽으면
+    빠른 경로가 영영 안 타고, "생성 완료"로 읽으면 기존의 매-호출 재시도 동작이
+    바뀐다. 분석 1건당 1회 호출이라 무경합 락 획득 비용은 무시할 수 있으므로,
+    **동작을 한 톨도 바꾸지 않는 쪽**을 택했다.
     """
     global _FRAME_EXTRACTOR, _POSE_ESTIMATOR, _COACH_WRITER, _RTMW_ENGINE, _POLE_DETECTOR
     if _FRAME_EXTRACTOR is None:
@@ -7831,24 +7852,23 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     session = GeminiFileSession()
 
     # Path A production 정합 (2026-06-05): mode=expert = motion known case
-    # (사용자가 referenceMotionId 선택). recognizer.motion_query_hint 박제 →
-    # Gemini extractor 가 알려진 motion 기준 key moment 추출 (default 'auto' 폴백 차단).
+    # (사용자가 referenceMotionId 선택). motion hint 를 recognize() 에 넘겨 Gemini
+    # extractor 가 알려진 motion 기준 key moment 추출 (default 'auto' 폴백 차단).
     # mode=self (mode3) = motion 미상 (본인 영상 비교) → hint=None (Gemini 'auto').
     #
-    # WR-07 (2026-06-08 review): module-global singleton (_RECOGNIZER) 가 SQS
-    # 메시지 / BackgroundTask 간 공유됨. 이전 분석이 set 한 hint 가 다음 분석에
-    # leak 하면 Gemini 가 잘못된 motion 으로 biased. **항상** rebind (None 또는
-    # 새 motion_id) — set/unset 분기 X.
-    # 27-05 D-03 순서 제약: rebind 를 prefetch submit **이전**으로 이동 (module-global
-    # hint leak 방지 — 27-RESEARCH 공유 상태 표). 입력(recognizer/meta/mode)은 포즈 이전
-    # 가용 — 포즈 산출물 무관.
+    # WR-07 (2026-06-08) 은 이 값을 전역 싱글턴 속성에 **항상 rebind** 하는 방식으로
+    # 직렬 leak(앞 분석의 hint 상속)을 막았다. 그러나 rebind 와 소비(recognize) 사이에
+    # 프레임 추출 + RTMW 추론이 통째로 끼어 있어(실측 warm 51.3초 / cold 176.6초),
+    # 동시 분석이면 그 창에서 다른 분석이 덮어쓴다 — 예외도 로그도 없이 남의 동작
+    # 이름으로 채점된다. Pod 은 `--workers 1` + BackgroundTasks(스레드풀)이고 Lambda 는
+    # ReservedConcurrentExecutions 가 없으므로 학원 동시 업로드에서 실제로 열리는 창이다.
+    # 2026-09-20 수리: 속성 대입을 폐기하고 분석-로컬 변수로 들고 있다가 recognize() 에
+    # 키워드 인자로 넘긴다. 값이 이 호출 스택을 벗어나지 않으므로 직렬 leak 도
+    # 동시 오염도 **구조적으로** 불가능하다 (WR-07 의 의도는 더 강하게 유지된다).
     ref_motion_id = meta.get("referenceMotionId")
-    if hasattr(recognizer, "motion_query_hint"):
-        recognizer.motion_query_hint = (
-            str(ref_motion_id)
-            if mode == models.MODE_EXPERT and ref_motion_id
-            else None
-        )
+    analysis_motion_hint: str | None = (
+        str(ref_motion_id) if mode == models.MODE_EXPERT and ref_motion_id else None
+    )
     # is_reference 박제: S3 key prefix 1차 + Firestore mode 2차 (R-W3 정합).
     is_reference_local = _resolve_is_reference(key, meta)
 
@@ -7975,18 +7995,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # 으로 박힘 — term_collection.unique_users 가 single-element set 으로 수렴해서
     # Phase 16 TERM-DATA-01 promotion (pending → reviewing → approved) 의 unique_users
     # 임계 결정이 불가. _process 진입 시점에 uid 가 알려져 있으므로 closure 로 rebind.
-    if hasattr(recognizer, "unregistered_hook"):
-        def _record_unregistered_with_uid(
-            keyword: str, video_hash: str, _uid: str = uid
-        ) -> None:
-            firestore_admin.record_unregistered_keyword(
-                keyword, uid=_uid, video_hash=video_hash
-            )
-        try:
-            recognizer.unregistered_hook = _record_unregistered_with_uid
-        except (AttributeError, TypeError):
-            # frozen / Protocol-only recognizer 는 set 거절 — graceful skip.
-            pass
+    # 2026-09-20: 이 클로저도 전역 싱글턴 속성에 대입하지 않는다. uid 를 물고 있어
+    # 분석마다 다른 객체이고, 대입과 소비 사이가 위 hint 와 같은 창이다 — 오염되면
+    # 미등록 용어 수집 원장에 **다른 학생의 uid** 가 찍혀 TERM-DATA-01 의
+    # unique_users promotion 임계가 왜곡된다. recognize() 인자로 넘긴다.
+    def _record_unregistered_with_uid(
+        keyword: str, video_hash: str, _uid: str = uid
+    ) -> None:
+        firestore_admin.record_unregistered_keyword(
+            keyword, uid=_uid, video_hash=video_hash
+        )
 
     firestore_admin.update_analysis_status(
         uid, analysis_id, models.STATUS_COMPARISON
@@ -8043,6 +8061,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 angles,
                 frames=local_video_path,
                 preuploaded_handle=student_video_handle,  # Phase 27 D-04 세션 핸들 공유
+                # 2026-09-20 동시 분석 오염 수리 — 분석-로컬 값은 전부 인자로.
+                motion_hint=analysis_motion_hint,
+                unregistered_hook=_record_unregistered_with_uid,
             )
         abs_dims = dimensions.absolute_dimension_scores(angles, profile)
 

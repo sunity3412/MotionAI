@@ -287,24 +287,31 @@ class GeminiMomentExtractor:
 
     model_name: str = DEFAULT_GEMINI_MODEL
     api_key_loader: callable = field(default=_load_api_key)  # type: ignore[assignment]
-    _cache: dict[tuple[str, str, str], list[KeyMoment]] = field(
+    # 2026-09-20 동시 분석 오염 수리 — `_last_raw_response` / `_last_motion_name`
+    # 사이드카 속성 폐기. 이 인스턴스는 전역 recognizer 가 물고 있어 프로세스에 1개뿐인데
+    # (gemini_technique_recognizer 의 lazy init), 호출마다 값을 갈아끼우고 Gemini 왕복
+    # **뒤에** 호출자가 getattr 로 되읽는 구조였다. 그 창에서 다른 분석이 덮어쓰면
+    # 남의 응답으로 객관성 가드를 돌리고 남의 동작 이름으로 채점한다.
+    # 지금은 `extract_key_moments_with_response` 가 (moments, raw_response) 를 **반환**한다 —
+    # 값이 호출 스택을 벗어나지 않으므로 동시 분석이 구조적으로 섞일 수 없다.
+    # 부수 수리: 캐시 히트가 raw 응답을 갱신하지 않아 **직전 다른 영상의 응답**이
+    # 가드에 흘러들던 것도 같이 닫힌다 (캐시가 이제 응답을 함께 보관).
+    _cache: dict[tuple[str, str, str], tuple[list[KeyMoment], str]] = field(
         default_factory=dict, init=False, repr=False
     )
-    # Phase 5 B5/W3 fix (2026-06-04 revision) — 어댑터 layer 2차 가드 (D-08,
-    # [[analysis-objectivity-no-human-scores]]) 가 실 응답 텍스트를 검사하려면
-    # raw_text 보존 필요. GeminiTechniqueRecognizer 가 본 attribute 를 읽어
-    # _enforce_no_coordinate_or_score 호출.
-    _last_raw_response: str = field(default="", init=False, repr=False)
-    _last_motion_name: str = field(default="", init=False, repr=False)
 
-    def extract_key_moments(
+    def extract_key_moments_with_response(
         self,
         video_uri: str,
         motion: str,
         *,
         preuploaded_handle: Any = None,
-    ) -> list[KeyMoment]:
+    ) -> tuple[list[KeyMoment], str]:
         """video_uri (로컬 path 또는 file:// URI) 에서 motion 의 key moment list 추출.
+
+        반환 = (moments, raw_response). raw_response 는 어댑터 layer 2차 가드
+        (D-08, [[analysis-objectivity-no-human-scores]]) 가 검사할 Gemini 원문이다.
+        **반환값**이지 인스턴스 속성이 아니다 — 2026-09-20 동시 분석 오염 수리.
 
         반환 list 는 frame_index 미정 (추출 시점에는 timestamp 만). caller (spike)
         가 영상 fps + frame 수로 frame_index 채워서 `validate()` 수행 — 본 메서드는
@@ -320,23 +327,37 @@ class GeminiMomentExtractor:
           ValueError: Gemini 응답이 좌표/점수/판단 포함, 스키마 위반, moment_key invalid.
           RuntimeError: API 키 로드 실패, SDK import 실패, 네트워크 실패.
         """
-        # Phase 5 B5/W3 fix — 호출 시점의 motion query 박제. adapter 가 raw_motion_name
-        # 으로 사용 (Gemini 가 motion 분류 응답 X 인 spike 박제 path 와 분리).
-        self._last_motion_name = motion
-
         cache_key = (video_uri, motion, self.model_name)
-        if cache_key in self._cache:
+        cached = self._cache.get(cache_key)
+        if cached is not None:
             log.debug("KeyMoment 캐시 hit: %s", cache_key)
-            return list(self._cache[cache_key])
+            cached_moments, cached_raw = cached
+            return list(cached_moments), cached_raw
 
         raw_response = self._call_gemini(
             video_uri, motion, preuploaded_handle=preuploaded_handle
         )
-        # _last_raw_response 는 _call_gemini 가 박제 (실패 path 도 박제 보존).
         moments = _parse_gemini_response(motion, raw_response)
         # frame_index 는 호출자가 후처리 — 본 메서드는 timestamp만 신뢰.
         # validate() 도 호출자가 frame_index 채운 뒤 수행.
-        self._cache[cache_key] = list(moments)
+        self._cache[cache_key] = (list(moments), raw_response)
+        return moments, raw_response
+
+    def extract_key_moments(
+        self,
+        video_uri: str,
+        motion: str,
+        *,
+        preuploaded_handle: Any = None,
+    ) -> list[KeyMoment]:
+        """moments 만 필요한 호출자용 호환 래퍼 (research/spikes).
+
+        객관성 2차 가드를 돌려야 하는 운영 경로는
+        `extract_key_moments_with_response` 를 쓴다.
+        """
+        moments, _raw = self.extract_key_moments_with_response(
+            video_uri, motion, preuploaded_handle=preuploaded_handle
+        )
         return moments
 
     def _call_gemini(
@@ -440,9 +461,8 @@ class GeminiMomentExtractor:
             contents=[uploaded, prompt],
         )
         text = getattr(response, "text", None)
-        # Phase 5 B5/W3 fix — adapter layer 2차 가드 (D-08) 가 raw_text 검사 필요.
-        # 빈 응답도 박제 (디버그 보존).
-        self._last_raw_response = text or ""
+        # 2026-09-20: raw_text 는 _call_gemini 의 **반환값**으로 호출자에게 간다
+        # (사이드카 속성 폐기 — 동시 분석 오염). 빈 응답은 아래에서 RuntimeError.
         if not text:
             raise RuntimeError(
                 "Gemini 응답이 비어있음 — model='%s' video='%s' motion='%s'."

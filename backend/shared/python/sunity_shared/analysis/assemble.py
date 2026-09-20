@@ -669,6 +669,7 @@ def build_mode3(
     scoring_basis_label: str | None = None,
     recognized_motion_id: str | None = None,
     recognized_motion_name: str | None = None,
+    reference_approach: dict | None = None,
 ) -> dict:
     """자기 성장(mode3) 비교 블록.
 
@@ -691,7 +692,7 @@ def build_mode3(
     """
     if scoring_basis is not None and scoring_basis not in _MODE3_SCORING_BASES:
         raise ValueError(
-            f"build_mode3 scoring_basis 는 4 Mode3 값 중 하나여야 함 "
+            f"build_mode3 scoring_basis 는 6 Mode3 값 중 하나여야 함 "
             f"(reference_motion 은 Mode1 전용 — Mode3 불가): {scoring_basis!r}"
         )
     if recognized_motion_id is not None and not isinstance(recognized_motion_id, str):
@@ -728,6 +729,14 @@ def build_mode3(
             for d in cur_dimension_scores
             if d in prev_dimension_scores
         }
+    # quick-260920-m3r (2026-09-20) — 두 영상이 같은 기준에서 각각 얼마나 떨어졌나,
+    # 그 차이(양수 = 기준에 가까워졌다). **관측 전용 — 점수·앱 무접촉.**
+    # deltaFromPrevious 가 못 읽는 쌍을 읽는다: 두 영상이 둘 다 허용오차 안이면
+    # 점수가 양쪽 100 이라 발전이 ±0 으로 보인다(kip-up 실측 — 왼어깨 20.6도→3.5도
+    # 인데 점수는 100→100). 발전은 문턱이 필요 없는 양이라 편차 차이로 직접 읽는다.
+    # None(기준 축 미발화 — 플래그 OFF 포함)이면 키 미추가 = legacy dict 동형.
+    if reference_approach:
+        out["referenceApproach"] = reference_approach
     return out
 
 

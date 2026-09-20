@@ -763,6 +763,65 @@ def _mode3_reference_axis(angles, profile):
         return None, None, 0.0
 
 
+def _mode3_reference_approach(angles, prev_angles, reference_angles, ref_fps=None):
+    """두 영상이 **같은 기준**에서 각각 얼마나 떨어져 있나 — 그 차이가 발전이다.
+
+    왜 점수 차이로는 부족한가 (quick-260920-m3r 실측)
+    ───────────────────────────────────────────────
+    점수는 허용오차(20도)를 넘은 만큼만 깎는다. 그래서 두 영상이 **둘 다 오차 안**이면
+    둘 다 100점이고 발전이 ±0 으로 읽힌다. kip-up 이 정확히 그 경우다:
+
+        왼어깨 기준 대비 편차   결함판 20.6도  →  정타판 3.5도   (6배 좁혀졌다)
+        점수                    100           →  100           (±0)
+
+    점수 쪽 동작은 **옳다** — 오차 안이면 안 깎는 게 맞고, 신뢰구간이 문턱을 걸치면
+    (kip-up 왼어깨 CI 15.9~24.3) 확신 없이 깎지 않는 것도 맞다. 틀린 것은 **그 점수의
+    차이로 발전을 읽으려 한 것**이다. 발전은 문턱이 필요 없는 양이다:
+
+        발전_관절 = (이전 영상의 기준 대비 편차) − (지금 영상의 기준 대비 편차)
+
+    실측(정타/결함 쌍 6동작): 점수 차이는 5/6, 이 읽기는 **6/6** — kip-up 포함해
+    전 동작 관절 만장일치(8/8·6/6)라 한 동작 맞춤이 아니다.
+
+    반환: 관측용 dict (양수 = 기준에 가까워졌다) 또는 None. **채점 무접촉** — 이 값은
+    doc 에만 실리고 점수·앱 어디에도 안 닿는다(260919-mhl 선례). 학생 영상이 오면
+    강사 ○× 와 방향이 맞는지 이 필드로 잰다.
+    """
+    if reference_angles is None or prev_angles is None or angles is None:
+        return None
+    try:
+        a_ref = np.asarray(reference_angles, dtype=float)
+        if a_ref.ndim != 2 or a_ref.shape[0] < 2:
+            return None
+        num_joints = int(a_ref.shape[1])
+        cur_dev, _m1, _s1, _r1 = _deviation_against(
+            angles, a_ref, num_joints, ref_fps=ref_fps or None
+        )
+        prev_dev, _m2, _s2, _r2 = _deviation_against(
+            prev_angles, a_ref, num_joints, ref_fps=ref_fps or None
+        )
+    except Exception:  # noqa: BLE001 — 정렬 실패는 필드 부재로만(honest 미방출)
+        log.info("mode3 기준 접근도 산출 실패 — 필드 생략", exc_info=True)
+        return None
+    by_joint: dict = {}
+    for i, jk in enumerate(skeleton.JOINT_KEYS):
+        if i >= len(cur_dev) or i >= len(prev_dev):
+            break
+        c, p = float(cur_dev[i]), float(prev_dev[i])
+        if c != c or p != p:  # NaN = 못 쟀다 → 그 관절은 생략(0 으로 번역 금지)
+            continue
+        by_joint[jk] = round(p - c, 1)
+    if not by_joint:
+        return None
+    vals = list(by_joint.values())
+    return {
+        "byJoint": by_joint,
+        "jointsCloser": sum(1 for v in vals if v > 0),
+        "jointsCompared": len(vals),
+        "meanNarrowedDeg": round(sum(vals) / len(vals), 1),
+    }
+
+
 def _get_synthesis_adapter():
     """Lazy singleton — GeminiViewReasoner (Stage 1 PRIMARY, D-18).
 
@@ -7119,7 +7178,7 @@ def _mode3_comparison(
     prev: dict | None,
     profile: technique.TechniqueProfile,
     branch_info: assemble.MotionBranchInfo | None = None,
-    reference_relative: bool = False,
+    reference_axis: tuple | None = None,
 ):
     """자기 성장(mode3) 분기 — 순수(어댑터/S3/Firestore 불필요, 테스트 가능).
 
@@ -7143,6 +7202,11 @@ def _mode3_comparison(
             getattr(profile, "motion_id", None)
         )
     is_reference_free = assemble.is_reference_free_motion(branch_info)
+    # quick-260920-m3r — 기준 축이 **실제로 발화했을 때만** True. 플래그가 켜졌어도
+    # 기준을 못 찾거나 정렬이 실패하면 None 이라 False 다: 라벨은 의도가 아니라
+    # 산출을 따라간다.
+    _ref_match, _ref_angles, _ref_fps = reference_axis or (None, None, 0.0)
+    reference_relative = _ref_angles is not None
     # Phase 30 WR-04 (30-REVIEW): recognized_motion_id/name 은 적립 전용 옵셔널 필드
     # (contract.md §4 — 이번 phase 화면 미소비). 인식기 경계는 런타임 str 을 보증하지
     # 않음(예: gemini_technique_recognizer._profile_from_cache 의 무검증 캐시 복원).
@@ -7243,12 +7307,19 @@ def _mode3_comparison(
         is_reference_free=is_reference_free,
         reference_relative=reference_relative,
     )
+    # quick-260920-m3r — 두 영상이 **같은 기준**에서 각각 얼마나 떨어졌나, 그 차이.
+    # 점수 차이로는 kip-up 처럼 둘 다 허용오차 안인 쌍을 못 읽는다(±0). 관측 전용 —
+    # 점수·앱 무접촉. reference_axis 미발화(플래그 OFF 포함)면 None → 필드 미추가.
+    reference_approach = _mode3_reference_approach(
+        angles, prev_seg, _ref_angles, ref_fps=_ref_fps
+    )
     comparison = assemble.build_mode3(
         is_first=False,
         previous_analysis_id=prev.get("analysisId"),
         prev_dimension_scores=prev_dims,
         cur_dimension_scores=abs_dims,  # 발전 델타는 절대 3차원만(같은 척도)
         scoring_basis=progress_basis,
+        reference_approach=reference_approach,
         # Phase 30 D-04: progress 분기도 인식 동작 id/명 적립 (억제와 독립 emit).
         # WR-04: str 경계 정규화(_rm_id/_rm_name) 후 전달 — 비-str 은 필드만 drop.
         recognized_motion_id=_rm_id,
@@ -8473,10 +8544,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             mode3_prev = prev  # fault-zoom Mode3 (현재 vs 지난 영상 변화 비교) source.
             assessments, dimension_scores, overall, comparison, prev_dtw_match = _mode3_comparison(
                 angles, prev, profile, branch_info=branch_info,
-                # quick-260920-m3r — 배선이 **실제로 발화했을 때만** True. 플래그가
-                # 켜졌어도 기준을 못 찾았거나 정렬이 실패하면 None 이라 False 다:
-                # 라벨은 의도가 아니라 산출을 따라간다.
-                reference_relative=mode3_ref_angles is not None,
+                reference_axis=(
+                    mode3_ref_dtw_match, mode3_ref_angles, mode3_ref_fps
+                ),
             )
 
             # body_comparison_report mode3 분기 — prev 유무 → mode3_first vs mode3_progress.

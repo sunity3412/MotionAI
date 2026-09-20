@@ -209,7 +209,7 @@ def test_wiring_feeds_only_the_deduction_builder():
     allowed = {
         "mode3_ref_angles = None",                        # 초기화
         "mode3_ref_dtw_match, mode3_ref_angles, mode3_ref_fps = (",  # 배선 호출
-        "reference_relative=mode3_ref_angles is not None,",  # 라벨이 산출을 따라감
+        "mode3_ref_dtw_match, mode3_ref_angles, mode3_ref_fps",  # _mode3_comparison 인자
         "else mode3_ref_angles",                          # 감점 builder 인자
     }
     code_lines = [
@@ -227,6 +227,7 @@ def test_wiring_feeds_only_the_deduction_builder():
     allowed_match = {
         "mode3_ref_dtw_match = None",
         "mode3_ref_dtw_match, mode3_ref_angles, mode3_ref_fps = (",
+        "mode3_ref_dtw_match, mode3_ref_angles, mode3_ref_fps",
         "reference_dtw_match=reference_dtw_match or mode3_ref_dtw_match,",
     }
     leaked_match = [
@@ -321,3 +322,102 @@ def test_alignment_failure_degrades_to_todays_mode3(monkeypatch):
     monkeypatch.setattr(app, "_deviation_against", _boom)
     _ref, bent = _straight_and_bent()
     assert app._mode3_reference_axis(bent, _profile()) == (None, None, 0.0)
+
+
+# ── 6. 점수가 못 읽는 발전을 읽는가 ──────────────────────────────────────────
+#
+# kip-up 실측이 드러낸 칸: 점수는 허용오차(20도)를 넘은 만큼만 깎는다. 두 영상이 **둘 다
+# 오차 안**이면 양쪽 100점이라 발전이 ±0 으로 보인다. kip-up 왼어깨는 결함판 20.6도 →
+# 정타판 3.5도(6배 좁힘)인데 점수는 100 → 100 이었다.
+#
+# 점수 쪽 동작은 옳다 — 오차 안이면 안 깎고, 신뢰구간이 문턱을 걸치면(CI 15.9~24.3)
+# 확신 없이 깎지 않는다. 틀린 것은 **그 점수 차이로 발전을 읽으려 한 것**이다.
+
+def _at(deg):
+    """전 관절을 같은 각도로 둔 영상 한 편."""
+    from sunity_shared.analysis.skeleton import JOINT_KEYS
+    return np.full((40, len(JOINT_KEYS)), float(deg), dtype=float)
+
+
+def test_approach_reads_progress_that_stays_inside_tolerance():
+    """둘 다 허용오차 안이어도 기준에 가까워졌으면 읽는다 — kip-up 이 이 경우다."""
+    ref = _at(175.0)
+    prev, cur = _at(160.0), _at(172.0)  # 15도 벗어남 → 3도. 둘 다 오차 20도 안.
+
+    # 점수 쪽: 둘 다 감점 0 이라 발전이 안 보인다(이 시험이 그 사실을 박제한다).
+    # md 는 전 관절 편차를 싣고, 허용오차 문턱은 tally 의 criterion 선택에서 걸린다 —
+    # 그래서 "안 보인다"는 md 키가 아니라 **최종 점수**로 확인해야 한다.
+    from sunity_shared.analysis import deduction_engine, technique
+    from sunity_shared.analysis.skeleton import JOINT_KEYS
+
+    class _QuantOK:
+        quantificationStatus = "ok"
+        bodyRelativeNotches = None
+        windowMedianAngleDeltas = None
+
+    prof = technique.TechniqueProfile(
+        name="테스트", category="recognized",
+        joint_expectations={k: technique.JOINT_BENT_OK for k in JOINT_KEYS},
+        motion_id="ref-test")
+    finals = []
+    for ang in (prev, cur):
+        _d, match, _s, a_ref = app._deviation_against(
+            ang, ref.reshape(-1).tolist(), len(JOINT_KEYS))
+        md = app._build_deduction_measured_deviations(
+            angles=ang, profile=prof, assessments=None, dimension_scores=None,
+            quantification=None, reference_dtw_match=match, reference_angles=a_ref)
+        b = deduction_engine.tally(
+            _QuantOK(), None, dimension_overall=98, measured_deviations=dict(md),
+            dimension_scores=None,
+            baseline_kind=app._baseline_kind_for_profile(prof))
+        finals.append(b.final)
+    assert finals[0] == finals[1], (
+        f"전제가 바뀌었다 — 둘 다 허용오차 안이라 점수가 같아야 이 시험이 의미있다: {finals}"
+    )
+
+    # 접근도 쪽: 같은 쌍을 발전으로 읽는다.
+    got = app._mode3_reference_approach(cur, prev, ref)
+    assert got is not None
+    assert got["jointsCloser"] == got["jointsCompared"] > 0
+    assert got["meanNarrowedDeg"] > 10.0, got
+
+
+def test_approach_reads_regression_with_the_opposite_sign():
+    """나빠졌으면 음수 — 방향이 뒤집혀 나오면 발전 지표로 못 쓴다."""
+    ref = _at(175.0)
+    got = app._mode3_reference_approach(_at(160.0), _at(172.0), ref)
+    assert got is not None
+    assert got["meanNarrowedDeg"] < 0, got
+    assert got["jointsCloser"] == 0
+
+
+def test_approach_is_absent_without_a_reference_axis():
+    """기준 축이 안 섰으면(플래그 OFF 포함) 필드 자체가 없다 — 0 으로 번역 금지."""
+    assert app._mode3_reference_approach(_at(170.0), _at(160.0), None) is None
+    assert app._mode3_reference_approach(_at(170.0), None, _at(175.0)) is None
+
+
+def test_approach_never_reaches_the_score():
+    """관측 전용 — 이 값이 점수·감점 경로에 닿으면 안 된다(260919-mhl 선례)."""
+    src = (_ROOT / "functions" / "pipeline" / "app.py").read_text(encoding="utf-8")
+    code = [ln.strip() for ln in src.splitlines() if not ln.strip().startswith("#")]
+    hits = [ln for ln in code if "reference_approach" in ln or "_mode3_reference_approach" in ln]
+    allowed = {
+        "def _mode3_reference_approach(angles, prev_angles, reference_angles, ref_fps=None):",
+        "reference_approach = _mode3_reference_approach(",
+        "reference_approach=reference_approach,",
+        'log.info("mode3 기준 접근도 산출 실패 — 필드 생략", exc_info=True)',
+    }
+    leaked = [ln for ln in hits if ln not in allowed]
+    assert not leaked, "기준 접근도가 관측 밖으로 샜다 — 점수에 닿으면 안 된다:\n  " + "\n  ".join(leaked)
+
+
+def test_approach_field_is_optional_on_the_builder():
+    """미전달이면 키 미추가 = legacy dict 동형."""
+    out = assemble.build_mode3(is_first=False, previous_analysis_id="prev-1")
+    assert "referenceApproach" not in out
+    out2 = assemble.build_mode3(
+        is_first=False, previous_analysis_id="prev-1",
+        reference_approach={"byJoint": {"left_elbow": 5.0}, "jointsCloser": 1,
+                            "jointsCompared": 1, "meanNarrowedDeg": 5.0})
+    assert out2["referenceApproach"]["meanNarrowedDeg"] == 5.0

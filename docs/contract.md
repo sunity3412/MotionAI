@@ -783,6 +783,11 @@ recognizedMotionName?  인식기가 알아낸 동작 표시명 (Phase 30 D-04)
   | recognized_motion_reference_relative           | first + 등재 → **기준 선수 각도 대비 감점** (quick-260920-m3r, 플래그 OFF 라 라이브 0건) |
   | previous_analysis_plus_reference_relative      | progress + 등재 → 이전 대비 + 기준 선수 각도 (동상) |
 
+  `referenceApproach` (quick-260920-m3r, progress 전용 OPTIONAL · **관측 전용, 화면 미소비**)
+  = 두 영상이 같은 기준에서 각각 얼마나 떨어졌나의 **차이**. `{byJoint, jointsCloser,
+  jointsCompared, meanNarrowedDeg}`, 양수 = 기준에 가까워졌다. `deltaFromPrevious` 가
+  못 읽는 쌍(둘 다 허용오차 안 → 점수 양쪽 100 → 발전 ±0)을 읽는다. 기준 축 미발화면 키 부재.
+
   미보유 first = reference_free_absolute, progress 미보유 = composite. **Mode3 에 reference_motion
   없음** (Mode1 전용). 거짓 "% 일치" / "정은지와 거의 같음" 프레이밍 금지.
 

@@ -299,6 +299,18 @@ export interface Mode3Comparison {
     | 'recognized_motion_reference_relative'
     | 'previous_analysis_plus_reference_relative';
   scoringBasisLabel?: string; // 사용자 표시용 한국어 라벨 (정확한 채점 source 노출)
+  // quick-260920-m3r (2026-09-20) — 두 영상이 **같은 기준**에서 각각 얼마나 떨어졌나,
+  // 그 차이(양수 = 기준에 가까워졌다 = 나아졌다). **관측 전용 — 화면 미소비.**
+  // deltaFromPrevious 가 못 읽는 쌍을 읽는다: 두 영상이 둘 다 허용오차(20도) 안이면
+  // 점수가 양쪽 100 이라 발전이 ±0 으로 보인다(kip-up 실측 — 왼어깨 20.6도→3.5도로
+  // 6배 좁혔는데 점수는 100→100). 발전은 문턱이 필요 없는 양이라 편차 차이로 직접 읽는다.
+  // 기준 축 미발화(MODE3_REFERENCE_RELATIVE_ENABLED OFF 포함)면 키 자체가 없다.
+  referenceApproach?: {
+    byJoint: Record<string, number>; // 관절 → 좁혀진 각도(도)
+    jointsCloser: number;
+    jointsCompared: number;
+    meanNarrowedDeg: number;
+  };
   // Phase 30 (30-CONTEXT D-04) — mode3 인식 동작 데이터 적립(이번 phase 화면 미소비,
   // Phase 16이 소비). 부재(legacy doc/인식 실패)=앱은 '내 기록' 단일 그룹. Python
   // lockstep: assemble.build_mode3 + models.py + docs/contract.md §4와 동시 갱신.

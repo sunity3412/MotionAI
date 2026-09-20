@@ -102,9 +102,83 @@ ref-kip-up                    97 → 100           98 → 100         −1      
 결함을 못 본다 — 알려진 건(geometric split 측정이 keypoint saturate 로 confounded).
 이 배선의 공은 아니다.
 
-## 6. 다시 새지 않게 — 시험 19건
+## 5-1. kip-up 이 왜 안 잡혔나 — 재고 고쳤다 (belle: *"안 고쳐진다고만 하면 안돼 방법을 알려야지"*)
 
-`backend/tests/test_mode3_reference_relative_wiring.py` (신규).
+`[확인]` **축은 결함을 정확히 본다.** 기준 대비 편차가 결함판에서 뚜렷이 벌어진다:
+
+```
+관절            정타    결함      차
+left_shoulder    3.5   20.6   +17.1      ← 6배
+left_elbow       4.2   13.8    +9.6
+right_shoulder   3.3   12.7    +9.4
+right_hip        2.4    9.6    +7.2
+```
+
+막힌 곳은 그 다음 **두 칸**이다:
+
+1. **허용오차 20도.** 20.6도는 문턱을 0.6도 넘었을 뿐이라 감점이 **−0.7점**이다.
+   6배 차이가 0.7점으로 번역된다.
+2. **신뢰구간 억제.** 왼어깨 CI 가 `15.9~24.3` 으로 문턱을 걸쳐서, 그 −0.7점마저
+   "확신 없음"으로 억제된다(quick-260802-nse). 최종 100점.
+
+★ **두 칸 다 점수로서는 옳다.** 오차 안이면 안 깎는 게 맞고, 확신 없으면 안 깎는 것도
+맞다. 틀린 것은 **그 점수의 차이로 발전을 읽으려 한 것**이다.
+
+### 방법 — 발전은 문턱이 필요 없는 양이다
+
+```
+발전_관절 = (이전 영상의 기준 대비 편차) − (지금 영상의 기준 대비 편차)
+양수 = 기준에 가까워졌다
+```
+
+점수는 "허용오차를 넘었나"를 묻고, 발전은 "저번보다 가까워졌나"를 묻는다. **다른 질문
+이라 다른 산식이어야 한다.** 이 읽기는 문턱을 안 쓰므로 둘 다 오차 안인 쌍도 읽는다.
+
+`[확인]` 실측(운영 함수 `_mode3_reference_approach`, 정타/결함 쌍 6동작):
+
+```
+동작                     점수 이전→지금  점수로 발전   가까워진 관절  평균 좁힘  접근도로 발전
+ref-climb                  92 → 100        읽음        8/8        13.0       읽음
+ref-power-spin             66 → 100        읽음        8/8        12.0       읽음
+ref-peter-pan              80 → 100        읽음        8/8        10.1       읽음
+ref-pdshape                67 → 100        읽음        8/8         8.9       읽음
+ref-kip-up                100 → 100      못 읽음        8/8         6.3       읽음  ←
+ref-elbow-twist-sister     82 → 100        읽음        8/8         4.0       읽음
+
+발전 방향을 맞힌 동작:   점수 5/6   →   기준 접근도 6/6
+```
+
+★ **한 동작 맞춤이 아니다** — 6동작 전부에서 관절 **8/8 만장일치**다.
+방향 반전(정타→결함)도 음수로 뒤집힌다(시험으로 박제).
+
+### 무엇을 넣었나
+
+`comparison.referenceApproach` = `{byJoint, jointsCloser, jointsCompared,
+meanNarrowedDeg}`. **관측 전용 — 점수·앱 무접촉**(260919-mhl `pairDeviationSec` 선례).
+기준 축 미발화(플래그 OFF 포함)면 **키 자체가 없다**. 계약 3곳 동시 갱신.
+관측 밖으로 새면 실패하는 정적 게이트 포함.
+
+★ 허용오차 20도는 **안 건드렸다.** 문턱을 kip-up 에 맞춰 내리는 것은 커브핏이고
+([[chasing-the-number-is-the-tangle]]), 점수의 신중함은 그대로 두는 게 맞다.
+
+### 부수 발견 — criteria yaml 이 11편 중 5편 비었다
+
+`[확인]` `load_grouped_criteria` 적재 현황:
+
+```
+criterion 6개 : ref-foxtop · ref-foxtop-split · ref-invert · ref-sideway-spin
+criterion 2개 : ref-power-spin (EXTEND = 양 무릎)
+criterion 0개 : ref-climb · ref-elbow-twist-sister · ref-kip-up · ref-pdshape · ref-peter-pan
+파일 없음     : ref-combo
+```
+
+`angle_vs_reference__*` 는 관절 일반 criterion 이라 빈 yaml 에서도 돈다(그래서 배선이
+5/6 을 낸다). 다만 **동작 고유 결함**(kip-up 의 다리 벌림 등)은 이 5편에서 채점될 수 없다.
+belle 라벨링이 필요한 별건 — 이 배선의 범위 밖.
+
+## 6. 다시 새지 않게 — 시험 24건
+
+`backend/tests/test_mode3_reference_relative_wiring.py` (신규 24건).
 
 - 플래그: 기본 OFF · falsy set 은 리포 관례 그대로(새 규칙 0)
 - **OFF 면 Firestore 를 읽지도 않는다** — 켜지 않은 채 머지해도 비용 0
@@ -115,8 +189,8 @@ ref-kip-up                    97 → 100           98 → 100         −1      
 - ★ **구조 게이트**: `mode3_ref_*` 가 승인된 자리 밖에 나타나면 실패.
   확대카드 호출부에 일부러 새게 해 **변이 검증** 통과 — 게이트가 실제로 잡는다.
 
-게이트: `backend/.venv/bin/python -m pytest backend/tests` → **4984 passed / 20 skipped
-/ 0 failed** (기준 4965 + 신규 19). 앱 `npm run typecheck` clean.
+게이트: `backend/.venv/bin/python -m pytest backend/tests` → **4989 passed / 20 skipped
+/ 0 failed** (기준 4965 + 신규 24). 앱 `npm run typecheck` clean.
 
 ## 7. 켜는 조건 — 셋 다 통과해야
 
@@ -134,7 +208,8 @@ ref-kip-up                    97 → 100           98 → 100         −1      
 - `[미확인]` **라이브에서 이 플래그를 켜고 돌린 적이 없다.** 오프라인으로 끝까지
   따라갔지만 Pod 실행 로그는 없다([[wiring-claims-need-log-evidence]]).
 - `[미확인]` `ref-elbow-twist-sister` 바닥값은 현행 파이프라인에서 아직 안 쟀다.
-- `[확인]` kip-up 은 이 축으로 안 고쳐진다 — 별건.
+- `[확인]` kip-up 의 **점수**는 이 축으로 안 오른다(허용오차 안). **발전 읽기는 §5-1 로 해결**.
+- `[미확인]` criteria yaml 이 11편 중 5편 비어 동작 고유 결함이 채점 불가 — belle 라벨링 별건.
 - **belle 판정 대기**: mode3 가 지금처럼 점수를 안 띄우는 상태로 실증에 들어가도
   되는지(260920-stn §6 의 (나)). 이 배선이 켜지면 그 질문 자체가 사라진다.
 

@@ -164,20 +164,61 @@ meanNarrowedDeg}`. **관측 전용 — 점수·앱 무접촉**(260919-mhl `pairD
 ★ 허용오차 20도는 **안 건드렸다.** 문턱을 kip-up 에 맞춰 내리는 것은 커브핏이고
 ([[chasing-the-number-is-the-tangle]]), 점수의 신중함은 그대로 두는 게 맞다.
 
-### 부수 발견 — criteria yaml 이 11편 중 5편 비었다
+### 5-2. criteria yaml 이 5편 비어 있는 이유 — 방치가 아니라 **의도적 제거**였다
 
-`[확인]` `load_grouped_criteria` 적재 현황:
+belle: *"왜 비어 있는 것이지? 아주 많이 분석했었던건데"*
+
+`[정정]` 나는 §5-1 에 "belle 라벨링이 필요한 별건"이라고 적었다. **틀렸다.**
+파일을 열어보니 정반대가 적혀 있다. 파일은 비지 않았고(1.2~1.8KB), **머리말이 왜
+비웠는지를 설명한다.**
+
+`[확인]` 2026-06-27 Pod sweep 실측 후 **belle 결정으로 지운 것**이다. step4 에서 양
+무릎 EXTEND(180°)를 걸었더니 **정타 영상이 위양성을 맞았다** — 이 동작들은 무릎을
+굽히는 게 올바른 폼이기 때문이다:
 
 ```
-criterion 6개 : ref-foxtop · ref-foxtop-split · ref-invert · ref-sideway-spin
-criterion 2개 : ref-power-spin (EXTEND = 양 무릎)
-criterion 0개 : ref-climb · ref-elbow-twist-sister · ref-kip-up · ref-pdshape · ref-peter-pan
-파일 없음     : ref-combo
+peter-pan   정타 무릎 ~116°  (결함 121.6° 보다 오히려 더 굽음)  → 정타에 raw 64° 발화
+pdshape     정타가 지지 다리를 깊게 굽힘                        → 정타에 raw 83.8° 발화
+elbow-twist 정타 form 이 무릎 굽힘                              → 정타에 raw 51.7° 발화
+kip-up      무릎 신호가 **역전** (정타 149° vs 결함 161/165°)
+climb       IPSF "Transitions & Climbs" — 해부학적 각도 임계 자체가 없는 범주
 ```
 
-`angle_vs_reference__*` 는 관절 일반 criterion 이라 빈 yaml 에서도 돈다(그래서 배선이
-5/6 을 낸다). 다만 **동작 고유 결함**(kip-up 의 다리 벌림 등)은 이 5편에서 채점될 수 없다.
-belle 라벨링이 필요한 별건 — 이 배선의 범위 밖.
+belle 결정: *"굽힘 form 에 신전기준 강요 금지"*([[scoring-redesign-must-generalize-no-overfit]]).
+즉 **많이 분석했기 때문에 비운 것**이다. 안 한 게 아니라, 해보고 틀렸다고 판정한 자리다.
+
+★ **그리고 파일들이 후임을 지목해 놨다** — 네 편이 같은 문장을 적고 있다:
+
+> *"채점은 **reference_relative(정은지 대비 per-joint)** + vision 경로가 담당"*
+> *"결함(스플릿 부족/라인 붕괴)은 **reference_relative(정은지 대비)가 처리**"*
+
+**오늘 배선한 축이 정확히 그 지목된 후임이다.** mode1 에는 이미 있었고 **mode3 에만
+없었다.** 이 작업은 새 축을 만든 게 아니라 06-27 결정을 mode3 에서 처음 이행한 것이다.
+
+### 5-3. kip-up — 06-27 판정은 "무릎"에 한정된 것이었다
+
+kip-up 만 후임 지목 없이 *"별 트랙(실제 fault 정의 = belle 도메인 + vision/temporal)"* 로
+미뤘다. 그 트랙은 `15-SPLIT-MEASUREMENT-DESIGN-2026-06-29.md` 로 설계됐지만 기하
+게이트는 지금 사문이다([[split-axis-depends-entirely-on-gemini]]).
+
+`[확인]` 그런데 06-27 이 잰 것은 **무릎각 vs 180°** 였다. 정은지 대비 축으로 재면
+결함이 **어깨에 있다** — 재분석 137건(정타 62 / 결함 75)에서 흔들림이 없다:
+
+```
+관절              정타 중앙   결함 중앙      차
+left_shoulder        3.5       20.6      +17.1   ← 여기
+left_elbow           4.2       14.2      +10.0
+right_shoulder       3.3       12.7       +9.4
+left_knee            1.1        1.6       +0.5   ← 06-27 이 본 자리, 신호 없음
+right_knee           0.8        1.7       +0.9
+```
+
+무릎이 쓸모없다는 06-27 결론은 **재현된다**(+0.5/+0.9). 새로 보이는 것은 **무릎이
+아닌 곳에 신호가 있다**는 것이다. *"kip-up 은 각도로 채점 불가"* → *"kip-up 은
+**무릎**각으로 채점 불가"* 로 좁혀야 한다.
+
+`[미확인]` 원본 영상은 **정타 1편 / 결함 1편**뿐이다(137건은 같은 두 영상의 재추출).
+측정이 안정적이라는 것이지 일반화된 것이 아니다 — 학생 영상으로 확인할 목록에 올린다.
 
 ## 6. 다시 새지 않게 — 시험 24건
 
@@ -212,7 +253,9 @@ belle 라벨링이 필요한 별건 — 이 배선의 범위 밖.
   따라갔지만 Pod 실행 로그는 없다([[wiring-claims-need-log-evidence]]).
 - `[미확인]` `ref-elbow-twist-sister` 바닥값은 현행 파이프라인에서 아직 안 쟀다.
 - `[확인]` kip-up 의 **점수**는 이 축으로 안 오른다(허용오차 안). **발전 읽기는 §5-1 로 해결**.
-- `[미확인]` criteria yaml 이 11편 중 5편 비어 동작 고유 결함이 채점 불가 — belle 라벨링 별건.
+- `[확인]` criteria yaml 5편이 빈 것은 **의도적 제거**이고 후임으로 `reference_relative` 를
+  지목해 놨다(§5-2) — 오늘 배선이 그 이행이다. **belle 라벨링 불필요.**
+- `[미확인]` kip-up 어깨 신호는 원본 **1쌍**에서만 봤다(§5-3). 학생 영상으로 확인할 것.
 - **belle 판정 대기**: mode3 가 지금처럼 점수를 안 띄우는 상태로 실증에 들어가도
   되는지(260920-stn §6 의 (나)). 이 배선이 켜지면 그 질문 자체가 사라진다.
 

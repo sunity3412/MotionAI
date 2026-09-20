@@ -550,3 +550,98 @@ reference 컬렉션 12건 → 각도 시계열 보유 11 / 11 (ref-combo 931프�
   나쁜가 아닌가는 매칭 정확도에 달렸다 — **재기 전에는 권장하지 않는다.**
 - DTW distance 로 매칭하는 대안은 위험하다 — distance 가 "학생이 얼마나 다른가"를 재므로
   (§4) 못하는 학생일수록 엉뚱한 동작에 붙을 수 있다.
+
+
+---
+
+## 11. ★★★★ 매칭은 공짜로 쟀다 + 빈 yaml 이 스스로 답을 적어놨다
+
+### 11-1. `[확인·실측]` 매칭 정확도 — 크레딧 0, Pod 0
+
+라벨이 공짜로 있었다: **mode1 분석의 `referenceMotionId` = 사용자가 직접 고른 기준 동작**.
+학생 각도 시계열도 doc 최상위에 저장돼 있다. 라이브 78건(6동작) 확보(Firestore 120 read).
+
+저장된 각도만으로 정은지 기준 11개와 DTW 매칭:
+
+```
+★ DTW      top-1 = 67/78 = 85.9%
+  profile  top-1 = 57/78 = 73.1%   (분포 대조군)
+
+혼동표: kip-up 22/22 · pdshape 12/12 · power-spin 12/12 ·
+        elbow-twist 10/10 · peter-pan 4/4 · climb 7/18
+        ★ 오분류 11건이 **전부** climb → sideway-spin 한 쌍이다
+```
+
+마진(1등 대비 2등 상대거리) 분포:
+```
+맞춘 67건 : 최소 0.069 · 중앙 0.881 · 최대 9.306
+틀린 11건 : 최소 0.045 · 중앙 0.048 · 최대 0.056   ← 좁은 띠에 몰려 겹치지 않는다
+```
+
+★ **주의 — 이 분리로 통과선을 정하면 커브핏이다.** 관측은 "오분류가 한 쌍이고 그 쌍의
+마진이 균일하게 낮다"이지 "문턱 0.10 이 옳다"가 아니다. 표본 78건·6동작이고,
+나머지 5동작(foxtop·foxtop-split·invert·sideway-spin·combo)은 학생 분석이 **0건**이라
+정확도가 **미측정**이다. [[chasing-the-number-is-the-tangle]]
+
+### 11-2. ★ `[확인·실측]` 기준이 있는 동작은 아무도 안 올리고, 올리는 동작은 기준이 없다
+
+```
+동작                     학생 분석   angle_target   EXTEND
+ref-kip-up                    22           0         0   ← 기준 없음
+ref-climb                     18           0         0   ← 기준 없음
+ref-pdshape                   12           0         0   ← 기준 없음
+ref-elbow-twist-sister        10           0         0   ← 기준 없음
+ref-peter-pan                  4           0         0   ← 기준 없음
+ref-power-spin                12           2         2   ← 유일한 교집합
+ref-foxtop / -split / invert / sideway-spin
+                               0        6/6/6/6       0   ← 기준 있는데 학생 0건
+
+★ 라이브 학생 분석 78건 중 '걸 기준이 있는 동작' = 12건 (15%)
+```
+
+### 11-3. ★★ 그런데 빈 yaml 들이 **스스로 대안을 적어놨다**
+
+`ref-peter-pan.yaml:9-11` (belle 2026-06-27 결정문):
+> "곧아야 할 객관 관절 부재 → 객관 angle criteria 없음. 다른 관절(shoulder/elbow)은
+> **reference_relative(정은지 대비)** 가 처리."
+
+`ref-pdshape.yaml` · `ref-kip-up.yaml` 도 같은 문장. 즉 **criteria 가 빈 것은 결함이 아니라
+설계**이고, 그 자리를 메우도록 지정된 것이 **"정은지 대비 per-joint 비교"**다.
+
+그 경로가 코드에 실재한다 — `app.py:2861` `md[f"angle_vs_reference__{jk}"]`.
+관문은 `app.py:2906`:
+```python
+if reference_dtw_match is not None and reference_angles is not None and angles is not None:
+```
+**mode 게이트가 아니라 데이터 게이트다.**
+
+재료도 있다 — `reference` 컬렉션 **11/11 이 각도 시계열 보유**(실측), 그리고
+**mode3 는 이미 그 doc 을 가져온다**(`app.py:8371`) — 체형 비교에만 쓰고 angles 는 안 쓸 뿐이다.
+
+### 11-4. 그래서 사슬이 이렇게 이어진다 (각 칸 `[확인]`)
+
+```
+mode3 가 어느 기준과 비교할지 안다  ← 인식. 오늘 공짜로 85.9% 측정 (11-1)
+  → 이미 가져오는 reference doc 의 angles 를 쓴다        (11-3, 실측 11/11 보유)
+  → motion_dtw 로 reference_dtw_match 를 만든다          (mode1 이 하는 것과 같은 함수)
+  → app.py:2906 데이터 관문 통과 → angle_vs_reference__{jk} 가 md 에 실린다
+  → deduction tally 가 돈다 → 점수가 **자세를 반영한다**
+```
+
+**새 채점 로직도 새 임계값도 없다.** 빈 yaml 이 "reference_relative 가 처리한다"고 적어둔
+그 경로를 mode3 에도 붙이는 일이다.
+
+### 11-5. `[미확인]` — 아직 안 쟀다. 이게 다음 측정이다
+
+- **틀린 매칭의 대가.** climb 을 sideway-spin 으로 잘못 붙이면 감점이 통째로 틀린다.
+  지금(떨림만 98점)보다 나쁜가? **오프라인으로 잴 수 있다** — 저장된 각도에 맞는 기준/틀린
+  기준을 각각 걸어 `md` 와 점수를 비교하면 된다. Pod 0 · Gemini 0 · Firestore 0(캐시 보유).
+- **매칭 실패를 거절로 돌릴 때 무엇을 잃나.** 거절 = 현행(떨림 단독 + 억제) 유지다.
+- 학생 분석 0건인 5동작의 매칭 정확도 — 라벨이 없어 못 잰다.
+
+### 11-6. 판정 — belle 이 D-08 로 금지한 것이 지금 화면에 떠 있다
+
+인식만 고치면 `_score_suppression_reason`(app.py:6954)의 억제가 풀려 **떨림 단독 98 점이
+홈 성장 지표로 들어간다** — belle D-08 *"confident 97 금지"* 그 자체다.
+그래서 **인식 수리는 11-3 의 reference_relative 배선과 한 묶음으로만 의미가 있다.**
+따로 내보내면 순수 악화다.

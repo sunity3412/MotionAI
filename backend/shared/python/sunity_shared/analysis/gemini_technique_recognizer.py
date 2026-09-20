@@ -94,7 +94,13 @@ def _hold_window_from_moments(moments: Any) -> tuple[int, int] | None:
     ★★ quick-260920-ra8 (belle 승인, 2026-09-20) — **이 함수의 산출을 지금 아무도
     채점에 쓰지 않는다.** `dimensions._select_window` 가 국면 힌트를 버리고 기하 창만
     쓴다. 아래 33-A4 서술은 그때의 의도이고, 지금은 이력이다. 호출은 남아 있으므로
-    profile.hold_window 에 값은 계속 실리지만 **소비처가 0** 이다 —
+    `[정정 2026-09-20]` 여기 "소비처가 0"이라고 적었던 것은 **틀렸다.**
+    EXTEND 채점(`_select_window`)은 더 이상 이 값을 안 보지만,
+    **흔들림 채점(`dimensions._select_stability_window`, dimensions.py:366)은 아직 읽는다.**
+    그리고 mode3 는 core 차원(angle/line)이 없어 종합이 stability 단독이므로
+    (`overall_from_dimensions`), 이 국면 힌트가 **mode3 점수에 그대로 닿는다.**
+    같은 영상 5벌에서 hold 가 8.0초/1.0초로 이봉, 2/5 오답이었다(quick-260920-ra8).
+    profile.hold_window 에 값은 계속 실리고 EXTEND 쪽 소비처만 0 이다 —
     "국면 게이트가 걸려 있다"고 읽지 말 것.
       끊은 이유(Pod 실측): 같은 영상을 캐시 우회로 5번 물으니 hold 가 8.0초(정답)와
       1.0초(진입부)로 갈리고 중간값이 없었다. 1.0초를 받은 2/5 에서 정은지 정타가

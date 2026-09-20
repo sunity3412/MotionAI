@@ -680,7 +680,7 @@ def build_mode3(
 
     Phase 19 (ITER-2 MEDIUM-2 backward-compat + ITER-3 HIGH-2 4-value enum):
     scoring_basis 미전달(None) 시 기존 dict 정확히 보존 (scoringBasis 키 미추가).
-    전달 시에만 scoringBasis + scoringBasisLabel emit. 허용값 = 정확히 4 Mode3 값
+    전달 시에만 scoringBasis + scoringBasisLabel emit. 허용값 = 6 Mode3 값
     (_MODE3_SCORING_BASES). `reference_motion` 은 Mode1 전용 — Mode3 에 들어오면
     거짓 reference 비교 함의이므로 ValueError (free-form 문자열도 거부).
 

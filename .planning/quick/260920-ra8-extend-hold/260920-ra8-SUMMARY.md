@@ -21,7 +21,7 @@ belle 판정 인용: *"너무 과하게 오르지 않고, 분석이 그게 맞�
 | | 전 | 후 |
 |---|---|---|
 | `dimensions._select_window` | `profile.hold_window`(Gemini 국면 힌트) **안에서** 분산-최소 부창 재선택 | 힌트를 쓰지 않고 항상 `hold_window(a)` |
-| `technique.TechniqueProfile.hold_window` | 채점 창을 정했다 | 값은 계속 실리되 **소비처 0** — 주석으로 명시 |
+| `technique.TechniqueProfile.hold_window` | 채점 창을 정했다 | **EXTEND 쪽만** 소비처 0. ★흔들림 채점은 아직 읽는다(정정, 아래 §5) |
 | `gemini_technique_recognizer._hold_window_from_moments` | 그 창의 산출처 | 동일. **"지금 아무도 안 쓴다"** 주석 |
 | 사용자 문구 | `신전 완성도` · `신전 부족` · `hold 구간 떨림` | `얼마나 곧게 폈나` · `덜 폈음` · `버티는 동안 떨림` |
 
@@ -85,7 +85,14 @@ fault     60       52    →       60     실수 8건 신규 검출
 
 ## 5. 남은 것 / 주의
 
-- `[확인]` **`_hold_window_from_moments` 와 `profile.hold_window` 는 이제 소비처가 0** 이다.
+- `[정정 2026-09-20 밤]` **"소비처가 0" 은 틀렸다.** `_select_window`(EXTEND)는 더 이상 안 보지만
+  **`_select_stability_window`(dimensions.py:366)는 아직 `profile.hold_window` 를 읽는다.**
+  그리고 mode3 는 core 차원이 없어 종합이 stability 단독이라
+  (`overall_from_dimensions` — core 부재 시 절대트랙 단독), **이 국면 힌트가 mode3 점수에 그대로 닿는다.**
+  같은 파일 :357 이 이미 별도 불일치를 경고해 둔 자리다 — 창 선택자는 *위치 분산 최소*로 고르는데
+  stability 는 *프레임간 흔들림*으로 채점한다(스윕 12건에서 창을 바꾸면 −15~+5점 양방향 이동).
+  → **파일럿 성공기준 1번(Mode3 성장 확인)에 직접 닿는 미결이다.** '실증 무관' 으로 분류하면 안 된다.
+- `[확인]` `_hold_window_from_moments` 는 EXTEND 경로에서 소비처가 0 이다.
   지우지 않고 주석으로 표시했다 — 국면 인식을 고치면 다시 꽂히는 자리다.
   같은 함수의 `fps = 9.0` 하드코딩(실측 ~9.96)도 그때 같이 고칠 자리로 적어뒀다.
 - `[미확인]` **안전 경고의 국면 대조(phase co-location)가 이제 기하 창을 쓴다.**

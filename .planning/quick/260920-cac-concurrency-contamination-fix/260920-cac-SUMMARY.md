@@ -387,3 +387,91 @@ md 키 · 코칭 · 카드 criterion 에 닿는다 — 그 파급은 아직 안 
 잡지 않던 입력을 키에 넣을 뿐이다. 비용은 같은 영상을 두 모드로 분석할 때 Gemini 호출이
 1회 늘어나는 것인데 **다른 질문을 하고 있으니 맞는 동작**이다.
 기존에 박힌 doc 처리(무효화/방치)는 별도 판정.
+
+
+---
+
+## 9. ★ §7 정정 + 왜 mode3 에 동작 인식이 없나 (결정 이력 발굴)
+
+### 9-1. `[정정]` 내가 §7 에서 "line 이 **구조적으로 절대** 안 생긴다"고 한 것은 과장이다
+
+뒷문이 둘 있었다. 실행으로 확인:
+
+```
+Gemini 성공 (정상 mode3)   category=unregistered  line차원=없음  dims={'stability':100}       종합=100
+Gemini 실패 (api_failure)  category=api_failure   line차원=있음  dims={'line':75,'stability':100} 종합=75
+```
+
+**Gemini 가 실패하면 자세를 채점하고, 성공하면 안 한다.** `FallbackRecognizer` 가 ≥150° 관절을
+EXTEND 로 채우기 때문이다(`technique.py:129-136`). 역전이다.
+
+두 번째 뒷문은 **캐시 상속**인데 §8 수리로 닫혔다. 문서 증거도 있다 —
+`29-05-SUMMARY.md:70-71` 의 2026-07-16 Pod sweep 에서 power-spin 2키가 `md={leg_extension,line}`
+였다(나머지 10키는 md 빈 dict). 그 표에서 line 이 뜬 것이 하필 **EXTEND yaml 을 가진 유일한
+동작**(`ref-power-spin`)뿐인 것이 캐시 유래(=yaml 파생 profile)의 증거다 — FallbackRecognizer
+였다면 기하 기준이라 12키 전부 떴어야 한다.
+
+**정확한 문장**: mode3 는 **정상 경로에서** line 차원을 얻지 못한다. 얻는 경우는 (a) Gemini
+실패 (b) 다른 분석의 profile 상속 — 둘 다 "제대로 인식해서"가 아니다.
+
+### 9-2. `[확인]` 의도된 보류가 아니다 — **빠진 배선**이고, 한 번 식별됐다가 잊혔다
+
+**belle 결정 D-07 (2026-06-19, `20-CONTEXT.md:34`)**:
+> **판정 주체 = Gemini 인식기 3분기.** … (1) IPSF 공식 등재 → … (2) IPSF없음·정은지 보유 → …
+> (3) 둘 다 미보유 → 유효성 게이트.
+
+미보유는 **3분기 중 1개**지 정상 경로가 아니다. 그런데 지금 코드는 mode3 가 분기 1·2 에
+도달할 정상 경로가 없어 **3분기가 1분기로 붕괴**해 있다.
+
+**그리고 이건 2026-06-05 에 이미 식별됐다** — `05-05-SUMMARY.md:271-299` "박제 함정 19".
+production 수리안이 표로 적혀 있다: `Path B` = "Gemini prompt 에 motion 분류 응답 추가",
+`Path C` = "extractor `_last_motion_name` 가 caller query 아닌 Gemini 응답 반영".
+채택된 것은 **sweep 한정 우회(Path A)뿐**이고 B/C 는 *"production 시점 별 plan"* 으로 이월됐다.
+**그 후속 plan 이 `.planning` 전체에 0건이다.** 취소 기록도 0건 — 잊힌 것으로 보인다.
+
+**그 뒤 문서 2건이 반대 사실을 적었다** (고쳐진 줄 알았던 이유):
+- `deferred-items.md`(2026-06-17): *"recognizer classification is driven by Gemini's OWN visual
+  read … not the hint"* → **사실과 반대**.
+- `30-CONTEXT.md:26` D-04(2026-07-09): *"인식기는 이미 mode3 에서 동작 인식 중 — 저장만 안 되던 것"*
+  → **사실과 반대**.
+
+운영 프롬프트는 Gemini 에게 **동작 이름을 묻지 않는다** — `_GEMINI_PROMPT_TEMPLATE` 의 출력
+스키마가 `moments` 뿐이고 파서에 그 키를 읽는 줄이 없다. 있다가 빠진 게 아니라 처음부터 없었다.
+
+### 9-3. `[확인]` belle 의 D-08 결정이 앱에서 사라졌다
+
+**belle 결정 D-08 (`20-CONTEXT.md:35`)**:
+> **미보유(분기 3) 표시 = confident 점수 억제 + "기준 없음".** … **confident 97 금지**
+
+백엔드는 지금도 `scoreSuppressed` 를 방출한다(`app.py:8720`). 그런데 **결과화면에는
+`scoreSuppressed` 참조가 0건**이고 `result.tsx:1661` 이 점수를 무조건 그린다. 2026-09-09
+재디자인에서 제거됐고(`aadf0375`·`a5089955`, `--noUnusedLocals` 죽은 코드 판정) **철회 결정
+기록은 못 찾았다.** 라이브 mode3 점수가 98·98·93 인데 화면은 그걸 그대로 confident 하게 띄운다.
+
+남은 소비처는 홈뿐이다 — `growthSelectors.ts:74` · `(tabs)/index.tsx:81` 이 억제된 분석을
+성장 지표에서 뺀다. **한 분석이 화면마다 다른 대접을 받는다.**
+
+### 9-4. ★ `[확인]` §8 수리의 부작용 — 정직하게
+
+`_score_suppression_reason`(app.py:6954)은 `category == "unregistered"` 면 무조건 억제한다.
+§8 캐시 수리가 mode3 를 `recognized` 로 만들던 **유일한 뒷문**을 닫았으므로:
+
+```
+수리 전 : mode3 는 대개 억제(성장 그래프 제외), 가끔 캐시 상속으로 통과(단 남의 동작 기준)
+수리 후 : mode3 는 항상 억제 → 홈 성장 그래프에서 항상 제외
+```
+
+**mode3 는 파일럿 성공기준 1번이다.** 그러니 이렇게 적어야 한다 —
+**"mode3 가 고쳐졌다"고 보고하면 거짓말이다.** 간헐적으로 틀리던 분석이 일관되게 얄팍한
+분석으로 바뀐 것이다. 캐시 수리는 옳고 되돌리면 안 되지만, **짝이 따라와야 한다.**
+
+### 9-5. `[미확인]` — 수리 착수 전에 반드시 잴 것
+
+**Gemini 가 폴 동작 이름을 맞히는가 — 측정 0회.** 이게 Path B 의 유일한 전제다.
+05-05 의 "분류 정확도" 수치들은 전부 **묻지도 않은 프롬프트**에서 나온 것이라 능력의 증거가
+아니다. 현 프롬프트에 `motion_name` 출력만 더한 판으로 정은지 ref 10편 + 학생 영상 몇 편을
+돌려 응답을 박제하는 spike(운영 코드 무접촉)가 선행해야 한다. **못 맞히면 Path B 는 폐기하고
+다른 축을 찾는다.** [[recommend-only-after-measuring-the-deciding-fact]]
+
+그 밖에 못 닫은 것: 09-09 억제 UI 제거가 belle 승인 범위였는지(문서로 못 가린다) ·
+캐시 상속이 점수를 실제로 뒤집은 라이브 사례(아직 0건) · hold_window/key_moments 상속의 2차 파급.

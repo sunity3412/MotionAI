@@ -1,0 +1,45 @@
+case                          label      dev°  gemC.cam_problem  descriptors(student | ref | Δ)
+
+pdshapeCorrect1785373695      correct   23.43             False   dtw=60.9
+    sw_torso         stu=   0.503  ref=   0.589  d=  -0.085
+    hw_torso         stu=   0.331  ref=   0.333  d=  -0.002
+    lr_uparm         stu=   0.196  ref=   0.193  d=  +0.003
+    lr_forearm       stu=   0.831  ref=   0.318  d=  +0.513
+    lr_thigh         stu=   0.279  ref=   0.188  d=  +0.091
+    lr_shank         stu=   0.191  ref=   0.255  d=  -0.064
+    body_tilt_deg    stu=  18.304  ref=  19.502  d=  -1.198
+    sh_axis_deg      stu=  56.033  ref=  63.153  d=  -7.120
+    ear_torso        stu=   0.273  ref=   0.261  d=  +0.012
+
+kipupFault1785373695          fault      8.56             False   dtw=26.9
+    sw_torso         stu=   0.353  ref=   0.475  d=  -0.122
+    hw_torso         stu=   0.279  ref=   0.311  d=  -0.031
+    lr_uparm         stu=   0.492  ref=   0.135  d=  +0.357
+    lr_forearm       stu=   0.135  ref=   0.196  d=  -0.062
+    lr_thigh         stu=   0.119  ref=   0.127  d=  -0.008
+    lr_shank         stu=   0.290  ref=   0.139  d=  +0.152
+    body_tilt_deg    stu=   8.311  ref=   8.105  d=  +0.207
+    sh_axis_deg      stu=  65.787  ref=  75.065  d=  -9.278
+    ear_torso        stu=   0.115  ref=   0.173  d=  -0.058
+
+elbowtwistsisterFault1785373695fault     24.62             False   dtw=65.5
+    sw_torso         stu=   0.561  ref=   0.567  d=  -0.006
+    hw_torso         stu=   0.404  ref=   0.410  d=  -0.006
+    lr_uparm         stu=   0.206  ref=   0.231  d=  -0.025
+    lr_forearm       stu=   0.417  ref=   0.327  d=  +0.090
+    lr_thigh         stu=   0.146  ref=   0.182  d=  -0.035
+    lr_shank         stu=   0.133  ref=   0.269  d=  -0.136
+    body_tilt_deg    stu=  40.544  ref=  36.870  d=  +3.674
+    sh_axis_deg      stu=  64.439  ref=  68.475  d=  -4.036
+    ear_torso        stu=   0.315  ref=   0.246  d=  +0.068
+
+powerspinFault1785373695      fault     20.15             False   dtw=58.8
+    sw_torso         stu=   0.635  ref=   0.701  d=  -0.066
+    hw_torso         stu=   0.411  ref=   0.470  d=  -0.059
+    lr_uparm         stu=   0.226  ref=   0.144  d=  +0.082
+    lr_forearm       stu=   0.173  ref=   0.183  d=  -0.010
+    lr_thigh         stu=   0.269  ref=   0.085  d=  +0.184
+    lr_shank         stu=   0.288  ref=   0.074  d=  +0.213
+    body_tilt_deg    stu=  42.917  ref=  79.891  d= -36.973
+    sh_axis_deg      stu=  78.493  ref=  81.863  d=  -3.369
+    ear_torso        stu=   0.281  ref=   0.315  d=  -0.034

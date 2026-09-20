@@ -1,0 +1,256 @@
+rows: 875
+전수 정확도: 856/875 = 0.9783
+오분류 쌍: {('ref-climb', 'ref-sideway-spin'): 19}
+  ref-pdshape                215/215  1.000
+  ref-kip-up                 168/168  1.000
+  ref-power-spin             152/152  1.000
+  ref-elbow-twist-sister     152/152  1.000
+  ref-peter-pan              130/130  1.000
+  ref-climb                   19/ 38  0.500
+  ref-foxtop                   6/  6  1.000
+  ref-combo                    4/  4  1.000
+  ref-invert                   4/  4  1.000
+  ref-foxtop-split             3/  3  1.000
+  ref-sideway-spin             3/  3  1.000
+label: {'unknown': (112, 131), 'correct': (345, 345), 'fault': (354, 354), 'upload': (32, 32), 'self': (13, 13)}
+climb 제외: 837/837
+climb n= 38  비중=0.0434
+각도행렬 비트-동일 군집 수 = 461   (분석 875건)
+군집 크기 상위: [32, 19, 15, 12, 12, 12, 11, 11, 11, 11, 11, 10, 10, 10, 10, 9, 9, 9, 9, 9, 9, 8, 8, 8, 8]
+크기 1인 군집(고유) = 362
+ref 가 섞인 군집 수 = 0
+(ref,프레임수) 고유 조합 수 = 28
+[표5 재계산] 동작 고정 correct vs fault 마진 중앙
+  ref-climb                  correct 2.588 (n4)  fault 0.882 (n6)  ratio 0.34  fault2위=ref-power-spin 6/6
+  ref-elbow-twist-sister     correct 0.258 (n54)  fault 0.051 (n78)  ratio 0.20  fault2위=ref-power-spin 77/78
+  ref-kip-up                 correct 9.293 (n62)  fault 1.121 (n75)  ratio 0.12  fault2위=ref-sideway-spin 75/75
+  ref-pdshape                correct 0.303 (n100)  fault 0.254 (n59)  ratio 0.84  fault2위=ref-power-spin 50/59
+  ref-peter-pan              correct 3.310 (n60)  fault 1.148 (n63)  ratio 0.35  fault2위=ref-power-spin 63/63
+  ref-power-spin             correct 1.229 (n62)  fault 0.354 (n73)  ratio 0.29  fault2위=ref-peter-pan 73/73
+  감소한 동작 수 = 6
+  전체 중앙 correct 1.227  fault 0.354  ratio 0.29
+
+[표6 재계산] 마진 겹침
+  틀린 것 n=19 min 0.030 med 0.048 max 0.056
+  맞춘 것 n=856 min 0.036 med 0.355 max 9.315
+  틀린 것 최대(0.056) 이하에 들어온 맞춘 것 = 53건
+  그 53건의 ref 분포: Counter({'ref-elbow-twist-sister': 53})
+  그 53건의 label 분포: Counter({'fault': 52, 'unknown': 1})
+
+[길이-거리 상관] 학생 프레임수 vs 1등거리
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/feb97ca3-32a3-41c9-90c9-710b0eeb7095/scratchpad/m13/out/R_margin_indep.py", line 37, in <module>
+    from scipy.stats import spearmanr
+ModuleNotFoundError: No module named 'scipy'
+/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/feb97ca3-32a3-41c9-90c9-710b0eeb7095/scratchpad/m13/out/R_78_reconstruct.py:23: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  print("기간: %s ~ %s"%(datetime.datetime.utcfromtimestamp(have[0][0]).date(),
+/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/feb97ca3-32a3-41c9-90c9-710b0eeb7095/scratchpad/m13/out/R_78_reconstruct.py:24: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  datetime.datetime.utcfromtimestamp(have[-1][0]).date()))
+createdAt 있는 분석 = 846 / 853
+기간: 2026-06-06 ~ 2026-09-19
+
+85.9%% 재현 조건: 78건 중 오답 11건 (78*0.141 = 11.0). climb 코퍼스 오답률 = 19/38 = 50%%
+  -> climb 18건이 '평균적으로' 들어오면 오답 기대 9건 = 88.5%%. 11건이려면 climb 오답률 61%%.
+
+가장 오래된 78건 -> 정확도 60/78 = 0.7692 | climb 19건 그중 오답 18 | 전체 오답 18
+   동작분포: {'ref-climb': 19, 'ref-elbow-twist-sister': 17, 'ref-foxtop': 3, 'ref-peter-pan': 7, 'ref-power-spin': 9, 'ref-combo': 2, 'ref-kip-up': 11, 'ref-pdshape': 10}
+가장 최근 78건 -> 정확도 78/78 = 1.0000 | climb 16건 그중 오답 0 | 전체 오답 0
+   동작분포: {'ref-pdshape': 32, 'ref-climb': 16, 'ref-combo': 1, 'ref-peter-pan': 6, 'ref-power-spin': 8, 'ref-kip-up': 7, 'ref-elbow-twist-sister': 7, 'ref-invert': 1}
+
+  오래된   40건 누적 정확도 0.5750  (climb  18건 = 45.0%)
+  오래된   50건 누적 정확도 0.6600  (climb  18건 = 36.0%)
+  오래된   60건 누적 정확도 0.7167  (climb  18건 = 30.0%)
+  오래된   70건 누적 정확도 0.7429  (climb  19건 = 27.1%)
+  오래된   78건 누적 정확도 0.7692  (climb  19건 = 24.4%)
+  오래된   80건 누적 정확도 0.7750  (climb  19건 = 23.8%)
+  오래된   90건 누적 정확도 0.8000  (climb  19건 = 21.1%)
+  오래된  100건 누적 정확도 0.8200  (climb  19건 = 19.0%)
+  오래된  131건 누적 정확도 0.8626  (climb  19건 = 14.5%)
+  오래된  150건 누적 정확도 0.8800  (climb  19건 = 12.7%)
+  오래된  200건 누적 정확도 0.9100  (climb  19건 = 9.5%)
+  오래된  400건 누적 정확도 0.9550  (climb  19건 = 4.8%)
+  오래된  846건 누적 정확도 0.9775  (climb  36건 = 4.3%)
+
+시간 연속 78건 윈도우 중 85.9% 에 가장 가까운 것: start=7 정확도 0.8590
+climb 대표 표본: {(80, 'ref-climb'): 'fixtures:climb-correct.mp4', (62, 'ref-climb'): '클라임(잘못된예시).mp4', (138, 'ref-sideway-spin'): '_talkv_wzPWR5bAZW_JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4', (137, 'ref-sideway-spin'): '_talkv_wzPWR5bAZW_JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4', (172, 'ref-sideway-spin'): '11516.mp4', (171, 'ref-sideway-spin'): None}
+
+--- 원본 62프레임  pred=ref-climb  src=클라임(잘못된예시).mp4
+    T=  50  argmin=climb                d=  60.50   d(climb)=  60.50 d(sideway)= 163.16
+    T=  62  argmin=climb                d=  57.70   d(climb)=  57.70 d(sideway)= 157.06
+    T=  80  argmin=climb                d=  55.88   d(climb)=  55.88 d(sideway)= 152.09
+    T= 100  argmin=climb                d=  50.39   d(climb)=  50.39 d(sideway)= 146.66
+    T= 120  argmin=climb                d=  56.55   d(climb)=  56.55 d(sideway)= 142.48
+    T= 138  argmin=climb                d=  52.76   d(climb)=  52.76 d(sideway)= 138.75
+    T= 160  argmin=climb                d=  53.10   d(climb)=  53.10 d(sideway)= 135.18
+    T= 172  argmin=climb                d=  52.56   d(climb)=  52.56 d(sideway)= 133.40
+    T= 200  argmin=climb                d=  51.89   d(climb)=  51.89 d(sideway)= 128.97
+    T= 240  argmin=climb                d=  52.85   d(climb)=  52.85 d(sideway)= 113.52
+    T= 298  argmin=climb                d=  51.45   d(climb)=  51.45 d(sideway)= 117.37
+
+--- 원본 80프레임  pred=ref-climb  src=fixtures:climb-correct.mp4
+    T=  50  argmin=climb                d=  28.49   d(climb)=  28.49 d(sideway)= 120.34
+    T=  62  argmin=climb                d=  26.11   d(climb)=  26.11 d(sideway)= 117.13
+    T=  80  argmin=climb                d=  23.17   d(climb)=  23.17 d(sideway)= 112.26
+    T= 100  argmin=climb                d=  25.26   d(climb)=  25.26 d(sideway)= 109.14
+    T= 120  argmin=climb                d=  20.36   d(climb)=  20.36 d(sideway)= 105.33
+    T= 138  argmin=climb                d=  24.11   d(climb)=  24.11 d(sideway)= 102.16
+    T= 160  argmin=climb                d=  29.55   d(climb)=  29.55 d(sideway)=  99.38
+    T= 172  argmin=climb                d=  29.93   d(climb)=  29.93 d(sideway)=  97.87
+    T= 200  argmin=climb                d=  31.45   d(climb)=  31.45 d(sideway)=  94.67
+    T= 240  argmin=climb                d=  34.22   d(climb)=  34.22 d(sideway)=  81.43
+    T= 298  argmin=climb                d=  35.80   d(climb)=  35.80 d(sideway)=  87.37
+
+--- 원본 137프레임  pred=ref-sideway-spin  src=ZW_JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4
+    T=  50  argmin=kip-up               d=  59.30   d(climb)=  70.56 d(sideway)=  65.89  <-- climb 아님
+    T=  62  argmin=kip-up               d=  61.65   d(climb)=  70.38 d(sideway)=  65.83  <-- climb 아님
+    T=  80  argmin=sideway-spin         d=  63.27   d(climb)=  69.43 d(sideway)=  63.27  <-- climb 아님
+    T= 100  argmin=sideway-spin         d=  62.47   d(climb)=  69.01 d(sideway)=  62.47  <-- climb 아님
+    T= 120  argmin=sideway-spin         d=  62.38   d(climb)=  70.64 d(sideway)=  62.38  <-- climb 아님
+    T= 138  argmin=sideway-spin         d=  60.99   d(climb)=  63.14 d(sideway)=  60.99  <-- climb 아님
+    T= 160  argmin=climb                d=  57.48   d(climb)=  57.48 d(sideway)=  59.67
+    T= 172  argmin=climb                d=  55.26   d(climb)=  55.26 d(sideway)=  58.87
+    T= 200  argmin=climb                d=  56.66   d(climb)=  56.66 d(sideway)=  57.21
+    T= 240  argmin=sideway-spin         d=  50.49   d(climb)=  54.86 d(sideway)=  50.49  <-- climb 아님
+    T= 298  argmin=sideway-spin         d=  54.10   d(climb)=  55.58 d(sideway)=  54.10  <-- climb 아님
+
+--- 원본 138프레임  pred=ref-sideway-spin  src=ZW_JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4
+    T=  50  argmin=kip-up               d=  59.35   d(climb)=  70.28 d(sideway)=  66.38  <-- climb 아님
+    T=  62  argmin=kip-up               d=  61.53   d(climb)=  70.98 d(sideway)=  66.27  <-- climb 아님
+    T=  80  argmin=sideway-spin         d=  63.42   d(climb)=  69.65 d(sideway)=  63.42  <-- climb 아님
+    T= 100  argmin=sideway-spin         d=  62.49   d(climb)=  68.89 d(sideway)=  62.49  <-- climb 아님
+    T= 120  argmin=sideway-spin         d=  62.02   d(climb)=  70.62 d(sideway)=  62.02  <-- climb 아님
+    T= 138  argmin=sideway-spin         d=  60.47   d(climb)=  63.38 d(sideway)=  60.47  <-- climb 아님
+    T= 160  argmin=climb                d=  57.23   d(climb)=  57.23 d(sideway)=  59.36
+    T= 172  argmin=climb                d=  54.77   d(climb)=  54.77 d(sideway)=  58.77
+    T= 200  argmin=climb                d=  56.04   d(climb)=  56.04 d(sideway)=  57.02
+    T= 240  argmin=sideway-spin         d=  50.58   d(climb)=  54.58 d(sideway)=  50.58  <-- climb 아님
+    T= 298  argmin=sideway-spin         d=  53.91   d(climb)=  55.18 d(sideway)=  53.91  <-- climb 아님
+
+--- 원본 171프레임  pred=ref-sideway-spin  src=a026e53fa1bb4974bd3cca1b6e414dce
+    T=  50  argmin=kip-up               d=  59.29   d(climb)=  74.26 d(sideway)=  66.88  <-- climb 아님
+    T=  62  argmin=kip-up               d=  61.25   d(climb)=  73.07 d(sideway)=  66.80  <-- climb 아님
+    T=  80  argmin=sideway-spin         d=  63.21   d(climb)=  71.94 d(sideway)=  63.21  <-- climb 아님
+    T= 100  argmin=sideway-spin         d=  60.62   d(climb)=  70.99 d(sideway)=  60.62  <-- climb 아님
+    T= 120  argmin=sideway-spin         d=  58.49   d(climb)=  72.39 d(sideway)=  58.49  <-- climb 아님
+    T= 138  argmin=sideway-spin         d=  57.04   d(climb)=  65.18 d(sideway)=  57.04  <-- climb 아님
+    T= 160  argmin=sideway-spin         d=  56.38   d(climb)=  60.15 d(sideway)=  56.38  <-- climb 아님
+    T= 172  argmin=sideway-spin         d=  55.90   d(climb)=  58.25 d(sideway)=  55.90  <-- climb 아님
+    T= 200  argmin=sideway-spin         d=  55.11   d(climb)=  58.21 d(sideway)=  55.11  <-- climb 아님
+    T= 240  argmin=sideway-spin         d=  50.35   d(climb)=  57.89 d(sideway)=  50.35  <-- climb 아님
+    T= 298  argmin=sideway-spin         d=  53.66   d(climb)=  58.73 d(sideway)=  53.66  <-- climb 아님
+
+--- 원본 172프레임  pred=ref-sideway-spin  src=11516.mp4
+    T=  50  argmin=kip-up               d=  59.63   d(climb)=  74.37 d(sideway)=  69.40  <-- climb 아님
+    T=  62  argmin=kip-up               d=  61.76   d(climb)=  72.71 d(sideway)=  65.35  <-- climb 아님
+    T=  80  argmin=sideway-spin         d=  62.24   d(climb)=  72.16 d(sideway)=  62.24  <-- climb 아님
+    T= 100  argmin=sideway-spin         d=  61.38   d(climb)=  71.45 d(sideway)=  61.38  <-- climb 아님
+    T= 120  argmin=sideway-spin         d=  59.84   d(climb)=  72.56 d(sideway)=  59.84  <-- climb 아님
+    T= 138  argmin=sideway-spin         d=  58.57   d(climb)=  65.72 d(sideway)=  58.57  <-- climb 아님
+    T= 160  argmin=sideway-spin         d=  56.31   d(climb)=  60.60 d(sideway)=  56.31  <-- climb 아님
+    T= 172  argmin=sideway-spin         d=  55.94   d(climb)=  58.64 d(sideway)=  55.94  <-- climb 아님
+    T= 200  argmin=sideway-spin         d=  55.82   d(climb)=  58.70 d(sideway)=  55.82  <-- climb 아님
+    T= 240  argmin=sideway-spin         d=  50.85   d(climb)=  58.36 d(sideway)=  50.85  <-- climb 아님
+    T= 298  argmin=sideway-spin         d=  54.08   d(climb)=  58.87 d(sideway)=  54.08  <-- climb 아님
+
+분류 결과: {'F': 59, 'B-regex': 58, 'C': 31, 'B-vk': 664, 'E': 16, 'D': 34, 'A': 13}
+B 합계 = 722
+
+--- vk 없이 '파일명 정규식만'으로 정은지 fixture 판정된 행 ---
+  x  4  match='fixtures:'  frames=  79  ref=ref-kip-up               fn=fixtures:kip-up-correct.mp4
+  x  3  match='잘못된'  frames=  83  ref=ref-power-spin           fn=파워스핀(잘못된예시).mp4
+  x  3  match='잘못된'  frames=  68  ref=ref-kip-up               fn=킵업(잘못된예시).mp4
+  x  3  match='잘못된'  frames=  62  ref=ref-peter-pan            fn=피터팬(잘못된예시).mp4
+  x  2  match='fixtures:'  frames= 106  ref=ref-power-spin           fn=fixtures:power-spin-correct.mp4
+  x  2  match='잘못된'  frames=  62  ref=ref-climb                fn=클라임(잘못된예시).mp4
+  x  2  match='잘못된'  frames= 180  ref=ref-elbow-twist-sister   fn=엘보트위스트시스터(잘못된예시).mp4
+  x  2  match='잘못되'  frames= 182  ref=ref-pdshape              fn=pdshape(정확한명칭없음,잘못되예시).mp4
+  x  2  match='fixtures:'  frames=  87  ref=ref-peter-pan            fn=fixtures:peter-pan-correct.mp4
+  x  2  match='_user.mp4'  frames=  62  ref=ref-climb                fn=climb_user.mp4
+  x  2  match='_user.mp4'  frames=  83  ref=ref-power-spin           fn=powerspin_user.mp4
+  x  2  match='_user.mp4'  frames= 180  ref=ref-elbow-twist-sister   fn=elbowtwist_user.mp4
+  x  2  match='_user.mp4'  frames= 182  ref=ref-pdshape              fn=pdshape_user.mp4
+  x  2  match='fault'  frames= 182  ref=ref-pdshape              fn=pdshape-fault.mp4
+  x  1  match='fixtures:'  frames=  80  ref=ref-climb                fn=fixtures:climb-correct.mp4
+  x  1  match='correct'  frames= 220  ref=ref-elbow-twist-sister   fn=elbow-correct-1080.mp4
+  x  1  match='okr0'  frames= 159  ref=ref-pdshape              fn=pdshapeokr0.mp4
+  x  1  match='okr1'  frames= 159  ref=ref-pdshape              fn=pdshapeokr1.mp4
+  x  1  match='okr2'  frames= 159  ref=ref-pdshape              fn=pdshapeokr2.mp4
+  x  1  match='fail'  frames=  83  ref=ref-power-spin           fn=powerspinfailr0.mp4
+  x  1  match='fail'  frames=  83  ref=ref-power-spin           fn=powerspinfailr1.mp4
+  x  1  match='fail'  frames= 180  ref=ref-elbow-twist-sister   fn=elbowtwistsisterfail.mp4
+  x  1  match='ok.mp4'  frames= 220  ref=ref-elbow-twist-sister   fn=elbowtwistsisterok.mp4
+  x  1  match='fail'  frames=  68  ref=ref-kip-up               fn=kipupfail.mp4
+  x  1  match='ok.mp4'  frames=  79  ref=ref-kip-up               fn=kipupok.mp4
+  x  1  match='fail'  frames= 182  ref=ref-pdshape              fn=pdshapefail.mp4
+  x  1  match='ok.mp4'  frames= 159  ref=ref-pdshape              fn=pdshapeok.mp4
+  x  1  match='fail'  frames=  62  ref=ref-peter-pan            fn=peterpanfail.mp4
+  x  1  match='ok.mp4'  frames=  87  ref=ref-peter-pan            fn=peterpanok.mp4
+  x  1  match='fail'  frames=  83  ref=ref-power-spin           fn=powerspinfail.mp4
+  x  1  match='ok.mp4'  frames= 106  ref=ref-power-spin           fn=powerspinok.mp4
+  x  1  match='fixtures:'  frames= 159  ref=ref-pdshape              fn=fixtures:pdshape-correct.mp4  .mp4
+  x  1  match='_user.mp4'  frames=  68  ref=ref-kip-up               fn=kipup_user.mp4
+  x  1  match='_user.mp4'  frames=  62  ref=ref-peter-pan            fn=peterpan_user.mp4
+  x  1  match='fault'  frames= 180  ref=ref-elbow-twist-sister   fn=elbow-twist-sister-fault.mp4
+  x  1  match='fault'  frames=  62  ref=ref-peter-pan            fn=peter-pan-fault.mp4
+  x  1  match='fault'  frames=  62  ref=ref-climb                fn=climb-fault.mp4
+  x  1  match='fault'  frames=  83  ref=ref-power-spin           fn=power-spin-fault.mp4
+  x  1  match='fault'  frames=  68  ref=ref-kip-up               fn=kip-up-fault.mp4
+
+--- '_user.mp4' 로만 정은지 fixture 가 된 행 ---
+  건수 = 10  고유 파일명 = ['climb_user.mp4', 'elbowtwist_user.mp4', 'kipup_user.mp4', 'pdshape_user.mp4', 'peterpan_user.mp4', 'powerspin_user.mp4']
+
+--- F(출처불명) 로 남은 행의 파일명 ---
+  x 17  frames=  68  ref=ref-kip-up               fn=킵업(잘못된예시).mp4
+  x  6  frames=  83  ref=ref-power-spin           fn=파워스핀(잘못된예시).mp4
+  x  5  frames= 182  ref=ref-pdshape              fn=pdshape(정확한명칭없음,잘못되예시).mp4
+  x  5  frames= 220  ref=ref-elbow-twist-sister   fn=<none>
+  x  3  frames= 182  ref=ref-pdshape              fn=user.mp4
+  x  3  frames= 180  ref=ref-elbow-twist-sister   fn=user.mp4
+  x  2  frames= 159  ref=ref-pdshape              fn=ref.mp4
+  x  1  frames= 118  ref=ref-elbow-twist-sister   fn=196fc4ffddbec58ec615b43dccfe959e.mp4
+  x  1  frames=  83  ref=ref-power-spin           fn=a300a25e5a6c6007048d7bc046a1f7fa.mp4
+  x  1  frames=  62  ref=ref-peter-pan            fn=피터팬(잘못된예시).mp4
+  x  1  frames=  62  ref=ref-climb                fn=클라임(잘못된예시).mp4
+  x  1  frames= 182  ref=ref-pdshape              fn=<none>
+  x  1  frames= 284  ref=ref-foxtop               fn=e2e.mp4
+  x  1  frames= 172  ref=ref-climb                fn=11516.mp4
+  x  1  frames= 180  ref=ref-elbow-twist-sister   fn=1000204255.mp4
+  x  1  frames=  68  ref=ref-kip-up               fn=11518.mp4
+  x  1  frames= 146  ref=ref-pdshape              fn=21411.mp4
+  x  1  frames=  62  ref=ref-peter-pan            fn=1000204260.mp4
+  x  1  frames= 172  ref=ref-climb                fn=<none>
+  x  1  frames= 284  ref=ref-foxtop               fn=<none>
+  x  1  frames=  87  ref=ref-peter-pan            fn=<none>
+  x  1  frames= 171  ref=ref-climb                fn=<none>
+  x  1  frames=  83  ref=ref-power-spin           fn=<none>
+  x  1  frames= 159  ref=ref-pdshape              fn=solo.mp4
+  x  1  frames= 174  ref=ref-invert               fn=ref-invert.mp4
+계기 잡음 (같은 영상 재분석 내부 sd, 중앙값): {'shoulderHipRatio': np.float64(0.0038), 'estimatedHeightScale': np.float64(0.0015), 'legScale': np.float64(0.0041), 'armScale': np.float64(0.0017)}
+정은지 fixture 군 평균: {'shoulderHipRatio': np.float64(1.391), 'estimatedHeightScale': np.float64(1.288), 'legScale': np.float64(1.701), 'armScale': np.float64(1.165)}
+정은지 fixture 군 sd  : {'shoulderHipRatio': np.float64(0.156), 'estimatedHeightScale': np.float64(0.148), 'legScale': np.float64(0.308), 'armScale': np.float64(0.197)}
+
+--- 소스별 평균 체형, fixture 군 중심으로부터 z 거리 ---
+  z= 3.71  F.기타         n=  1 ref-elbow-twist-sister   fn:elbow-twist-sister-fault.mp4
+  z= 3.55  F.기타         n=  3 ref-elbow-twist-sister   fn:user.mp4
+  z= 3.51  F.기타         n=  2 ref-elbow-twist-sister   fn:elbowtwist_user.mp4
+  z= 3.46  F.기타         n=  1 ref-elbow-twist-sister   fn:196fc4ffddbec58ec615b43dccfe959e.mp4
+  z= 3.42  F.기타         n=  2 ref-elbow-twist-sister   fn:엘보트위스트시스터(잘못된예시).mp4
+  z= 3.26  C.talkv      n=  6 ref-elbow-twist-sister   ZHKA_yX7uPsCsGTncpdNrFlHTk1_talkv_high.mp4
+  z= 3.07  F.기타         n=  1 ref-elbow-twist-sister   fn:elbow-correct-1080.mp4
+  z= 3.06  B.fixture    n= 75 ref-elbow-twist-sister   tures/phase15/elbow-twist-sister/fault.mp4
+  z= 3.05  F.기타         n=  1 ref-power-spin           id:verify311784550483
+  z= 2.91  F.기타         n=  1 ref-elbow-twist-sister   fn:elbowtwistsisterfail.mp4
+  z= 2.86  F.기타         n=  1 ref-elbow-twist-sister   fn:1000204255.mp4
+  z= 2.82  F.기타         n=  2 ref-power-spin           fn:powerspin_user.mp4
+  z= 2.75  F.기타         n=  1 ref-power-spin           fn:power-spin-fault.mp4
+  z= 2.75  D.uploads    n=  1 ref-power-spin           aUvq1/071df9f894d64d1696f106e613f51f5c.mp4
+  z= 2.69  F.기타         n=  2 ref-pdshape              fn:ref.mp4
+  z= 2.69  F.기타         n=  3 ref-power-spin           fn:파워스핀(잘못된예시).mp4
+  z= 2.59  B.fixture    n= 69 ref-power-spin           fixtures/phase15/power-spin/fault.mp4
+  z= 2.52  F.기타         n=  6 ref-power-spin           fn:파워스핀(잘못된예시).mp4
+
+fixture 소스들의 z 분포: n=13 med 1.63 max 3.06
+C.talkv      z: n=6 med 1.52 max 3.26
+D.uploads    z: n=9 med 1.66 max 2.75
+F.기타         z: n=71 med 1.66 max 3.71
+A.reference  z: n=5 med 1.14 max 1.44

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-20 마감 — 고친 것 2건(동시 분석 오염 · 캐시 키). mode3 는 규명만 하고 고친 것 0: 점수가 떨림 단독 · 객관 기준 9/10 부재 · 정은지 대비 축은 학생이 아니라 동작을 잰다(분산 79%). 판정 = mode3 자세 채점은 이번 파일럿에서 성립하지 않는다(재료 부재, 더 재도 불변). 착수점 = .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md"
-last_updated: "2026-09-20T02:00:00.000Z"
+stopped_at: "2026-09-20 마감 — 고친 것 2건(동시 분석 오염 · 캐시 키). ★그 뒤 §14(바닥 해부)에서 앞 판정이 뒤집혔다: (a) 라이브 학생 875건은 학생이 아니라 정은지 fixture 12편 안팎의 재분석 — 동작당 고유 영상 correct 1편 + fault 1편, 실제 사용자 업로드 32건; (b) §12·§13 의 점수 이동은 2026-09-17 rot180_v1 기준 승격과 그 이전 학생 각도를 섞은 버전 불일치였다; (c) 버전을 맞추면 정은지 본인 영상 11/11 = 100점이고 §13 이 '죽었다'고 한 pdshape·elbow-twist 가 결함을 가장 크게 가른다(+37·+34); (d) 동작별 바닥의 출처 = 같은 원본 프레임에서 포즈 추정이 재현되지 않는 것이고 크기는 역립 프레임 비율이 정한다(Spearman 0.891) — 체형·촬영각도·시간격자·DTW 는 실측으로 탈락. 남은 것 = 여유 2.0~2.3도 · 학생 영상 0편 · 바닥의 동정(GPU 필요). 착수점 = .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md (§14 부터 읽을 것)"
+last_updated: "2026-09-20T09:00:00.000Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 38

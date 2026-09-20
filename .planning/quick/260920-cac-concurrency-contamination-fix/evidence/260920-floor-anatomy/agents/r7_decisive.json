@@ -1,0 +1,92 @@
+{
+ "ref-elbow-twist-sister|correct": {
+  "n": 54,
+  "op_scalar": 22.159503013676844,
+  "med_scalar": 19.16653105208342,
+  "op_over": 18.682580632538873,
+  "med_over": 7.125477305599048,
+  "op_nact": 6.0,
+  "med_nact": 3.0
+ },
+ "ref-elbow-twist-sister|fault": {
+  "n": 78,
+  "op_scalar": 23.56537825286332,
+  "med_scalar": 19.422944727825715,
+  "op_over": 35.721534801009184,
+  "med_over": 14.116176566701245,
+  "op_nact": 7.0,
+  "med_nact": 3.0
+ },
+ "ref-kip-up|correct": {
+  "n": 62,
+  "op_scalar": 2.7559814766738313,
+  "med_scalar": 2.4350931922647305,
+  "op_over": 0.0,
+  "med_over": 0.0,
+  "op_nact": 0.0,
+  "med_nact": 0.0
+ },
+ "ref-kip-up|fault": {
+  "n": 75,
+  "op_scalar": 8.807584229468173,
+  "med_scalar": 6.424795561586151,
+  "op_over": 0.6029533912835774,
+  "med_over": 13.741416292478839,
+  "op_nact": 1.0,
+  "med_nact": 1.0
+ },
+ "ref-pdshape|correct": {
+  "n": 100,
+  "op_scalar": 24.33710644680184,
+  "med_scalar": 23.619287566323464,
+  "op_over": 46.53205214216827,
+  "med_over": 40.6491355080571,
+  "op_nact": 5.0,
+  "med_nact": 5.0
+ },
+ "ref-pdshape|fault": {
+  "n": 59,
+  "op_scalar": 22.96249944132165,
+  "med_scalar": 20.114579433958482,
+  "op_over": 22.56642566786413,
+  "med_over": 15.150831940133251,
+  "op_nact": 6.0,
+  "med_nact": 4.0
+ },
+ "ref-peter-pan|correct": {
+  "n": 60,
+  "op_scalar": 5.266001084846293,
+  "med_scalar": 4.526429754162591,
+  "op_over": 0.0,
+  "med_over": 0.0,
+  "op_nact": 0.0,
+  "med_nact": 0.0
+ },
+ "ref-peter-pan|fault": {
+  "n": 63,
+  "op_scalar": 14.078171043350142,
+  "med_scalar": 13.048542544116852,
+  "op_over": 17.083054945070167,
+  "med_over": 18.435391045976374,
+  "op_nact": 2.0,
+  "med_nact": 2.0
+ },
+ "ref-power-spin|correct": {
+  "n": 62,
+  "op_scalar": 7.530152420820942,
+  "med_scalar": 7.068686723401687,
+  "op_over": 0.0,
+  "med_over": 0.0,
+  "op_nact": 0.0,
+  "med_nact": 0.0
+ },
+ "ref-power-spin|fault": {
+  "n": 73,
+  "op_scalar": 20.147164439544376,
+  "med_scalar": 18.835226754050673,
+  "op_over": 20.407092257256117,
+  "med_over": 12.517821714775607,
+  "op_nact": 4.0,
+  "med_nact": 3.0
+ }
+}

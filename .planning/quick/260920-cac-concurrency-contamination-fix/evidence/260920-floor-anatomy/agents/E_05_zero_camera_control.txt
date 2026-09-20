@@ -1,0 +1,24 @@
+라이브 self 행 videoKey (카메라 불일치 0 의 근거):
+   ref-combo                n=  1  vk=['reference/ref-combo.mp4']
+   ref-foxtop               n=  3  vk=['reference/ref-foxtop.mp4']
+   ref-foxtop-split         n=  3  vk=['reference/ref-foxtop-split.mp4']
+   ref-invert               n=  3  vk=['reference/ref-invert.mp4']
+   ref-sideway-spin         n=  3  vk=['reference/ref-sideway-spin.mp4']
+
+motion                     E5 zero-cam 바닥°    라이브 self°    라이브 correct°  medConf  lowConf%
+ref-climb                             0.00          nan             7.7    0.688     17.4%
+ref-combo                             0.00         13.6            13.6    0.618     35.2%
+ref-elbow-twist-sister                0.00          nan            22.2    0.441     57.7%
+ref-foxtop                            0.00         15.4             nan    0.562     42.1%
+ref-foxtop-split                      0.00         17.2             nan    0.590     38.6%
+ref-invert                            0.00         15.3             nan    0.655     34.2%
+ref-kip-up                            0.00          nan             2.8    0.750      8.8%
+ref-pdshape                           0.00          nan            24.3    0.456     56.5%
+ref-peter-pan                         0.00          nan             5.3    0.732     27.4%
+ref-power-spin                        0.00          nan             7.5    0.624     37.6%
+ref-sideway-spin                      0.00          2.3             nan    0.723      9.7%
+
+Spearman(E5 zero-cam 바닥, 라이브 self 바닥)   : (-0.2, 5)
+Spearman(E5 zero-cam 바닥, 라이브 correct 바닥): (-0.03571428571428571, 7)
+Spearman(저신뢰 프레임비율, 라이브 correct 바닥): (0.7857142857142857, 7)
+Spearman(저신뢰 프레임비율, E5 zero-cam 바닥)  : (-0.2818181818181818, 11)

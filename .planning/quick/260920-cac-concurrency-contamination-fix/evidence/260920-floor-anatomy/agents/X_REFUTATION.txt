@@ -1,0 +1,82 @@
+=== 반증 조사 결과 — angle-range(조사 B / C5) 판정 ===
+전부 backend/.venv/bin/python, 네트워크 0, 채점 코드 재구현 0(운영 함수만 호출).
+산출: out/x_crossmotion.py|.json, x_robust.py, x_consumer_vs_live.py,
+      x_versionmatched.py|.json, x_ceiling_rematched.py|.json, REPRO_*.log
+
+[R0] 재현 — 4개 스크립트 전부 재실행, 결과 byte-동일
+  b_c5_stats.py       재실행 → 표1 11행 전부 동일(identity 11/11 = 0.000)
+  b_c5_crosschance.py 재실행 → crosschance_table IDENTICAL
+  b_c5_analysis.py    재실행 → 표2~표5 전부 동일
+  b_c5_consumer_ci.py 재실행 → consumer_ci_table IDENTICAL
+  코드 읽기로 확인: _Q 스텁(status='ok')과 dimension_overall=100.0 은 무해하다 —
+  final 은 _BASELINE(=100.0, deduction_engine.py:29)과 2트랙 경로에서 나오고
+  dimension_overall 은 quant_unavailable fallback 에서만 쓰인다(:383).
+
+[R1] ★ 치명 — 바닥이 '기준 doc 버전 불일치' 산물이다
+  875건 학생 추출은 2026-06-17 ~ 09-06. H.load_references() 가 주는 live doc 은
+  11/11 전부 activeVersion=rot180_v1 (2026-09-17 뒤집기 이후). 즉 조사 B 는
+  rot180 **전** 학생을 rot180 **후** 기준에 댔다.
+  같은 운영 함수(H.deviate)로 matched(phase4_v1; climb 은 quick-260816-r7k) 대조:
+
+  motion                  matched   live(조사B)  부풀림   m비율   l비율
+  ref-climb                  7.27      7.75        7%    0.555   0.563
+  ref-combo                  9.47     13.56       43%    0.378   0.520
+  ref-elbow-twist-sister    15.72     22.76       45%    0.639   0.838
+  ref-foxtop                13.42     15.37       15%    0.509   0.597
+  ref-foxtop-split          12.34     17.16       39%    0.460   0.638
+  ref-invert                 9.15     15.33       68%    0.475   0.676
+  ref-kip-up                 2.76      2.76        0%    0.444   0.444
+  ref-pdshape               14.98     23.70       58%    0.628   0.859
+  ref-peter-pan              4.96      4.96        0%    0.488   0.488
+  ref-power-spin             7.53      7.53        0%    0.443   0.443
+  ref-sideway-spin           2.31      2.32        0%    0.263   0.264
+
+  → version-matched 에서는 **어느 동작도 바닥이 tol 20도를 넘지 않는다.**
+    live 기준에서 20도를 넘는 두 동작(elbow-twist 22.76 / pdshape 23.70)이
+    정확히 조사 B 가 "죽어 있다"고 지목한 2개다. 그 22~24도는 동작의 성질이 아니다.
+
+[R2] 라이브 저장 점수가 [R1]을 독립 확인한다 (out/x_consumer_vs_live.py)
+  오늘코드 축단독 FINAL vs 라이브 저장 overallScore (전부 mode1):
+    pdshape correct  오늘 60  ||  라이브 100 (100건 중 92% 가 100), 일치 0%
+    pdshape fault    오늘 79  ||  라이브  59,  일치 2%
+    elbow   correct  오늘 86  ||  라이브 100 (54건 중 93%),        일치 0%
+    kip-up  fault    오늘 100 ||  라이브  80,  일치 41%
+  '코드 세대' 해명은 성립하지 않는다 — 2026-06 / 07 / 08 / 09 전 구간에서
+  저장=100 이 89~100% 로 안정이고 오늘 FIN 은 전 구간 60 으로 안정, dev 도 24.2~25.1 안정.
+  반면 version_vs_score.py(직전 세션 산출, 운영 함수만)를 돌리면 matched 판이
+  pdshape correct 100 / elbow correct 100 / kip-up 100 / peter-pan fault 80 —
+  **라이브 저장값을 그대로 재현한다.**
+  → 소비처 문장 3건(pdshape 역전 60 vs 79 / elbow 실력차0에 −14 / pdshape 가
+    chance 와 동점 60)은 화면 점수 주장으로는 무너진다.
+    matched 에서 pdshape 순서도 정상(correct 17.69 < fault 25.68, version_vs_score).
+
+[R3] '동작효과 제거하면 분포 설명력 0, fd 만 남는다' 도 오염 산물
+  관절 단위 n=88 중심화 후:
+    조사 B(live):  sd +0.019  rng +0.144  iqr +0.005  d180 -0.136  fd +0.352  ch +0.069
+    matched     :  sd +0.430  rng +0.444  iqr +0.402  d180 +0.244  fd +0.644  ch +0.508
+  d180 의 부호 반전(-0.136)이 사라진다. '천장 기각'의 근거 (a)가 무효.
+  근거 (b)(near/far 바닥·chance 0.267 vs 0.325)는 matched 에서도 방향 유지 →
+  "천장이 주 메커니즘은 아니다"는 남지만 "기각"은 과하다.
+
+[S1] 살아남음 — C5 의 '범위' 부분은 오히려 강해진다
+  동작 단위 n=11, 바닥 ~ 각도 통계:
+    live    : rng p=+0.772 s=+0.755 | sd p=+0.747 s=+0.691
+    matched : rng p=+0.874 s=+0.864 | sd p=+0.815 s=+0.764 | d180 p=+0.733 s=+0.609
+  live 판에서 leave-one-out 도 견고(rng pearson +0.742~+0.818, 최악 -sideway-spin).
+  correct 만 n=7 도 유지(sd spearman +0.857).
+  단 d180 도 matched 에서 +0.733 로 올라와 sd/rng 와 구분이 어려워진다.
+
+[S2] 살아남음 — 셔플 chance 는 진짜 대조군이다 (out/x_crossmotion.py)
+  의심: 단조 DTW 라 '순서 있는' 입력이면 내용이 틀려도 셔플보다 잘 정렬된다 →
+        ratio<1 이 기계적 산물 아닌가.
+  검정: 완전히 다른 동작 학생(시간순 그대로) 110쌍을 운영 H.deviate 로 통과.
+        ratio median 0.980, <1 은 55% 뿐. 같은 동작 correct/self 11쌍은 0.26~0.84.
+  → ratio<1 은 기계적 산물이 아니다. 이 대조군 설계는 살아남는다.
+
+[S3] 살아남음 — 자잘한 검증
+  - profile=None 무해: pdshape/elbow-twist 는 techniqueProfile 에 extend 관절 0개(실측).
+    kip-up 은 3개(right_elbow/left_knee/right_knee)지만 이미 감점 0이라 무영향.
+  - rstart != 0 은 875건 중 0건 → builder 가 full a_ref 를 받는 window-local 불일치는
+    이 표본에 안 닿는다(조사 B 의 [미확인] 그대로).
+  - 표본 구조: 동작·라벨당 고유 videoKey 1~4개. self 라벨은 3건이 **각도 해시까지 동일**
+    (foxtop/foxtop-split/invert/sideway-spin 각 3건 → 고유 1건). self 바닥은 반복 0.

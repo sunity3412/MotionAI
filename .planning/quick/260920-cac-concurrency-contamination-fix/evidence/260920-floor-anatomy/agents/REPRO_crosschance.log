@@ -1,0 +1,42 @@
+  0/875 0s
+  100/875 20s
+  200/875 40s
+  300/875 63s
+  400/875 83s
+  500/875 98s
+  600/875 120s
+  700/875 137s
+  800/875 144s
+done 875 in 160s
+
+motion                   label       n    real  chance  real/ch
+---------------------------------------------------------------
+ref-climb                correct     4    7.75   13.47    0.580
+ref-climb                fault       6   21.02   21.64    0.959
+ref-climb                unknown    28   24.68   33.31    0.745
+ref-combo                correct     3   13.56   26.07    0.520
+ref-combo                self        1   13.59   26.49    0.513
+ref-elbow-twist-sister   correct    54   22.16   27.08    0.820
+ref-elbow-twist-sister   fault      78   23.57   25.03    0.943
+ref-elbow-twist-sister   unknown    20   23.51   25.91    0.902
+ref-foxtop               self        3   15.37   25.37    0.606
+ref-foxtop               unknown     3   18.35   26.48    0.694
+ref-foxtop-split         self        3   17.16   27.06    0.634
+ref-invert               self        3   15.33   22.67    0.676
+ref-invert               unknown     1    9.63   21.16    0.455
+ref-kip-up               correct    62    2.76    6.07    0.452
+ref-kip-up               fault      75    8.81   10.98    0.802
+ref-kip-up               unknown    27    8.82   10.99    0.803
+ref-kip-up               upload      4    8.55   11.02    0.776
+ref-pdshape              correct   100   24.34   28.21    0.860
+ref-pdshape              fault      59   22.96   29.61    0.777
+ref-pdshape              unknown    30   21.74   28.97    0.707
+ref-pdshape              upload     26   19.98   28.86    0.692
+ref-peter-pan            correct    60    5.27   10.12    0.519
+ref-peter-pan            fault      63   14.08   15.58    0.898
+ref-peter-pan            unknown     7   13.94   15.34    0.895
+ref-power-spin           correct    62    7.53   16.92    0.447
+ref-power-spin           fault      73   20.15   21.69    0.934
+ref-power-spin           unknown    15   19.74   21.26    0.931
+ref-power-spin           upload      2   13.85   19.23    0.688
+ref-sideway-spin         self        3    2.32    9.15    0.254

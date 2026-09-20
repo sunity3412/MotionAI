@@ -1,0 +1,238 @@
+========================================================================================================================
+[profile=ref]  운영 builder md → deduction_engine.tally → breakdown.final
+동작                      라벨         n     편차   축키  final  execRaw  execCap rec sup    축단독   억제off  quantN    라이브
+ref-climb               correct    4    7.7    8    100      0.0      0.0   0   0    100     100      82   82.5
+ref-climb               fault      6   21.0    8     84    -15.7    -15.7   2   2     84      80      84   89.0
+ref-combo               correct    3   13.6    8    100      0.0      0.0   0   0    100     100     100  100.0
+ref-combo               self       1   13.6    8    100      0.0      0.0   0   0    100     100     100  100.0
+ref-elbow-twist-sister  correct   54   22.2    8     86    -14.8    -14.8   3   3     86      78      86  100.0
+ref-elbow-twist-sister  fault     75   23.6    8     62    -38.4    -38.4   5   2     62      60      62   61.0
+ref-foxtop              self       3   15.4    8    100      0.0      0.0   0   1    100      98     100  100.0
+ref-foxtop-split        self       3   17.2    8    100      0.0      0.0   0   1    100     100     100  100.0
+ref-invert              self       3   15.3    7     94     -5.9     -5.9   1   0     94      94      94  100.0
+ref-kip-up              correct   62    2.8    5    100      0.0      0.0   0   0    100     100     100  100.0
+ref-kip-up              fault     72    8.8    5    100      0.0      0.0   0   1    100      99     100   80.0
+ref-pdshape             correct   97   24.4    8     60    -55.0    -40.0   4   1     60      60      60  100.0
+ref-pdshape             fault     59   23.0    8     79    -21.1    -21.1   4   2     79      73      79   59.0
+ref-peter-pan           correct   60    5.3    6    100      0.0      0.0   0   0    100     100     100  100.0
+ref-peter-pan           fault     62   14.1    6     80    -20.0    -20.0   1   1     80      80      80   79.0
+ref-power-spin          correct   62    7.5    7    100      0.0      0.0   0   0    100     100     100  100.0
+ref-power-spin          fault     69   20.1    7     80    -20.1    -20.1   2   3     80      76      80   60.0
+ref-sideway-spin        self       3    2.3    5    100      0.0      0.0   0   0    100     100     100  100.0
+
+========================================================================================================================
+[profile=none]  운영 builder md → deduction_engine.tally → breakdown.final
+동작                      라벨         n     편차   축키  final  execRaw  execCap rec sup    축단독   억제off  quantN    라이브
+ref-climb               correct    4    7.7    8    100      0.0      0.0   0   0    100     100      82   82.5
+ref-climb               fault      6   21.0    8     84    -15.7    -15.7   2   2     84      80      84   89.0
+ref-combo               correct    3   13.6    8    100      0.0      0.0   0   0    100     100     100  100.0
+ref-combo               self       1   13.6    8    100      0.0      0.0   0   0    100     100     100  100.0
+ref-elbow-twist-sister  correct   54   22.2    8     86    -14.8    -14.8   3   3     86      78      86  100.0
+ref-elbow-twist-sister  fault     75   23.6    8     62    -38.4    -38.4   5   2     62      60      62   61.0
+ref-foxtop              self       3   15.4    8    100      0.0      0.0   0   1    100      98     100  100.0
+ref-foxtop-split        self       3   17.2    8    100      0.0      0.0   0   1    100     100     100  100.0
+ref-invert              self       3   15.3    8     94     -5.9     -5.9   1   1     94      93      94  100.0
+ref-kip-up              correct   62    2.8    8    100      0.0      0.0   0   0    100     100     100  100.0
+ref-kip-up              fault     72    8.8    8    100      0.0      0.0   0   1    100      99     100   80.0
+ref-pdshape             correct   97   24.4    8     60    -55.0    -40.0   4   1     60      60      60  100.0
+ref-pdshape             fault     59   23.0    8     79    -21.1    -21.1   4   2     79      73      79   59.0
+ref-peter-pan           correct   60    5.3    8    100      0.0      0.0   0   0    100     100     100  100.0
+ref-peter-pan           fault     62   14.1    8     80    -20.0    -20.0   1   1     80      80      80   79.0
+ref-power-spin          correct   62    7.5    8    100      0.0      0.0   0   0    100     100     100  100.0
+ref-power-spin          fault     69   20.1    8     80    -20.1    -20.1   2   3     80      76      80   60.0
+ref-sideway-spin        self       3    2.3    8    100      0.0      0.0   0   0    100     100     100  100.0
+
+========================================================================================================================
+[profile=ref] final n=698  =100: 273 (39%)  =60(실행캡 바닥): 95 (14%)  =25(scoreFloor): 0
+   |execRaw| median=15.2 p90=43.0 max=62.8  >=40(집계캡 히트) 90/698 (13%)
+[profile=none] final n=698  =100: 273 (39%)  =60(실행캡 바닥): 95 (14%)  =25(scoreFloor): 0
+   |execRaw| median=15.2 p90=43.0 max=62.8  >=40(집계캡 히트) 90/698 (13%)
+
+========================================================================================================================
+record criterion 분포(profile=ref): {'angle_vs_reference': 1276}
+축 키만 md 에 있는 분석 비율: 305/698
+
+========================================================================================================================
+라이브 overall 보유 698건 · 라이브 − 내계산(qa): median +0.0 평균 -1.5  |Δ|<0.5 일치 214건 (31%)
+동작                      라벨         n    라이브med                            라이브고유값    내계산med
+ref-climb               correct    4      82.5                     [60, 65, 100]     100.0
+ref-climb               fault      6      89.0                  [78, 81, 86, 92]      84.0
+ref-combo               correct    3     100.0                         [90, 100]     100.0
+ref-combo               self       1     100.0                             [100]     100.0
+ref-elbow-twist-sister  correct   54     100.0             [50, 62, 78, 86, 100]      85.5
+ref-elbow-twist-sister  fault     75      61.0           [0, 16, 32, 36, 50, 59]      62.0
+ref-foxtop              self       3     100.0                             [100]     100.0
+ref-foxtop-split        self       3     100.0                             [100]     100.0
+ref-invert              self       3     100.0                             [100]      94.0
+ref-kip-up              correct   62     100.0                 [50, 96, 98, 100]     100.0
+ref-kip-up              fault     72      80.0          [27, 47, 50, 75, 76, 79]     100.0
+ref-pdshape             correct   97     100.0          [10, 24, 68, 75, 92, 99]      60.0
+ref-pdshape             fault     59      59.0           [0, 43, 46, 50, 51, 54]      79.0
+ref-peter-pan           correct   60     100.0         [10, 47, 75, 85, 97, 100]     100.0
+ref-peter-pan           fault     62      79.0           [0, 25, 37, 75, 79, 80]      80.0
+ref-power-spin          correct   62     100.0          [72, 74, 75, 80, 91, 95]     100.0
+ref-power-spin          fault     69      60.0           [0, 37, 47, 49, 50, 52]      80.0
+ref-sideway-spin        self       3     100.0                             [100]     100.0
+
+1) profile(ref) vs profile(None) final 불일치: 0/698건
+2) md 전체 vs angle_vs_reference 만: final 불일치 0/698건  → 불일치 0 이면 화면 감점 전량이 이 축에서 나온 것
+
+3) per-group 캡 도달 (profile=ref, quant 가용)
+동작                      라벨         n final=100  final=60(캡) execRaw med execRaw max final med final min final max
+ref-climb               correct    4         4            0         0.0         0.0       100       100       100
+ref-climb               fault      6         0            0        15.7        24.0        84        76        89
+ref-combo               correct    3         3            0         0.0         0.0       100       100       100
+ref-combo               self       1         1            0         0.0         0.0       100       100       100
+ref-elbow-twist-sister  correct   54         0            4        14.8        43.0        86        60        92
+ref-elbow-twist-sister  fault     75         0           23        38.4        43.4        62        60        72
+ref-foxtop              self       3         3            0         0.0         0.0       100       100       100
+ref-foxtop-split        self       3         3            0         0.0         0.0       100       100       100
+ref-invert              self       3         0            0         5.9         5.9        94        94        94
+ref-kip-up              correct   62        62            0         0.0         0.0       100       100       100
+ref-kip-up              fault     72        72            0         0.0         0.0       100       100       100
+ref-pdshape             correct   97         0           68        55.0        62.8        60        60        70
+ref-pdshape             fault     59         0            0        21.1        38.5        79        62        84
+ref-peter-pan           correct   60        60            0         0.0         0.0       100       100       100
+ref-peter-pan           fault     62         0            0        20.0        20.0        80        80        85
+ref-power-spin          correct   62        62            0         0.0         0.0       100       100       100
+ref-power-spin          fault     69         0            0        20.1        22.5        80        78        86
+ref-sideway-spin        self       3         3            0         0.0         0.0       100       100       100
+
+4) 화면 점수 분리 (correct median − fault median, +면 정상 방향)
+   ref-climb                편차   7.7→ 21.0 (x2.71)   점수   100→   84 (Δ  +16)   correct<=fault 쌍비율  0.0%
+   ref-elbow-twist-sister   편차  22.2→ 23.6 (x1.06)   점수    86→   62 (Δ  +24)   correct<=fault 쌍비율  7.4%
+   ref-kip-up               편차   2.8→  8.8 (x3.20)   점수   100→  100 (Δ   +0)   correct<=fault 쌍비율 100.0%
+   ref-pdshape              편차  24.4→ 23.0 (x0.94)   점수    60→   79 (Δ  -19)   correct<=fault 쌍비율 99.5%
+   ref-peter-pan            편차   5.3→ 14.1 (x2.67)   점수   100→   80 (Δ  +20)   correct<=fault 쌍비율  0.0%
+   ref-power-spin           편차   7.5→ 20.1 (x2.68)   점수   100→   80 (Δ  +20)   correct<=fault 쌍비율  0.0%
+
+5) 라이브 doc 의 mode 분포 (이 698건)
+    {'mode1': 698}
+   ref-climb               {'mode1': 10}
+   ref-combo               {'mode1': 4}
+   ref-elbow-twist-sister  {'mode1': 129}
+   ref-foxtop              {'mode1': 3}
+   ref-foxtop-split        {'mode1': 3}
+   ref-invert              {'mode1': 3}
+   ref-kip-up              {'mode1': 134}
+   ref-pdshape             {'mode1': 156}
+   ref-peter-pan           {'mode1': 122}
+   ref-power-spin          {'mode1': 131}
+   ref-sideway-spin        {'mode1': 3}
+
+6) 라이브 overall vs 내 계산 qa_final: r=+0.304 n=698
+   라이브 overall vs 편차 스칼라: r=-0.362
+   내 계산 qa_final vs 편차 스칼라: r=-0.874
+
+7) 편차 스칼라 구간 → 내 계산 final (전이함수)
+   편차 [  0,  5) n=  91  final median=  100 min=100 max=100  =100 비율 100.0%
+   편차 [  5, 10) n= 172  final median=  100 min=100 max=100  =100 비율 100.0%
+   편차 [ 10, 15) n=  66  final median=   80 min=80 max=100  =100 비율  6.1%
+   편차 [ 15, 20) n=  31  final median=   80 min=73 max=100  =100 비율 19.4%
+   편차 [ 20, 25) n= 328  final median=   70 min=60 max=92  =100 비율  0.0%
+   편차 [ 25, 30) n=  10  final median=   60 min=60 max=64  =100 비율  0.0%
+
+A) builder 는 전체 a_ref 를, _deviation_against 는 a_ref[ref_start:ref_end] 를 쓴다.
+   이 코퍼스에서 두 창이 다른 분석: 0/698건 (ref_start 전부 0, ref_end==a_ref_T)
+
+B) tol 20도 초과 관절 수 (= 화면 감점 record 를 만든 관절 수)
+동작                      라벨         n    초과관절 med      초과0건 비율      최대편차관절 med
+ref-climb               correct    4           0       100.0%             9.9
+ref-climb               fault      6           4         0.0%            26.9
+ref-combo               correct    3           0       100.0%            16.2
+ref-combo               self       1           0       100.0%            15.0
+ref-elbow-twist-sister  correct   54           6         0.0%            25.2
+ref-elbow-twist-sister  fault     75           7         0.0%            31.0
+ref-foxtop              self       3           1         0.0%            21.6
+ref-foxtop-split        self       3           1         0.0%            20.2
+ref-invert              self       3           1         0.0%            24.9
+ref-kip-up              correct   62           0       100.0%             4.2
+ref-kip-up              fault     72           1        18.1%            20.6
+ref-pdshape             correct   97           5         0.0%            36.0
+ref-pdshape             fault     59           6         0.0%            25.4
+ref-peter-pan           correct   60           0       100.0%             9.3
+ref-peter-pan           fault     62           2         0.0%            36.7
+ref-power-spin          correct   62           0       100.0%            12.0
+ref-power-spin          fault     69           4         0.0%            31.0
+ref-sideway-spin        self       3           0       100.0%             3.9
+
+C) 실행 집계캡 -40 반사실 (캡 없으면 final = max(25, 100 - |execRaw|))
+   ref-climb               correct  n=  4 캡적용   100  캡없음   100
+   ref-climb               fault    n=  6 캡적용    84  캡없음    84
+   ref-combo               correct  n=  3 캡적용   100  캡없음   100
+   ref-elbow-twist-sister  correct  n= 54 캡적용    86  캡없음    86
+   ref-elbow-twist-sister  fault    n= 75 캡적용    62  캡없음    62
+   ref-kip-up              correct  n= 62 캡적용   100  캡없음   100
+   ref-kip-up              fault    n= 72 캡적용   100  캡없음   100
+   ref-pdshape             correct  n= 97 캡적용    60  캡없음    45
+   ref-pdshape             fault    n= 59 캡적용    79  캡없음    79
+   ref-peter-pan           correct  n= 60 캡적용   100  캡없음   100
+   ref-peter-pan           fault    n= 62 캡적용    80  캡없음    80
+   ref-power-spin          correct  n= 62 캡적용   100  캡없음   100
+   ref-power-spin          fault    n= 69 캡적용    80  캡없음    80
+
+D) 같은 videoKey 재분석 내 표준편차 (n>=5 인 vk 만)
+videoKey                                                   n  내 final sd    라이브 overall sd          라이브 범위
+fixtures/phase15/pdshape/correct.mp4                      96        4.48             12.52          10~100
+fixtures/phase15/elbow-twist-sister/fault.mp4             72        2.34             15.04            0~73
+fixtures/phase15/kip-up/fault.mp4                         67        0.00             19.00          27~100
+fixtures/phase15/power-spin/fault.mp4                     65        3.61             16.23            0~83
+fixtures/phase15/power-spin/correct.mp4                   60        0.00              7.58          72~100
+fixtures/phase15/kip-up/correct.mp4                       58        0.00              6.53          50~100
+fixtures/phase15/peter-pan/correct.mp4                    58        0.00             13.88          10~100
+fixtures/phase15/peter-pan/fault.mp4                      58        2.47             13.94            0~86
+fixtures/phase15/pdshape/fault.mp4                        55        4.38             12.26            0~74
+fixtures/phase15/elbow-twist-sister/correct.mp4           53        8.04              9.04          50~100
+(videoKey 없음)                                             32       14.02             14.85          60~100
+   중앙값                                                                 2.47             13.88
+
+E) 측정불확실도 억제(suppressed) 의 점수 영향
+   억제 없었으면 final 이 median +0.0점 더 낮았다 (0 아닌 건수 314/698, 최대 0점)
+
+운영 상수: tol=20.0 slope=1.2 criterion_cap=90.0 record_cap=20.0 execution_cap=40.0 score_floor=25.0 baseline=100
+  관절 1개 포화점: dev = tol + record_cap/slope = 36.67도 → -20점
+  집계캡 도달: 포화 관절 2개 → final 60 (바닥)
+
+손계산 == tally.final(억제 off): 불일치 0/698건
+
+측정불확실도 억제가 살려준 점수: median +0.0  최대 +14  발생 314/698건
+
+민감도(이 축이 화면에 번역되는 비율):
+  허용오차 20.0도 이하 = 0점. 그 위로 1도당 1.2점.
+  관절 하나가 낼 수 있는 최대 감점 20.0점(= dev 36.7도에서 포화).
+  전체 감점 상한 40.0점 → 이 축만으로 도달 가능한 최저 화면 점수 60점.
+
+실측 전이(편차 스칼라 → final, 1도 폭 구간 median):
+   [ 2, 4) n=  65 final median 100.0 범위 100~100
+   [ 4, 6) n=  60 final median 100.0 범위 100~100
+   [ 6, 8) n=  66 final median 100.0 범위 100~100
+   [ 8,10) n=  72 final median 100.0 범위 100~100
+   [12,14) n=  21 final median  80.0 범위 80~100
+   [14,16) n=  51 final median  85.0 범위 80~100
+   [16,18) n=   3 final median 100.0 범위 100~100
+   [18,20) n=  22 final median  80.0 범위 73~86
+   [20,22) n=  77 final median  86.0 범위 72~91
+   [22,24) n= 180 final median  65.5 범위 60~92
+   [24,26) n=  79 final median  60.0 범위 60~70
+
+라이브 698건 채점 경로 역추적:
+   감점 0 (final==100)                               334  (48%)
+   감점 발생 (2트랙)                                     198  (28%)
+   폴백 서명 (final == max(25, dimension_overall))     166  (24%)
+
+   ref-climb               {'감점 0 (final==100)': 2, '감점 발생 (2트랙)': 6, '폴백 서명 (final == max(25, dimension_overall))': 2}
+   ref-combo               {'감점 0 (final==100)': 3, '감점 발생 (2트랙)': 1}
+   ref-elbow-twist-sister  {'감점 발생 (2트랙)': 43, '감점 0 (final==100)': 50, '폴백 서명 (final == max(25, dimension_overall))': 36}
+   ref-foxtop              {'감점 0 (final==100)': 3}
+   ref-foxtop-split        {'감점 0 (final==100)': 3}
+   ref-invert              {'감점 0 (final==100)': 3}
+   ref-kip-up              {'감점 발생 (2트랙)': 43, '감점 0 (final==100)': 82, '폴백 서명 (final == max(25, dimension_overall))': 9}
+   ref-pdshape             {'감점 발생 (2트랙)': 27, '감점 0 (final==100)': 89, '폴백 서명 (final == max(25, dimension_overall))': 40}
+   ref-peter-pan           {'감점 발생 (2트랙)': 13, '폴백 서명 (final == max(25, dimension_overall))': 54, '감점 0 (final==100)': 55}
+   ref-power-spin          {'감점 발생 (2트랙)': 65, '감점 0 (final==100)': 41, '폴백 서명 (final == max(25, dimension_overall))': 25}
+   ref-sideway-spin        {'감점 0 (final==100)': 3}
+
+감점 발생 198건: 라이브 overall vs 내 축-단독 재구성 r=+0.273  라이브 median 62 / 내 재구성 median 83
+   라이브가 내 재구성보다 낮은 건 152건 (= 이 축 밖의 감점이 더 있었다)
+
+저장: /private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/feb97ca3-32a3-41c9-90c9-710b0eeb7095/scratchpad/m13/out/F_live_path.json

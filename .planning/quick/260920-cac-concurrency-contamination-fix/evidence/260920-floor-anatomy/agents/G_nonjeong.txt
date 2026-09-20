@@ -1,0 +1,29 @@
+tol=0.02  총군집 39  fixture/reference 로 확인된 군집 23  그 외 16
+   X  n= 16 ref-climb                 138f [새 내용]                     _JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4
+   X  n=  3 ref-climb                 172f [새 내용]                     fn:11516.mp4 | id:a026e53fa1bb4974bd3cca1b6e414dce
+   OK n=  6 ref-elbow-twist-sister    176f [새 내용]                     _yX7uPsCsGTncpdNrFlHTk1_talkv_high.mp4
+   OK n=  5 ref-elbow-twist-sister    220f [fixture 와 같은 프레임수]        id:0026422db3d7 | id:5eacea19383f
+   OK n=  1 ref-elbow-twist-sister    118f [새 내용]                     n:196fc4ffddbec58ec615b43dccfe959e.mp4
+   OK n=  2 ref-foxtop                284f [fixture 와 같은 프레임수]        fn:e2e.mp4 | id:bddac1817f78
+   OK n=  1 ref-foxtop                228f [새 내용]                     _Qre4WwZDUQAbX6Nkigzq5K_talkv_high.mp4
+   OK n=  1 ref-invert                174f [fixture 와 같은 프레임수]        fn:ref-invert.mp4
+   OK n=  6 ref-kip-up                 55f [새 내용]                     _YA3ZOQ1lkza9YgrDaiQkx1_talkv_high.mp4
+   OK n=  3 ref-pdshape               182f [fixture 와 같은 프레임수]        fn:belle_pdshape.mp4 | fn:user.mp4
+   OK n=  1 ref-pdshape               159f [fixture 와 같은 프레임수]        fn:ref.mp4
+   OK n=  1 ref-pdshape               182f [fixture 와 같은 프레임수]        id:pdshapefault1785373695
+   OK n=  1 ref-pdshape               146f [새 내용]                     fn:21411.mp4
+   OK n=  1 ref-peter-pan              50f [새 내용]                     _4zSsi8XqBENGsQADKGgaA1_talkv_high.mp4
+   OK n=  1 ref-power-spin             86f [새 내용]                     _jwDiWGkuWNohoQqLkUykP0_talkv_high.mp4
+   OK n=  1 ref-power-spin             83f [fixture 와 같은 프레임수]        id:verify311784550483
+   -> 전부 맞춘 군집 14/16
+
+tol=0.05  총군집 24  fixture/reference 로 확인된 군집 17  그 외 7
+   X  n= 19 ref-climb                 138f [새 내용]                     fn:11516.mp4 | _JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4
+   OK n=  1 ref-elbow-twist-sister    118f [새 내용]                     n:196fc4ffddbec58ec615b43dccfe959e.mp4
+   OK n=  1 ref-invert                174f [fixture 와 같은 프레임수]        fn:ref-invert.mp4
+   OK n=  6 ref-kip-up                 55f [새 내용]                     _YA3ZOQ1lkza9YgrDaiQkx1_talkv_high.mp4
+   OK n=  3 ref-pdshape               182f [fixture 와 같은 프레임수]        fn:belle_pdshape.mp4 | fn:user.mp4
+   OK n=  1 ref-pdshape               159f [fixture 와 같은 프레임수]        fn:ref.mp4
+   OK n=  1 ref-peter-pan              50f [새 내용]                     _4zSsi8XqBENGsQADKGgaA1_talkv_high.mp4
+   -> 전부 맞춘 군집 6/7
+

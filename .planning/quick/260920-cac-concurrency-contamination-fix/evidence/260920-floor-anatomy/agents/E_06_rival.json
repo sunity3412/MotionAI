@@ -1,0 +1,112 @@
+[
+ {
+  "motion": "ref-climb",
+  "floor": 7.748780903188358,
+  "floor_src": "correct",
+  "n": 4,
+  "fault": 21.02227170657106,
+  "low_conf": 0.17430555555555555,
+  "med_conf": 0.6876679360866547,
+  "p10_conf": 0.42927129566669464
+ },
+ {
+  "motion": "ref-combo",
+  "floor": 13.559463613999739,
+  "floor_src": "correct",
+  "n": 3,
+  "fault": null,
+  "low_conf": 0.3524436090225564,
+  "med_conf": 0.6180816292762756,
+  "p10_conf": 0.293836510181427
+ },
+ {
+  "motion": "ref-elbow-twist-sister",
+  "floor": 22.159503013676844,
+  "floor_src": "correct",
+  "n": 54,
+  "fault": 23.56537825286332,
+  "low_conf": 0.5771276595744681,
+  "med_conf": 0.4405965954065323,
+  "p10_conf": 0.19967298507690429
+ },
+ {
+  "motion": "ref-foxtop",
+  "floor": 15.372098478855875,
+  "floor_src": "self",
+  "n": 3,
+  "fault": null,
+  "low_conf": 0.4213615023474178,
+  "med_conf": 0.5616348385810852,
+  "p10_conf": 0.24650463312864304
+ },
+ {
+  "motion": "ref-foxtop-split",
+  "floor": 17.15759299929425,
+  "floor_src": "self",
+  "n": 3,
+  "fault": null,
+  "low_conf": 0.38582474226804125,
+  "med_conf": 0.5900225639343262,
+  "p10_conf": 0.25495017766952516
+ },
+ {
+  "motion": "ref-invert",
+  "floor": 15.331726732119401,
+  "floor_src": "self",
+  "n": 3,
+  "fault": null,
+  "low_conf": 0.3418269230769231,
+  "med_conf": 0.6546007692813873,
+  "p10_conf": 0.22534064799547196
+ },
+ {
+  "motion": "ref-kip-up",
+  "floor": 2.7559814766738313,
+  "floor_src": "correct",
+  "n": 62,
+  "fault": 8.807584229468173,
+  "low_conf": 0.08792372881355932,
+  "med_conf": 0.7500430345535278,
+  "p10_conf": 0.5625604450702667
+ },
+ {
+  "motion": "ref-pdshape",
+  "floor": 24.33710644680184,
+  "floor_src": "correct",
+  "n": 100,
+  "fault": 22.96249944132165,
+  "low_conf": 0.5654008438818565,
+  "med_conf": 0.45591871440410614,
+  "p10_conf": 0.2630227208137512
+ },
+ {
+  "motion": "ref-peter-pan",
+  "floor": 5.266001084846293,
+  "floor_src": "correct",
+  "n": 60,
+  "fault": 14.078171043350142,
+  "low_conf": 0.27403846153846156,
+  "med_conf": 0.7321721315383911,
+  "p10_conf": 0.2729972809553146
+ },
+ {
+  "motion": "ref-power-spin",
+  "floor": 7.530152420820942,
+  "floor_src": "correct",
+  "n": 62,
+  "fault": 20.147164439544376,
+  "low_conf": 0.3757861635220126,
+  "med_conf": 0.6241896748542786,
+  "p10_conf": 0.25935628414154055
+ },
+ {
+  "motion": "ref-sideway-spin",
+  "floor": 2.3190645471664837,
+  "floor_src": "self",
+  "n": 3,
+  "fault": null,
+  "low_conf": 0.09731543624161074,
+  "med_conf": 0.7229618728160858,
+  "p10_conf": 0.5145073771476746
+ }
+]

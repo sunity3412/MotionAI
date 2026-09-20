@@ -1,0 +1,23 @@
+motion                      바닥°      출처     저신뢰%   fill보수°      시점δ상한°       시점설명가능°    sw계통%
+ref-sideway-spin            2.3    self     9.7%      2.21           -             -        -
+ref-kip-up                  2.8 correct     8.8%      2.85        31.1         12.90   -14.4%
+ref-peter-pan               5.3 correct    27.4%      5.15           -             -        -
+ref-power-spin              7.5 correct    37.6%      8.55        35.7         14.60   -12.7%
+ref-climb                   7.7 correct    17.4%      9.64           -             -        -
+ref-combo                  13.6 correct    35.2%      7.26           -             -        -
+ref-invert                 15.3    self    34.2%     15.23           -             -        -
+ref-foxtop                 15.4    self    42.1%     11.72           -             -        -
+ref-foxtop-split           17.2    self    38.6%     14.87           -             -        -
+ref-elbow-twist-sister     22.2 correct    57.7%     17.43        49.2         19.25    14.8%
+ref-pdshape                24.3 correct    56.5%      7.39        21.4          9.15     1.8%
+
+=== 순서 예측력 (Spearman) ===
+  저신뢰 프레임비율 → 바닥      n=11: (0.891, 11)
+  temporal_fill 보수량 → 바닥   n=11: (0.736, 11)
+  시점 불일치 δ상한 → 바닥      n=4 : (-0.2, 4)
+  시점 불일치 δ상한 → fixture dev n=4 : (0.4, 4)
+  |sw 계통 불일치| → fixture dev n=4 : (-0.4, 4)
+  짝쌍 산포(sw IQR) → fixture dev n=4 : (0.8, 4)
+
+=== 기준 11편 자체의 시점 기술자 분산 (기술자가 자세에 오염된 증거) ===
+  sw_torso  min=0.346 max=0.701 (같은 사람·같은 스튜디오·captureViews=1 인데 2.0배 폭)

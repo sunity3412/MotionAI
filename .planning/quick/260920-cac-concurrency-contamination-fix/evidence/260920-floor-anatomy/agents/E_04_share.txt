@@ -1,0 +1,17 @@
+motion                  label         바닥(실측)°   δ_sw   δ_hw  δ_ear   δ_max      시뮬상한°     몫(상한)
+ref-pdshape             correct         23.43   10.8   15.6   21.4    21.4       9.15     39.0%
+ref-kip-up              fault            8.56   31.1   21.8   19.8    31.1      12.90    150.7%
+ref-elbow-twist-sister  fault           24.62   29.5   17.1   49.2    49.2      19.25     78.2%
+ref-power-spin          fault           20.15   29.2   35.7   18.8    35.7      14.60     72.5%
+
+δ_tilt / δ_shax (몸축 기울기·어깨선 각 계통차, 도):
+   ref-pdshape              tilt=  -1.27  shax=  +0.35
+   ref-kip-up               tilt=  +1.11  shax=  -1.26
+   ref-elbow-twist-sister   tilt=  +4.14  shax=  -2.10
+   ref-power-spin           tilt= -15.95  shax=  +0.00
+
+바닥을 카메라만으로 설명하려면 필요한 δ (E-3 median 곡선 역산):
+   ref-pdshape              바닥 23.43° → δ ≈ 69°
+   ref-kip-up               바닥  8.56° → δ ≈ 20°
+   ref-elbow-twist-sister   바닥 24.62° → δ ≈ 79°
+   ref-power-spin           바닥 20.15° → δ ≈ 52°

@@ -1,0 +1,1055 @@
+[
+ {
+  "ref": "ref-climb",
+  "label": "correct",
+  "vk": "",
+  "id": "c91da094971d424092ac27e68ce50e83",
+  "dtw_dev": {
+   "left_elbow": 9.725228037365852,
+   "right_elbow": 8.57455322866032,
+   "left_shoulder": 9.701556580283548,
+   "right_shoulder": 8.830628380214826,
+   "left_hip": 6.606614181864796,
+   "right_hip": 7.16006869648492,
+   "left_knee": 7.225908168186571,
+   "right_knee": 5.009590766280766
+  },
+  "worst": {
+   "left_elbow": 69.41689203994719,
+   "right_elbow": 85.36840542027069,
+   "left_shoulder": 53.94447577258926,
+   "right_shoulder": 40.49339678182202,
+   "left_hip": 36.20601416264513,
+   "right_hip": 39.87042475128541,
+   "left_knee": 44.44037454505197,
+   "right_knee": 25.858111458577625
+  },
+  "med": {
+   "left_elbow": 12.171172778008696,
+   "right_elbow": 8.32271970129733,
+   "left_shoulder": 8.791094515401237,
+   "right_shoulder": 6.058194543759349,
+   "left_hip": 6.6898318202659866,
+   "right_hip": 6.8667988597477105,
+   "left_knee": 7.67291680888065,
+   "right_knee": 2.629599947712954
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 8,
+  "plen": 120
+ },
+ {
+  "ref": "ref-climb",
+  "label": "correct",
+  "vk": "fixtures/phase15/climb/correct.mp4",
+  "id": "p35newclimb1786857341",
+  "dtw_dev": {
+   "left_elbow": 9.948402575332665,
+   "right_elbow": 8.360235674376014,
+   "left_shoulder": 9.115355735822003,
+   "right_shoulder": 8.26292725366369,
+   "left_hip": 6.9109770068916685,
+   "right_hip": 7.181674757816616,
+   "left_knee": 7.234634552713025,
+   "right_knee": 5.002592089684455
+  },
+  "worst": {
+   "left_elbow": 69.42714521832735,
+   "right_elbow": 85.36840865787867,
+   "left_shoulder": 53.944478725388095,
+   "right_shoulder": 40.49339033096755,
+   "left_hip": 36.206051546964986,
+   "right_hip": 40.29764778271662,
+   "left_knee": 44.440353465882495,
+   "right_knee": 26.140302482777344
+  },
+  "med": {
+   "left_elbow": 11.956626171484146,
+   "right_elbow": 8.279373908779021,
+   "left_shoulder": 8.722502112444541,
+   "right_shoulder": 6.102460519068671,
+   "left_hip": 7.31001150044451,
+   "right_hip": 6.898548856129324,
+   "left_knee": 7.738867932267077,
+   "right_knee": 2.907775400075842
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 8,
+  "plen": 120
+ },
+ {
+  "ref": "ref-climb",
+  "label": "fault",
+  "vk": "",
+  "id": "16ab481ebf70419aa68dfa936d870d01",
+  "dtw_dev": {
+   "left_elbow": 19.693389320331875,
+   "right_elbow": 17.521832353905864,
+   "left_shoulder": 22.72935891781657,
+   "right_shoulder": 22.22833547428354,
+   "left_hip": 13.895233630499746,
+   "right_hip": 24.522878173019464,
+   "left_knee": 16.873472827026674,
+   "right_knee": 26.97692457801898
+  },
+  "worst": {
+   "left_elbow": 118.17866062117733,
+   "right_elbow": 80.10234063788108,
+   "left_shoulder": 82.17908033819701,
+   "right_shoulder": 77.4011454000385,
+   "left_hip": 114.31387431655989,
+   "right_hip": 97.1138354012423,
+   "left_knee": 98.54203772326241,
+   "right_knee": 62.67784911830929
+  },
+  "med": {
+   "left_elbow": 26.81089178811682,
+   "right_elbow": 17.057659362118898,
+   "left_shoulder": 23.155479008408232,
+   "right_shoulder": 23.211511261878627,
+   "left_hip": 10.780934637536802,
+   "right_hip": 25.774859070138817,
+   "left_knee": 21.556371113654862,
+   "right_knee": 34.13739913399328
+  },
+  "n_dtw_over": 4,
+  "n_worst_over": 8,
+  "plen": 123
+ },
+ {
+  "ref": "ref-climb",
+  "label": "fault",
+  "vk": "fixtures/phase15/climb/fault.mp4",
+  "id": "p35newclimbfault1786871285",
+  "dtw_dev": {
+   "left_elbow": 18.942970684438166,
+   "right_elbow": 18.170875964386795,
+   "left_shoulder": 22.571352382075005,
+   "right_shoulder": 21.740258565845934,
+   "left_hip": 13.20968116521864,
+   "right_hip": 23.963299728245993,
+   "left_knee": 17.68936372411315,
+   "right_knee": 26.945049102060622
+  },
+  "worst": {
+   "left_elbow": 118.17867527460803,
+   "right_elbow": 80.05962014079459,
+   "left_shoulder": 82.7761013477957,
+   "right_shoulder": 77.4011510946857,
+   "left_hip": 114.23374514939835,
+   "right_hip": 97.07032532176245,
+   "left_knee": 98.39654297317739,
+   "right_knee": 62.67784344356215
+  },
+  "med": {
+   "left_elbow": 27.542987518166456,
+   "right_elbow": 17.10037985920539,
+   "left_shoulder": 23.228461594929303,
+   "right_shoulder": 23.060258565845928,
+   "left_hip": 9.58452463533861,
+   "right_hip": 24.343555595307905,
+   "left_knee": 21.41341728399992,
+   "right_knee": 34.07450003125999
+  },
+  "n_dtw_over": 4,
+  "n_worst_over": 8,
+  "plen": 123
+ },
+ {
+  "ref": "ref-combo",
+  "label": "correct",
+  "vk": "fixtures/phase15/combo/correct.mp4",
+  "id": "p35newcombo1786857699",
+  "dtw_dev": {
+   "left_elbow": 13.21522512445405,
+   "right_elbow": 10.139497601720151,
+   "left_shoulder": 15.071552602702045,
+   "right_shoulder": 12.39122083732478,
+   "left_hip": 13.559887299569176,
+   "right_hip": 12.357896940352774,
+   "left_knee": 12.50981527848802,
+   "right_knee": 11.045934668206755
+  },
+  "worst": {
+   "left_elbow": 105.60117953586894,
+   "right_elbow": 119.99772140056628,
+   "left_shoulder": 100.9066295698824,
+   "right_shoulder": 107.21742124113419,
+   "left_hip": 119.30422652613368,
+   "right_hip": 92.04751700109561,
+   "left_knee": 130.6801728335904,
+   "right_knee": 101.5129433503099
+  },
+  "med": {
+   "left_elbow": 12.013828813345931,
+   "right_elbow": 9.3491545571124,
+   "left_shoulder": 17.404084114599556,
+   "right_shoulder": 11.531028867533632,
+   "left_hip": 12.755518083367335,
+   "right_hip": 11.489517961794952,
+   "left_knee": 13.282763853294895,
+   "right_knee": 11.808429373622694
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 8,
+  "plen": 952
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "label": "correct",
+  "vk": "",
+  "id": "43ad140003af48ff9d4648e410503f8d",
+  "dtw_dev": {
+   "left_elbow": 19.759327869461146,
+   "right_elbow": 24.546977398271167,
+   "left_shoulder": 21.594552052952054,
+   "right_shoulder": 21.39219700523787,
+   "left_hip": 21.171560780651703,
+   "right_hip": 24.04238649373189,
+   "left_knee": 28.465438589305165,
+   "right_knee": 24.0997971851819
+  },
+  "worst": {
+   "left_elbow": 86.18585134990325,
+   "right_elbow": 85.17447235802163,
+   "left_shoulder": 116.0411285452108,
+   "right_shoulder": 89.08020992395977,
+   "left_hip": 136.0622461293723,
+   "right_hip": 107.97891880584407,
+   "left_knee": 113.37782303884467,
+   "right_knee": 81.03475297098109
+  },
+  "med": {
+   "left_elbow": 16.346995200312733,
+   "right_elbow": 24.970208194498838,
+   "left_shoulder": 21.567448467058945,
+   "right_shoulder": 19.958433783006925,
+   "left_hip": 22.021655250320123,
+   "right_hip": 21.04463419093733,
+   "left_knee": 28.685599344201222,
+   "right_knee": 22.35143261448215
+  },
+  "n_dtw_over": 7,
+  "n_worst_over": 8,
+  "plen": 329
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "label": "correct",
+  "vk": "fixtures/phase15/elbow-twist-sister/correct.mp4",
+  "id": "develbowtwistsistercorrect1782478918",
+  "dtw_dev": {
+   "left_elbow": 14.885349069526768,
+   "right_elbow": 22.645381320785468,
+   "left_shoulder": 23.879358426264538,
+   "right_shoulder": 20.081183603158173,
+   "left_hip": 22.5820788477728,
+   "right_hip": 18.72414976904429,
+   "left_knee": 23.648530180309656,
+   "right_knee": 24.730091819181098
+  },
+  "worst": {
+   "left_elbow": 101.54866699959648,
+   "right_elbow": 85.34570153490634,
+   "left_shoulder": 108.92969287112112,
+   "right_shoulder": 98.73710383762409,
+   "left_hip": 146.09755865161557,
+   "right_hip": 71.86655618910686,
+   "left_knee": 107.7016772722525,
+   "right_knee": 106.16162876036222
+  },
+  "med": {
+   "left_elbow": 15.24353181574319,
+   "right_elbow": 22.49023727605604,
+   "left_shoulder": 22.562358764995388,
+   "right_shoulder": 18.63641104585526,
+   "left_hip": 24.571590659002936,
+   "right_hip": 18.559206171503334,
+   "left_knee": 23.960303065070654,
+   "right_knee": 25.434771634697597
+  },
+  "n_dtw_over": 6,
+  "n_worst_over": 8,
+  "plen": 334
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "label": "fault",
+  "vk": "",
+  "id": "13f73dabf232491792e1df1000e0e291",
+  "dtw_dev": {
+   "left_elbow": 22.33936887885143,
+   "right_elbow": 23.525860936391396,
+   "left_shoulder": 28.081132576693506,
+   "right_shoulder": 30.54065961356138,
+   "left_hip": 24.790762252171,
+   "right_hip": 23.50009559913954,
+   "left_knee": 22.51806345534787,
+   "right_knee": 20.955350306334708
+  },
+  "worst": {
+   "left_elbow": 111.61626821022439,
+   "right_elbow": 95.65004079796752,
+   "left_shoulder": 81.47350480831251,
+   "right_shoulder": 86.05995592902215,
+   "left_hip": 150.19929990575014,
+   "right_hip": 73.71185528129502,
+   "left_knee": 145.88729555729918,
+   "right_knee": 80.31889346400975
+  },
+  "med": {
+   "left_elbow": 27.52786514994274,
+   "right_elbow": 21.92154647206229,
+   "left_shoulder": 31.4653684428458,
+   "right_shoulder": 29.469633127161302,
+   "left_hip": 22.89513608606562,
+   "right_hip": 21.631928390778462,
+   "left_knee": 23.339575249196088,
+   "right_knee": 20.51423656964468
+  },
+  "n_dtw_over": 8,
+  "n_worst_over": 8,
+  "plen": 329
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "label": "fault",
+  "vk": "fixtures/phase15/elbow-twist-sister/fault.mp4",
+  "id": "elbowtwistsisterFault1785373695",
+  "dtw_dev": {
+   "left_elbow": 23.035106776503113,
+   "right_elbow": 22.256469475725154,
+   "left_shoulder": 30.954590053074654,
+   "right_shoulder": 27.805911895573843,
+   "left_hip": 27.475745492604943,
+   "right_hip": 21.03665756137861,
+   "left_knee": 24.095649729223524,
+   "right_knee": 18.681183055679327
+  },
+  "worst": {
+   "left_elbow": 109.99849238888788,
+   "right_elbow": 96.4447149316009,
+   "left_shoulder": 95.9864672720106,
+   "right_shoulder": 104.03536938393444,
+   "left_hip": 89.19982220763995,
+   "right_hip": 84.35313917357217,
+   "left_knee": 145.54646122307958,
+   "right_knee": 121.82054163748512
+  },
+  "med": {
+   "left_elbow": 27.118345255921298,
+   "right_elbow": 21.99661179521,
+   "left_shoulder": 34.39518822041289,
+   "right_shoulder": 27.805911895573843,
+   "left_hip": 25.999119101304885,
+   "right_hip": 20.474670725342094,
+   "left_knee": 26.20250385362877,
+   "right_knee": 15.762983747269175
+  },
+  "n_dtw_over": 7,
+  "n_worst_over": 8,
+  "plen": 329
+ },
+ {
+  "ref": "ref-kip-up",
+  "label": "correct",
+  "vk": "",
+  "id": "f127556dea5847a491bb9b59e177e471",
+  "dtw_dev": {
+   "left_elbow": 4.103927477297091,
+   "right_elbow": 1.3429119781344951,
+   "left_shoulder": 3.5935867641393617,
+   "right_shoulder": 3.3152459335413766,
+   "left_hip": 3.1589547712187453,
+   "right_hip": 2.4083076942001327,
+   "left_knee": 1.1023192343411807,
+   "right_knee": 0.8051134029216342
+  },
+  "worst": {
+   "left_elbow": 17.720081633568043,
+   "right_elbow": 4.097850256287018,
+   "left_shoulder": 12.435383926262984,
+   "right_shoulder": 19.261036747269248,
+   "left_hip": 9.971665941703122,
+   "right_hip": 10.683101977808661,
+   "left_knee": 4.285110103322637,
+   "right_knee": 7.876427498523469
+  },
+  "med": {
+   "left_elbow": 8.371000735519225,
+   "right_elbow": 1.6304685207240794,
+   "left_shoulder": 4.2032675474784895,
+   "right_shoulder": 3.706051516632826,
+   "left_hip": 3.7848400319751363,
+   "right_hip": 2.9864805162582115,
+   "left_knee": 0.8266849081043972,
+   "right_knee": 0.6984528695843579
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 0,
+  "plen": 118
+ },
+ {
+  "ref": "ref-kip-up",
+  "label": "correct",
+  "vk": "fixtures/phase15/kip-up/correct.mp4",
+  "id": "devkipupcorrect1782479811",
+  "dtw_dev": {
+   "left_elbow": 4.193645262506482,
+   "right_elbow": 1.5654348897268449,
+   "left_shoulder": 3.5497773204958953,
+   "right_shoulder": 3.3235726545371023,
+   "left_hip": 3.069675561041649,
+   "right_hip": 2.394347291349902,
+   "left_knee": 1.0945287729315112,
+   "right_knee": 0.8054268171642178
+  },
+  "worst": {
+   "left_elbow": 17.619350041994764,
+   "right_elbow": 3.9493998966333663,
+   "left_shoulder": 12.435379914801581,
+   "right_shoulder": 19.261024231263388,
+   "left_hip": 10.179427693813125,
+   "right_hip": 10.523349144324328,
+   "left_knee": 4.306574406015301,
+   "right_knee": 7.8764296201918
+  },
+  "med": {
+   "left_elbow": 8.35633746315775,
+   "right_elbow": 1.6270242763939962,
+   "left_shoulder": 4.136272091210412,
+   "right_shoulder": 3.676045485222076,
+   "left_hip": 3.7688871228442764,
+   "right_hip": 2.986485354542367,
+   "left_knee": 0.928044159622786,
+   "right_knee": 0.703230667325073
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 0,
+  "plen": 118
+ },
+ {
+  "ref": "ref-kip-up",
+  "label": "fault",
+  "vk": "",
+  "id": "8e0cd3b4bcbd4eb2bc9d3a29daae2722",
+  "dtw_dev": {
+   "left_elbow": 13.771064700864684,
+   "right_elbow": 2.400487578515552,
+   "left_shoulder": 20.61828547175275,
+   "right_shoulder": 12.66871108242971,
+   "left_hip": 8.103096845261327,
+   "right_hip": 9.63826983484671,
+   "left_knee": 1.6450979676307327,
+   "right_knee": 1.7438894999834957
+  },
+  "worst": {
+   "left_elbow": 53.58851447539496,
+   "right_elbow": 10.907904909229842,
+   "left_shoulder": 45.77268279798715,
+   "right_shoulder": 130.52031792540413,
+   "left_hip": 32.999230351975996,
+   "right_hip": 22.671046958552438,
+   "left_knee": 27.559388722657417,
+   "right_knee": 22.410685839411542
+  },
+  "med": {
+   "left_elbow": 18.028617074307363,
+   "right_elbow": 2.4299999999999926,
+   "left_shoulder": 20.58875056674014,
+   "right_shoulder": 14.933842577593467,
+   "left_hip": 7.804785852726539,
+   "right_hip": 7.906185796186861,
+   "left_knee": 1.5471469166463834,
+   "right_knee": 1.7421968411588153
+  },
+  "n_dtw_over": 1,
+  "n_worst_over": 7,
+  "plen": 118
+ },
+ {
+  "ref": "ref-kip-up",
+  "label": "fault",
+  "vk": "fixtures/phase15/kip-up/fault.mp4",
+  "id": "kipupFault1785373695",
+  "dtw_dev": {
+   "left_elbow": 13.771064700864684,
+   "right_elbow": 2.400487578515552,
+   "left_shoulder": 20.61828547175275,
+   "right_shoulder": 12.66871108242971,
+   "left_hip": 8.103096845261327,
+   "right_hip": 9.63826983484671,
+   "left_knee": 1.6450979676307327,
+   "right_knee": 1.7438894999834957
+  },
+  "worst": {
+   "left_elbow": 53.58851447539496,
+   "right_elbow": 10.907904909229842,
+   "left_shoulder": 45.77268279798715,
+   "right_shoulder": 130.52031792540413,
+   "left_hip": 32.999230351975996,
+   "right_hip": 22.671046958552438,
+   "left_knee": 27.559388722657417,
+   "right_knee": 22.410685839411542
+  },
+  "med": {
+   "left_elbow": 18.028617074307363,
+   "right_elbow": 2.4299999999999926,
+   "left_shoulder": 20.58875056674014,
+   "right_shoulder": 14.933842577593467,
+   "left_hip": 7.804785852726539,
+   "right_hip": 7.906185796186861,
+   "left_knee": 1.5471469166463834,
+   "right_knee": 1.7421968411588153
+  },
+  "n_dtw_over": 1,
+  "n_worst_over": 7,
+  "plen": 118
+ },
+ {
+  "ref": "ref-kip-up",
+  "label": "fault",
+  "vk": "uploads/e2everify0705/kipupfaultE2E1783216648.mp4",
+  "id": "kipupfaultE2E1783216648",
+  "dtw_dev": {
+   "left_elbow": 14.65539820641661,
+   "right_elbow": 2.5642918260984544,
+   "left_shoulder": 18.989536725795126,
+   "right_shoulder": 12.754678632158999,
+   "left_hip": 7.958886369098757,
+   "right_hip": 9.656282089837589,
+   "left_knee": 1.6359302184571192,
+   "right_knee": 1.6480780357487674
+  },
+  "worst": {
+   "left_elbow": 53.58850477617287,
+   "right_elbow": 10.871102709394933,
+   "left_shoulder": 45.613258822927506,
+   "right_shoulder": 130.52032734920732,
+   "left_hip": 32.90343555333257,
+   "right_hip": 22.671041058038924,
+   "left_knee": 27.48595583652036,
+   "right_knee": 22.410664373259834
+  },
+  "med": {
+   "left_elbow": 18.02862432663663,
+   "right_elbow": 2.5852521359765888,
+   "left_shoulder": 20.274536725795127,
+   "right_shoulder": 14.847370767308917,
+   "left_hip": 7.630805772605726,
+   "right_hip": 7.908183410478671,
+   "left_knee": 1.5025258537858122,
+   "right_knee": 1.6716535960508594
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 7,
+  "plen": 118
+ },
+ {
+  "ref": "ref-pdshape",
+  "label": "correct",
+  "vk": "",
+  "id": "bc7ff6ff6d234e058302f896178c65b9",
+  "dtw_dev": {
+   "left_elbow": 11.282591086656247,
+   "right_elbow": 36.31915198700051,
+   "left_shoulder": 16.83519066337388,
+   "right_shoulder": 19.873800168996127,
+   "left_hip": 27.96147935934455,
+   "right_hip": 31.950306748303092,
+   "left_knee": 30.952340883976746,
+   "right_knee": 22.296004669071706
+  },
+  "worst": {
+   "left_elbow": 58.662356278698375,
+   "right_elbow": 129.56603621695822,
+   "left_shoulder": 86.0281387374244,
+   "right_shoulder": 110.23302760577053,
+   "left_hip": 121.52365343962387,
+   "right_hip": 77.42576869282554,
+   "left_knee": 116.67110180071538,
+   "right_knee": 96.32575049347513
+  },
+  "med": {
+   "left_elbow": 8.33740891334375,
+   "right_elbow": 36.53423707922987,
+   "left_shoulder": 21.485131921143136,
+   "right_shoulder": 19.15677319327005,
+   "left_hip": 31.63504391117832,
+   "right_hip": 30.72743393902222,
+   "left_knee": 27.568701107372775,
+   "right_knee": 20.62325693107654
+  },
+  "n_dtw_over": 5,
+  "n_worst_over": 8,
+  "plen": 237
+ },
+ {
+  "ref": "ref-pdshape",
+  "label": "correct",
+  "vk": "fixtures/phase15/pdshape/correct.mp4",
+  "id": "pdshapeCorrect1785373695",
+  "dtw_dev": {
+   "left_elbow": 9.844149540923887,
+   "right_elbow": 29.312809237103068,
+   "left_shoulder": 11.133437462428418,
+   "right_shoulder": 15.64219845739894,
+   "left_hip": 29.71298470763203,
+   "right_hip": 30.979285067499504,
+   "left_knee": 29.965601417012632,
+   "right_knee": 20.455644537350594
+  },
+  "worst": {
+   "left_elbow": 56.983696492248754,
+   "right_elbow": 136.66053515752006,
+   "left_shoulder": 94.76483807216965,
+   "right_shoulder": 111.63570729178267,
+   "left_hip": 139.38277366544358,
+   "right_hip": 87.72915333207501,
+   "left_knee": 119.92999828068626,
+   "right_knee": 114.43925259599013
+  },
+  "med": {
+   "left_elbow": 7.4538799456642195,
+   "right_elbow": 34.174610960450735,
+   "left_shoulder": 14.088855526407812,
+   "right_shoulder": 15.626211982515933,
+   "left_hip": 33.52213971341351,
+   "right_hip": 32.27724314893892,
+   "left_knee": 31.531916962697068,
+   "right_knee": 18.825137454127315
+  },
+  "n_dtw_over": 5,
+  "n_worst_over": 8,
+  "plen": 239
+ },
+ {
+  "ref": "ref-pdshape",
+  "label": "fault",
+  "vk": "",
+  "id": "4e232c4a73ec40a6a8deb07cbf6aa03f",
+  "dtw_dev": {
+   "left_elbow": 28.40188446160643,
+   "right_elbow": 27.08210531933767,
+   "left_shoulder": 14.550824955979827,
+   "right_shoulder": 18.817991671923124,
+   "left_hip": 26.036355762905366,
+   "right_hip": 14.937809301654717,
+   "left_knee": 18.788805428741707,
+   "right_knee": 24.443526875827047
+  },
+  "worst": {
+   "left_elbow": 83.30976428883413,
+   "right_elbow": 128.2412833787737,
+   "left_shoulder": 89.72243083538567,
+   "right_shoulder": 92.46381565855648,
+   "left_hip": 115.75039100085144,
+   "right_hip": 66.3493059692099,
+   "left_knee": 102.28878727539082,
+   "right_knee": 82.77648996121353
+  },
+  "med": {
+   "left_elbow": 28.693128721845724,
+   "right_elbow": 30.579259286838095,
+   "left_shoulder": 14.426133650947207,
+   "right_shoulder": 18.947847927105784,
+   "left_hip": 24.774565944912183,
+   "right_hip": 12.91246905926667,
+   "left_knee": 19.756972998599593,
+   "right_knee": 21.747246464718643
+  },
+  "n_dtw_over": 4,
+  "n_worst_over": 8,
+  "plen": 249
+ },
+ {
+  "ref": "ref-pdshape",
+  "label": "fault",
+  "vk": "fixtures/phase15/pdshape/fault.mp4",
+  "id": "devpdshapefault1782479184",
+  "dtw_dev": {
+   "left_elbow": 23.938904844239858,
+   "right_elbow": 22.735184673029423,
+   "left_shoulder": 23.60860362441626,
+   "right_shoulder": 18.996715164813725,
+   "left_hip": 23.531936341949816,
+   "right_hip": 21.731922220969523,
+   "left_knee": 25.25162048356625,
+   "right_knee": 19.894947277026823
+  },
+  "worst": {
+   "left_elbow": 83.02777012529921,
+   "right_elbow": 141.05750953373757,
+   "left_shoulder": 111.29844461036339,
+   "right_shoulder": 92.24244853591696,
+   "left_hip": 86.66408554962796,
+   "right_hip": 78.40901538987377,
+   "left_knee": 113.5342128910342,
+   "right_knee": 98.5766571205329
+  },
+  "med": {
+   "left_elbow": 26.4097499046976,
+   "right_elbow": 30.755896844199867,
+   "left_shoulder": 24.703603624416274,
+   "right_shoulder": 17.780868706843492,
+   "left_hip": 24.094552373313974,
+   "right_hip": 21.12578901394535,
+   "left_knee": 24.864429551370705,
+   "right_knee": 18.91799902820196
+  },
+  "n_dtw_over": 6,
+  "n_worst_over": 8,
+  "plen": 251
+ },
+ {
+  "ref": "ref-peter-pan",
+  "label": "correct",
+  "vk": "",
+  "id": "8f94c68742ff4c49becceecdaf1fc62a",
+  "dtw_dev": {
+   "left_elbow": 2.7147581670833034,
+   "right_elbow": 5.956697071137164,
+   "left_shoulder": 9.500684940907448,
+   "right_shoulder": 5.246365237371567,
+   "left_hip": 5.766471072259208,
+   "right_hip": 5.009774163232578,
+   "left_knee": 0.872795337710599,
+   "right_knee": 4.037016111480206
+  },
+  "worst": {
+   "left_elbow": 52.857269135435104,
+   "right_elbow": 49.69783963804808,
+   "left_shoulder": 50.659063563477304,
+   "right_shoulder": 32.63255428904334,
+   "left_hip": 34.214230904501974,
+   "right_hip": 56.24763799119961,
+   "left_knee": 19.392400637458877,
+   "right_knee": 44.527913645956815
+  },
+  "med": {
+   "left_elbow": 2.4322996516102933,
+   "right_elbow": 7.438437204804934,
+   "left_shoulder": 10.708841691804068,
+   "right_shoulder": 5.15989075278455,
+   "left_hip": 8.019750429845544,
+   "right_hip": 9.11166870935422,
+   "left_knee": 0.8961276942418408,
+   "right_knee": 4.5748883475378435
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 7,
+  "plen": 132
+ },
+ {
+  "ref": "ref-peter-pan",
+  "label": "correct",
+  "vk": "fixtures/phase15/peter-pan/correct.mp4",
+  "id": "devpeterpancorrect1782478496",
+  "dtw_dev": {
+   "left_elbow": 2.590195870879299,
+   "right_elbow": 6.06587907120236,
+   "left_shoulder": 9.19732038418784,
+   "right_shoulder": 5.120126925431737,
+   "left_hip": 5.659816196070281,
+   "right_hip": 4.78460533881649,
+   "left_knee": 0.8489177303264483,
+   "right_knee": 4.0370043705590675
+  },
+  "worst": {
+   "left_elbow": 52.85727762528424,
+   "right_elbow": 49.69785306341545,
+   "left_shoulder": 55.81151669779705,
+   "right_shoulder": 32.63255502050965,
+   "left_hip": 60.601928444258775,
+   "right_hip": 56.24763091429631,
+   "left_knee": 19.392415294641637,
+   "right_knee": 56.02072898366865
+  },
+  "med": {
+   "left_elbow": 2.783246189926146,
+   "right_elbow": 7.394687225636353,
+   "left_shoulder": 9.967845806933113,
+   "right_shoulder": 5.010291767697723,
+   "left_hip": 7.857941401669173,
+   "right_hip": 9.09363872086444,
+   "left_knee": 0.8961276942418408,
+   "right_knee": 4.70865037792494
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 7,
+  "plen": 132
+ },
+ {
+  "ref": "ref-peter-pan",
+  "label": "fault",
+  "vk": "",
+  "id": "21b1b7ed3bc84d829d201334e64acc5b",
+  "dtw_dev": {
+   "left_elbow": 5.059754400040433,
+   "right_elbow": 17.34482032333699,
+   "left_shoulder": 36.743877614646614,
+   "right_shoulder": 9.642565579262453,
+   "left_hip": 11.860013726341407,
+   "right_hip": 20.369034310415643,
+   "left_knee": 1.863646393750571,
+   "right_knee": 16.400147435250197
+  },
+  "worst": {
+   "left_elbow": 63.30462062901259,
+   "right_elbow": 102.9073278010479,
+   "left_shoulder": 108.40599268445914,
+   "right_shoulder": 47.79631317503802,
+   "left_hip": 64.48484441616627,
+   "right_hip": 56.448796969305945,
+   "left_knee": 37.09121825021663,
+   "right_knee": 73.47208031859088
+  },
+  "med": {
+   "left_elbow": 5.064054430056899,
+   "right_elbow": 28.989962496026834,
+   "left_shoulder": 35.354050280507884,
+   "right_shoulder": 10.143556848666098,
+   "left_hip": 9.766476999697389,
+   "right_hip": 19.7929161036987,
+   "left_knee": 2.0123695230153373,
+   "right_knee": 16.872632685018765
+  },
+  "n_dtw_over": 2,
+  "n_worst_over": 8,
+  "plen": 130
+ },
+ {
+  "ref": "ref-peter-pan",
+  "label": "fault",
+  "vk": "fixtures/phase15/peter-pan/fault.mp4",
+  "id": "devpeterpanfault1782478318",
+  "dtw_dev": {
+   "left_elbow": 4.71425151491394,
+   "right_elbow": 19.31560761428777,
+   "left_shoulder": 32.75595583524262,
+   "right_shoulder": 10.465674354051234,
+   "left_hip": 10.010661006821351,
+   "right_hip": 19.09573533013613,
+   "left_knee": 1.6740274342056978,
+   "right_knee": 20.037902871096918
+  },
+  "worst": {
+   "left_elbow": 68.60361723597879,
+   "right_elbow": 121.95519384427676,
+   "left_shoulder": 102.02241094833317,
+   "right_shoulder": 50.98982421649865,
+   "left_hip": 68.07808306800713,
+   "right_hip": 46.924185566154605,
+   "left_knee": 37.10965461655809,
+   "right_knee": 74.87141907681763
+  },
+  "med": {
+   "left_elbow": 4.474937938508987,
+   "right_elbow": 25.533675981744807,
+   "left_shoulder": 33.249158129842414,
+   "right_shoulder": 10.084956995191224,
+   "left_hip": 9.974785732433702,
+   "right_hip": 18.716765957611614,
+   "left_knee": 1.9447598528083887,
+   "right_knee": 20.98280815930667
+  },
+  "n_dtw_over": 2,
+  "n_worst_over": 8,
+  "plen": 130
+ },
+ {
+  "ref": "ref-peter-pan",
+  "label": "fault",
+  "vk": "uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/peterpanfault1785373695.mp4",
+  "id": "peterpanfault1785373695",
+  "dtw_dev": {
+   "left_elbow": 4.998452700656173,
+   "right_elbow": 17.410176882855296,
+   "left_shoulder": 36.67630893893142,
+   "right_shoulder": 9.61124382791645,
+   "left_hip": 11.780572964747208,
+   "right_hip": 20.421623526640204,
+   "left_knee": 1.8600802758304837,
+   "right_knee": 16.368161220327828
+  },
+  "worst": {
+   "left_elbow": 63.10360642534911,
+   "right_elbow": 102.99287463548177,
+   "left_shoulder": 108.64990426220882,
+   "right_shoulder": 47.796301580622455,
+   "left_hip": 64.47595065537776,
+   "right_hip": 56.53418763884359,
+   "left_knee": 37.091186609869794,
+   "right_knee": 73.472068874375
+  },
+  "med": {
+   "left_elbow": 5.03818895756487,
+   "right_elbow": 29.06788219164038,
+   "left_shoulder": 35.31477212872918,
+   "right_shoulder": 10.161315541431714,
+   "left_hip": 9.717962361281877,
+   "right_hip": 19.795688182583163,
+   "left_knee": 2.017441898919671,
+   "right_knee": 16.872623543598536
+  },
+  "n_dtw_over": 2,
+  "n_worst_over": 8,
+  "plen": 130
+ },
+ {
+  "ref": "ref-power-spin",
+  "label": "correct",
+  "vk": "",
+  "id": "b25bfb58ea014841bac884292129a04b",
+  "dtw_dev": {
+   "left_elbow": 7.133186181044664,
+   "right_elbow": 4.748056396391547,
+   "left_shoulder": 7.5468636708725825,
+   "right_shoulder": 8.225697470356579,
+   "left_hip": 7.785399097423351,
+   "right_hip": 11.953618458315475,
+   "left_knee": 3.533784442589109,
+   "right_knee": 11.995376844324866
+  },
+  "worst": {
+   "left_elbow": 49.25088368420532,
+   "right_elbow": 55.9410056123244,
+   "left_shoulder": 71.06983214163795,
+   "right_shoulder": 63.658044752710154,
+   "left_hip": 68.39953461663667,
+   "right_hip": 95.30782739344384,
+   "left_knee": 94.53224233225161,
+   "right_knee": 79.75636710948511
+  },
+  "med": {
+   "left_elbow": 8.024155018909624,
+   "right_elbow": 8.117426379152192,
+   "left_shoulder": 6.778615018841585,
+   "right_shoulder": 7.877749610798503,
+   "left_hip": 7.838288269758081,
+   "right_hip": 15.573479230096964,
+   "left_knee": 3.059498713555314,
+   "right_knee": 12.278152797628124
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 8,
+  "plen": 161
+ },
+ {
+  "ref": "ref-power-spin",
+  "label": "correct",
+  "vk": "fixtures/phase15/power-spin/correct.mp4",
+  "id": "devpowerspincorrect1782478147",
+  "dtw_dev": {
+   "left_elbow": 7.079400099771647,
+   "right_elbow": 4.431702266175762,
+   "left_shoulder": 7.065537683248017,
+   "right_shoulder": 8.218028131048385,
+   "left_hip": 7.971838187189036,
+   "right_hip": 11.932197430791135,
+   "left_knee": 4.559564832656648,
+   "right_knee": 11.961243288489726
+  },
+  "worst": {
+   "left_elbow": 47.02306182953433,
+   "right_elbow": 43.33551352204384,
+   "left_shoulder": 71.15678793891315,
+   "right_shoulder": 63.65804307168919,
+   "left_hip": 68.39951328809927,
+   "right_hip": 95.30781729795297,
+   "left_knee": 80.07673100066734,
+   "right_knee": 88.53935344993843
+  },
+  "med": {
+   "left_elbow": 7.772110779509688,
+   "right_elbow": 7.902839779473055,
+   "left_shoulder": 6.8138056549163295,
+   "right_shoulder": 7.88758672742658,
+   "left_hip": 7.97820029812668,
+   "right_hip": 15.575725493843166,
+   "left_knee": 2.742877275214653,
+   "right_knee": 12.215172376552758
+  },
+  "n_dtw_over": 0,
+  "n_worst_over": 8,
+  "plen": 161
+ },
+ {
+  "ref": "ref-power-spin",
+  "label": "fault",
+  "vk": "",
+  "id": "4c0d78f61c394e85a609757642725a54",
+  "dtw_dev": {
+   "left_elbow": 18.575137770863805,
+   "right_elbow": 7.323758786315068,
+   "left_shoulder": 31.878948147072897,
+   "right_shoulder": 19.310472065977706,
+   "left_hip": 21.319824108628325,
+   "right_hip": 23.016732697803704,
+   "left_knee": 13.532588292633804,
+   "right_knee": 24.191587303751163
+  },
+  "worst": {
+   "left_elbow": 81.3017452047257,
+   "right_elbow": 60.62921408987155,
+   "left_shoulder": 88.99594161268963,
+   "right_shoulder": 58.16654253057674,
+   "left_hip": 82.81334355411984,
+   "right_hip": 104.67961539591533,
+   "left_knee": 70.7911760984728,
+   "right_knee": 118.98208839976517
+  },
+  "med": {
+   "left_elbow": 23.296213060652917,
+   "right_elbow": 8.275808165775643,
+   "left_shoulder": 33.17400166202525,
+   "right_shoulder": 19.257297140727232,
+   "left_hip": 20.55982410862832,
+   "right_hip": 23.333378536533488,
+   "left_knee": 16.39386815822749,
+   "right_knee": 18.59841269624883
+  },
+  "n_dtw_over": 4,
+  "n_worst_over": 8,
+  "plen": 161
+ },
+ {
+  "ref": "ref-power-spin",
+  "label": "fault",
+  "vk": "fixtures/phase15/power-spin/fault.mp4",
+  "id": "powerspinFault1785373695",
+  "dtw_dev": {
+   "left_elbow": 18.575137770863805,
+   "right_elbow": 7.323758786315068,
+   "left_shoulder": 31.878948147072897,
+   "right_shoulder": 19.310472065977706,
+   "left_hip": 21.319824108628325,
+   "right_hip": 23.016732697803704,
+   "left_knee": 13.532588292633804,
+   "right_knee": 24.191587303751163
+  },
+  "worst": {
+   "left_elbow": 81.3017452047257,
+   "right_elbow": 60.62921408987155,
+   "left_shoulder": 88.99594161268963,
+   "right_shoulder": 58.16654253057674,
+   "left_hip": 82.81334355411984,
+   "right_hip": 104.67961539591533,
+   "left_knee": 70.7911760984728,
+   "right_knee": 118.98208839976517
+  },
+  "med": {
+   "left_elbow": 23.296213060652917,
+   "right_elbow": 8.275808165775643,
+   "left_shoulder": 33.17400166202525,
+   "right_shoulder": 19.257297140727232,
+   "left_hip": 20.55982410862832,
+   "right_hip": 23.333378536533488,
+   "left_knee": 16.39386815822749,
+   "right_knee": 18.59841269624883
+  },
+  "n_dtw_over": 4,
+  "n_worst_over": 8,
+  "plen": 161
+ }
+]

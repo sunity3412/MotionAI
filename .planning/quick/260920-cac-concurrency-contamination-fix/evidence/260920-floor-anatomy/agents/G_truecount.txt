@@ -1,0 +1,57 @@
+====================================================================================
+조사 G 보조 2 — 표본의 진짜 크기 (거리벡터 지문 군집)
+====================================================================================
+
+        tol     군집수          군집단위 정확도     최대군집
+      0.005      71      67/71   94.4%       99
+      0.010      59      56/59   94.9%       99
+      0.020      39      37/39   94.9%       99
+      0.030      31      29/31   93.5%      106
+      0.050      24      23/24   95.8%      106
+      0.080      18      18/19   94.7%      214
+      0.120      12      13/14   92.9%      367
+      0.200       7      11/12   91.7%      532
+
+    tol 0.005~0.05 구간에서 군집수가 거의 안 변하면 그 수가 고유 영상 추정치다.
+
+[군집 목록 — tol=0.02] 각 군집의 이름들(= 같은 영상의 여러 이름)
+       n 선택기준                    ok   frames  이름들
+      16 ref-climb               X->sideway-    138  bAZW_JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4
+       3 ref-climb               X->sideway-    172  fn:11516.mp4 | id:a026e53fa1bb4974bd3cca1b6e414dce | id:dea2804c49f6
+      15 ref-climb               OK       62  fixtures/phase15/climb/fault.mp4 | fn:belle_climb_0901.mp4 | fn:climb-fault.mp4 ...
+       4 ref-climb               OK       80  fixtures/phase15/climb/correct.mp4 | fn:fixtures:climb-correct.mp4
+       2 ref-combo               OK      621  fixtures/phase15/combo/correct.mp4
+       1 ref-combo               OK      621  fixtures/phase15/combo/correct.mp4
+       1 ref-combo               OK      621  reference/ref-combo.mp4
+      85 ref-elbow-twist-sister  OK      180  tures/phase15/elbow-twist-sister/fault.mp4 | fn:1000204255.mp4 | fn:elbow-twist-sister-fault.mp4 ...
+      49 ref-elbow-twist-sister  OK      220  res/phase15/elbow-twist-sister/correct.mp4 | fn:elbowtwistsisterok.mp4
+       6 ref-elbow-twist-sister  OK      220  res/phase15/elbow-twist-sister/correct.mp4 | fn:elbow-correct-1080.mp4
+       6 ref-elbow-twist-sister  OK      176  ZHKA_yX7uPsCsGTncpdNrFlHTk1_talkv_high.mp4
+       5 ref-elbow-twist-sister  OK      220  id:0026422db3d7 | id:5eacea19383f | id:bf9c58bb1c73 ...
+       1 ref-elbow-twist-sister  OK      118  fn:196fc4ffddbec58ec615b43dccfe959e.mp4
+       3 ref-foxtop              OK      284  reference/ref-foxtop.mp4
+       2 ref-foxtop              OK      284  fn:e2e.mp4 | id:bddac1817f78
+       1 ref-foxtop              OK      228  X1rU_Qre4WwZDUQAbX6Nkigzq5K_talkv_high.mp4
+       3 ref-foxtop-split        OK      324  reference/ref-foxtop-split.mp4
+       3 ref-invert              OK      174  reference/ref-invert.mp4
+       1 ref-invert              OK      174  fn:ref-invert.mp4
+      99 ref-kip-up              OK       68  fixtures/phase15/kip-up/fault.mp4 | fn:11518.mp4 | fn:kip-up-fault.mp4 ...
+      63 ref-kip-up              OK       79  fixtures/phase15/kip-up/correct.mp4 | fn:fixtures:kip-up-correct.mp4 | fn:kipupok.mp4
+       6 ref-kip-up              OK       55  S3KX_YA3ZOQ1lkza9YgrDaiQkx1_talkv_high.mp4
+      92 ref-pdshape             OK      159  fixtures/phase15/pdshape/correct.mp4 | fn:pdshapeok.mp4 | fn:pdshapeokr0.mp4 ...
+      51 ref-pdshape             OK      182  fixtures/phase15/pdshape/fault.mp4 | fn:pdshapefail.mp4
+      42 ref-pdshape             OK      182  fixtures/phase15/pdshape/fault.mp4 | pe(정확한명칭없음,잘못되예시).mp4 | fn:pdshape(정확한명칭없음,잘못되예시).mp4 ...
+      14 ref-pdshape             OK      159  fixtures/phase15/pdshape/correct.mp4 | fn:fixtures:pdshape-correct.mp4  .mp4
+      10 ref-pdshape             OK      182  fixtures/phase15/pdshape/fault.mp4 | fn:belle_pdshape.mp4 | fn:user.mp4
+       3 ref-pdshape             OK      182  fn:belle_pdshape.mp4 | fn:user.mp4
+       1 ref-pdshape             OK      159  fn:ref.mp4
+       1 ref-pdshape             OK      182  id:pdshapefault1785373695
+       1 ref-pdshape             OK      146  fn:21411.mp4
+      67 ref-peter-pan           OK       62  fixtures/phase15/peter-pan/fault.mp4 | fn:1000204260.mp4 | fn:peter-pan-fault.mp4 ...
+      62 ref-peter-pan           OK       87  fixtures/phase15/peter-pan/correct.mp4 | fn:fixtures:peter-pan-correct.mp4 | fn:peterpanok.mp4 ...
+       1 ref-peter-pan           OK       50  IJQ5_4zSsi8XqBENGsQADKGgaA1_talkv_high.mp4
+      86 ref-power-spin          OK       83  fixtures/phase15/power-spin/fault.mp4 | fn:a300a25e5a6c6007048d7bc046a1f7fa.mp4 | fn:power-spin-fault.mp4 ...
+      64 ref-power-spin          OK      106  fixtures/phase15/power-spin/correct.mp4 | fn:fixtures:power-spin-correct.mp4 | fn:powerspinok.mp4 ...
+       1 ref-power-spin          OK       86  FttI_jwDiWGkuWNohoQqLkUykP0_talkv_high.mp4
+       1 ref-power-spin          OK       83  id:verify311784550483
+       3 ref-sideway-spin        OK      199  reference/ref-sideway-spin.mp4

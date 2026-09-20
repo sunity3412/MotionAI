@@ -1,0 +1,5 @@
+motion                  label         바닥°  δ_max(E4)    몫(E4)  δ_lr_max  δ_max(+lr)    몫(+lr)  최대기여 기술자
+ref-pdshape             correct     23.43       21.4    39.0%      36.7        36.7     63.9%  lr_forearm
+ref-kip-up              fault        8.56       31.1   150.7%      44.6        44.6    209.1%  lr_uparm
+ref-elbow-twist-sister  fault       24.62       49.2    78.2%      45.2        49.2     78.2%  ear
+ref-power-spin          fault       20.15       35.7    72.5%      20.3        35.7     72.5%  hw

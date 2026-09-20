@@ -1,0 +1,112 @@
+[
+ {
+  "motion": "ref-climb",
+  "floor": 7.748780903188358,
+  "src": "correct",
+  "low_conf": 0.17430555555555555,
+  "repair": 9.637389620000334,
+  "view_mm": null,
+  "view_cap": null,
+  "sw_sys": null
+ },
+ {
+  "motion": "ref-combo",
+  "floor": 13.559463613999739,
+  "src": "correct",
+  "low_conf": 0.3524436090225564,
+  "repair": 7.264099276855262,
+  "view_mm": null,
+  "view_cap": null,
+  "sw_sys": null
+ },
+ {
+  "motion": "ref-elbow-twist-sister",
+  "floor": 22.159503013676844,
+  "src": "correct",
+  "low_conf": 0.5771276595744681,
+  "repair": 17.428693401233836,
+  "view_mm": 49.20657997921954,
+  "view_cap": 19.249908193973667,
+  "sw_sys": 0.1384416481262764
+ },
+ {
+  "motion": "ref-foxtop",
+  "floor": 15.372098478855875,
+  "src": "self",
+  "low_conf": 0.4213615023474178,
+  "repair": 11.717753637441518,
+  "view_mm": null,
+  "view_cap": null,
+  "sw_sys": null
+ },
+ {
+  "motion": "ref-foxtop-split",
+  "floor": 17.15759299929425,
+  "src": "self",
+  "low_conf": 0.38582474226804125,
+  "repair": 14.874920769124635,
+  "view_mm": null,
+  "view_cap": null,
+  "sw_sys": null
+ },
+ {
+  "motion": "ref-invert",
+  "floor": 15.331726732119401,
+  "src": "self",
+  "low_conf": 0.3418269230769231,
+  "repair": 15.23071801016689,
+  "view_mm": null,
+  "view_cap": null,
+  "sw_sys": null
+ },
+ {
+  "motion": "ref-kip-up",
+  "floor": 2.7559814766738313,
+  "src": "correct",
+  "low_conf": 0.08792372881355932,
+  "repair": 2.851639490755403,
+  "view_mm": 31.084472951753426,
+  "view_cap": 12.899809028213097,
+  "sw_sys": -0.15500951034917795
+ },
+ {
+  "motion": "ref-pdshape",
+  "floor": 24.33710644680184,
+  "src": "correct",
+  "low_conf": 0.5654008438818565,
+  "repair": 7.39004005798094,
+  "view_mm": 21.426112533739715,
+  "view_cap": 9.147610000692229,
+  "sw_sys": 0.017799483463026095
+ },
+ {
+  "motion": "ref-peter-pan",
+  "floor": 5.266001084846293,
+  "src": "correct",
+  "low_conf": 0.27403846153846156,
+  "repair": 5.154716095882833,
+  "view_mm": null,
+  "view_cap": null,
+  "sw_sys": null
+ },
+ {
+  "motion": "ref-power-spin",
+  "floor": 7.530152420820942,
+  "src": "correct",
+  "low_conf": 0.3757861635220126,
+  "repair": 8.554940626081745,
+  "view_mm": 35.706095668464194,
+  "view_cap": 14.6036472697738,
+  "sw_sys": -0.13605090461317362
+ },
+ {
+  "motion": "ref-sideway-spin",
+  "floor": 2.3190645471664837,
+  "src": "self",
+  "low_conf": 0.09731543624161074,
+  "repair": 2.212699702637508,
+  "view_mm": null,
+  "view_cap": null,
+  "sw_sys": null
+ }
+]

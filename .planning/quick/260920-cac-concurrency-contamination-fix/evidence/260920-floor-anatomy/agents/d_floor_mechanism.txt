@@ -1,0 +1,158 @@
+====================================================================================================
+7. 관절별 바닥 vs 그 관절의 기준 시퀀스 각도 변동폭
+   floor  = correct(없으면 self) 라벨의 그 관절 median |Δ| (도)
+   ref_sd = 기준 doc angles 그 관절 열의 표준편차 (도)  <- 그 동작에서 그 관절이 얼마나 움직이나
+   ref_iqr= 같은 열의 IQR,  ref_step = 프레임간 |변화| 의 median (도/프레임)
+====================================================================================================
+
+ref-climb  (바닥 라벨=correct, n=4, 기준 프레임 120)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb     9.8     31.3     38.7      5.73
+     R-elb     8.4     30.6     43.9      7.85
+     L-sho     9.4     31.7     43.6      9.86
+     R-sho     8.3     28.2     21.8      6.22
+     L-hip     6.8     24.2     31.2      7.57
+     R-hip     7.2     22.0     32.2      7.46
+     L-kne     7.2     19.8     24.7      7.60
+     R-kne     5.0     18.5     18.8      3.68
+  동작 내 8관절 상관: floor~ref_sd r=+0.90  floor~ref_iqr r=+0.73  floor~ref_step r=+0.52
+
+ref-combo  (바닥 라벨=correct, n=3, 기준 프레임 931)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb    14.1     41.2     66.7      4.29
+     R-elb    12.0     36.4     59.7      3.76
+     L-sho    12.4     50.2     92.0      4.73
+     R-sho    12.9     48.9     69.4      4.80
+     L-hip    14.3     41.0     65.7      6.80
+     R-hip    12.7     45.3     78.8      6.23
+     L-kne    16.2     45.3     77.2      4.21
+     R-kne    14.2     40.3     69.3      4.43
+  동작 내 8관절 상관: floor~ref_sd r=-0.05  floor~ref_iqr r=-0.04  floor~ref_step r=+0.00
+
+ref-elbow-twist-sister  (바닥 라벨=correct, n=54, 기준 프레임 329)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb    15.3     30.3     48.2      6.02
+     R-elb    23.5     24.7     36.3     10.62
+     L-sho    23.8     45.1     83.0      5.15
+     R-sho    21.0     31.7     46.3      8.63
+     L-hip    22.4     38.5     55.0      8.53
+     R-hip    18.8     36.1     46.5      7.16
+     L-kne    21.9     48.9     95.6      6.02
+     R-kne    25.1     34.1     45.4      3.26
+  동작 내 8관절 상관: floor~ref_sd r=+0.21  floor~ref_iqr r=+0.17  floor~ref_step r=-0.09
+
+ref-foxtop  (바닥 라벨=self, n=3, 기준 프레임 426)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb    16.2     38.8     58.4      7.14
+     R-elb    18.3     42.9     62.0      7.37
+     L-sho    12.3     48.6     90.5      6.40
+     R-sho    14.8     29.2     41.1      6.99
+     L-hip    15.2     35.6     46.9      6.43
+     R-hip    15.5     41.4     70.2      6.77
+     L-kne    21.6     36.7     58.5      5.03
+     R-kne    14.3     35.6     59.4      2.95
+  동작 내 8관절 상관: floor~ref_sd r=-0.18  floor~ref_iqr r=-0.30  floor~ref_step r=-0.00
+
+ref-foxtop-split  (바닥 라벨=self, n=3, 기준 프레임 485)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb    20.2     33.3     50.7      7.87
+     R-elb    17.5     43.2     71.7      6.80
+     L-sho    14.2     45.8     74.9      6.33
+     R-sho    17.2     33.5     52.3      8.04
+     L-hip    13.9     35.0     52.4      5.05
+     R-hip    14.8     40.7     64.7      5.98
+     L-kne    18.1     39.7     68.9      5.38
+     R-kne    17.1     38.6     64.7      5.45
+  동작 내 8관절 상관: floor~ref_sd r=-0.40  floor~ref_iqr r=-0.25  floor~ref_step r=+0.54
+
+ref-invert  (바닥 라벨=self, n=3, 기준 프레임 260)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb    17.5     36.2     52.2      7.09
+     R-elb    12.7     33.8     52.2      6.05
+     L-sho    13.1     35.5     54.7      7.09
+     R-sho    13.4     35.4     59.6      6.21
+     L-hip    16.3     39.3     65.8      8.26
+     R-hip    14.4     37.1     65.2      6.17
+     L-kne    24.9     36.5     48.7     11.66
+     R-kne    20.9     30.3     48.7      3.51
+  동작 내 8관절 상관: floor~ref_sd r=-0.15  floor~ref_iqr r=-0.53  floor~ref_step r=+0.44
+
+ref-kip-up  (바닥 라벨=correct, n=62, 기준 프레임 118)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb     4.2     31.5     45.6      8.72
+     R-elb     1.5      4.0      7.4      1.37
+     L-sho     3.5     25.1     25.2      4.33
+     R-sho     3.3     25.6     18.2      3.64
+     L-hip     3.1     16.7     30.8      4.30
+     R-hip     2.4     12.3     18.5      3.14
+     L-kne     1.1      6.1      4.7      0.83
+     R-kne     0.8      7.0      4.3      0.75
+  동작 내 8관절 상관: floor~ref_sd r=+0.95  floor~ref_iqr r=+0.92  floor~ref_step r=+0.92
+
+ref-pdshape  (바닥 라벨=correct, n=100, 기준 프레임 237)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb     9.0     42.7     59.0      3.99
+     R-elb    36.0     32.2     50.3      4.34
+     L-sho    13.0     42.7     55.5      4.05
+     R-sho    19.5     28.9     42.7      5.12
+     L-hip    28.1     26.9     26.0      5.78
+     R-hip    28.1     16.7     23.7      4.65
+     L-kne    34.1     38.2     50.9      6.45
+     R-kne    19.1     44.7     87.6      4.36
+  동작 내 8관절 상관: floor~ref_sd r=-0.50  floor~ref_iqr r=-0.39  floor~ref_step r=+0.60
+
+ref-peter-pan  (바닥 라벨=correct, n=60, 기준 프레임 130)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb     2.6     12.6      8.1      1.78
+     R-elb     6.1     39.6     66.0      9.00
+     L-sho     9.3     28.2     37.1      6.77
+     R-sho     5.1     15.2     22.1      5.11
+     L-hip     5.7     22.5     25.5      3.61
+     R-hip     5.0     24.4     31.4      4.03
+     L-kne     0.8      9.8      3.0      0.48
+     R-kne     4.0     42.4     81.7      4.79
+  동작 내 8관절 상관: floor~ref_sd r=+0.48  floor~ref_iqr r=+0.39  floor~ref_step r=+0.78
+
+ref-power-spin  (바닥 라벨=correct, n=62, 기준 프레임 159)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb     7.1     31.3     49.3      4.73
+     R-elb     4.4     23.8     22.2      2.49
+     L-sho     7.2     22.2     25.7      5.79
+     R-sho     8.2     18.5     22.3      6.09
+     L-hip     7.8     38.1     51.9      8.09
+     R-hip    11.9     40.0     50.8     11.81
+     L-kne     4.6     34.2     47.1      2.08
+     R-kne    11.5     47.4     82.1      8.33
+  동작 내 8관절 상관: floor~ref_sd r=+0.58  floor~ref_iqr r=+0.59  floor~ref_step r=+0.93
+
+ref-sideway-spin  (바닥 라벨=self, n=3, 기준 프레임 298)
+        관절   floor   ref_sd  ref_iqr  ref_step
+     L-elb     2.8     48.3     80.9      3.36
+     R-elb     0.7     10.0      5.6      0.82
+     L-sho     3.9     29.7     36.0      5.03
+     R-sho     2.1     16.4     26.2      2.42
+     L-hip     2.7     29.0     32.0      3.61
+     R-hip     2.6     22.8     28.8      3.10
+     L-kne     1.0     18.1      7.0      0.87
+     R-kne     0.8     24.7     18.0      0.70
+  동작 내 8관절 상관: floor~ref_sd r=+0.60  floor~ref_iqr r=+0.65  floor~ref_step r=+1.00
+
+전체 pool (동작x관절 88쌍) 상관:
+  floor ~ ref_sd   r=+0.49   (설명력 R^2=24%)
+  floor ~ ref_iqr  r=+0.48
+  floor ~ ref_step r=+0.44   (설명력 R^2=20%)
+
+====================================================================================================
+8. 그 관절이 동작을 넘어 체계적으로 바닥을 지는가 — 동작 안에서의 순위(1=가장 큼) 평균
+   관절 고유 문제(예: 무릎 추정이 늘 나쁘다)면 순위가 동작마다 일정해야 한다
+====================================================================================================
+        관절      평균순위     sd    n동작   동작별 순위
+     L-elb      4.00   2.66     11   [np.int64(1), np.int64(4), np.int64(8), np.int64(3), np.int64(1), np.int64(3), np.int64(1), np.int64(8), np.int64(7), np.int64(6), np.int64(2)]
+     L-kne      4.09   2.61     11   [np.int64(5), np.int64(1), np.int64(5), np.int64(1), np.int64(2), np.int64(1), np.int64(7), np.int64(2), np.int64(8), np.int64(7), np.int64(6)]
+     L-hip      4.27   1.71     11   [np.int64(7), np.int64(2), np.int64(4), np.int64(5), np.int64(8), np.int64(4), np.int64(4), np.int64(3), np.int64(3), np.int64(4), np.int64(3)]
+     L-sho      4.45   2.71     11   [np.int64(2), np.int64(7), np.int64(2), np.int64(8), np.int64(7), np.int64(7), np.int64(2), np.int64(7), np.int64(1), np.int64(5), np.int64(1)]
+     R-sho      4.64   1.07     11   [np.int64(4), np.int64(5), np.int64(6), np.int64(6), np.int64(4), np.int64(6), np.int64(3), np.int64(5), np.int64(4), np.int64(3), np.int64(5)]
+     R-elb      4.73   2.73     11   [np.int64(3), np.int64(8), np.int64(3), np.int64(2), np.int64(3), np.int64(8), np.int64(6), np.int64(1), np.int64(2), np.int64(8), np.int64(8)]
+     R-hip      4.82   1.53     11   [np.int64(6), np.int64(6), np.int64(7), np.int64(4), np.int64(6), np.int64(5), np.int64(5), np.int64(4), np.int64(5), np.int64(1), np.int64(4)]
+     R-kne      5.00   2.45     11   [np.int64(8), np.int64(3), np.int64(1), np.int64(7), np.int64(5), np.int64(2), np.int64(8), np.int64(6), np.int64(6), np.int64(2), np.int64(7)]
+  (무작위면 평균순위 4.5, sd ~2.3)

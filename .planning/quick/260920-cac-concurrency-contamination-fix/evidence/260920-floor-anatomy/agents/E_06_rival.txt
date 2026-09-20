@@ -1,0 +1,25 @@
+motion                       바닥°       출처    n  fault°     저신뢰%  medConf
+ref-sideway-spin             2.3     self    3     nan     9.7%    0.723
+ref-kip-up                   2.8  correct   62     8.8     8.8%    0.750
+ref-peter-pan                5.3  correct   60    14.1    27.4%    0.732
+ref-power-spin               7.5  correct   62    20.1    37.6%    0.624
+ref-climb                    7.7  correct    4    21.0    17.4%    0.688
+ref-combo                   13.6  correct    3     nan    35.2%    0.618
+ref-invert                  15.3     self    3     nan    34.2%    0.655
+ref-foxtop                  15.4     self    3     nan    42.1%    0.562
+ref-foxtop-split            17.2     self    3     nan    38.6%    0.590
+ref-elbow-twist-sister      22.2  correct   54    23.6    57.7%    0.441
+ref-pdshape                 24.3  correct  100    23.0    56.5%    0.456
+
+Spearman(저신뢰 프레임비율, 바닥)  n=11: (0.891, 11)
+Spearman(median conf,     바닥)  n=11: (-0.909, 11)
+
+geminiC (운영 자체 촬영각도 판정) — 리포 fixture 4건:
+   pdshapeCorrect1785373695     camera_angle_problematic=False  occlusion_severe=False  grip_visible=True  
+      notes_ko: 인버트 상태에서 폴을 잡은 손의 그립 형태가 명확하게 보이며, 등 후굴 동작 없이 다리를 뻗고 접는 동작이 정면 각도에서 가림 없이 관찰됩니다.
+   kipupFault1785373695         camera_angle_problematic=False  occlusion_severe=False  grip_visible=True  
+      notes_ko: 폴을 잡은 손의 그립 형태가 명확하게 보이며, 상체를 뒤로 젖히는 백벤드 동작이 포함되어 있습니다. 신체 가림이나 카메라 각도로 인한 분석 방해 요소는 관찰되지 않습니다.
+   elbowtwistsisterFault17853   camera_angle_problematic=False  occlusion_severe=False  grip_visible=True  
+      notes_ko: 폴을 잡은 손의 그립 형태가 명확하게 관찰되며, 척추를 뒤로 젖히는 백벤드 동작이 유지됩니다. 신체 가림이나 카메라 각도로 인한 분석 방해 요소는 없습니다.
+   powerspinFault1785373695     camera_angle_problematic=False  occlusion_severe=False  grip_visible=True  
+      notes_ko: 오른손으로 폴을 잡은 스플릿 그립과 베이직 그립이 명확하게 관찰됩니다. 등 뒤로 젖히는 백벤드 동작은 나타나지 않으며, 신체 가림이나 카메라 각도로 인한 분석 방해 요소가 없습니다.

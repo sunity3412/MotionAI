@@ -1,0 +1,101 @@
+[
+ {
+  "motion": "ref-climb",
+  "zerocam": 0.002761494959260702,
+  "dtw": 5.980496242374883,
+  "live_self": null,
+  "live_correct": 7.748780903188358,
+  "med_conf": 0.6876679360866547,
+  "low_conf": 0.17430555555555555
+ },
+ {
+  "motion": "ref-combo",
+  "zerocam": 0.002539354229302404,
+  "dtw": 1.420846174038965,
+  "live_self": 13.591875328918604,
+  "live_correct": 13.559463613999739,
+  "med_conf": 0.6180816292762756,
+  "low_conf": 0.3524436090225564
+ },
+ {
+  "motion": "ref-elbow-twist-sister",
+  "zerocam": 0.0027530803876558707,
+  "dtw": 2.4613937323351793,
+  "live_self": null,
+  "live_correct": 22.159503013676844,
+  "med_conf": 0.4405965954065323,
+  "low_conf": 0.5771276595744681
+ },
+ {
+  "motion": "ref-foxtop",
+  "zerocam": 0.0025967229925454305,
+  "dtw": 0.8128812085806465,
+  "live_self": 15.372098478855875,
+  "live_correct": null,
+  "med_conf": 0.5616348385810852,
+  "low_conf": 0.4213615023474178
+ },
+ {
+  "motion": "ref-foxtop-split",
+  "zerocam": 0.0025554744014115727,
+  "dtw": 0.4674052122912439,
+  "live_self": 17.15759299929425,
+  "live_correct": null,
+  "med_conf": 0.5900225639343262,
+  "low_conf": 0.38582474226804125
+ },
+ {
+  "motion": "ref-invert",
+  "zerocam": 0.002522730246404592,
+  "dtw": 0.2760975120114783,
+  "live_self": 15.331726732119401,
+  "live_correct": null,
+  "med_conf": 0.6546007692813873,
+  "low_conf": 0.3418269230769231
+ },
+ {
+  "motion": "ref-kip-up",
+  "zerocam": 0.0037107468178039227,
+  "dtw": 10.153409170434088,
+  "live_self": null,
+  "live_correct": 2.7559814766738313,
+  "med_conf": 0.7500430345535278,
+  "low_conf": 0.08792372881355932
+ },
+ {
+  "motion": "ref-pdshape",
+  "zerocam": 0.0026860572044142828,
+  "dtw": 1.322824114516954,
+  "live_self": null,
+  "live_correct": 24.33710644680184,
+  "med_conf": 0.45591871440410614,
+  "low_conf": 0.5654008438818565
+ },
+ {
+  "motion": "ref-peter-pan",
+  "zerocam": 0.002487739400329758,
+  "dtw": 10.66556174761762,
+  "live_self": null,
+  "live_correct": 5.266001084846293,
+  "med_conf": 0.7321721315383911,
+  "low_conf": 0.27403846153846156
+ },
+ {
+  "motion": "ref-power-spin",
+  "zerocam": 0.0024210670483455488,
+  "dtw": 0.00397728011188808,
+  "live_self": null,
+  "live_correct": 7.530152420820942,
+  "med_conf": 0.6241896748542786,
+  "low_conf": 0.3757861635220126
+ },
+ {
+  "motion": "ref-sideway-spin",
+  "zerocam": 0.0038178278043972114,
+  "dtw": 8.453220808189483,
+  "live_self": 2.3190645471664837,
+  "live_correct": null,
+  "med_conf": 0.7229618728160858,
+  "low_conf": 0.09731543624161074
+ }
+]

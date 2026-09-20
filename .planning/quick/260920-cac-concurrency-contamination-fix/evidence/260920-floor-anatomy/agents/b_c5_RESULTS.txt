@@ -1,0 +1,174 @@
+=== 조사 B (C5) 실측 결과 — 2026-09-20 ===
+생성: out/b_c5_*.py (backend/.venv/bin/python)
+
+[표1] 기준 11편 각도 통계 + chance + 바닥
+motion                      T   corr   self  fault |   chAn chShuf | c/chAn c/chSh s/chSh |     sd    rng    iqr   d180    fd
+-----------------------------------------------------------------------------------------------------------------------------
+ref-climb                 120   7.75      -  21.02 |  22.39  13.87 |   0.35   0.56      - |  26.24 113.99  31.69  92.45  7.52
+ref-combo                 931  13.56  13.59      - |  41.95  33.95 |   0.32   0.40   0.40 |  43.28 168.16  69.39  57.59  4.58
+ref-elbow-twist-sister    329  22.16      -  23.57 |  32.08  26.43 |   0.69   0.84      - |  35.12 151.59  47.35  70.88  6.59
+ref-foxtop                426      -  15.37      - |  36.08  26.86 |      -      -   0.57 |  37.77 157.19  58.98  66.40  6.60
+ref-foxtop-split          485      -  17.16      - |  37.12  31.63 |      -      -   0.54 |  39.18 153.00  64.72  63.70  6.16
+ref-invert                260      -  15.33      - |  35.98  25.34 |      -      -   0.61 |  35.85 145.87  53.41  69.89  6.65
+ref-kip-up                118   2.76      -   8.81 |  12.44   7.84 |   0.22   0.35      - |  14.49  50.88  18.34  25.65  3.39
+ref-pdshape               237  24.34      -  22.96 |  30.35  21.41 |   0.80   1.14      - |  35.18 147.01  50.62  48.36  4.50
+ref-peter-pan             130   5.27      -  14.08 |  19.61  11.33 |   0.27   0.46      - |  23.45 112.53  28.46  37.38  4.41
+ref-power-spin            159   7.53      -  20.15 |  27.61  19.78 |   0.27   0.38      - |  32.75 130.17  48.18  74.46  5.94
+ref-sideway-spin          298      -   2.32      - |  17.19  12.17 |      -      -   0.19 |  23.76  98.34  27.53  26.95  2.76
+
+=== 예측력: 동작별 바닥 ~ 각도 통계 (n 작음, 문턱 선택 없음) ===
+
+[correct 바닥] n=7 (ref-climb, ref-combo, ref-elbow-twist-sister, ref-kip-up, ref-pdshape, ref-peter-pan, ref-power-spin)
+  sd          pearson=+0.686  spearman=+0.857
+  rng         pearson=+0.721  spearman=+0.821
+  iqr         pearson=+0.614  spearman=+0.750
+  d180        pearson=+0.197  spearman=+0.357
+  fd          pearson=+0.185  spearman=+0.464
+  chance_an   pearson=+0.656  spearman=+0.821
+  chance_shuf pearson=+0.657  spearman=+0.821
+  T           pearson=+0.318  spearman=+0.750
+
+[self 바닥] n=5 (ref-combo, ref-foxtop, ref-foxtop-split, ref-invert, ref-sideway-spin)
+  sd          pearson=+0.867  spearman=+0.400
+  rng         pearson=+0.892  spearman=+0.300
+  iqr         pearson=+0.889  spearman=+0.400
+  d180        pearson=+0.970  spearman=+0.600
+  fd          pearson=+0.915  spearman=+0.600
+  chance_an   pearson=+0.907  spearman=+0.400
+  chance_shuf pearson=+0.872  spearman=+0.400
+  T           pearson=+0.248  spearman=+0.200
+
+[바닥 통합 (correct 우선, 없으면 self)] n=11
+  sd          pearson=+0.745  spearman=+0.691
+  rng         pearson=+0.770  spearman=+0.755
+  iqr         pearson=+0.699  spearman=+0.655
+  d180        pearson=+0.397  spearman=+0.382
+  fd          pearson=+0.447  spearman=+0.509
+  chance_an   pearson=+0.736  spearman=+0.700
+  chance_shuf pearson=+0.726  spearman=+0.709
+  T           pearson=+0.332  spearman=+0.482
+
+[표2] 학생-셔플 chance (운영 H.deviate, 4 seed)
+motion                   label       n    real  chance  real/ch
+ref-climb                correct     4    7.75   13.47    0.580
+ref-climb                fault       6   21.02   21.64    0.959
+ref-climb                unknown    28   24.68   33.31    0.745
+ref-combo                correct     3   13.56   26.07    0.520
+ref-combo                self        1   13.59   26.49    0.513
+ref-elbow-twist-sister   correct    54   22.16   27.08    0.820
+ref-elbow-twist-sister   fault      78   23.57   25.03    0.943
+ref-elbow-twist-sister   unknown    20   23.51   25.91    0.902
+ref-foxtop               self        3   15.37   25.37    0.606
+ref-foxtop               unknown     3   18.35   26.48    0.694
+ref-foxtop-split         self        3   17.16   27.06    0.634
+ref-invert               self        3   15.33   22.67    0.676
+ref-invert               unknown     1    9.63   21.16    0.455
+ref-kip-up               correct    62    2.76    6.07    0.452
+ref-kip-up               fault      75    8.81   10.98    0.802
+ref-kip-up               unknown    27    8.82   10.99    0.803
+ref-kip-up               upload      4    8.55   11.02    0.776
+ref-pdshape              correct   100   24.34   28.21    0.860
+ref-pdshape              fault      59   22.96   29.61    0.777
+ref-pdshape              unknown    30   21.74   28.97    0.707
+ref-pdshape              upload     26   19.98   28.86    0.692
+ref-peter-pan            correct    60    5.27   10.12    0.519
+ref-peter-pan            fault      63   14.08   15.58    0.898
+ref-peter-pan            unknown     7   13.94   15.34    0.895
+ref-power-spin           correct    62    7.53   16.92    0.447
+ref-power-spin           fault      73   20.15   21.69    0.934
+ref-power-spin           unknown    15   19.74   21.26    0.931
+ref-power-spin           upload      2   13.85   19.23    0.688
+ref-sideway-spin         self        3    2.32    9.15    0.254
+
+[표3] 소비처 — 운영 builder+CI억제+tally
+motion                   label       n |    dev  FIN FINch |     감점발화%     억제만%     무접촉% |  FIN=100%
+----------------------------------------------------------------------------------------------------
+ref-climb                correct     4 |   7.75  100   100 |         0        0      100 |       100
+ref-climb                fault       6 |  21.02   84    84 |       100        0        0 |         0
+ref-climb                unknown    28 |  24.68   60    60 |       100        0        0 |         0
+ref-combo                correct     3 |  13.56  100    60 |         0        0      100 |       100
+ref-combo                self        1 |  13.59  100    60 |         0        0      100 |       100
+ref-elbow-twist-sister   correct    54 |  22.16   86    60 |       100        0        0 |         0
+ref-elbow-twist-sister   fault      78 |  23.57   62    60 |       100        0        0 |         0
+ref-elbow-twist-sister   unknown    20 |  23.51   77    60 |       100        0        0 |         0
+ref-foxtop               self        3 |  15.37  100    60 |         0      100        0 |       100
+ref-foxtop               unknown     3 |  18.35  100    60 |         0      100        0 |       100
+ref-foxtop-split         self        3 |  17.16  100    60 |         0      100        0 |       100
+ref-invert               self        3 |  15.33   94    74 |       100        0        0 |         0
+ref-invert               unknown     1 |   9.63  100    86 |         0        0      100 |       100
+ref-kip-up               correct    62 |   2.76  100   100 |         0        0      100 |       100
+ref-kip-up               fault      75 |   8.81  100   100 |         0       83       17 |       100
+ref-kip-up               unknown    27 |   8.82  100   100 |         0       48       52 |       100
+ref-kip-up               upload      4 |   8.55  100   100 |         0      100        0 |       100
+ref-pdshape              correct   100 |  24.34   60    60 |       100        0        0 |         0
+ref-pdshape              fault      59 |  22.96   79    60 |       100        0        0 |         0
+ref-pdshape              unknown    30 |  21.74   77    60 |        97        0        3 |         3
+ref-pdshape              upload     26 |  19.98   73    60 |       100        0        0 |         0
+ref-peter-pan            correct    60 |   5.27  100   100 |         0        0      100 |       100
+ref-peter-pan            fault      63 |  14.08   80    82 |       100        0        0 |         0
+ref-peter-pan            unknown     7 |  13.94   85    82 |        71        0       29 |        29
+ref-power-spin           correct    62 |   7.53  100    98 |         0        0      100 |       100
+ref-power-spin           fault      73 |  20.15   80    74 |       100        0        0 |         0
+ref-power-spin           unknown    15 |  19.74   78    74 |        80        0       20 |        20
+ref-power-spin           upload      2 |  13.85   93    86 |        50        0       50 |        50
+ref-sideway-spin         self        3 |   2.32  100   100 |         0        0      100 |       100
+
+[표4] C5 판정
+=== (1)(2) 동작 단위 (n=11) ===
+feature               ~바닥 pear   spear |    ~비율 pear   spear
+sd                       0.745   0.691 |       0.490   0.455
+rng                      0.770   0.755 |       0.555   0.500
+iqr                      0.699   0.655 |       0.440   0.418
+dist180_median           0.397   0.382 |       0.418   0.300
+frame_dabs_median        0.447   0.509 |       0.519   0.518
+chance_analytic_agg       0.736   0.700 |       0.514   0.482
+chance_shuffle           0.936   0.955 |       0.747   0.782
+
+동작별 바닥/chance (1.0 = 정보 0)
+motion                   kind       floor  chance   ratio      sd    d180
+ref-climb                correct     7.75   13.47   0.575   26.24   92.45
+ref-combo                correct    13.56   26.07   0.520   43.28   57.59
+ref-elbow-twist-sister   correct    22.16   27.08   0.818   35.12   70.88
+ref-foxtop               self       15.37   25.37   0.606   37.77   66.40
+ref-foxtop-split         self       17.16   27.06   0.634   39.18   63.70
+ref-invert               self       15.33   22.67   0.676   35.85   69.89
+ref-kip-up               correct     2.76    6.07   0.454   14.49   25.65
+ref-pdshape              correct    24.34   28.21   0.863   35.18   48.36
+ref-peter-pan            correct     5.27   10.12   0.521   23.45   37.38
+ref-power-spin           correct     7.53   16.92   0.445   32.75   74.46
+ref-sideway-spin         self        2.32    9.15   0.254   23.76   26.95
+
+=== (3) 관절 단위 검정 (n=88) ===
+  sd     pearson=+0.487 spearman=+0.517
+  rng    pearson=+0.542 spearman=+0.541
+  iqr    pearson=+0.476 spearman=+0.532
+  d180   pearson=+0.156 spearman=+0.322
+  fd     pearson=+0.443 spearman=+0.486
+  ch     pearson=+0.520 spearman=+0.551
+  ch_sh  pearson=+0.622 spearman=+0.680
+  -- 동작 효과 제거(동작별 중심화) --
+  sd     pearson=+0.019 spearman=+0.186
+  rng    pearson=+0.144 spearman=+0.360
+  iqr    pearson=+0.005 spearman=+0.131
+  d180   pearson=-0.136 spearman=-0.046
+  fd     pearson=+0.352 spearman=+0.455
+  ch     pearson=+0.069 spearman=+0.203
+
+=== (4) lag 등가 — 바닥이 '몇 프레임 시간 어긋남'에 해당하나 (fps~14.95) ===
+motion                     floor   lag1   lag3   lag8  lag20  lag50  chance   ~equiv
+ref-climb                   7.75    7.5   20.3   24.6   14.5   24.6   22.39        2
+ref-combo                  13.56    4.6   14.7   22.3   22.9   29.1   41.95        3
+ref-elbow-twist-sister     22.16    6.6   20.3   27.1   28.4   31.0   32.08        5
+ref-foxtop                 15.37    6.6   16.7   26.7   24.8   38.6   36.08        3
+ref-foxtop-split           17.16    6.2   18.4   28.5   33.3   34.6   37.12        3
+ref-invert                 15.33    6.7   16.5   26.5   27.4   34.8   35.98        3
+ref-kip-up                  2.76    3.4   10.4   15.8   15.0   12.5   12.44        1
+ref-pdshape                24.34    4.5   14.5   26.0   19.3   29.1   30.35        8
+ref-peter-pan               5.27    4.4   12.7   22.7   17.0   24.1   19.61        2
+ref-power-spin              7.53    5.9   16.9   20.9   21.3   29.8   27.61        2
+ref-sideway-spin            2.32    2.8    7.8   13.6   12.1   19.1   17.19        1
+
+=== (5) 180도 천장 가설 — 관절 단위 ===
+  180 근처 관절(d180<30, n=19): 바닥 median=2.57, sd median=22.49, chance=12.49
+  180 먼  관절(d180>=60, n=42): 바닥 median=13.25, sd median=35.79, chance=35.40
+  두 집단 바닥/chance: near=0.265 far=0.369

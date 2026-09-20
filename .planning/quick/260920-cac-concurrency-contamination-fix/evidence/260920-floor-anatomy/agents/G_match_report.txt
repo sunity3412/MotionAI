@@ -1,0 +1,188 @@
+==============================================================================
+조사 G — 매칭 정확도 재검 (전수 875건, 운영 motion_dtw 거리 argmin)
+==============================================================================
+
+[1] 분석 단위 전수 정확도 : 856/875 = 97.8%
+[2] 고유영상 단위 정확도  : 101/105 = 96.2%  (영상별 다수결 예측)
+    영상별 정확도 단순평균: 96.2%  (macro, 재분석 수 무관)
+
+    * 고유 소스 104개 / (소스,선택기준) 쌍 105개 / 분석 875건
+    * 중복 배수 중앙값 1회 (최대 99회)
+
+[3] label 별 정확도
+    label                 분석단위            고유영상단위
+    correct     345/345  100.0%      13/13   100.0%
+    fault       354/354  100.0%      20/20   100.0%
+    self         13/13   100.0%       5/5    100.0%
+    upload       32/32   100.0%       7/7    100.0%
+    unknown     112/131   85.5%      56/60    93.3%
+
+[4] correct(정은지 제대로) vs fault(정은지 일부러 실수) — 동작별
+    motion                             correct           fault
+    ref-climb                       4/4 100.0%      6/6 100.0%
+    ref-combo                       3/3 100.0%               -
+    ref-elbow-twist-sister        54/54 100.0%    78/78 100.0%
+    ref-foxtop                               -               -
+    ref-foxtop-split                         -               -
+    ref-invert                               -               -
+    ref-kip-up                    62/62 100.0%    75/75 100.0%
+    ref-pdshape                 100/100 100.0%    59/59 100.0%
+    ref-peter-pan                 60/60 100.0%    63/63 100.0%
+    ref-power-spin                62/62 100.0%    73/73 100.0%
+    ref-sideway-spin                         -               -
+
+[5] 혼동 — 선택기준(정답) x argmin(예측), 분석 단위
+    ref-climb                    19/38    50.0%
+        -> ref-sideway-spin             19
+    ref-combo                     4/4    100.0%
+    ref-elbow-twist-sister      152/152  100.0%
+    ref-foxtop                    6/6    100.0%
+    ref-foxtop-split              3/3    100.0%
+    ref-invert                    4/4    100.0%
+    ref-kip-up                  168/168  100.0%
+    ref-pdshape                 215/215  100.0%
+    ref-peter-pan               130/130  100.0%
+    ref-power-spin              152/152  100.0%
+    ref-sideway-spin              3/3    100.0%
+
+[6] 오분류 쌍 전체 (분석 단위, 건수순)
+    ref-climb                  -> ref-sideway-spin             19  {'unknown': 19}
+
+[7] 마진 분포 ((2등-1등)/1등)
+    맞춘 것 : n=856 min=0.036 p25=0.259 med=0.355 p75=1.197 max=9.315
+    틀린 것 : n=19 min=0.030 p25=0.048 med=0.048 p75=0.048 max=0.056
+
+    label 별 (맞춘 것 / 틀린 것)
+      correct  맞춤 n=345 min=0.155 p25=0.303 med=1.227 p75=3.318 max=9.315
+      correct  틀림 n/a
+      fault    맞춤 n=354 min=0.036 p25=0.241 med=0.354 p75=1.135 max=1.197
+      fault    틀림 n/a
+      self     맞춤 n=13 min=0.122 p25=0.179 med=0.262 p75=0.724 max=4.147
+      self     틀림 n/a
+      upload   맞춤 n=32 min=0.242 p25=0.242 med=0.242 p75=0.242 max=1.242
+      upload   틀림 n/a
+      unknown  맞춤 n=112 min=0.047 p25=0.242 med=0.355 p75=1.140 max=9.293
+      unknown  틀림 n=19 min=0.030 p25=0.048 med=0.048 p75=0.048 max=0.056
+
+[8] 실제 사용자 업로드만 (videoKey 가 uploads/ 로 시작)
+    분석 단위 34/34 = 100.0%   (label=upload 32건 + 파일명이 fault 인 업로드 2건)
+    고유영상 단위 9/9 = 100.0%
+
+    videoKey                                                      선택기준                      n 예측(다수결)                      마진중앙
+    OK 3WCPYPysNQ9KkWecaUvq1/071df9f894d64d1696f106e613f51f5c.mp4 ref-power-spin            1 ref-power-spin              0.339
+    OK 3WCPYPysNQ9KkWecaUvq1/127a2a90c1d74c62ad61270eb3fe5625.mp4 ref-pdshape              26 ref-pdshape                 0.242
+    OK s/csKWYvI3WCPYPysNQ9KkWecaUvq1/peterpanfault1785373695.mp4 ref-peter-pan             1 ref-peter-pan               1.148
+    OK uploads/e2everify0705/kipupFinalE2E1783227769.mp4          ref-kip-up                1 ref-kip-up                  1.143
+    OK uploads/e2everify0705/kipupfaultE2E1783216648.mp4          ref-kip-up                1 ref-kip-up                  1.141
+    OK uploads/e2everify0705/splitArcFix1783250327.mp4            ref-kip-up                1 ref-kip-up                  1.115
+    OK uploads/e2everify0705/splitArcFix21783250939.mp4           ref-kip-up                1 ref-kip-up                  1.115
+    OK uploads/e2everify0705/splitArcVerify1783249455.mp4         ref-kip-up                1 ref-kip-up                  1.117
+    OK uploads/pode2e32/powerspinE2e1784627613.mp4                ref-power-spin            1 ref-power-spin              1.242
+
+[9] 고유영상 x 선택기준 상세 (n>=1, 오분류 먼저)
+    ok source                                              선택기준                       n     정확도 예측분포
+    X  fn:11516.mp4                                        ref-climb                  1    0.0% {'ref-sideway-spin': 1}
+    X  v_wzPWR5bAZW_JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4  ref-climb                 16    0.0% {'ref-sideway-spin': 16}
+    X  id:a026e53fa1bb4974bd3cca1b6e414dce                 ref-climb                  1    0.0% {'ref-sideway-spin': 1}
+    X  id:dea2804c49f6                                     ref-climb                  1    0.0% {'ref-sideway-spin': 1}
+    OK fixtures/phase15/climb/correct.mp4                  ref-climb                  3  100.0% {'ref-climb': 3}
+    OK fixtures/phase15/climb/fault.mp4                    ref-climb                  3  100.0% {'ref-climb': 3}
+    OK fn:belle_climb_0901.mp4                             ref-climb                  2  100.0% {'ref-climb': 2}
+    OK fn:climb-fault.mp4                                  ref-climb                  1  100.0% {'ref-climb': 1}
+    OK fn:climb_belle_0902.mp4                             ref-climb                  4  100.0% {'ref-climb': 4}
+    OK fn:climb_user.mp4                                   ref-climb                  2  100.0% {'ref-climb': 2}
+    OK fn:fixtures:climb-correct.mp4                       ref-climb                  1  100.0% {'ref-climb': 1}
+    OK fn:클라임(잘못된예시).mp4                      ref-climb                  1  100.0% {'ref-climb': 1}
+    OK fn:클라임(잘못된예시).mp4                                   ref-climb                  2  100.0% {'ref-climb': 2}
+    OK fixtures/phase15/combo/correct.mp4                  ref-combo                  3  100.0% {'ref-combo': 3}
+    OK reference/ref-combo.mp4                             ref-combo                  1  100.0% {'ref-combo': 1}
+    OK fixtures/phase15/elbow-twist-sister/correct.mp4     ref-elbow-twist-sister    53  100.0% {'ref-elbow-twist-sister': 53}
+    OK fixtures/phase15/elbow-twist-sister/fault.mp4       ref-elbow-twist-sister    75  100.0% {'ref-elbow-twist-sister': 75}
+    OK fn:1000204255.mp4                                   ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK fn:196fc4ffddbec58ec615b43dccfe959e.mp4             ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK _dJMcaL4ZHKA_yX7uPsCsGTncpdNrFlHTk1_talkv_high.mp4  ref-elbow-twist-sister     6  100.0% {'ref-elbow-twist-sister': 6}
+    OK fn:elbow-correct-1080.mp4                           ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK fn:elbow-twist-sister-fault.mp4                     ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK fn:elbowtwist_user.mp4                              ref-elbow-twist-sister     2  100.0% {'ref-elbow-twist-sister': 2}
+    OK fn:elbowtwistsisterfail.mp4                         ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK fn:elbowtwistsisterok.mp4                           ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK fn:user.mp4                                         ref-elbow-twist-sister     3  100.0% {'ref-elbow-twist-sister': 3}
+    OK fn:엘보트위스트시스터(잘못된예시).mp4                             ref-elbow-twist-sister     2  100.0% {'ref-elbow-twist-sister': 2}
+    OK id:0026422db3d7                                     ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK id:5eacea19383f                                     ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK id:bf9c58bb1c73                                     ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK id:d7ad42c786cd                                     ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK id:fba0cc83f3f8                                     ref-elbow-twist-sister     1  100.0% {'ref-elbow-twist-sister': 1}
+    OK _dJMcaD6X1rU_Qre4WwZDUQAbX6Nkigzq5K_talkv_high.mp4  ref-foxtop                 1  100.0% {'ref-foxtop': 1}
+    OK fn:e2e.mp4                                          ref-foxtop                 1  100.0% {'ref-foxtop': 1}
+    OK id:bddac1817f78                                     ref-foxtop                 1  100.0% {'ref-foxtop': 1}
+    OK reference/ref-foxtop.mp4                            ref-foxtop                 3  100.0% {'ref-foxtop': 3}
+    OK reference/ref-foxtop-split.mp4                      ref-foxtop-split           3  100.0% {'ref-foxtop-split': 3}
+    OK fn:ref-invert.mp4                                   ref-invert                 1  100.0% {'ref-invert': 1}
+    OK reference/ref-invert.mp4                            ref-invert                 3  100.0% {'ref-invert': 3}
+    OK fixtures/phase15/kip-up/correct.mp4                 ref-kip-up                58  100.0% {'ref-kip-up': 58}
+    OK fixtures/phase15/kip-up/fault.mp4                   ref-kip-up                70  100.0% {'ref-kip-up': 70}
+    OK fn:11518.mp4                                        ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK _dJMcaLcS3KX_YA3ZOQ1lkza9YgrDaiQkx1_talkv_high.mp4  ref-kip-up                 6  100.0% {'ref-kip-up': 6}
+    OK fn:fixtures:kip-up-correct.mp4                      ref-kip-up                 4  100.0% {'ref-kip-up': 4}
+    OK fn:kip-up-fault.mp4                                 ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK fn:kipup_user.mp4                                   ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK fn:kipupfail.mp4                                    ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK fn:kipupok.mp4                                      ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK fn:킵업(잘못된예시).mp4                        ref-kip-up                17  100.0% {'ref-kip-up': 17}
+    OK fn:킵업(잘못된예시).mp4                                    ref-kip-up                 3  100.0% {'ref-kip-up': 3}
+    OK uploads/e2everify0705/kipupFinalE2E1783227769.mp4   ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK uploads/e2everify0705/kipupfaultE2E1783216648.mp4   ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK uploads/e2everify0705/splitArcFix1783250327.mp4     ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK uploads/e2everify0705/splitArcFix21783250939.mp4    ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK uploads/e2everify0705/splitArcVerify1783249455.mp4  ref-kip-up                 1  100.0% {'ref-kip-up': 1}
+    OK fixtures/phase15/pdshape/correct.mp4                ref-pdshape               99  100.0% {'ref-pdshape': 99}
+    OK fixtures/phase15/pdshape/fault.mp4                  ref-pdshape               55  100.0% {'ref-pdshape': 55}
+    OK fn:21411.mp4                                        ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:belle_pdshape.mp4                                ref-pdshape                9  100.0% {'ref-pdshape': 9}
+    OK fn:fixtures:pdshape-correct.mp4  .mp4               ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:pdshape(정확한명칭없음,잘못되예시).mp4  ref-pdshape                5  100.0% {'ref-pdshape': 5}
+    OK fn:pdshape(정확한명칭없음,잘못되예시).mp4                       ref-pdshape                2  100.0% {'ref-pdshape': 2}
+    OK fn:pdshape-fault.mp4                                ref-pdshape                2  100.0% {'ref-pdshape': 2}
+    OK fn:pdshape_belle_0903.mp4                           ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:pdshape_user.mp4                                 ref-pdshape                2  100.0% {'ref-pdshape': 2}
+    OK fn:pdshapefail.mp4                                  ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:pdshapeok.mp4                                    ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:pdshapeokr0.mp4                                  ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:pdshapeokr1.mp4                                  ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:pdshapeokr2.mp4                                  ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:ref.mp4                                          ref-pdshape                2  100.0% {'ref-pdshape': 2}
+    OK fn:solo.mp4                                         ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK fn:user.mp4                                         ref-pdshape                3  100.0% {'ref-pdshape': 3}
+    OK id:pdshapefault1785373695                           ref-pdshape                1  100.0% {'ref-pdshape': 1}
+    OK NQ9KkWecaUvq1/127a2a90c1d74c62ad61270eb3fe5625.mp4  ref-pdshape               26  100.0% {'ref-pdshape': 26}
+    OK fixtures/phase15/peter-pan/correct.mp4              ref-peter-pan             58  100.0% {'ref-peter-pan': 58}
+    OK fixtures/phase15/peter-pan/fault.mp4                ref-peter-pan             58  100.0% {'ref-peter-pan': 58}
+    OK fn:1000204260.mp4                                   ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK _dJMcbdtIJQ5_4zSsi8XqBENGsQADKGgaA1_talkv_high.mp4  ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK fn:fixtures:peter-pan-correct.mp4                   ref-peter-pan              2  100.0% {'ref-peter-pan': 2}
+    OK fn:peter-pan-fault.mp4                              ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK fn:peterpan_user.mp4                                ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK fn:peterpanfail.mp4                                 ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK fn:peterpanok.mp4                                   ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK fn:피터팬(잘못된예시).mp4                       ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK fn:피터팬(잘못된예시).mp4                                   ref-peter-pan              3  100.0% {'ref-peter-pan': 3}
+    OK id:969df4a773b5                                     ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK I3WCPYPysNQ9KkWecaUvq1/peterpanfault1785373695.mp4  ref-peter-pan              1  100.0% {'ref-peter-pan': 1}
+    OK fixtures/phase15/power-spin/correct.mp4             ref-power-spin            60  100.0% {'ref-power-spin': 60}
+    OK fixtures/phase15/power-spin/fault.mp4               ref-power-spin            69  100.0% {'ref-power-spin': 69}
+    OK _dJMcaItFttI_jwDiWGkuWNohoQqLkUykP0_talkv_high.mp4  ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK fn:a300a25e5a6c6007048d7bc046a1f7fa.mp4             ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK fn:fixtures:power-spin-correct.mp4                  ref-power-spin             2  100.0% {'ref-power-spin': 2}
+    OK fn:power-spin-fault.mp4                             ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK fn:powerspin_user.mp4                               ref-power-spin             2  100.0% {'ref-power-spin': 2}
+    OK fn:powerspinfail.mp4                                ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK fn:powerspinfailr0.mp4                              ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK fn:powerspinfailr1.mp4                              ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK fn:powerspinok.mp4                                  ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK fn:파워스핀(잘못된예시).mp4                     ref-power-spin             6  100.0% {'ref-power-spin': 6}
+    OK fn:파워스핀(잘못된예시).mp4                                  ref-power-spin             3  100.0% {'ref-power-spin': 3}
+    OK id:verify311784550483                               ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK NQ9KkWecaUvq1/071df9f894d64d1696f106e613f51f5c.mp4  ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK uploads/pode2e32/powerspinE2e1784627613.mp4         ref-power-spin             1  100.0% {'ref-power-spin': 1}
+    OK reference/ref-sideway-spin.mp4                      ref-sideway-spin           3  100.0% {'ref-sideway-spin': 3}

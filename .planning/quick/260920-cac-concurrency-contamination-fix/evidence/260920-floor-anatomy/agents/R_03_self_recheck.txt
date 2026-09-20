@@ -1,0 +1,31 @@
+id                        ref                     label   vk                             facts.scalar      재계산   stuT   refT     dtw
+refcomboself1784816075    ref-combo               self    reference/ref-combo.mp4               13.59    13.59    621    931    45.8
+reffoxtopa4self178531182  ref-foxtop              self    reference/ref-foxtop.mp4              15.37    15.37    284    426    45.0
+reffoxtopa4self178537563  ref-foxtop              self    reference/ref-foxtop.mp4              15.37    15.37    284    426    45.0
+reffoxtopself1784816075   ref-foxtop              self    reference/ref-foxtop.mp4              15.37    15.37    284    426    45.0
+reffoxtopsplita4self1785  ref-foxtop-split        self    reference/ref-foxtop-split.m          17.16    17.16    324    485    47.0
+reffoxtopsplita4self1785  ref-foxtop-split        self    reference/ref-foxtop-split.m          17.16    17.16    324    485    47.0
+reffoxtopsplitself178481  ref-foxtop-split        self    reference/ref-foxtop-split.m          17.16    17.16    324    485    47.0
+refinverta4self178531182  ref-invert              self    reference/ref-invert.mp4              15.33    15.33    174    260    42.1
+refinverta4self178537563  ref-invert              self    reference/ref-invert.mp4              15.33    15.33    174    260    42.1
+refinvertself1784816075   ref-invert              self    reference/ref-invert.mp4              15.33    15.33    174    260    42.1
+refsidewayspina4self1785  ref-sideway-spin        self    reference/ref-sideway-spin.m           2.32     2.32    199    298     8.1
+refsidewayspina4self1785  ref-sideway-spin        self    reference/ref-sideway-spin.m           2.32     2.32    199    298     8.1
+refsidewayspinself178481  ref-sideway-spin        self    reference/ref-sideway-spin.m           2.32     2.32    199    298     8.1
+
+facts.json 대비 재계산 최대 차이 = 0.000000도 (n=13)
+
+기준 doc 의 angles fps vs self 분석의 프레임수 — 같은 영상, 다른 시간 격자인가
+   ref-combo                stuT=  621  refT=  931  ref_fps=14.9839
+   ref-foxtop               stuT=  284  refT=  426  ref_fps=14.9647
+   ref-foxtop               stuT=  284  refT=  426  ref_fps=14.9647
+   ref-foxtop               stuT=  284  refT=  426  ref_fps=14.9647
+   ref-foxtop-split         stuT=  324  refT=  485  ref_fps=14.9845
+   ref-foxtop-split         stuT=  324  refT=  485  ref_fps=14.9845
+   ref-foxtop-split         stuT=  324  refT=  485  ref_fps=14.9845
+   ref-invert               stuT=  174  refT=  260  ref_fps=14.9422
+   ref-invert               stuT=  174  refT=  260  ref_fps=14.9422
+   ref-invert               stuT=  174  refT=  260  ref_fps=14.9422
+   ref-sideway-spin         stuT=  199  refT=  298  ref_fps=14.9496
+   ref-sideway-spin         stuT=  199  refT=  298  ref_fps=14.9496
+   ref-sideway-spin         stuT=  199  refT=  298  ref_fps=14.9496

@@ -1,0 +1,50 @@
+================================================================================================================
+R3. 경로 통제 — 같은 두 행렬에 경로만 갈아끼운다 (deviation = 운영 per_joint_deviation)
+  (a) DTW    : 운영 _deviation_against 가 고른 경로 (= live 바닥)
+  (b) 선형    : 시간 비례 대응 (self 라벨에서는 참 대응)
+  (c) 최선선형: (시작,끝) 격자 위 선형 경로 중 최소
+================================================================================================================
+동작                      라벨        (a)DTW   (b)선형    (c)최선선형    a-c     경로몫%      최선(시작,끝)
+ref-climb               correct      7.7     8.5        8.5   -0.8     -10%   (0.00,1.00)
+ref-climb               fault       21.0    30.5       25.0   -4.0     -19%   (0.22,0.90)
+
+ref-combo               self        13.6    15.9       15.9   -2.3     -17%   (0.00,1.00)
+ref-combo               correct     13.6    15.5       15.5   -2.0     -14%   (0.00,1.00)
+
+ref-elbow-twist-sister  correct     22.2    24.9       24.9   -2.8     -13%   (0.00,1.00)
+ref-elbow-twist-sister  fault       23.6    31.8       29.7   -6.1     -26%   (0.17,1.00)
+
+ref-foxtop              self        15.4    18.2       18.2   -2.8     -18%   (0.00,1.00)
+
+ref-foxtop-split        self        17.2    19.8       19.8   -2.6     -15%   (0.00,1.00)
+
+ref-invert              self        15.3    17.5       17.5   -2.2     -14%   (0.00,1.00)
+
+ref-kip-up              correct      2.8     2.7        2.7    0.0       1%   (0.00,1.00)
+ref-kip-up              fault        8.8    13.1       10.8   -2.0     -23%   (0.25,0.77)
+
+ref-pdshape             correct     24.4    31.8       30.3   -5.9     -24%   (0.02,0.98)
+ref-pdshape             fault       23.0    31.9       26.3   -3.3     -15%   (0.07,0.88)
+
+ref-peter-pan           correct      5.3     6.7        6.7   -1.4     -27%   (0.00,1.00)
+ref-peter-pan           fault       14.1    16.9       13.4    0.7       5%   (0.00,0.88)
+
+ref-power-spin          correct      7.5     9.0        9.0   -1.4     -19%   (0.00,1.00)
+ref-power-spin          fault       20.1    30.5       24.7   -4.6     -23%   (0.22,0.70)
+
+ref-sideway-spin        self         2.3     2.1        2.1    0.2       8%   (0.00,1.00)
+
+요약 — 실력차0 라벨(correct 우선, 없으면 self)만:
+  ref-climb               correct  DTW   7.7 → 최선선형   8.5   경로가 만든 몫  -0.8도 (-10%)
+  ref-combo               correct  DTW  13.6 → 최선선형  15.5   경로가 만든 몫  -2.0도 (-14%)
+  ref-elbow-twist-sister  correct  DTW  22.2 → 최선선형  24.9   경로가 만든 몫  -2.8도 (-13%)
+  ref-foxtop              self     DTW  15.4 → 최선선형  18.2   경로가 만든 몫  -2.8도 (-18%)
+  ref-foxtop-split        self     DTW  17.2 → 최선선형  19.8   경로가 만든 몫  -2.6도 (-15%)
+  ref-invert              self     DTW  15.3 → 최선선형  17.5   경로가 만든 몫  -2.2도 (-14%)
+  ref-kip-up              correct  DTW   2.8 → 최선선형   2.7   경로가 만든 몫   0.0도 (1%)
+  ref-pdshape             correct  DTW  24.4 → 최선선형  30.3   경로가 만든 몫  -5.9도 (-24%)
+  ref-peter-pan           correct  DTW   5.3 → 최선선형   6.7   경로가 만든 몫  -1.4도 (-27%)
+  ref-power-spin          correct  DTW   7.5 → 최선선형   9.0   경로가 만든 몫  -1.4도 (-19%)
+  ref-sideway-spin        self     DTW   2.3 → 최선선형   2.1   경로가 만든 몫   0.2도 (8%)
+
+  경로몫 중앙값: -14%

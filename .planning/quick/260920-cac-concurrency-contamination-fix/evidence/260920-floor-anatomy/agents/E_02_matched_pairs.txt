@@ -1,0 +1,16 @@
+case                  lab        dev°    dtw   sw_sys   sw_iqr   hw_sys  tilt_sys  shax_sys  ear_sys
+pdshapeCorrect178537  correct   23.43   60.9    0.018    0.960   -0.038     -1.27      0.35    0.072
+kipupFault1785373695  fault      8.56   26.9   -0.155    0.329   -0.074      1.11     -1.26   -0.061
+elbowtwistsisterFaul  fault     24.62   65.5    0.138    1.291    0.045      4.14     -2.10    0.426
+powerspinFault178537  fault     20.15   58.8   -0.136    1.243   -0.208    -15.95      0.00    0.055
+
+case                    view_mismatch    dev°  live_correct  live_fault
+powerspinFault178537            0.931   20.15           7.5        20.1
+elbowtwistsisterFaul            0.817   24.62          22.2        23.6
+kipupFault1785373695            0.369    8.56           2.8         8.8
+pdshapeCorrect178537            0.181   23.43          24.3        23.0
+
+Spearman(view_mismatch, fixture dev)      n=4: 0.0
+Spearman(view_mismatch, live correct floor) n=4: -0.4
+Spearman(view_mismatch, live fault  floor) n=4: 0.0
+fault-only n=3 Spearman(view_mismatch, dev): 0.5

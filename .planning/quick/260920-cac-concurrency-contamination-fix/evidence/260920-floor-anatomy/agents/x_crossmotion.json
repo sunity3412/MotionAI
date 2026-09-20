@@ -1,0 +1,1212 @@
+[
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": true,
+  "real": 7.900230698423446,
+  "chance": 13.771564788197729,
+  "ratio": 0.5736625299976054,
+  "dtw": 23.16584788828498
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 17.083645231406976,
+  "chance": 33.53219736769367,
+  "ratio": 0.5094698997527098,
+  "dtw": 63.618526169227955
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 44.80237479885975,
+  "chance": 46.548638116687535,
+  "ratio": 0.9624851899329413,
+  "dtw": 81.71591142350994
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 47.453251870592396,
+  "chance": 50.088803920722114,
+  "ratio": 0.9473824119597439,
+  "dtw": 83.40452066609397
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 46.09720369943477,
+  "chance": 50.6603672038611,
+  "ratio": 0.9099263634220451,
+  "dtw": 84.26346612608215
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 37.3305180856504,
+  "chance": 50.84776400382066,
+  "ratio": 0.7341624320559191,
+  "dtw": 83.19565289895303
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 70.69520559442986,
+  "chance": 65.9698097278303,
+  "ratio": 1.0716296725137604,
+  "dtw": 113.58079056998045
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 52.01624477452877,
+  "chance": 48.908831708934585,
+  "ratio": 1.0635348045949446,
+  "dtw": 89.61430088364017
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 61.930792654016784,
+  "chance": 61.45849327179344,
+  "ratio": 1.0076848513050045,
+  "dtw": 115.35128535286574
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 31.29990272687497,
+  "chance": 31.428417282267016,
+  "ratio": 0.9959108804545318,
+  "dtw": 73.91390872563805
+ },
+ {
+  "ref": "ref-climb",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 33.25140236057277,
+  "chance": 39.93467049625903,
+  "ratio": 0.8326449660749715,
+  "dtw": 79.71726005882974
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 39.28990063501175,
+  "chance": 37.7300817921961,
+  "ratio": 1.041341517662394,
+  "dtw": 130.08653142604197
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": true,
+  "real": 12.4505180579064,
+  "chance": 26.05330816344742,
+  "ratio": 0.47788626226647013,
+  "dtw": 43.93980727984702
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 29.461629923721468,
+  "chance": 28.392027183013063,
+  "ratio": 1.0376726442889694,
+  "dtw": 92.8164790738649
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 26.54367363373044,
+  "chance": 26.33572022113021,
+  "ratio": 1.0078962493090802,
+  "dtw": 85.69921865848282
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 26.538328134828546,
+  "chance": 27.054613123051496,
+  "ratio": 0.9809169332462915,
+  "dtw": 86.81411930529404
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 28.701184266361807,
+  "chance": 26.689211623069923,
+  "ratio": 1.0753852407372255,
+  "dtw": 109.80796820952362
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 36.24505484091988,
+  "chance": 29.033782675538873,
+  "ratio": 1.2483752202036196,
+  "dtw": 142.2400005135456
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 26.99177223053549,
+  "chance": 30.060851336722642,
+  "ratio": 0.8979044514804564,
+  "dtw": 106.77962143198091
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 33.5594405398839,
+  "chance": 31.80267152371015,
+  "ratio": 1.0552396679902822,
+  "dtw": 128.64894558520257
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 29.170218777641978,
+  "chance": 27.264451938751254,
+  "ratio": 1.0698993269027366,
+  "dtw": 111.13017614635704
+ },
+ {
+  "ref": "ref-combo",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 25.331376326755105,
+  "chance": 29.109708354265205,
+  "ratio": 0.8702037141173731,
+  "dtw": 112.55991239779013
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 37.75833154994145,
+  "chance": 42.22058341390302,
+  "ratio": 0.8943109852316211,
+  "dtw": 122.08885898407566
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 28.486814820893414,
+  "chance": 36.93736364992637,
+  "ratio": 0.7712194917557469,
+  "dtw": 64.6708062758446
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": true,
+  "real": 22.81846927334197,
+  "chance": 27.094248210987047,
+  "ratio": 0.8421886850541512,
+  "dtw": 58.96933607117885
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 35.31530032758869,
+  "chance": 34.84154906587808,
+  "ratio": 1.013597307651702,
+  "dtw": 72.55777135849588
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 33.01545725629187,
+  "chance": 36.90482642294605,
+  "ratio": 0.8946108261808293,
+  "dtw": 72.15045706595552
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 27.90539857011546,
+  "chance": 28.663197255542148,
+  "ratio": 0.9735619624471529,
+  "dtw": 100.58615701530361
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 52.813546362589946,
+  "chance": 50.77271158242722,
+  "ratio": 1.0401955049583973,
+  "dtw": 151.04976034523054
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 30.927669328685106,
+  "chance": 25.17188922894286,
+  "ratio": 1.2286590429265118,
+  "dtw": 81.78461715417357
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 39.618473125104416,
+  "chance": 42.23737789766985,
+  "ratio": 0.9379955645231965,
+  "dtw": 114.98524595009508
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 29.36320370133697,
+  "chance": 29.106192235764233,
+  "ratio": 1.0088301301486264,
+  "dtw": 94.24926158836134
+ },
+ {
+  "ref": "ref-elbow-twist-sister",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 50.3937520019829,
+  "chance": 42.897687311576576,
+  "ratio": 1.1747428628485386,
+  "dtw": 116.10443578629717
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 41.99132171471288,
+  "chance": 41.58785430000053,
+  "ratio": 1.0097015684387531,
+  "dtw": 124.86560277606132
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 33.03118375327865,
+  "chance": 35.260425648080925,
+  "ratio": 0.9367777939764148,
+  "dtw": 69.35007405052262
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 24.154499717863487,
+  "chance": 25.977637521771825,
+  "ratio": 0.9298189528443312,
+  "dtw": 69.13759029419967
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": true,
+  "real": 15.372098478855875,
+  "chance": 25.73832942684865,
+  "ratio": 0.5972453854297413,
+  "dtw": 45.030705226710516
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 18.017235559752574,
+  "chance": 26.737762436236657,
+  "ratio": 0.6738497883927083,
+  "dtw": 52.675553136688606
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 25.932798018945647,
+  "chance": 23.50172985408742,
+  "ratio": 1.1034420946862946,
+  "dtw": 82.5087543475706
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 30.565906067165784,
+  "chance": 34.642041708670334,
+  "ratio": 0.8823355829952609,
+  "dtw": 137.41557796820382
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 33.190250426860224,
+  "chance": 31.17590774178151,
+  "ratio": 1.064612158265375,
+  "dtw": 92.14359145388427
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 32.62399081291697,
+  "chance": 28.013847225881968,
+  "ratio": 1.1645665998626458,
+  "dtw": 109.8491362775231
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 29.790982718773122,
+  "chance": 27.4729244104945,
+  "ratio": 1.0843761033096695,
+  "dtw": 92.62363829972773
+ },
+ {
+  "ref": "ref-foxtop",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 28.277975671289457,
+  "chance": 33.911900258671636,
+  "ratio": 0.833865854039202,
+  "dtw": 111.51483991372804
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 41.138958786720806,
+  "chance": 37.41474937228466,
+  "ratio": 1.0995385369919086,
+  "dtw": 122.69636553610519
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 32.725556104346914,
+  "chance": 35.548700903934105,
+  "ratio": 0.9205837420833919,
+  "dtw": 71.7185288366479
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 26.01200064678035,
+  "chance": 27.626170591878846,
+  "ratio": 0.9415709846672341,
+  "dtw": 75.54472321385931
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 19.96361554878215,
+  "chance": 26.106156131748573,
+  "ratio": 0.7647091148935453,
+  "dtw": 56.836352955529385
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": true,
+  "real": 17.15759299929425,
+  "chance": 26.897002748955753,
+  "ratio": 0.6378998120881841,
+  "dtw": 46.952831313301594
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 25.683763967787232,
+  "chance": 26.7861223093417,
+  "ratio": 0.9588459154772836,
+  "dtw": 83.9338093898338
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 30.49454872281119,
+  "chance": 31.13806371349132,
+  "ratio": 0.979333493675096,
+  "dtw": 134.90139501138697
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 32.066604377414706,
+  "chance": 28.551559276619216,
+  "ratio": 1.1231121938644504,
+  "dtw": 96.13961723112254
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 31.24064695672662,
+  "chance": 29.447963394122773,
+  "ratio": 1.0608763172723052,
+  "dtw": 111.97287917320514
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 26.94049000233491,
+  "chance": 26.736770137257093,
+  "ratio": 1.0076194642820353,
+  "dtw": 93.24115159106705
+ },
+ {
+  "ref": "ref-foxtop-split",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 32.986009425969726,
+  "chance": 32.32176800608194,
+  "ratio": 1.0205508999310557,
+  "dtw": 111.71366415898777
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 34.376308616152514,
+  "chance": 33.402585654881996,
+  "ratio": 1.0291511253449388,
+  "dtw": 97.67420390444818
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 25.266899743474212,
+  "chance": 35.185114886085756,
+  "ratio": 0.7181133222181467,
+  "dtw": 66.73874900552114
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 32.04423844159419,
+  "chance": 31.9673647321074,
+  "ratio": 1.002404755916886,
+  "dtw": 71.15460401640445
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 31.113541615133634,
+  "chance": 32.50121355401249,
+  "ratio": 0.9573039961547055,
+  "dtw": 67.34293254175952
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 31.703367385074706,
+  "chance": 34.73667857878027,
+  "ratio": 0.9126769939496019,
+  "dtw": 71.58003599938414
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": true,
+  "real": 15.331726732119401,
+  "chance": 22.671748901453196,
+  "ratio": 0.6762480829671098,
+  "dtw": 42.14698983977509
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 44.22336040011885,
+  "chance": 39.45231161389813,
+  "ratio": 1.1209320465911556,
+  "dtw": 121.67408887395985
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 29.54568826138409,
+  "chance": 28.668686699838275,
+  "ratio": 1.0305909221000613,
+  "dtw": 83.45604675956574
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 35.936854635654605,
+  "chance": 33.02991125606044,
+  "ratio": 1.088009421431939,
+  "dtw": 108.2061813327513
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 29.11035936120228,
+  "chance": 26.148292973574133,
+  "ratio": 1.1132795318846114,
+  "dtw": 78.59893604009548
+ },
+ {
+  "ref": "ref-invert",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 36.3726957173737,
+  "chance": 37.16157514797984,
+  "ratio": 0.9787716363618935,
+  "dtw": 93.50781133978805
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 57.075043361626015,
+  "chance": 53.572610744656586,
+  "ratio": 1.06537729948729,
+  "dtw": 107.26821720868908
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 10.315026945216715,
+  "chance": 34.72088973730087,
+  "ratio": 0.2970841767955968,
+  "dtw": 54.488796836261955
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 63.76918402683437,
+  "chance": 60.35798222612599,
+  "ratio": 1.0565161669574805,
+  "dtw": 103.13834137226043
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 36.802859935947616,
+  "chance": 47.851672216454226,
+  "ratio": 0.7691029013463112,
+  "dtw": 87.67044300152396
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 32.23957873770199,
+  "chance": 48.09224765186303,
+  "ratio": 0.670369556671221,
+  "dtw": 88.31190704950538
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 32.03171380449363,
+  "chance": 32.68127395116727,
+  "ratio": 0.980124393325541,
+  "dtw": 89.02597434693568
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": true,
+  "real": 2.783631232709439,
+  "chance": 6.251070914497291,
+  "ratio": 0.4453046959127799,
+  "dtw": 6.5101434528446545
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 80.46868844943967,
+  "chance": 63.1489743926026,
+  "ratio": 1.2742675431141435,
+  "dtw": 113.58356874285892
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 48.81338991617756,
+  "chance": 54.24016908898326,
+  "ratio": 0.8999490734643021,
+  "dtw": 114.3599981485244
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 62.78894303992463,
+  "chance": 56.056351112793,
+  "ratio": 1.1201039988062145,
+  "dtw": 97.44075294804037
+ },
+ {
+  "ref": "ref-kip-up",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 13.195599088893125,
+  "chance": 12.452076309084326,
+  "ratio": 1.0597107471359108,
+  "dtw": 41.804235402944705
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 34.863153733667595,
+  "chance": 37.71387431175579,
+  "ratio": 0.9244118873992324,
+  "dtw": 131.4876388387578
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 27.528879280883675,
+  "chance": 34.440576792138344,
+  "ratio": 0.7993152799684707,
+  "dtw": 70.29760279022712
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 48.531196153394355,
+  "chance": 49.13392490335994,
+  "ratio": 0.9877329411165284,
+  "dtw": 81.53103992778368
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 29.386400528854143,
+  "chance": 35.591531541917576,
+  "ratio": 0.8256570947008729,
+  "dtw": 76.73937496787084
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 30.604755085341075,
+  "chance": 41.353725319496725,
+  "ratio": 0.7400725049288869,
+  "dtw": 76.07786286995685
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 36.21100117351376,
+  "chance": 35.01785586472985,
+  "ratio": 1.034072483289465,
+  "dtw": 96.12912010956997
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 37.426878059841535,
+  "chance": 37.00880576370147,
+  "ratio": 1.0112965627372423,
+  "dtw": 123.91741968059112
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": true,
+  "real": 22.44602100356679,
+  "chance": 30.050793211004237,
+  "ratio": 0.7469360574265085,
+  "dtw": 61.79491004279508
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 23.30406734434893,
+  "chance": 18.062988311316673,
+  "ratio": 1.2901557008564668,
+  "dtw": 104.25129884328867
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 27.99110931315539,
+  "chance": 28.860435957716476,
+  "ratio": 0.9698782566613083,
+  "dtw": 91.72250528265678
+ },
+ {
+  "ref": "ref-pdshape",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 42.79374971875275,
+  "chance": 47.86174687436163,
+  "ratio": 0.8941117387772639,
+  "dtw": 101.00487524737025
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 57.45070386297432,
+  "chance": 58.62422120772773,
+  "ratio": 0.9799823806512467,
+  "dtw": 113.06119439364262
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 33.93607218531737,
+  "chance": 37.10303178693727,
+  "ratio": 0.9146441827232329,
+  "dtw": 67.45757528097367
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 48.24828226566208,
+  "chance": 54.788879304295875,
+  "ratio": 0.8806218137387424,
+  "dtw": 82.91714943891246
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 37.051699901464886,
+  "chance": 45.534811990470196,
+  "ratio": 0.8137005135591489,
+  "dtw": 74.35958111152374
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 37.6280213748264,
+  "chance": 38.0826803334769,
+  "ratio": 0.988061266836546,
+  "dtw": 73.37354391780673
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 43.567929153806006,
+  "chance": 42.22718857335445,
+  "ratio": 1.0317506475270668,
+  "dtw": 87.33243916249423
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 49.75750388123279,
+  "chance": 37.21436503508898,
+  "ratio": 1.3370509972242448,
+  "dtw": 106.02190275129128
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 55.864476417557896,
+  "chance": 48.484066144988226,
+  "ratio": 1.1522234181122324,
+  "dtw": 95.8623846057256
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": true,
+  "real": 4.952366132124114,
+  "chance": 10.105288846386028,
+  "ratio": 0.4900766526723516,
+  "dtw": 21.99904410359068
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 46.21964457409919,
+  "chance": 43.44383419595013,
+  "ratio": 1.0638942310116777,
+  "dtw": 84.63613323958973
+ },
+ {
+  "ref": "ref-peter-pan",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 27.34252737705213,
+  "chance": 32.32408639919616,
+  "ratio": 0.8458870898740106,
+  "dtw": 88.41164704062513
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 29.369634027438572,
+  "chance": 30.127626966792317,
+  "ratio": 0.9748406026073932,
+  "dtw": 82.85079425199828
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 20.747827997571953,
+  "chance": 34.43437724020862,
+  "ratio": 0.6025324010606748,
+  "dtw": 57.9540775213812
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 29.650763558047583,
+  "chance": 35.69265893995561,
+  "ratio": 0.8307244245358107,
+  "dtw": 72.89973650581719
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 33.641244909167824,
+  "chance": 34.391556496381355,
+  "ratio": 0.9781832617173789,
+  "dtw": 72.1370264854643
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 32.25377390753856,
+  "chance": 39.31268943263906,
+  "ratio": 0.8204418057636146,
+  "dtw": 69.77096772148344
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 36.38688061530757,
+  "chance": 38.235205970060264,
+  "ratio": 0.9516590715844447,
+  "dtw": 72.66302533670213
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 37.74000277912367,
+  "chance": 28.801983198823223,
+  "ratio": 1.3103265326765983,
+  "dtw": 108.74520244510072
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 44.58437046984596,
+  "chance": 48.42011452950814,
+  "ratio": 0.9207820118367418,
+  "dtw": 84.28545637415604
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 37.483755961207684,
+  "chance": 34.85479830132424,
+  "ratio": 1.0754259897634686,
+  "dtw": 94.69814513961967
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": true,
+  "real": 7.666131384147967,
+  "chance": 16.92425214679688,
+  "ratio": 0.45296721637409987,
+  "dtw": 32.703130812373516
+ },
+ {
+  "ref": "ref-power-spin",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": false,
+  "real": 27.109173139824993,
+  "chance": 36.795801423315474,
+  "ratio": 0.7367463702705875,
+  "dtw": 78.42321933257303
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-climb",
+  "label": "correct",
+  "same": false,
+  "real": 36.620836210714536,
+  "chance": 36.68228869381692,
+  "ratio": 0.9983247369427976,
+  "dtw": 112.25848334542265
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-combo",
+  "label": "correct",
+  "same": false,
+  "real": 32.90802186531832,
+  "chance": 40.28566916436893,
+  "ratio": 0.8168667059010689,
+  "dtw": 74.14240674225422
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-elbow-twist-sister",
+  "label": "correct",
+  "same": false,
+  "real": 46.20207226946394,
+  "chance": 44.79601084132511,
+  "ratio": 1.031388094647966,
+  "dtw": 103.54492559773435
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-foxtop",
+  "label": "self",
+  "same": false,
+  "real": 38.57485422531951,
+  "chance": 40.930926970056305,
+  "ratio": 0.9424378356624951,
+  "dtw": 90.30759899477083
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-foxtop-split",
+  "label": "self",
+  "same": false,
+  "real": 42.54638537227606,
+  "chance": 39.09531127308648,
+  "ratio": 1.0882733500977477,
+  "dtw": 88.96885467477395
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-invert",
+  "label": "self",
+  "same": false,
+  "real": 21.415728122634768,
+  "chance": 22.787274933667597,
+  "ratio": 0.9398108455256138,
+  "dtw": 97.4311150957075
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-kip-up",
+  "label": "correct",
+  "same": false,
+  "real": 11.441112644381747,
+  "chance": 14.87136777706349,
+  "ratio": 0.769338289247858,
+  "dtw": 67.09313816450003
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-pdshape",
+  "label": "correct",
+  "same": false,
+  "real": 49.82177373347181,
+  "chance": 49.22039201953973,
+  "ratio": 1.0122181414908955,
+  "dtw": 125.43935748642902
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-peter-pan",
+  "label": "correct",
+  "same": false,
+  "real": 31.05703394988589,
+  "chance": 16.942607359767972,
+  "ratio": 1.8330728730475174,
+  "dtw": 121.27972821183248
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-power-spin",
+  "label": "correct",
+  "same": false,
+  "real": 22.945556120836784,
+  "chance": 30.08565428749096,
+  "ratio": 0.7626743264937771,
+  "dtw": 108.00105217603776
+ },
+ {
+  "ref": "ref-sideway-spin",
+  "student_motion": "ref-sideway-spin",
+  "label": "self",
+  "same": true,
+  "real": 2.3190645471664837,
+  "chance": 8.797526020135797,
+  "ratio": 0.2636041702927168,
+  "dtw": 8.121538205249045
+ }
+]

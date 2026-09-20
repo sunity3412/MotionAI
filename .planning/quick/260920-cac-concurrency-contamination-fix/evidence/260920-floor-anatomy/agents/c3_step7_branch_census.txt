@@ -1,0 +1,25 @@
+전수 875건, 분기 예측-실제 불일치 0건, 3s
+
+== 분기 전수 ==
+  failclosed_coverage      856  (97.8%)
+  user_slide                19  (2.2%)
+
+  기준(ref) 이 실제로 트리밍된 분석 = 0 / 875
+  학생(user) 이 실제로 트리밍된 분석 = 19 / 875
+
+  nu<nr 인 856건의 coverage: min 0.359 / 중앙 0.667 / max 0.768   (COVERAGE_FLOOR = 0.8)
+  COVERAGE_FLOOR 통과 = 0 건
+
+== 동작별 분기 ==
+  ref-climb                failclosed_coverage       19
+  ref-climb                user_slide                19
+  ref-combo                failclosed_coverage        4
+  ref-elbow-twist-sister   failclosed_coverage      152
+  ref-foxtop               failclosed_coverage        6
+  ref-foxtop-split         failclosed_coverage        3
+  ref-invert               failclosed_coverage        4
+  ref-kip-up               failclosed_coverage      168
+  ref-pdshape              failclosed_coverage      215
+  ref-peter-pan            failclosed_coverage      130
+  ref-power-spin           failclosed_coverage      152
+  ref-sideway-spin         failclosed_coverage        3

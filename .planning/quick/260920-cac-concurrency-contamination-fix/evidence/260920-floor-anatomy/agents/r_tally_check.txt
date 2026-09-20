@@ -1,0 +1,32 @@
+================================================================================================
+R1. 소비처 표를 운영 deduction_engine.tally() 로 재산출 — 손-산식과 대조
+================================================================================================
+동작                      라벨         n   손final   엔진final     불일치    rec수 불일치
+ref-kip-up              correct   62      100       100       0           0
+ref-kip-up              fault     75       99        99       0           0
+ref-peter-pan           correct   60      100       100       0           0
+ref-peter-pan           fault     63       80        80       0           0
+ref-power-spin          correct   62      100       100       0           0
+ref-power-spin          fault     73       76        76       0           0
+ref-climb               correct    4      100       100       0           0
+ref-climb               fault      6       80        80       0           0
+ref-elbow-twist-sister  correct   54       78        78       0           0
+ref-elbow-twist-sister  fault     78       60        60       0           0
+ref-pdshape             correct  100       60        60       0           0
+ref-pdshape             fault     59       73        73       0           0
+ref-sideway-spin        self       3      100       100       0           0
+ref-combo               correct    3      100       100       0           0
+ref-combo               self       1      100       100       0           0
+ref-invert              self       3       93        93       0           0
+ref-foxtop              self       3       98        98       0           0
+ref-foxtop-split        self       3      100       100       0           0
+
+전체 712건 — final 불일치 0건, record수 불일치 0건
+
+격차(fault중앙 − correct중앙, 엔진 산출):
+  ref-kip-up               correct   100  fault    99   격차 -1
+  ref-peter-pan            correct   100  fault    80   격차 -20
+  ref-power-spin           correct   100  fault    76   격차 -24
+  ref-climb                correct   100  fault    80   격차 -20
+  ref-elbow-twist-sister   correct    78  fault    60   격차 -18
+  ref-pdshape              correct    60  fault    73   격차 +13

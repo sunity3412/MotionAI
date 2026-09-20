@@ -1,0 +1,32 @@
+== R_attack1 (F 수치 재현) ==
+profile(ref) vs profile(none) final 불일치: 0/698
+
+동작                        라벨         n  vk     편차    qa  nosupp  supp건 maxjoint   >20관절median
+ref-climb                 correct    4   2    7.7 100.0   100.0      0      9.9           0.0
+ref-climb                 fault      6   2   21.0  84.0    80.0      6     26.9           4.0
+ref-combo                 correct    3   1   13.6 100.0   100.0      0     16.2           0.0
+ref-combo                 self       1   1   13.6 100.0   100.0      0     15.0           0.0
+ref-elbow-twist-sister    correct   54   2   22.2  85.5    78.0     50     25.2           6.0
+ref-elbow-twist-sister    fault     75   2   23.6  62.0    60.0     52     31.0           7.0
+ref-foxtop                self       3   1   15.4 100.0    98.0      3     21.6           1.0
+ref-foxtop-split          self       3   1   17.2 100.0   100.0      0     20.2           1.0
+ref-invert                self       3   1   15.3  94.0    94.0      0     24.9           1.0
+ref-kip-up                correct   62   2    2.8 100.0   100.0      0      4.2           0.0
+ref-kip-up                fault     72   3    8.8 100.0    99.0     38     20.6           1.0
+ref-pdshape               correct   97   2   24.4  60.0    60.0     29     36.0           5.0
+ref-pdshape               fault     59   2   23.0  79.0    73.0     53     25.4           6.0
+ref-peter-pan             correct   60   2    5.3 100.0   100.0      0      9.3           0.0
+ref-peter-pan             fault     62   3   14.1  80.0    80.0     14     36.7           2.0
+ref-power-spin            correct   62   2    7.5 100.0   100.0      0     12.0           0.0
+ref-power-spin            fault     69   2   20.1  80.0    76.0     69     31.0           4.0
+ref-sideway-spin          self       3   1    2.3 100.0   100.0      0      3.9           0.0
+
+동작별 correct-fault 분리 (qa=억제on / nosupp=억제off)
+  ref-climb                  qa  +16.0   nosupp  +20.0
+  ref-elbow-twist-sister     qa  +23.5   nosupp  +18.0
+  ref-kip-up                 qa   +0.0   nosupp   +1.0
+  ref-pdshape                qa  -19.0   nosupp  -13.0
+  ref-peter-pan              qa  +20.0   nosupp  +20.0
+  ref-power-spin             qa  +20.0   nosupp  +24.0
+
+== R_window_path (운영 window 경로 상한) ==

@@ -1,0 +1,34 @@
+========================================================================================================
+15. 소비처 분포 — 분석 875건 하나하나에 운영 감점식 적용
+    record 0건 = 그 분석은 이 축에서 감점이 하나도 안 난다 (화면 100점)
+========================================================================================================
+동작                      라벨          n    record0건 비율       최대관절dev 중앙   final 중앙      final 범위
+ref-kip-up              correct    62           100%              4.2        100       100~100
+ref-kip-up              fault      75            17%             20.6         99        99~100
+
+ref-peter-pan           correct    60           100%              9.3        100       100~100
+ref-peter-pan           fault      63             0%             36.7         80         79~85
+
+ref-power-spin          correct    62           100%             12.0        100       100~100
+ref-power-spin          fault      73             0%             31.0         76         74~82
+
+ref-climb               correct     4           100%              9.9        100       100~100
+ref-climb               fault       6             0%             26.9         80         75~82
+
+ref-elbow-twist-sister  correct    54             0%             25.2         78         60~82
+ref-elbow-twist-sister  fault      78             0%             31.0         60         60~62
+
+ref-pdshape             correct   100             0%             36.0         60         60~60
+ref-pdshape             fault      59             0%             25.4         73         60~78
+
+ref-sideway-spin        self        3           100%              3.9        100       100~100
+
+ref-combo               correct     3           100%             16.2        100       100~100
+ref-combo               self        1           100%             15.0        100       100~100
+
+ref-invert              self        3             0%             24.9         93         93~93
+
+ref-foxtop              self        3             0%             21.6         98         98~98
+
+ref-foxtop-split        self        3             0%             20.2        100       100~100
+

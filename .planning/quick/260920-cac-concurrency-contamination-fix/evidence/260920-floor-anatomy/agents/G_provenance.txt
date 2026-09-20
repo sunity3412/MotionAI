@@ -1,0 +1,67 @@
+====================================================================================
+조사 G 보조 — 이 정확도가 '무엇에 대한' 정확도인가
+====================================================================================
+
+[A] 출처별 정확도 (분석 단위 / 고유소스 단위)
+    출처                                            분석          고유소스
+    A.정은지 기준영상 자체                        13/13   100.0%     5/5    100.0%
+    B.정은지 fixture(성공/실패 페어)             722/722  100.0%    52/52   100.0%
+    C.talkv 외부영상                         15/31    48.4%     5/6     83.3%
+    D.실제 업로드                             34/34   100.0%     9/9    100.0%
+    E.belle 본인촬영                         16/16   100.0%     4/4    100.0%
+    F.출처불명                               56/59    94.9%    26/29    89.7%
+
+    ※ A/B 는 정은지 영상을 정은지 기준에 붙이는 문제다 — 같은 사람·같은 촬영.
+      학생 매칭 난이도의 하한이지 학생 매칭 정확도가 아니다.
+
+[B] 오분류 19건 해부 — 전부 ref-climb -> ref-sideway-spin
+    source                                               frames  d(climb) d(sideway)       차
+    fn:11516.mp4                                            172     58.64      55.94    2.70  x1
+    v_wzPWR5bAZW_JD6AkSr0ugQLxy7qblpdnk_talkv_high.mp4      138     63.38      60.47    2.91  x16
+    id:a026e53fa1bb4974bd3cca1b6e414dce                     171     58.45      55.46    2.99  x1
+    id:dea2804c49f6                                         172     58.00      56.32    1.67  x1
+
+    맞춘 climb 19건(정은지 fixture + belle 촬영) 비교군
+    fixtures/phase15/climb/correct.mp4                       80     23.24     112.25  -89.01  x3
+    fixtures/phase15/climb/fault.mp4                         62     57.92     156.81  -98.89  x3
+    fn:belle_climb_0901.mp4                                  62     57.60     157.95 -100.35  x2
+    fn:climb-fault.mp4                                       62     57.60     157.95 -100.35  x1
+    fn:climb_belle_0902.mp4                                  62     57.70     157.06  -99.36  x4
+    fn:climb_user.mp4                                        62     57.70     157.06  -99.36  x2
+    fn:fixtures:climb-correct.mp4                            80     23.17     112.26  -89.09  x1
+    fn:클라임(잘못된예시).mp4                           62     57.70     157.06  -99.36  x1
+    fn:클라임(잘못된예시).mp4                                        62     57.67     156.76  -99.09  x2
+
+[C] 기준 11편 서로의 DTW 거리 — 문제 자체가 갈라지는가
+    (운영 motion_dtw. 행=학생자리에 넣은 기준, 열=비교 기준)
+                       climb     combo elbow-twi    foxtop foxtop-sp    invert    kip-up   pdshape peter-pan power-spi sideway-s
+    climb                0.0     120.5     110.6     114.1     110.7      90.8      99.5     119.2     101.2      76.4     101.4
+    combo               49.3       0.0      51.9      71.9      71.9      71.4      40.5      58.2      58.0      45.2      68.8
+    elbow-twi           75.7      82.9       0.0      69.9      74.4      81.1     105.5      74.6      81.9      77.5     104.2
+    foxtop              73.8      81.0      64.9       0.0      48.8      58.3      90.3      79.7      75.5      67.8      91.4
+    foxtop-sp           74.1      80.2      65.9      48.7       0.0      59.7      87.8      77.3      75.7      69.9      91.7
+    invert              72.3      92.3      85.7      68.0      71.4       0.0      90.1      86.3      82.9      60.8      88.9
+    kip-up              99.5     138.3     141.8     129.9     128.7     114.7       0.0     114.0     103.4      98.4      61.2
+    pdshape            100.9     103.3      83.5      89.2      92.2      86.3      93.7       0.0      75.1      79.9     107.5
+    peter-pan          101.2     122.3     100.2      97.6      98.8      95.3     103.4      91.5       0.0      80.0     110.0
+    power-spi           70.4     100.3      88.0      90.2      94.1      71.5      92.5      89.1      80.3       0.0      91.5
+    sideway-s           74.0     104.8     104.2     100.3     101.7      88.9      43.3     100.7      85.9      77.3       0.0
+
+    각 기준을 학생자리에 넣었을 때 argmin 이 자기 자신인가:
+      ref-climb                  argmin=ref-climb                  OK  마진=inf
+      ref-combo                  argmin=ref-combo                  OK  마진=inf
+      ref-elbow-twist-sister     argmin=ref-elbow-twist-sister     OK  마진=inf
+      ref-foxtop                 argmin=ref-foxtop                 OK  마진=inf
+      ref-foxtop-split           argmin=ref-foxtop-split           OK  마진=inf
+      ref-invert                 argmin=ref-invert                 OK  마진=inf
+      ref-kip-up                 argmin=ref-kip-up                 OK  마진=inf
+      ref-pdshape                argmin=ref-pdshape                OK  마진=inf
+      ref-peter-pan              argmin=ref-peter-pan              OK  마진=inf
+      ref-power-spin             argmin=ref-power-spin             OK  마진=inf
+      ref-sideway-spin           argmin=ref-sideway-spin           OK  마진=inf
+
+    climb <-> sideway-spin 상호거리: 101.36 / 73.97  (climb 자기거리 0.00, sideway 자기거리 0.00)
+
+[D] 우연 수준 대조 — 라벨을 섞으면 얼마가 나오나
+    균등 11지선다 = 9.1%  ·  최빈 기준 항상찍기 = 24.6%  ·  사전분포 무작위 = 18.2%
+    실측 = 97.8%

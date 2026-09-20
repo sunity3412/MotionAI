@@ -1,0 +1,91 @@
+== A. label x motion: DTW 정규화거리 / path 길이 / window ==
+motion                    label       n    dev     dtw   plen  uframes   useg   rseg  rfull   trim
+ref-climb                 correct     4    7.7   23.20    120       80     80    120    120   0/4  
+ref-climb                 fault       6   21.0   57.67    123       62     62    120    120   0/6  
+ref-climb                 unknown    28   24.7   63.38    133      138    120    120    120  19/28 
+ref-combo                 correct     3   13.6   44.40    935      621    621    931    931   0/3  
+ref-combo                 self        1   13.6   45.79    938      621    621    931    931   0/1  
+ref-elbow-twist-sister    correct    54   22.2   57.42    332      220    220    329    329   0/54 
+ref-elbow-twist-sister    fault      78   23.6   65.24    329      180    180    329    329   0/78 
+ref-elbow-twist-sister    unknown    20   23.5   63.15    329      180    180    329    329   0/20 
+ref-foxtop                self        3   15.4   45.03    427      284    284    426    426   0/3  
+ref-foxtop                unknown     3   18.4   50.11    447      284    284    426    426   0/3  
+ref-foxtop-split          self        3   17.2   46.95    492      324    324    485    485   0/3  
+ref-invert                self        3   15.3   42.15    260      174    174    260    260   0/3  
+ref-invert                unknown     1    9.6   26.96    260      174    174    260    260   0/1  
+ref-kip-up                correct    62    2.8    6.51    118       79     79    118    118   0/62 
+ref-kip-up                fault      75    8.8   26.94    118       68     68    118    118   0/75 
+ref-kip-up                upload      4    8.5   26.99    118       68     68    118    118   0/4  
+ref-kip-up                unknown    27    8.8   26.96    118       68     68    118    118   0/27 
+ref-pdshape               correct   100   24.3   60.58    238      159    159    237    237   0/100
+ref-pdshape               fault      59   23.0   59.05    251      182    182    237    237   0/59 
+ref-pdshape               upload     26   20.0   59.10    249      182    182    237    237   0/26 
+ref-pdshape               unknown    30   21.7   58.25    249      182    182    237    237   0/30 
+ref-peter-pan             correct    60    5.3   21.99    132       87     87    130    130   0/60 
+ref-peter-pan             fault      63   14.1   52.80    130       62     62    130    130   0/63 
+ref-peter-pan             unknown     7   13.9   51.49    130       62     62    130    130   0/7  
+ref-power-spin            correct    62    7.5   32.95    161      106    106    159    159   0/62 
+ref-power-spin            fault      73   20.1   58.97    161       83     83    159    159   0/73 
+ref-power-spin            upload      2   13.8   46.52    161       94     94    159    159   0/2  
+ref-power-spin            unknown    15   19.7   58.97    161       83     83    159    159   0/15 
+ref-sideway-spin          self        3    2.3    8.12    298      199    199    298    298   0/3  
+
+== B. correct vs fault: DTW 거리가 갈리나 ==
+motion                       dtw_c   dtw_f  ratio  dev_c  dev_f dev_ratio
+ref-climb                    23.20   57.67   2.49    7.7   21.0      2.71
+ref-elbow-twist-sister       57.42   65.24   1.14   22.2   23.6      1.06
+ref-kip-up                    6.51   26.94   4.14    2.8    8.8      3.20
+ref-pdshape                  60.58   59.05   0.97   24.3   23.0      0.94
+ref-peter-pan                21.99   52.80   2.40    5.3   14.1      2.67
+ref-power-spin               32.95   58.97   1.79    7.5   20.1      2.68
+
+== C. window 선정 분기 (ustart/uend vs frames, rstart/rend) ==
+  ref-climb                  u_slid   r_whole  n=19
+  ref-climb                  u_whole  r_whole  n=19
+  ref-combo                  u_whole  r_whole  n=4
+  ref-elbow-twist-sister     u_whole  r_whole  n=152
+  ref-foxtop                 u_whole  r_whole  n=6
+  ref-foxtop-split           u_whole  r_whole  n=3
+  ref-invert                 u_whole  r_whole  n=4
+  ref-kip-up                 u_whole  r_whole  n=168
+  ref-pdshape                u_whole  r_whole  n=215
+  ref-peter-pan              u_whole  r_whole  n=130
+  ref-power-spin             u_whole  r_whole  n=152
+  ref-sideway-spin           u_whole  r_whole  n=3
+
+== D. tier 분포 ==
+  ref-climb                  tier=None           n=20
+  ref-climb                  tier=trim_only      n=18
+  ref-combo                  tier=None           n=2
+  ref-combo                  tier=trim_only      n=1
+  ref-combo                  tier=warped         n=1
+  ref-elbow-twist-sister     tier=None           n=101
+  ref-elbow-twist-sister     tier=disabled       n=2
+  ref-elbow-twist-sister     tier=trim_only      n=49
+  ref-foxtop                 tier=None           n=3
+  ref-foxtop                 tier=warped         n=3
+  ref-foxtop-split           tier=warped         n=3
+  ref-invert                 tier=trim_only      n=1
+  ref-invert                 tier=warped         n=3
+  ref-kip-up                 tier=None           n=134
+  ref-kip-up                 tier=disabled       n=1
+  ref-kip-up                 tier=trim_only      n=19
+  ref-kip-up                 tier=warped         n=14
+  ref-pdshape                tier=None           n=121
+  ref-pdshape                tier=disabled       n=3
+  ref-pdshape                tier=trim_only      n=91
+  ref-peter-pan              tier=None           n=97
+  ref-peter-pan              tier=disabled       n=1
+  ref-peter-pan              tier=trim_only      n=32
+  ref-power-spin             tier=None           n=102
+  ref-power-spin             tier=disabled       n=8
+  ref-power-spin             tier=trim_only      n=42
+  ref-sideway-spin           tier=warped         n=3
+
+== E. dev vs dtw 상관 (동작 내부, correct+fault 합침) ==
+  ref-climb                  n=  10  r(dtw,dev) = +0.999
+  ref-elbow-twist-sister     n= 132  r(dtw,dev) = +0.669
+  ref-kip-up                 n= 137  r(dtw,dev) = +0.999
+  ref-pdshape                n= 159  r(dtw,dev) = +0.578
+  ref-peter-pan              n= 123  r(dtw,dev) = +0.995
+  ref-power-spin             n= 135  r(dtw,dev) = +0.999

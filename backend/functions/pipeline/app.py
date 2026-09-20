@@ -681,6 +681,88 @@ def _synthesis_enabled() -> bool:
     return raw.strip().lower() not in _SYNTHESIS_FALSY
 
 
+def _mode3_reference_relative_enabled() -> bool:
+    """MODE3_REFERENCE_RELATIVE_ENABLED — mode3 채점에 정은지 기준 축을 건다 (default OFF).
+
+    왜 있나 (quick-260920-m3r, belle 2026-09-20)
+    ────────────────────────────────────────────
+    belle: *"mode3 학생 비교는 틀리고 맞고가 아니라 발전해냐 안했냐겠지?"*
+
+    mode3 종합점수는 지금 **떨림 단독**이다. 동작을 모른다고 보아 line 차원이 구조적으로
+    안 생기고, 이전 영상 대비 유사도는 종합에서 **일부러 뺐다** — 발전하면 못하던 과거의
+    나와 덜 비슷해져 점수가 역전되기 때문이다([[mode3-overall-exclude-angle-similarity]]).
+    그래서 mode3 에는 움직이지 않는 잣대가 없다. 정은지 기준이 그 잣대다.
+
+    왜 기본 OFF 인가
+    ───────────────
+    오프라인 측정(기준 영상·자기비교 코퍼스)에서 발전을 못 읽는 동작이 3/6 → 1/6 로
+    줄었지만, **학생 영상은 이 축을 한 번도 안 탔다.** 켜는 것은 셋을 잰 뒤다:
+      1. 같은 학생의 두 영상이 같은 기준에 일관되게 붙나
+      2. 강사 ○× 가 발전 방향과 일치하나
+      3. 카메라 각도가 바뀌어도 견디나
+    """
+    raw = os.environ.get("MODE3_REFERENCE_RELATIVE_ENABLED", "0")
+    return raw.strip().lower() not in _SYNTHESIS_FALSY
+
+
+def _mode3_reference_axis(angles, profile):
+    """mode3 의 고정 잣대 — 인식된 동작의 기준 각도와 DTW 정렬한다.
+
+    반환 `(dtw_match, reference_angles, ref_fps)`. 셋 다 감점 builder **한 곳에만**
+    들어간다 — 확대카드/정렬/veto 는 종전대로 mode1 전용 변수를 읽는다(mode3 확대카드는
+    "지난 영상 대비"가 제 문법이다).
+
+    발화 조건이 좁은 이유
+    ────────────────────
+    인식기가 동작을 짚어 **등재 기준이 실재할 때만** 돈다. 동작을 모르는 분석에 기준을
+    억지로 붙이면 D-08("미보유 = confident 점수 억제")이 금지한 바로 그 상태가 된다 —
+    근거 없이 확신 점수를 내는 것.
+
+    실패는 전부 종전 mode3(절대 차원)로 강등한다. 못 쟀다를 감점 0으로 번역하지 않고,
+    거꾸로 없는 근거를 지어내지도 않는다.
+    """
+    if not _mode3_reference_relative_enabled():
+        return None, None, 0.0
+    motion_id = getattr(profile, "motion_id", None)
+    ref = _match_reference_by_motion_id(motion_id)
+    if not ref or not ref.get("angles"):
+        log.info("mode3 기준 축 미발화 — 등재 기준 없음 motion=%s", motion_id)
+        return None, None, 0.0
+    try:
+        num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
+        # mode1 과 같은 경계 산출 — 공유 베이스 기술이면 base/확장 경계 밖 window 를
+        # fail-closed 로 제외한다(33-M3-SPEC §2.2). 두 모드가 다른 창을 쓰면 같은
+        # 영상의 mode1/mode3 점수가 설명 없이 갈린다.
+        ref_boundary = None
+        if (
+            ref.get("sharedBaseMotionId")
+            and ref.get("baseUntilS") is not None
+            and ref.get("clipRange")
+        ):
+            nr_full = len(ref["angles"]) // max(num_joints, 1)
+            ref_boundary = segments.ref_boundary_frame(
+                ref["clipRange"], ref["baseUntilS"], nr_full
+            )
+        ref_fps = _reference_angles_fps(ref)
+        _dev, match, _user_seg, a_ref = _deviation_against(
+            angles, ref["angles"], num_joints,
+            ref_boundary=ref_boundary, ref_fps=ref_fps or None,
+        )
+        log.info(
+            "mode3 기준 축 배선 motion=%s ref_frames=%s distance=%s "
+            "— 감점 builder 에만 주입(확대카드·정렬·veto 무접촉)",
+            motion_id, len(ref["angles"]) // max(num_joints, 1),
+            getattr(match, "distance", None),
+        )
+        return match, a_ref, ref_fps
+    except Exception:  # noqa: BLE001 — 정렬 실패는 종전 mode3(절대 차원)로 강등
+        log.info(
+            "mode3 기준 축 정렬 실패 — 종전 절대 차원으로 강등 motion=%s",
+            motion_id, exc_info=True,
+        )
+        return None, None, 0.0
+
+
 def _get_synthesis_adapter():
     """Lazy singleton — GeminiViewReasoner (Stage 1 PRIMARY, D-18).
 
@@ -6905,7 +6987,11 @@ def _deviation_against(
     return deviation, match, user_seg, a_ref
 
 
-def _mode3_scoring_basis(is_first: bool, is_reference_free: bool) -> str:
+def _mode3_scoring_basis(
+    is_first: bool,
+    is_reference_free: bool,
+    reference_relative: bool = False,
+) -> str:
     """Mode3 의 scoringBasis 를 실제 채점 SOURCE 로 도출 (Phase 19 TRUST-03).
 
     first 는 reference motion 비교가 아니라 abs_dims + extension targets — 미등록이면
@@ -6913,13 +6999,25 @@ def _mode3_scoring_basis(is_first: bool, is_reference_free: bool) -> str:
     이전 영상 각도 일관성 + 절대트랙 — 미등록은 composite(previous_analysis_plus_
     reference_free_absolute, HIGH-3 lossy 금지), 등재는 previous_analysis_plus_absolute.
     reference_motion 은 절대 사용 안 함 (Mode1 전용).
+
+    quick-260920-m3r — `reference_relative=True` 는 기준 축 배선
+    (MODE3_REFERENCE_RELATIVE_ENABLED)이 실제로 발화해 `angle_vs_reference__*` 가
+    감점에 들어갔다는 뜻이다. 그때 절대트랙 라벨을 그대로 두면 화면이 채점 출처를
+    틀리게 말한다 — 이 함수가 존재하는 이유(TRUST-03)와 정반대다. 미등재는 기준을
+    못 찾으므로 reference_relative 가 성립할 수 없다(호출부에서 이미 보장, 방어 guard).
     """
+    if is_reference_free:
+        reference_relative = False
     if is_first:
         if is_reference_free:
             return assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE
+        if reference_relative:
+            return assemble.MODE3_SCORING_BASIS_RECOGNIZED_REFERENCE_RELATIVE
         return assemble.MODE3_SCORING_BASIS_RECOGNIZED_ABSOLUTE
     if is_reference_free:
         return assemble.MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_FREE
+    if reference_relative:
+        return assemble.MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_RELATIVE
     return assemble.MODE3_SCORING_BASIS_PREV_PLUS_ABSOLUTE
 
 
@@ -7021,6 +7119,7 @@ def _mode3_comparison(
     prev: dict | None,
     profile: technique.TechniqueProfile,
     branch_info: assemble.MotionBranchInfo | None = None,
+    reference_relative: bool = False,
 ):
     """자기 성장(mode3) 분기 — 순수(어댑터/S3/Firestore 불필요, 테스트 가능).
 
@@ -7081,7 +7180,9 @@ def _mode3_comparison(
             target_source="extension_requirement",
         )
         first_basis = _mode3_scoring_basis(
-            is_first=True, is_reference_free=is_reference_free
+            is_first=True,
+            is_reference_free=is_reference_free,
+            reference_relative=reference_relative,
         )
         return (
             assessments,
@@ -7138,7 +7239,9 @@ def _mode3_comparison(
     overall = dimensions.overall_from_dimensions(abs_dims)
     prev_dims = (prev.get("result") or {}).get("dimensionScores")
     progress_basis = _mode3_scoring_basis(
-        is_first=False, is_reference_free=is_reference_free
+        is_first=False,
+        is_reference_free=is_reference_free,
+        reference_relative=reference_relative,
     )
     comparison = assemble.build_mode3(
         is_first=False,
@@ -8037,6 +8140,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # 23-02 Task 5 — frame-specific 각도 정량화용 기준 영상 각도 (a_ref). Mode1 에서만 채움.
     # Mode3 는 None → collect 가 mode3_held 로 보류, quantification 미산출.
     reference_angles_for_veto = None
+    # quick-260920-m3r — mode3 전용 기준 축. **일부러 위 두 변수와 분리한다.**
+    # reference_dtw_match / reference_angles_for_veto 는 소비처가 여섯이고(vision_veto
+    # context · quantification · safety flags · motionAlignment · fault-zoom 확대카드 ·
+    # 감점 builder), 그중 셋은 이미 `if mode == MODE_EXPERT` 로 분기돼 있다. 그 두
+    # 변수를 mode3 에서 채우면 확대카드가 "지난 영상 대비"에서 "정은지 대비"로 조용히
+    # 바뀐다 — belle 이 승인한 것은 **채점 축**이지 카드 문법이 아니다(mode3=progress).
+    # 그래서 아래 3개는 감점 builder 한 곳에만 주입된다.
+    mode3_ref_dtw_match = None
+    mode3_ref_angles = None
+    mode3_ref_fps = 0.0
     # split deficit (reference_relative, mode1 only) — max(0, 정은지 max-split − 학생 max-split).
     # Mode3/legacy 는 None → split_angle 미방출(honest 0). 아래 Mode1 블록에서만 채움.
     split_deficit_deg = None
@@ -8348,6 +8461,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                             _safe_unlink_local_video(ref_tmp.name)
                         reference_local_video_path = None
         else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
+            # quick-260920-m3r — mode3 채점에 기준 선수 각도 축을 건다 (기본 OFF).
+            mode3_ref_dtw_match, mode3_ref_angles, mode3_ref_fps = (
+                _mode3_reference_axis(angles, profile)
+            )
             # 박제 (2026-06-07 belle): mode=MODE_SELF 박제 — mode1 (정은지) 분석을
             # prev 로 잡는 함정 fix. 같은 mode 안에서만 prev 검색.
             prev = firestore_admin.get_previous_analysis(
@@ -8355,7 +8472,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             )
             mode3_prev = prev  # fault-zoom Mode3 (현재 vs 지난 영상 변화 비교) source.
             assessments, dimension_scores, overall, comparison, prev_dtw_match = _mode3_comparison(
-                angles, prev, profile, branch_info=branch_info
+                angles, prev, profile, branch_info=branch_info,
+                # quick-260920-m3r — 배선이 **실제로 발화했을 때만** True. 플래그가
+                # 켜졌어도 기준을 못 찾았거나 정렬이 실패하면 None 이라 False 다:
+                # 라벨은 의도가 아니라 산출을 따라간다.
+                reference_relative=mode3_ref_angles is not None,
             )
 
             # body_comparison_report mode3 분기 — prev 유무 → mode3_first vs mode3_progress.
@@ -8629,8 +8750,15 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 dimension_scores=dimension_scores,
                 quantification=quantification,
                 # 24-07 ① — mode1 에서 set(2987/2988), mode3/legacy 는 None → graceful 미방출.
-                reference_dtw_match=reference_dtw_match,
-                reference_angles=reference_angles_for_veto,
+                # quick-260920-m3r — mode3 는 플래그가 켜졌을 때만 제 기준 축을 여기
+                # **한 곳에만** 넣는다. mode1/mode3 는 상호 배타 분기라 두 쌍이 동시에
+                # 차 있을 수 없다(mode1 에서 mode3_* 는 초기값 None 그대로).
+                reference_dtw_match=reference_dtw_match or mode3_ref_dtw_match,
+                reference_angles=(
+                    reference_angles_for_veto
+                    if reference_angles_for_veto is not None
+                    else mode3_ref_angles
+                ),
                 # split — mode1 에서만 산출(reference_relative), mode3/legacy 는 None → 미방출.
                 split_deficit_deg=split_deficit_deg,
                 vision_pointed_joints=vision_pointed_joints,
@@ -8645,7 +8773,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # ref_fps 스레딩. mode1 만 non-zero(18.0 계열), mode3/legacy 는 0.0
                 # 초기값 → None = 종전 byte-동일 (reference_dtw_match 도 None 이라
                 # 이 builder 의 DTW 경로 자체가 미발동).
-                ref_fps=reference_kp_fps or None,
+                # quick-260920-m3r — mode3 배선 시 같은 기준 doc 의 fps 를 쓴다.
+                # 점수 경로(_deviation_against)에 넘긴 값과 **같은 값**이어야 한다 —
+                # 다르면 ref-경계 제외 창이 어긋나 "쟀다"가 거짓말이 된다.
+                ref_fps=(reference_kp_fps or mode3_ref_fps) or None,
                 # quick-260810-e4v U2 — 표시 앵커 초는 **이 분석 영상의 실효 솎음
                 # rate** 로 환산한다(요청값 target_fps 아님). 점수 무접촉: pose_fps 는
                 # measured_at_out(표시 전용 out-param)에만 닿고 md 에는 들어가지 않는다.

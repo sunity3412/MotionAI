@@ -52,18 +52,24 @@ DIMENSION_EXPLANATION_KEYS = (
 #   reference_motion 은 Mode1 전용 — Mode3 comparison 에는 절대 존재하지 않는다.
 MODE1_SCORING_BASIS = "reference_motion"
 #
-# Mode3 (MODE_SELF) = reference motion 비교가 아님 → 허용 scoringBasis = 정확히 4 값
-#   (reference_motion 미포함). first 는 abs_dims + extension targets, progress 는
-#   이전 영상 각도 일관성 + 절대트랙. Mode3 허용값은 정확히 4개 (reference_motion 미포함).
+# Mode3 (MODE_SELF) 허용 scoringBasis = 6 값 (reference_motion 미포함 — Mode1 전용).
+# first 는 abs_dims + extension targets, progress 는 이전 영상 각도 일관성 + 절대트랙.
 #     reference_free_absolute              : first + 미등록 → 절대트랙(line+stability)
 #     recognized_motion_absolute           : first + 등재 → 절대트랙 (reference 각도 미사용)
 #     previous_analysis_plus_absolute      : progress + 등재 → 이전 일관성 + 절대트랙
 #     previous_analysis_plus_reference_free_absolute : progress + 미등록 → composite
+# quick-260920-m3r (2026-09-20) — 기준 축 배선(MODE3_REFERENCE_RELATIVE_ENABLED, 기본
+# OFF)이 발화하면 Mode3 도 기준 선수 각도를 **실제로** 비교한다. 절대트랙 라벨을 그대로
+# 쓰면 화면이 채점 출처를 틀리게 말하므로 두 값을 더한다(라이브 doc 에는 아직 0건):
+#     recognized_motion_reference_relative      : first + 등재 → 기준 각도 대비 감점
+#     previous_analysis_plus_reference_relative : progress + 등재 → 이전 대비 + 기준 각도
 MODE3_SCORING_BASES = (
     "reference_free_absolute",
     "recognized_motion_absolute",
     "previous_analysis_plus_absolute",
     "previous_analysis_plus_reference_free_absolute",
+    "recognized_motion_reference_relative",
+    "previous_analysis_plus_reference_relative",
 )
 
 # ── Phase 30 (D-04): comparison.recognizedMotionId/Name 명세 ──────────────

@@ -278,17 +278,26 @@ export interface Mode3Comparison {
   // 발전(progress) = 절대 차원(라인/안정성)의 이전 대비 증감(±). isFirst면 없음.
   // '몇 % 일치'가 아니라 발전을 보여주는 게 mode3 의 핵심.
   deltaFromPrevious?: Partial<Record<ScoreDimension, number>>;
-  // Phase 19 TRUST-03 — 실제 채점 SOURCE 라벨 (Mode3 4-value enum). OPTIONAL (legacy 호환).
+  // Phase 19 TRUST-03 — 실제 채점 SOURCE 라벨 (Mode3 6-value enum). OPTIONAL (legacy 호환).
   //   reference_free_absolute              : first + 미등록 동작 → 절대트랙(line+stability)
   //   recognized_motion_absolute           : first + 등재 동작 → 절대트랙 (first 는 reference 각도 미사용)
   //   previous_analysis_plus_absolute      : progress + 등재 → 이전 영상 각도 일관성 + 절대트랙
   //   previous_analysis_plus_reference_free_absolute : progress + 미등록 → composite (HIGH-3 lossy 금지)
-  // reference_motion 은 Mode1 전용이라 이 union 에 없음 (first 는 reference motion 비교가 아님).
+  // quick-260920-m3r (2026-09-20) — 기준 축 배선(MODE3_REFERENCE_RELATIVE_ENABLED)이
+  // 발화하면 Mode3 도 기준 선수 각도를 **실제로** 비교한다. 그때 위 절대트랙 라벨을
+  // 그대로 쓰면 화면이 채점 출처를 틀리게 말하므로 두 값을 더한다:
+  //   recognized_motion_reference_relative      : first + 등재 → 기준 각도 대비 감점
+  //   previous_analysis_plus_reference_relative : progress + 등재 → 이전 대비 + 기준 각도
+  // 플래그 기본 OFF 라 현재 라이브 doc 에는 이 두 값이 없다.
+  // reference_motion 은 여전히 Mode1 전용 — Mode1 은 사용자가 기준을 **고른** 비교이고
+  // Mode3 는 인식된 동작으로 기준을 **찾아온** 비교라 근거의 출처가 다르다.
   scoringBasis?:
     | 'reference_free_absolute'
     | 'recognized_motion_absolute'
     | 'previous_analysis_plus_absolute'
-    | 'previous_analysis_plus_reference_free_absolute';
+    | 'previous_analysis_plus_reference_free_absolute'
+    | 'recognized_motion_reference_relative'
+    | 'previous_analysis_plus_reference_relative';
   scoringBasisLabel?: string; // 사용자 표시용 한국어 라벨 (정확한 채점 source 노출)
   // Phase 30 (30-CONTEXT D-04) — mode3 인식 동작 데이터 적립(이번 phase 화면 미소비,
   // Phase 16이 소비). 부재(legacy doc/인식 실패)=앱은 '내 기록' 단일 그룹. Python

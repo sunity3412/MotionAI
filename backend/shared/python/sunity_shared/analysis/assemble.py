@@ -574,7 +574,8 @@ def assemble_dual_coach_sections(
 
 
 # ── Phase 19 TRUST-03: scoringBasis (실제 채점 SOURCE 라벨) ────────────────────
-# Mode3 의 허용 scoringBasis = 정확히 4 값. reference_motion 은 **Mode1 전용** —
+# Mode3 의 허용 scoringBasis = 6 값(아래 2 값은 quick-260920-m3r 추가, 플래그 OFF 라
+# 라이브 0건). reference_motion 은 **Mode1 전용** —
 # Mode3 에 들어오면 거짓 reference 비교 함의(신뢰 문제 재발)이므로 build_mode3 가
 # ValueError 로 거부한다 (ITER-3 HIGH-2 + ITER-4 HIGH-2). first reference-free 는
 # reference motion 비교가 아니라 절대 트랙(line+stability) 평가이므로 절대 reference_motion
@@ -585,12 +586,27 @@ MODE3_SCORING_BASIS_PREV_PLUS_ABSOLUTE = "previous_analysis_plus_absolute"
 MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_FREE = (
     "previous_analysis_plus_reference_free_absolute"
 )
+# quick-260920-m3r (2026-09-20) — Mode3 가 정은지 기준 각도를 **실제로** 비교한 경우.
+# 위 4 값의 전제("Mode3 에는 reference 비교가 존재하지 않음")는 기준 축 배선
+# (MODE3_REFERENCE_RELATIVE_ENABLED) 이 켜지면 더는 참이 아니다. 그때 절대트랙 라벨을
+# 그대로 두면 **화면이 채점 출처를 틀리게 말한다** — TRUST-03 가 막으려던 바로 그것이다.
+# 그래서 라벨을 늘린다. Mode1 의 `reference_motion` 은 여전히 쓰지 않는다: Mode1 은
+# 사용자가 기준을 **고른** 비교이고, Mode3 는 인식된 동작으로 기준을 **찾아온** 비교라
+# 근거의 출처가 다르다(D-08 미보유 판정도 이 구분 위에 서 있다).
+MODE3_SCORING_BASIS_RECOGNIZED_REFERENCE_RELATIVE = (
+    "recognized_motion_reference_relative"
+)
+MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_RELATIVE = (
+    "previous_analysis_plus_reference_relative"
+)
 _MODE3_SCORING_BASES: frozenset[str] = frozenset(
     {
         MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE,
         MODE3_SCORING_BASIS_RECOGNIZED_ABSOLUTE,
         MODE3_SCORING_BASIS_PREV_PLUS_ABSOLUTE,
         MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_FREE,
+        MODE3_SCORING_BASIS_RECOGNIZED_REFERENCE_RELATIVE,
+        MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_RELATIVE,
     }
 )
 # user-facing 한국어 라벨 — 정확한 채점 source 를 화면에 노출 (TRUST-03 가시화).
@@ -601,6 +617,12 @@ _MODE3_SCORING_BASIS_LABELS: dict[str, str] = {
     MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_FREE: (
         "이전 분석 대비 + 절대 자세 기준 (기준 동작 없음)"
     ),
+    # quick-260920-m3r — 선수 이름을 라벨에 박지 않는다. 기준 라이브러리가 바뀌면
+    # 과거 분석의 라벨이 거짓이 되고, 표시 문자열은 조인 키도 아니다
+    # ([[display-string-is-not-a-join-key]]). 화면에 선수 이름이 필요하면 그 분석이
+    # 실제로 읽은 reference doc 의 athleteName 에서 가져온다.
+    MODE3_SCORING_BASIS_RECOGNIZED_REFERENCE_RELATIVE: "등재 동작 — 기준 선수 각도 대비 평가",
+    MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_RELATIVE: "이전 분석 대비 + 기준 선수 각도",
 }
 
 # Mode1 전용 — 정은지 reference 각도와 실제 비교한 채점. Mode3 에는 절대 부재.

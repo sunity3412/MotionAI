@@ -772,7 +772,7 @@ recognizedMotionName?  인식기가 알아낸 동작 표시명 (Phase 30 D-04)
   키는 양쪽 분석 공통 차원만 (line 이 한쪽에 없으면 stability 만).
 
   scoringBasis (Phase 19 TRUST-03) = 거짓 confident 점수 차단을 위해 실제 채점 source 를
-  화면에 노출. Mode3 허용값 = **정확히 4 값** (reference_motion 은 Mode1 전용이라 Mode3 에 없음):
+  화면에 노출. Mode3 허용값 = **6 값** (reference_motion 은 Mode1 전용이라 Mode3 에 없음):
 
   | scoringBasis                                   | 의미 |
   |------------------------------------------------|------|
@@ -780,6 +780,8 @@ recognizedMotionName?  인식기가 알아낸 동작 표시명 (Phase 30 D-04)
   | recognized_motion_absolute                     | first + 등재 동작 → 절대트랙 (first 는 reference 각도 미사용) |
   | previous_analysis_plus_absolute                | progress + 등재 → 이전 영상 각도 일관성 + 절대트랙 |
   | previous_analysis_plus_reference_free_absolute | progress + 미보유 → composite (이전 일관성 + 절대트랙, lossy 금지) |
+  | recognized_motion_reference_relative           | first + 등재 → **기준 선수 각도 대비 감점** (quick-260920-m3r, 플래그 OFF 라 라이브 0건) |
+  | previous_analysis_plus_reference_relative      | progress + 등재 → 이전 대비 + 기준 선수 각도 (동상) |
 
   미보유 first = reference_free_absolute, progress 미보유 = composite. **Mode3 에 reference_motion
   없음** (Mode1 전용). 거짓 "% 일치" / "정은지와 거의 같음" 프레이밍 금지.

@@ -1,0 +1,235 @@
+---
+title: 동시 분석 오염 수리 — 분석별 값을 전역 싱글턴에서 떼어냈다
+date: 2026-09-20
+scope: 인계서 260919-cls §3-② (분석 결함 3건 중 1건)
+status: 수리 완료 · 게이트 4958 passed / 0 failed (직접 실측) · 앱 tsc clean
+---
+
+# 동시 분석 오염 수리 (260920-cac)
+
+## 0. 판정
+
+**됐다.** 인계서 §3-② 의 오염 경로를 닫았다. 커브핏 없음 — 임계값·상수·분포를 하나도
+건드리지 않은 순수 구조 수리다. 직렬 분석의 산출은 한 톨도 바뀌지 않는다.
+
+같이 닫힌 것 2건, 종결한 미확인 1건, **새로 열린 미결 1건**이 있다 (§5, §6).
+
+---
+
+## 1. 결함이 실재했다는 증거
+
+수리 전 코드(`72b4ee2e`)를 git 에서 꺼내 같은 시나리오를 돌렸다.
+재현 절차와 스크립트 = `evidence/reproduce_contamination_pre_fix.py`.
+
+```
+=== 수리 전 코드 · 동시 분석 2건 (전역 recognizer 1개 공유) ===
+  분석 A: 요청= ref-power-spin → 확정=       'ref-climb'  EXTEND관절=[]
+  분석 B: 요청=      ref-climb → 확정=       'ref-climb'  EXTEND관절=[]
+
+판정: 오염 — 분석 A 가 B 의 동작 기준으로 채점됐다
+```
+
+**이것이 왜 채점 사고인가**: `ref-power-spin` 은 criteria yaml 에 EXTEND 관절(무릎 2개)이
+있어 `line` 차원이 산출되고, `ref-climb` 은 EXTEND 가 0이라 `line` 차원 자체가 없다.
+`dimensions.CORE_DIMENSIONS = (angle, line)` 이고 종합은 core 의 min 이므로
+(`dimensions.py:548,563`), 오염되면 **종합 점수의 근거가 통째로** 바뀐다.
+예외 0, 로그 0, 화면상 정상.
+
+**도달성** (전부 코드/설정 실측):
+- Pod: `/analyze` 가 동기 `def` + `BackgroundTasks` → Starlette 스레드풀
+  (`server.py:433-456`). 직렬화 락 0. anyio 기본 한도 40.
+- Lambda: `template.yaml:327` PipelineFunction 에 `ReservedConcurrentExecutions` **없음**
+  (있는 건 visual-worker=2, visual-dispatch=1). `BatchSize: 1` 은 동시성 제한이 아니다.
+- 학원은 정의상 동시 업로드.
+
+---
+
+## 2. 무엇을 고쳤나
+
+원칙 하나: **분석마다 달라지는 값은 인스턴스 속성이 아니라 호출 인자다.**
+값이 호출 스택을 벗어나지 않으면 직렬 leak 도 동시 오염도 구조적으로 불가능하다.
+새 패턴이 아니다 — `preuploaded_handle`(27-04), `timings_ms`, `GeminiFileSession`
+분석-로컬 관례를 그대로 따랐다.
+
+| 오염 지점 | 전 | 후 |
+|---|---|---|
+| `recognizer.motion_query_hint` | 싱글턴 속성 (app.py:7847 쓰기 → 51~177초 → 301 읽기) | `recognize(motion_hint=...)` |
+| `recognizer.unregistered_hook` | 싱글턴 속성 (app.py:7986 쓰기) | `recognize(unregistered_hook=...)`. 생성 시점 기본값은 유지(상수라 정당) |
+| `extractor._last_raw_response` | 사이드카 속성, Gemini 왕복 뒤 getattr | `extract_key_moments_with_response()` **반환값** |
+| `extractor._last_motion_name` | 사이드카 속성 | 폐기 (원래 질의 문자열의 왕복이었다 — §4) |
+| `recognizer.extractor` lazy init | 락 없음 (인스턴스 쪼개짐) | double-checked locking |
+| `_ensure_adapters()` | 락 없음 (RTMW 엔진 2벌 + ort monkeypatch 창 노출) | `_ADAPTERS_LOCK` |
+
+**조용한 no-op 방지**: 비-frozen dataclass 는 선언되지 않은 이름에도 대입이 조용히
+성공한다. 필드를 그냥 지우면 옛 호출자가 말없이 아무 일도 안 하게 되는데, 그건 이 수리가
+없앤 고장과 **같은 종류**다. 그래서 `__setattr__` 이 생성 이후 대입을 `AttributeError` 로
+막고, 메시지가 대체 경로를 알려준다.
+
+수정 파일 (소스 5 + 테스트 7):
+```
+backend/functions/pipeline/app.py
+backend/shared/python/sunity_shared/analysis/technique.py                 (Protocol + Fallback)
+backend/shared/python/sunity_shared/analysis/gemini_technique_recognizer.py
+backend/shared/python/sunity_shared/judging/gemini_moment_extractor.py
+backend/research/evaluations/compare_rtmw_vs_ipsf.py                      (sweep CLI)
+backend/tests/test_analysis_local_state_concurrency.py                    ← 신규
+backend/tests/{test_gemini_technique_recognizer,test_pipeline_gemini_integration,test_stage_timing}.py
+backend/tests/phase06/{test_motion_query_hint_leak,test_gemini_recognizer_populates_motion_id,test_unregistered_hook_uid_threading}.py
+```
+
+---
+
+## 3. 회귀를 어떻게 막는가
+
+수리 시점에 리포에는 **"분석 2건이 같은 전역 객체를 동시에 만진다"를 태우는 테스트가
+0건**이었다. 이름이 비슷한 `test_pipeline_body_profile_injection.py` 조차 두 worker 가
+각자 별개 인스턴스를 만들어서, 사이드카가 되살아나도 통과한다. 그래서 다음 세션이
+"방어선 있음"으로 오독했다.
+
+신규 `test_analysis_local_state_concurrency.py` (8건):
+- **살아 있는 동시성 3건** — 인스턴스 **하나**를 두 스레드가 공유하고, extractor 안의
+  barrier 가 두 분석을 창 한가운데서 반드시 겹치게 한다. 겹치지 못하면 통과가 아니라
+  timeout 실패다(조용한 위음성 차단). motion hint / unregistered hook / raw 응답 각각.
+- **구조 가드 5건** — 그 중 하나가 `pipeline/app.py` 를 AST 로 훑어 `<이름>.<속성> = ...`
+  (self 제외) 대입이 **0건**임을 강제한다. 2026-09-20 에 없앤 두 줄이 정확히 그 모양이다.
+  같은 모양이 다시 들어오면 즉시 깨진다.
+
+WR-07 회귀(`test_motion_query_hint_leak.py`)는 의도를 유지한 채 더 강해졌다 — 예전엔 속성을
+미리 세팅하고 `_process` 1회를 돌렸는데, 이제 **mode1 분석을 실제로 돌려 오염원을 만든 뒤**
+같은 싱글턴으로 mode3 를 돌린다. 대역도 `spec_set` 이라 속성 rebind 로 회귀하면 통과 불가다.
+
+**게이트**: `4958 passed / 20 skipped / 0 failed` — `backend/.venv` 로 직접 실측
+(baseline 4945). 앱 `tsc --noEmit` clean.
+
+**변이 검증 (mutation testing)** — "통과한다"가 아니라 "고장을 잡는다"를 확인했다.
+소스를 일부러 망가뜨리고 잡히는지 봤다(검증 후 md5 대조로 원복 완료):
+
+| 변이 | 잡혔나 |
+|---|---|
+| `motion_hint=` 인자를 `None` 으로 | ✅ leak 테스트 2/2 |
+| `unregistered_hook=` 인자 제거 | ✅ 3건 |
+| **직렬 leak 재현** (모듈 전역으로 앞 분석 hint 상속) | ✅ WR-07 회귀가 잡는다 |
+| 호출 인자 hook 이 인스턴스 기본값에 짐 | ✅ 3건 |
+| `motion_hint` 무시하고 항상 `"auto"` | ✅ 13건 |
+| **읽기측 사이드카 부활** (`getattr(extractor, "_last_motion_name")`) | ❌ → 가드 추가 후 ✅ |
+
+마지막 항목이 실제 구멍이었다. 쓰기측 부활과 pipeline 속성 대입은 막혀 있었지만
+**읽기측**은 스텁에 그 속성이 없어 폴백이 먹어서 전부 통과했다. `gemini_technique_recognizer.py`
+와 `gemini_moment_extractor.py` 를 AST 로 훑어 폐기 속성 접근 0건을 강제하는 가드를 추가했고
+(주석·docstring 의 언급은 허용 — 왜 없앴는지는 남아야 한다), 같은 변이로 잡히는 것을 확인했다.
+
+---
+
+## 4. 인계서가 틀렸던 것 (belle 전제 정정)
+
+belle 지시 ③ — 내 보고가 belle 의 전제가 된다. 아래는 어제 인계서에 **사실과 다르게**
+적힌 것들이다. 인용 전에 여기를 보라.
+
+### ★ §6 "80 중 stability 절반은 얼어붙은 허용오차로 기계적으로 설명된다" — 성립하지 않는다
+
+코드로 확인한 사실:
+- `dimensions.py:548` `CORE_DIMENSIONS = (DIM_ANGLE, DIM_LINE)` — **stability 는 종합 입력에서
+  명시적으로 제외**돼 있다(Phase 19 D-01, docstring 이 이유까지 적어놨다).
+- `ref-pdshape.yaml:13-17` 의 criteria 는 4개 moment 전부 빈 리스트다 → EXTEND 관절 0 →
+  `line` 차원 자체가 없다. (리포 전체에서 `extension_class: EXTEND` 는 `ref-power-spin.yaml`
+  두 줄이 전부다.)
+- 화면 점수는 차원 종합도 아니다 — `app.py:3186,3371` `"overallScore": breakdown.final`,
+  즉 `deduction_engine` 산출이고 `ipsf_criteria.py` 의 13개 criterion 에 stability 는 **0건**이다.
+
+→ **pdshape mode1 의 80 점에 stability 기여는 0이다.** 어제 내가 belle 에게 올린 판정은
+틀렸다. 그 80 의 이동은 활성 criterion 개수(6→1)가 설명한다(실행 캡 −40 → 60 / 단건 −20 → 80).
+
+**③ 이 죽은 건 아니다 — 소비처를 잘못 짚었다.** `_STABILITY_TOL_DEG` 가 실제로 지배하는
+곳은 mode3 다(`app.py:7046,7117` 이 `overall_from_dimensions(abs_dims)` 를 쓰고 abs_dims 는
+line/stability 뿐). mode3 는 파일럿 성공기준 1번이다. 단 "mode3 종합 = stability 단독"
+이라는 더 센 주장은 아직 **내가 코드로 끝까지 확인하지 않았다** — 별건으로 재야 한다.
+
+### §3-② "`_last_motion_name` = Gemini 가 응답한 동작 이름" — 아니다
+
+그 필드의 **유일한 쓰기**가 `self._last_motion_name = motion` (호출자가 넘긴 질의 문자열)
+이다. Gemini 프롬프트 스키마에 동작명 필드가 없어 자체 분류명은 그 필드에 들어온 적이 없다.
+즉 A-1 과 A-2 는 서로 다른 값이 아니라 **같은 값을 다른 창에서 읽던 것**이다.
+(부수: 그래서 mode3 는 정상 동작에서도 항상 `"auto"` → `unregistered` → `joint_expectations={}`
+로 채점된다. 이건 오염과 무관한 기존 동작이고 이번 수리로 바뀌지 않는다.)
+
+### §3-② "과거 race fix 는 직렬 누수만 고쳤다" — 과일반화
+
+`0d1e0cdf`(HIGH-1 v4)는 진짜 동시성을 겨냥한 수리였다(사이드카 폐기 → 로컬 튜플 반환).
+다만 그 회귀 테스트는 두 worker 가 **별개 인스턴스**를 써서 자기가 지킨다는 것을 안 지킨다.
+recognizer 자리에 한정하면 인계서 서술이 맞다.
+
+### §3-① 관련 (이번 수리 범위 밖, 다음 세션용)
+
+- **"`RATE_MIN/MAX` 클램프가 있다, 거기가 옳은 자리"** — 클램프가 아니라 **위반 검출기**다
+  (`motion_alignment.py:157-170`). 그리고 라이브 전건이 타는 `else` 분기(`:183-203`)가
+  `slopes_ok`/`length_extreme` 을 **읽지 않고** `low_global_confidence` 를 무조건 박는다.
+  → 수리는 새 축을 발명하는 일이 아니라 **이미 계산돼 있는 구조 축을 사다리의 주축으로
+  승격**하는 일에 가깝다. (실제 클램프는 앱 `alignmentWarp.ts:28-30` 뿐이고
+  `:79 if (a.tier !== 'warped') return 1.0;` 이라 라이브 발화 0.)
+- **"짝이 시간정렬 없이 뽑힌다"** — 카드의 짝은 `motionAlignment`/`warpTime` 을 입력으로
+  쓰지 않는다. `MotionMatch.path` 직접 사용 + `fault_zoom.py:588 _POSE_SEARCH_SECONDS = 4.0`
+  의 **±4초 자세 재탐색**이 덮어쓴다(tier 와 무관하게 항상 작동).
+  → belle 이 본 8.1초 어긋남의 실질 용의자는 tier 가 아니라 그 ±4초일 수 있다.
+  tier 를 warped 로 만들어도 그 카드는 그대로일 수 있다.
+- **"라이브 39건 / distance 27.0~72.0"** — 리포에 박제된 실측 셋 중 어느 것과도 표본·범위가
+  안 맞는다(`motion_alignment.py:276-280` 36건 52.8~72.0 / `app.py:8656` 186건 max 63.6 /
+  `app.py:2401` fixture 62.9·64.3). **0% 통과라는 결론은 셋 모두와 정합**하지만 그 수치는
+  출처가 없다. 인용하지 말 것.
+- **`DISTANCE_T1/T2` 는 lockstep 테스트로 `vision_veto._ALIGN_GLOBAL_T1/T2` 에 묶여 있다**
+  (`test_motion_alignment.py:294-295`). vision_veto 쪽 25 는 `app.py:2199-2201 → :3241` 로
+  **채점에 닿는다**. 그 상수를 직접 움직이는 수리는 "정렬=표현 전용" 계약을 깬다.
+
+---
+
+## 5. 같이 닫힌 것 / 종결한 미확인
+
+**① 캐시 히트가 남의 raw 응답을 객관성 가드에 흘리던 것** (인계서에 없던 결함).
+`extract_key_moments` 는 캐시 히트 시 `_call_gemini` 를 건너뛰어 `_last_raw_response` 를
+갱신하지 않았다. 그래서 히트한 분석의 가드가 **직전 다른 영상의 응답**을 검사했다.
+캐시가 이제 `(moments, raw_response)` 를 함께 보관해 자동으로 닫혔다.
+
+**② rtmlib 내부 상태 — 종결(무해).** 직전 조사가 "확인 불가, Pod 필요"로 남긴 항목인데
+로컬 uv 캐시에 소스가 있어 AST 로 전수 확인했다(rtmlib 0.0.13).
+`Wholebody.__call__` / `YOLOX.__call__` / `BaseTool` 의 `self` 쓰기 **0건**.
+유일한 호출-중 쓰기는 `RTMPose.preprocess` 의 `self.mean`/`self.std` 인데 정규화 상수를
+`np.array()` 로 바꾸는 **멱등** 대입이라 영상 데이터를 담지 않는다. 상태를 가진
+`PoseTracker` 는 우리 리포에서 참조 0.
+→ **동시 분석이 keypoint 를 섞지는 않는다.** 오염은 동작 이름 층에 한정된다.
+
+---
+
+## 6. 남은 것
+
+**★ `gemini_cache` 는 uid 스코프도 motion 키도 없다 — 오염이 영상에 영구 박제될 수 있다.**
+`technique_cache.py:335` 의 키는 `{video_hash}:{model}:{yaml_version}` 이고, Firestore
+`gemini_cache/{video_hash}` 는 top-level 컬렉션이다. 즉 (a) 같은 영상을 다른 hint 로
+재분석하면 앞 판정을 물려받고, (b) 그 doc 은 전 사용자가 공유한다.
+이번 수리는 **앞으로 생길** 오염을 막지만, 수리 이전에 캐시에 박힌 판정이 있다면 계속
+재생된다. 이건 별건이고, 착수 전에 라이브 doc 로 실재 여부를 먼저 재야 한다
+(Firestore 는 무료 플랜 읽기 5만/일 — 전수 스캔 금지).
+
+**★ 새로 잰 것 — 학원 용어 수집 원장에 쓰레기 항목이 1등으로 앉아 있다.**
+mode3 분석은 `motion_hint=None` → 질의 `"auto"` → `classify_motion_name("auto")` =
+`("auto", "unregistered")` → **매 분석마다 `record_unregistered_keyword("auto", ...)`** 를
+부른다. 라이브 Firestore 를 읽어 확인했다(읽기 8건):
+
+```
+term_collection/auto : count=52 · unique_users=25 · promotion_status="pending"
+(같은 컬렉션의 다른 항목: ref-kip-up 52 · ref-pdshape 43 · ref-elbow-twist-sister 39 …)
+```
+
+`"auto"` 는 학원 용어가 아니라 **우리가 만든 내부 placeholder** 다. 그게 TERM-DATA-01
+promotion 큐(pending → reviewing → approved)에 최다 tie 로 올라 있고, unique_users=25 는
+바로 승격 임계를 정하는 신호다. 즉 학원 용어 학습 경로의 입력이 오염돼 있다.
+
+**이번 수리가 만든 게 아니다** — 수리 전에도 `_last_motion_name` 의 유일한 쓰기가 질의
+문자열이었으므로 동작은 같았다. 이번 변경이 그 사실을 **눈에 보이게** 만들었을 뿐이다.
+수리 방향은 명확하다(질의가 `"auto"` 면 수집하지 않는다 — 아무도 말한 적 없는 단어다).
+다만 이 수리에 섞지 않았다: 이번 커밋의 가장 강한 성질인 "직렬 산출 무변동"을 깨기 때문이고,
+기존 52건을 어떻게 할지(삭제 / 방치)와 승격 임계 재계산은 별도 판정이 필요하다.
+
+**분석 결함 ①(정렬 축)과 ③(얼어붙은 허용오차)은 미착수.** §4 의 정정을 반영해 다시 읽어야
+한다 — 특히 ③ 은 소비처가 pdshape mode1 이 아니라 **mode3 종합점수**다.
+
+**프로세스**: 이 작업은 GSD 커맨드(`/gsd-quick`)를 거치지 않고 직접 편집으로 진행했다.
+산출물(quick 디렉터리 · SUMMARY · STATE 갱신 · 원자 커밋)은 같은 모양으로 남긴다.

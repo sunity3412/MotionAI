@@ -178,9 +178,28 @@ def _straight_clip(unc: float = 0.05) -> np.ndarray:
 # ── angles (T, J) 빌더 ───────────────────────────────────────────────────────
 
 
+def with_entry_motion(a: np.ndarray) -> np.ndarray:
+    """진입부(0.._CALIB_END)에 실제 움직임을 넣어 홀드가 기하적으로 존재하게 한다.
+
+    quick-260920-ra8: `dimensions._select_window` 가 국면 힌트를 버리고 분산-최소
+    창만 쓴다. 종전 fixture 는 전 프레임이 동일해서 "홀드는 10..40" 이라는 사실을
+    오직 `profile.hold_window` 힌트로만 표현했고, 힌트가 사라지자 창이 (0,10)
+    (= entry) 로 떨어져 phase co-location 게이트의 전제가 무너졌다.
+    여기서 진입부만 흔들어 주면 홀드가 각도 자체로 드러나 **테스트 의도가 복원**된다
+    (홀드 구간 값은 한 톨도 안 바뀐다 — 자세 단언은 그대로).
+    """
+    out = np.array(a, dtype=float, copy=True)
+    for i in range(_CALIB_END):
+        out[i, :] = out[i, :] + (12.0 if i % 2 == 0 else -12.0)
+    return out
+
+
 def _angles_constant(value: float = 178.0, t: int = _T) -> np.ndarray:
-    """(t, NUM_JOINTS) 일정 각도 행렬 (의도적 극단 신전 hold)."""
-    return np.full((t, len(JOINT_KEYS)), value, dtype=float)
+    """(t, NUM_JOINTS) 홀드 구간 일정 각도 행렬 (의도적 극단 신전 hold).
+
+    진입부는 흔들리고 홀드(_CALIB_END.._T)는 일정하다 — 위 with_entry_motion 참조.
+    """
+    return with_entry_motion(np.full((t, len(JOINT_KEYS)), value, dtype=float))
 
 
 def _angles_symmetric(t: int = _T) -> np.ndarray:

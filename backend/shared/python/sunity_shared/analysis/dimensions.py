@@ -290,25 +290,43 @@ def extension_deviation(angles, profile: TechniqueProfile) -> np.ndarray:
 
 
 def _select_window(angles, profile: "TechniqueProfile | None" = None) -> tuple[np.ndarray, tuple[int, int]]:
-    """**대표 포즈** window — profile.hold_window 는 국면 힌트, 그 내부에서 안정 부창 재선택.
+    """**대표 포즈** window — 기하 정의(분산 최소)로만 고른다. 국면 힌트는 쓰지 않는다.
 
     line_score, line_deficits_by_joint, extension_deviation, 대표 프레임 선택,
     safety_flags 국면 localize, pipeline _hold_window_median_dict 가 이 함수 하나만
-    호출 — drift 방지 (Codex v3 HIGH-2).
+    호출 — drift 방지 (Codex v3 HIGH-2). 그래서 점수와 화면(각도·대표 프레임)이
+    **같은 순간**을 본다 (TRUST-01).
 
     ★흔들림(stability) 계열은 여기 오지 않는다 — `_select_stability_window` 참조.
     "가장 안정된 순간의 자세"를 고르는 창과 "홀드 동안 얼마나 흔들렸나"를 재는 창은
     목적이 반대다 (2026-08-31 리뷰 실측으로 갈라냄).
 
+    ── 국면 힌트를 버린 이력 (지우지 말 것) ──────────────────────────────────
     quick-260831-gyk (belle 08-31 × 판정 "아니 쫙 펴져 있어"): Gemini 국면 창
     (hold moment ±2초)이 스핀 진입 전환부를 측정 창에 섞어 파워스핀 정타에
-    leg_extension -20 위양성 + line micro-bent 0점을 만들었다. 수리 = profile
-    창을 verbatim 쓰지 않고 그 창 **내부에서** 기존 hold_window(분산 최소)
-    로직으로 안정 부창을 재선택한다 — hold_window docstring 의 정의("홀딩=동작이
-    완성돼 정지한 지점")가 창 내부에서 회복된다. 새 튜닝 상수 0(부창 폭은
-    hold_window 의 기존 규칙 w = max(2, min(t', t'//4)) 그대로), 동작명 분기 0.
-    33-A4 국면 게이트 목적(국면 밖 프레임 배제)은 유지 — 부창은 항상 힌트 창
-    내부 (s' >= s, e' <= e).
+    leg_extension -20 위양성 + line micro-bent 0점을 만들었다. 그때 수리는 힌트
+    창을 verbatim 쓰지 않고 그 창 **내부에서** hold_window 로 안정 부창을
+    재선택하는 것이었다(국면 밖 프레임 배제라는 33-A4 목적은 유지).
+
+    quick-260920-ra8 (belle 승인, 2026-09-20): **그 수리로는 못 막는다.** 힌트 창
+    **전체**가 진입부에 있으면 그 안 어느 부창도 굽은 무릎이다. Pod 실측 —
+    정은지 파워스핀 정타(10.60초)에서 인식기가 hold 를 1.0초(진입부)라 답했고
+    부창 [13,19) 의 무릎이 88.7도라 leg_extension -20 · line 0 이 났다. 같은 영상을
+    캐시 우회로 5번 새로 물으니 hold 가 8.0초(정답)와 1.0초로 갈리고 중간값이 없다
+    — 2/5 가 틀린 쪽이다. 같은 각도 데이터를 기하 창으로 읽으면 부창 [79,105),
+    무릎 171.6도, 감점 0 이다.
+      · 기하 창의 일반성: 기준 11편 중 9/11 에서 창 중점이 그 동작의 등록 실행
+        구간(clipRange.execStartS~landEndS) 안이다. 빗나간 2건은 구간 끝을
+        0.1~0.2초 넘은 것이고 둘 다 yaml EXTEND 0개다.
+      · 저장 122건 재계산: 위양성 4건 제거(line 0→91) + 결함 8건 신규 검출(69→0).
+        한쪽을 얻고 한쪽을 잃는 교환이 아니라 양방향 개선이다.
+    새 튜닝 상수 0(창 폭은 hold_window 의 기존 규칙 그대로), 동작명 분기 0.
+    **이 수리는 힌트를 빼는 일이지 임계를 고르는 일이 아니다.**
+    전문 = .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md §17
+    ────────────────────────────────────────────────────────────────────────
+
+    `profile` 은 호출 계약 유지를 위해 남긴다(전 호출자가 넘긴다). 창 선정에는
+    쓰지 않는다 — 되살리려면 위 실측부터 뒤집어야 한다.
 
     Returns:
         (sliced, (s, e)): sliced = angles[s:e] (shape (T', J)), (s, e) = 윈도우 인덱스.
@@ -317,22 +335,7 @@ def _select_window(angles, profile: "TechniqueProfile | None" = None) -> tuple[n
     t = a.shape[0]
     if t <= 1:
         return a, (0, t)
-    if profile is not None and getattr(profile, "hold_window", None) is not None:
-        s, e = profile.hold_window
-        s = max(0, min(int(s), t))
-        e = max(s, min(int(e), t))
-        # WR-05: profile 윈도우가 clamp 후 빈 슬라이스(s == e)로 무너지면 자동
-        # hold_window 로 폴백. 빈 슬라이스를 그대로 두면 pipeline 의
-        # _hold_window_median_dict 가 {} 를 반환 → assess 가 모든 target_angle=None
-        # 으로 표시 target angle 을 조용히 전부 제거한다 (quiet quality 저하).
-        if s == e:
-            s, e = hold_window(a)
-        else:
-            # quick-260831-gyk: 힌트 창 내부 분산-최소 부창 재선택 (위 docstring).
-            ss, se = hold_window(a[s:e])
-            s, e = s + ss, s + se
-    else:
-        s, e = hold_window(a)
+    s, e = hold_window(a)
     return a[s:e], (s, e)
 
 

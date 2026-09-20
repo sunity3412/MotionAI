@@ -91,6 +91,18 @@ def _moment_field(m: Any, key: str, default: Any) -> Any:
 def _hold_window_from_moments(moments: Any) -> tuple[int, int] | None:
     """KeyMoments[hold] timestamp → (start_frame, end_frame) hold 창.
 
+    ★★ quick-260920-ra8 (belle 승인, 2026-09-20) — **이 함수의 산출을 지금 아무도
+    채점에 쓰지 않는다.** `dimensions._select_window` 가 국면 힌트를 버리고 기하 창만
+    쓴다. 아래 33-A4 서술은 그때의 의도이고, 지금은 이력이다. 호출은 남아 있으므로
+    profile.hold_window 에 값은 계속 실리지만 **소비처가 0** 이다 —
+    "국면 게이트가 걸려 있다"고 읽지 말 것.
+      끊은 이유(Pod 실측): 같은 영상을 캐시 우회로 5번 물으니 hold 가 8.0초(정답)와
+      1.0초(진입부)로 갈리고 중간값이 없었다. 1.0초를 받은 2/5 에서 정은지 정타가
+      leg_extension -20 을 맞았다. 부수로 아래 `fps = 9.0` 하드코딩도 실측 rate(~9.96)
+      와 어긋난다 — 되살릴 때 같이 고칠 자리다.
+    근거 = .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md §17
+
+    ── 이하 33-A4 당시 서술 (이력) ───────────────────────────────────────────
     33-A4 수리 (33-A4-PHASE-EVIDENCE §5) — yaml hold_moment 스코프를 시간축에
     구현하는 유일한 장치가 profile.hold_window 인데, 종전에는 캐시 히트 경로
     (_profile_from_cache)가 이 필드를 복원하지 않아 국면 게이트가 소실 →
@@ -98,8 +110,7 @@ def _hold_window_from_moments(moments: Any) -> tuple[int, int] | None:
     이제 신선 경로(_build_profile)와 캐시 경로 모두 본 함수 하나만 호출
     ("분기 0, 코드 1벌"). 특정 동작(motion) 분기 없음 — 전 동작 공통.
 
-    박제: hold moment 2개 이상 = 첫/마지막 timestamp, 1개 = ±2초 창, 0개 = None
-    (None = dimensions.hold_window 자동 창 폴백, 기존 graceful 경로 유지).
+    박제: hold moment 2개 이상 = 첫/마지막 timestamp, 1개 = ±2초 창, 0개 = None.
     """
     if not moments:
         return None

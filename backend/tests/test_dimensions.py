@@ -145,22 +145,19 @@ def test_stability_does_not_inflate():
 # ── Phase 12.5 v4 — 신 helpers 단위 테스트 (Codex v3 HIGH-2 fix) ────────
 
 
-def test_select_window_uses_profile_when_set():
-    # profile.hold_window 가 있으면 그 창을 국면 힌트로 사용 (TechniqueProfile frozen → replace)
-    #
-    # quick-260831-gyk 기대값 변경 정당화: profile 창은 이제 국면 힌트 "상한"이지 창 그
-    # 자체가 아니다 — 힌트 창 내부에서 분산-최소 부창을 재선택한다 (이 수리의 정의 변경,
-    # belle 08-31 파워스핀 위양성). 종전 단언 (s,e) == (5,15) 정확 일치 → 포함 불변식
-    # (5 <= s' < e' <= 15) + 부창 폭 규칙 w = max(2, min(10, 10//4)) = 2 로 갱신.
-    # constant 포즈 → 분산 0 균일 → 결정론 tie-break(첫 부창) = (5, 7).
+def test_select_window_ignores_the_phase_hint():
+    # quick-260920-ra8 (belle 승인 2026-09-20) — 의도 역전.
+    # 종전: profile.hold_window 가 국면 힌트로 창을 제약했다.
+    # 지금: 힌트를 쓰지 않는다. 힌트가 있든 없든 같은 창이 나와야 한다.
+    # 이유 = 인식기가 같은 영상에 hold 를 8.0초/1.0초로 번갈아 답해 정타를 깎았다
+    # (Pod 실측 5회 중 2회). 260920-cac-SUMMARY.md §17.
     import dataclasses
-    p = dataclasses.replace(_profile(), hold_window=(5, 15))
+    p_hint = dataclasses.replace(_profile(), hold_window=(5, 15))
+    p_none = _profile()
     angles = _pose({"left_knee": 175}, t=30)
-    sliced, (s, e) = dimensions._select_window(angles, p)
-    assert 5 <= s < e <= 15
-    assert e - s == 2  # w = max(2, min(10, 10//4)) = 2
-    assert (s, e) == (5, 7)  # 균일 분산 → 첫 부창 (결정론)
-    assert sliced.shape[0] == 2
+    _, win_hint = dimensions._select_window(angles, p_hint)
+    _, win_none = dimensions._select_window(angles, p_none)
+    assert win_hint == win_none, f"힌트가 창을 옮겼다: {win_hint} != {win_none}"
 
 
 def test_select_window_falls_back_to_auto():
@@ -180,11 +177,13 @@ def test_select_window_single_frame_graceful():
     assert (s, e) == (0, 1)
 
 
-# ── quick-260831-gyk — Gemini 국면 창을 "힌트"로 강등: 힌트 창 내부 안정 부창 재선택 ──
-# belle 08-31 × 판정(파워스핀 정타 leg_extension -20 위양성): Gemini hold ±2초 창이
-# 스핀 진입 전환부를 측정 창에 섞었다. 수리 = profile.hold_window 를 verbatim 쓰지 않고
-# 그 창 **내부에서** 기존 hold_window(분산 최소) 로직으로 안정 부창을 재선택한다.
-# 33-A4 국면 게이트 목적(국면 밖 프레임 배제)은 유지 — 부창은 항상 힌트 창 내부.
+# ── 국면 창(hold hint) 이력 ────────────────────────────────────────────────
+# quick-260831-gyk (belle 08-31 ×, 파워스핀 정타 leg_extension -20 위양성): Gemini
+# hold ±2초 창이 스핀 진입 전환부를 측정 창에 섞었다. 그때 수리 = 힌트 창 **내부에서**
+# 안정 부창 재선택(33-A4 국면 게이트 유지).
+# quick-260920-ra8 (belle 승인 2026-09-20): 그 수리로는 못 막는다 — 힌트 창 **전체**가
+# 진입부면 그 안 어디를 골라도 굽은 무릎이다. Pod 실측으로 확인하고 힌트를 폐기했다.
+# 아래 테스트들의 의도는 그래서 뒤집혔다: "힌트 창 내부" → "힌트가 창을 못 옮긴다".
 
 
 def test_select_window_reselects_stable_subwindow_inside_hint():
@@ -205,20 +204,19 @@ def test_select_window_reselects_stable_subwindow_inside_hint():
     assert np.allclose(sliced[:, knee], 178.0)
 
 
-def test_select_window_subwindow_always_inside_hint():
-    # Test 2 (포함 불변식): 어떤 입력이든 (s', e') 는 clamp 된 힌트 창 내부
-    # — s' >= s, e' <= e, s' < e'. 33-A4 국면 게이트 목적 유지의 기계 증명.
+def test_no_hint_value_can_move_the_window():
+    # quick-260920-ra8 — 위 테스트의 전수판. 어떤 힌트를 넣어도 창이 안 움직인다.
+    # (종전에는 "부창이 항상 힌트 창 내부"를 박제했다 — 그 계약이 폐기됐다.)
     import dataclasses
     rng = np.random.default_rng(1)
     t = 40
     angles = rng.uniform(20.0, 180.0, size=(t, J))
+    _, baseline = dimensions._select_window(angles, _profile())
     for hint in [(5, 35), (0, 40), (10, 12), (-3, 100), (20, 23)]:
         p = dataclasses.replace(_profile(), hold_window=hint)
-        sliced, (s, e) = dimensions._select_window(angles, p)
-        cs = max(0, min(int(hint[0]), t))
-        ce = max(cs, min(int(hint[1]), t))
-        assert cs <= s < e <= ce, f"hint={hint} → ({s},{e}) 가 힌트 창 밖"
-        assert sliced.shape[0] == e - s
+        sliced, win = dimensions._select_window(angles, p)
+        assert win == baseline, f"hint={hint} 가 창을 {baseline} → {win} 로 옮겼다"
+        assert sliced.shape[0] == win[1] - win[0]
 
 
 def test_select_window_empty_hint_falls_back_to_full_auto():
@@ -295,14 +293,14 @@ def test_stability_wobble_single_frame_empty():
 def test_helpers_share_window_with_score_functions():
     # _select_window 가 line_score / stability_score 와 같은 window 사용 (drift 0)
     #
-    # quick-260831-gyk 기대값 변경 정당화: 테스트 의도(점수 함수들과 창 공유, drift 0)는
-    # 그대로 성립 — shape 단언만 새 의미로 갱신. 힌트 창 (3,13) 내부 부창 재선택으로
-    # shape == 부창 폭 w = max(2, min(10, 10//4)) = 2 (종전 10 = verbatim 창 폭).
+    # quick-260920-ra8: 의도(점수 함수들과 창 공유, drift 0)는 그대로. 힌트를 쓰지
+    # 않으므로 창 폭은 전체 클립 규칙 w = max(2, min(20, 20//4)) = 5 다
+    # (종전 2 = 힌트 창 (3,13) 내부 부창 폭).
     import dataclasses
     p = dataclasses.replace(_profile(), hold_window=(3, 13))
     angles = _pose({"left_knee": 170}, t=20)
     sliced_a, _ = dimensions._select_window(angles, p)
-    assert sliced_a.shape[0] == 2
+    assert sliced_a.shape[0] == 5
     # line_score 도 같은 window 사용 (rep = mean of windowed)
     ls = dimensions.line_score(angles, p)
     assert ls is not None  # 점수 산출 정상

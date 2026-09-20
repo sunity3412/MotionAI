@@ -50,9 +50,15 @@ class TechniqueProfile:
     requires_hold: bool = True  # 완성포즈 2초 유지 평가 여부
     is_symmetric: bool = False  # 좌우 대칭이 기대되는 기술인지(폴은 대부분 False)
     # Path H production 정합 (2026-06-05): Gemini KeyMoments 의 hold timestamp →
-    # (start_frame, end_frame) tuple. dimensions.line_score / stability_score 가
-    # 자동 추출 (분산 최소 sub-window) 대신 이 윈도우 사용 (None = 자동 추출 fallback).
-    # 사용자 영상의 standing setup/dismount frame 잡힘 위양성 박제 정신 정합 fix.
+    # (start_frame, end_frame) tuple.
+    #
+    # ★ quick-260920-ra8 (belle 승인, 2026-09-20) — **이 값은 현재 채점에 닿지 않는다.**
+    # `dimensions._select_window` 가 국면 힌트를 버리고 기하 창(분산 최소)만 쓰도록
+    # 바뀌었다. 이유: 인식기가 같은 영상에 hold 를 8.0초(정답)와 1.0초(진입부)로
+    # 번갈아 답해 정은지 정타에 leg_extension -20 위양성을 냈다(5회 중 2회).
+    # 필드와 산출 경로는 **되살릴 때를 위해 남긴다** — 국면 인식이 고쳐지면 여기가
+    # 다시 꽂히는 자리다. 지우지 말고, 쓴다고 가정하지도 말 것.
+    # 근거 = .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md §17
     hold_window: tuple[int, int] | None = None
     # C2 fix (2026-06-08, Plan 06-02 reviews) + R1 fix (2026-06-08 round-2).
     # Gemini canonical motion name 을 reference 컬렉션 lookup 의 stable key 로

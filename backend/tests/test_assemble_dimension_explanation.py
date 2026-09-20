@@ -162,7 +162,9 @@ def test_line_deficit_uses_extend_joints_via_dimensions_helper():
     )
     # left_elbow default 90° → 신전 부족 90 (worst)
     assert "팔꿈치" in exp["line"]["deficitSummary"] or "어깨" in exp["line"]["deficitSummary"] or "무릎" in exp["line"]["deficitSummary"]
-    assert "신전 부족" in exp["line"]["deficitSummary"]
+    # quick-260920-ra8: 사용자 문구를 일상어로 바꿨다 ("신전 부족" -> "덜 폈음").
+    # 의미는 그대로 — 관절 이름 + 신전 부족분 문장이다.
+    assert "덜 폈음" in exp["line"]["deficitSummary"]
 
 
 def test_stability_deficit_uses_wobble_helper():
@@ -233,8 +235,9 @@ def test_no_extend_joints_in_profile():
         a, {"line": 70}, {"mode": "mode1"},
         joint_angles=angles, profile=profile,
     )
-    # line_defs 비어있음 → "신전 자세 안정" 박제
-    assert "안정" in exp["line"]["deficitSummary"]
+    # line_defs 비어있음 → 양호 카피 박제.
+    # quick-260920-ra8: "신전 자세 안정" -> "곧게 잘 폈음" (표기만 바뀜).
+    assert exp["line"]["deficitSummary"] == "곧게 잘 폈음"
 
 
 def test_single_frame_stability_graceful():

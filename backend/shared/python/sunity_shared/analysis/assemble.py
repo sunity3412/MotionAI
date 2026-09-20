@@ -156,19 +156,19 @@ def is_reference_free_motion(branch_info: "MotionBranchInfo | None") -> bool:
 
 _DIMENSION_BASELINES_MODE1 = {
     "angle": "정은지 측정값 + IPSF 실행 기준 참고",
-    "line": "정은지 측정값 + 신전 완성도 (IPSF 실행 기준 참고)",
-    "stability": "hold 구간 떨림 (절대 지표)",
+    "line": "정은지 측정값 + 얼마나 곧게 폈나 (IPSF 실행 기준 참고)",
+    "stability": "멈춰 버티는 동안의 떨림 (절대 지표)",
 }
 _DIMENSION_BASELINES_MODE3 = {
     "angle": "이전 영상 대비 관절 각도 일관성",
-    "line": "신전 완성도 (실행 기준 참고)",
-    "stability": "hold 구간 떨림 (절대 지표)",
+    "line": "얼마나 곧게 폈나 (실행 기준 참고)",
+    "stability": "멈춰 버티는 동안의 떨림 (절대 지표)",
 }
 
 _GOOD_COPY_BY_DIM = {
     "angle": "관절 각도 안정",
-    "line": "신전 자세 안정",
-    "stability": "hold 구간 떨림 작음",
+    "line": "곧게 잘 폈음",
+    "stability": "버티는 동안 떨림 작음",
 }
 
 # ── Phase 13-B: copyBranch 별 baseline 카피 (BLOCKER-1 / HIGH-3) ────────────────
@@ -177,13 +177,13 @@ _GOOD_COPY_BY_DIM = {
 
 _DIMENSION_BASELINES_BRANCH1 = {
     "angle": "IPSF 동작별 정의 각도",
-    "line": "IPSF 신전 기준 — 해당 동작에서 EXTEND 인 팔꿈치/무릎은 180° 신전",
-    "stability": "hold 구간 안정성",
+    "line": "IPSF 기준 — 이 동작에서 곧게 펴야 하는 팔꿈치/무릎은 180°",
+    "stability": "멈춰 버티는 동안의 안정성",
 }
 _DIMENSION_BASELINES_BRANCH2 = {
     "angle": "정은지 선수 기준 관절 각도",
-    "line": "정은지 선수 기준 신전 완성도",
-    "stability": "hold 구간 안정성 (절대 지표)",
+    "line": "정은지 선수 기준 — 얼마나 곧게 폈나",
+    "stability": "멈춰 버티는 동안의 안정성 (절대 지표)",
 }
 
 # 분기2 카피 가드 (criteria 8). force_pattern_copy.FORBIDDEN_PHRASES_PHASE9_REGEX
@@ -338,14 +338,14 @@ def _deficit_summary_for(
         if finite_line:
             worst_key = max(finite_line, key=finite_line.get)
             label = JOINT_LABEL_KO.get(worst_key, worst_key)
-            return f"{label} 신전 부족"
+            return f"{label} 덜 폈음"
         return _GOOD_COPY_BY_DIM["line"]
     if dim == "stability":
         finite_wobble = {k: v for k, v in stab_wobble.items() if v == v}
         if finite_wobble:
             worst_key = max(finite_wobble, key=finite_wobble.get)
             label = JOINT_LABEL_KO.get(worst_key, worst_key)
-            return f"{label} hold 구간 떨림"
+            return f"{label} 버티는 동안 떨림"
         return _GOOD_COPY_BY_DIM["stability"]
     return ""
 

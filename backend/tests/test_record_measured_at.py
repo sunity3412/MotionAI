@@ -255,16 +255,18 @@ def test_moment_is_not_the_jitter_spike_frame():
 
 
 def _transition_then_hold_knee(usr, joint, hold_vals):
-    """프레임 2..9 = 전환부(20/180 요동), 10..12 = 홀드(hold_vals), 13 = 이탈(60).
+    """프레임 2..9 = 전환부(20/180 요동), 10..13 = 홀드(hold_vals 4개), 14 = 이탈(60).
 
-    힌트 창 (2,14) 내부에서 분산-최소 부창(w = max(2, min(12, 12//4)) = 3)이
-    (10, 13) 에 유일하게 안착하도록 설계 — 전환부/이탈 프레임을 포함하는 모든
-    폭-3 창의 분산이 홀드 창보다 크다.
+    quick-260920-ra8: 국면 힌트가 폐기돼 창 폭이 전체 클립 규칙을 따른다
+    (T=16 → w = max(2, min(16, 16//4)) = 4). 그래서 홀드를 4프레임으로 늘려
+    분산-최소 부창이 (10, 14) 에 유일하게 안착하게 했다 — 전환부/이탈 프레임을
+    포함하는 모든 폭-4 창의 분산이 홀드 창보다 크다.
+    (종전: 힌트 창 (2,14) 내부 폭-3 부창이 (10,13) 에 안착하도록 설계했었다.)
     """
     for i in range(2, 10):
         usr[i, joint] = 20.0 if i % 2 == 0 else 180.0
-    usr[10, joint], usr[11, joint], usr[12, joint] = hold_vals
-    usr[13, joint] = 60.0
+    usr[10, joint], usr[11, joint], usr[12, joint], usr[13, joint] = hold_vals
+    usr[14, joint] = 60.0
 
 
 def test_leg_extension_moment_follows_the_winning_joint():
@@ -273,10 +275,11 @@ def test_leg_extension_moment_follows_the_winning_joint():
     usr = _angles(T, deg=180.0)
     # 왼무릎은 내내 175도(부족 5), 오른무릎은 홀드 안에서 프레임마다 달라 평균 부족이 크다.
     usr[:, _LEFT_KNEE] = 175.0
-    _transition_then_hold_knee(usr, _RIGHT_KNEE, (120.0, 140.0, 160.0))
+    _transition_then_hold_knee(usr, _RIGHT_KNEE, (110.0, 140.0, 160.0, 150.0))
     profile = _knee_extend_profile(hold_window=(2, 14))
-    # fixture 전제 확인: 부창이 홀드 구간 (10, 13) 에 결정론적으로 안착.
-    assert dimensions._select_window(usr, profile)[1] == (10, 13)
+    # fixture 전제 확인: 부창이 홀드 구간 (10, 14) 에 결정론적으로 안착.
+    # ★ 힌트 (2,14) 를 넘겼는데도 창이 그것과 무관하게 나온다 = 힌트 폐기 확인.
+    assert dimensions._select_window(usr, profile)[1] == (10, 14)
     out: dict = {}
     md = _build(
         usr=usr, profile=profile, quantification=_quant(), out=out,
@@ -284,8 +287,8 @@ def test_leg_extension_moment_follows_the_winning_joint():
     # 집계값은 오른무릎이 만든다 (부창 mean 부족분 = 180 - (120+140+160)/3 = 40).
     assert md["leg_extension"] == pytest.approx(40.0)
     frame = out["leg_extension"]["frame_idx"]
-    assert 10 <= frame < 13, "순간은 _select_window 부창 안이어야 한다"
-    # 집계값 40 에 per-frame 부족분이 가장 가까운 프레임 = 140도인 11번.
+    assert 10 <= frame < 14, "순간은 _select_window 부창 안이어야 한다"
+    # 부족분 70/40/20/30 → 집계 40. 가장 가까운 프레임 = 140도인 11번(거리 0).
     assert frame == 11
 
 
@@ -294,10 +297,10 @@ def test_extension_moment_is_not_the_worst_frame():
     T = 16
     usr = _angles(T, deg=180.0)
     usr[:, _LEFT_KNEE] = 180.0
-    # 부창 (10,13) 안: 10번 = 최대 부족(60) — argmax 유혹, 집계 40 최근접은 11번.
-    _transition_then_hold_knee(usr, _RIGHT_KNEE, (120.0, 140.0, 160.0))
+    # 부창 (10,14) 안: 10번 = 최대 부족(70) — argmax 유혹, 집계 40 최근접은 11번.
+    _transition_then_hold_knee(usr, _RIGHT_KNEE, (110.0, 140.0, 160.0, 150.0))
     profile = _knee_extend_profile(hold_window=(2, 14))
-    assert dimensions._select_window(usr, profile)[1] == (10, 13)
+    assert dimensions._select_window(usr, profile)[1] == (10, 14)
     out: dict = {}
     _build(
         usr=usr, profile=profile,
@@ -321,18 +324,19 @@ def test_line_moment_uses_the_contributing_joint_set_mean():
     T = 16
     usr = _angles(T, deg=180.0)
     # 두 무릎 모두 EXTEND 이고 둘 다 양수 부족분을 낸다 → line 집계는 둘의 평균.
-    # 전환부 2..9 = 양 무릎 20/180 요동, 이탈 13 = 20.
+    # 전환부 2..9 = 양 무릎 20/180 요동, 홀드 10..13, 이탈 14 = 20.
     for i in range(2, 10):
         v = 20.0 if i % 2 == 0 else 180.0
         usr[i, _LEFT_KNEE] = v
         usr[i, _RIGHT_KNEE] = v
-    usr[13, _LEFT_KNEE] = 20.0
-    usr[13, _RIGHT_KNEE] = 20.0
+    usr[14, _LEFT_KNEE] = 20.0
+    usr[14, _RIGHT_KNEE] = 20.0
     usr[10, _LEFT_KNEE], usr[10, _RIGHT_KNEE] = 170.0, 172.0  # 평균 부족 9
     usr[11, _LEFT_KNEE], usr[11, _RIGHT_KNEE] = 174.0, 176.0  # 평균 부족 5
     usr[12, _LEFT_KNEE], usr[12, _RIGHT_KNEE] = 178.0, 179.0  # 평균 부족 1.5
+    usr[13, _LEFT_KNEE], usr[13, _RIGHT_KNEE] = 175.0, 177.0  # 평균 부족 4
     profile = _knee_extend_profile(hold_window=(2, 14))
-    assert dimensions._select_window(usr, profile)[1] == (10, 13)
+    assert dimensions._select_window(usr, profile)[1] == (10, 14)
     out: dict = {}
     md = _build(
         usr=usr, profile=profile,
@@ -349,7 +353,7 @@ def test_line_moment_uses_the_contributing_joint_set_mean():
         ) / 2.0
 
     best_gap = abs(_frame_mean_deficit(frame) - line_val)
-    for t in (10, 11, 12):
+    for t in (10, 11, 12, 13):
         assert abs(_frame_mean_deficit(t) - line_val) >= best_gap - 1e-9
     # 유일 최근접 확인 — 동점 타이브레이크 의존 아님.
     assert frame == 11

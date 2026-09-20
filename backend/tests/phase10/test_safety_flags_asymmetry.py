@@ -13,6 +13,8 @@ import numpy as np
 
 from sunity_shared.analysis.safety_flags import compute_safety_flags
 
+from .conftest import with_entry_motion
+
 # JOINT_KEYS = (le, re, ls, rs, lh, rh, lk, rk) → left_hip=4, left_knee=6.
 JOINT_LEFT_HIP_IDX = 4
 JOINT_LEFT_KNEE_IDX = 6
@@ -70,9 +72,11 @@ def test_student_more_asymmetric_without_control_loss_no_flag(low_control_loss_r
 def test_student_more_asymmetric_wrong_phase_no_flag(wrong_phase_knee_control_loss_report, hold_profile) -> None:
     """phase-co-location: 무릎 통제 상실이 hold 가 아닌 entry phase 에만 → no-flag
     (asymmetry hold window 의 phase 와 미겹침, _phase_for_window 게이트)."""
-    a = np.full((40, 8), 150.0, dtype=float)
-    a[:, JOINT_LEFT_KNEE_IDX] = 90.0
-    ref = np.full((40, 8), 150.0, dtype=float)
+    # quick-260920-ra8: 홀드(10..40)를 각도 자체로 드러낸다 — 종전에는 전 프레임이
+    # 동일해서 "홀드가 어디냐"를 profile.hold_window 힌트로만 표현했다.
+    a = with_entry_motion(np.full((40, 8), 150.0, dtype=float))
+    a[10:, JOINT_LEFT_KNEE_IDX] = 90.0
+    ref = with_entry_motion(np.full((40, 8), 150.0, dtype=float))
     assert _call(angles=a, report=wrong_phase_knee_control_loss_report, reference_angles=ref, profile=hold_profile) == []
 
 
@@ -81,9 +85,9 @@ def test_student_more_asymmetric_wrong_phase_no_flag(wrong_phase_knee_control_lo
 
 def test_student_more_asymmetric_with_control_loss_flags(high_control_loss_report, hold_profile) -> None:
     """student 가 reference 보다 유의하게 더 비대칭 + 통제 상실 → 플래그 발화."""
-    a = np.full((40, 8), 150.0, dtype=float)
-    a[:, JOINT_LEFT_KNEE_IDX] = 90.0  # 좌측 무릎만 크게 굽힘 → 좌우 편차 큼 (ref 대칭)
-    ref = np.full((40, 8), 150.0, dtype=float)
+    a = with_entry_motion(np.full((40, 8), 150.0, dtype=float))
+    a[10:, JOINT_LEFT_KNEE_IDX] = 90.0  # 홀드에서 좌측 무릎만 크게 굽힘 (ref 대칭)
+    ref = with_entry_motion(np.full((40, 8), 150.0, dtype=float))
     flags = _call(angles=a, report=high_control_loss_report, reference_angles=ref, profile=hold_profile)
     assert any(f.flag_type == "asymmetry" for f in flags)
 
@@ -91,9 +95,9 @@ def test_student_more_asymmetric_with_control_loss_flags(high_control_loss_repor
 def test_asymmetry_max_pair_drives_flag(high_control_loss_report, hold_profile) -> None:
     """MAX aggregation — 한 pair(좌우 고관절)만 심하게 비대칭이고 나머지 pair 는 대칭이어도
     그 worst pair 가 플래그를 발화시키고 audit 문자열이 책임 pair 를 명시한다."""
-    a = np.full((40, 8), 150.0, dtype=float)
-    a[:, JOINT_LEFT_HIP_IDX] = 95.0  # 좌측 고관절만 큰 편차 (다른 pair 대칭)
-    ref = np.full((40, 8), 150.0, dtype=float)
+    a = with_entry_motion(np.full((40, 8), 150.0, dtype=float))
+    a[10:, JOINT_LEFT_HIP_IDX] = 95.0  # 홀드에서 좌측 고관절만 큰 편차 (다른 pair 대칭)
+    ref = with_entry_motion(np.full((40, 8), 150.0, dtype=float))
     flags = _call(angles=a, report=high_control_loss_report, reference_angles=ref, profile=hold_profile)
     asym = [f for f in flags if f.flag_type == "asymmetry"]
     assert asym, "worst pair(고관절) 가 플래그를 발화시켜야 함"

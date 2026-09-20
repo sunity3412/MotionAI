@@ -1052,3 +1052,120 @@ label 별 : correct 100% · fault 100% (354/354) · self 100% · upload 100%
 
 **프로세스**: GSD 커맨드를 거치지 않고 직접 편집으로 이 절을 붙였다(§6 과 같은 형태).
 측정 스크립트는 세션 scratchpad 라 휘발한다 — 재현이 필요하면 `evidence/` 로 옮길 것.
+
+---
+
+## 15. ★★★★ 운영이 저장한 점수를 읽었다 — **정은지 본인 영상의 12.8%가 100점 미만이다**
+
+§14-6 이 남긴 `[미확인]`("내 재구성은 이 축 단독 하한이지 운영 점수가 아니다")을 닫으려고
+**운영이 실제로 저장한 `result.deductionBreakdown`** 을 읽었다. 재구성이 아니라 운영 산출물이다.
+읽기 전용, 172건(64 + 46 + 62). Pod 0 · GPU 0.
+
+### 15-0. 판정
+
+**이 축은 운영에서 무죄에 가깝다. 위양성의 주범은 다른 축이다.**
+그리고 §14-5 의 재구성은 방향이 맞았다 — 운영도 정은지 본인 영상에 **감점 record 0건**을 낸다.
+
+**그런데 항상은 아니다.** 같은 영상을 다시 돌린 358건 중 **46건(12.8%)이 100점 미만**이고
+최저가 **10점**이다. 핵심 가치가 금지한 위양성(*"고수가 낮게 나오는"*)이 **저장된 운영 데이터 안에
+이미 있다.**
+
+### 15-1. `[확인]` 운영에서 실제로 감점을 내는 것은 이 축이 맞다
+
+`deductionBreakdown.records` 표본(동작×라벨당 최신 4건):
+
+```
+ref-pdshape     / fault : angle_vs_reference__left_elbow=28.7(-10.5) · right_elbow=27.3(-8.8)
+                          · left_shoulder=25.7(-6.9) ...                       → 67점
+ref-peter-pan   / fault : angle_vs_reference__left_shoulder=36.7(-20.0)        → 80점
+ref-elbow-twist / fault : right_elbow=24.5(-5.4) · right_shoulder=23.1(-3.7) ... → 82점
+ref-climb       / fault : right_knee=26.5(-7.8)                                 → 92점
+ref-power-spin  / fault : leg_extension=60.8(-20.0) · left_shoulder=31.9(-14.3) → 66점
+ref-kip-up      / fault : split_angle=20.0(-20.0)                               → 80점
+                          (같은 영상의 다른 분석은 record 0건 → 100점)
+
+정은지 본인 영상(correct/self) : 대부분 **감점 record 0건 → 100점**
+```
+
+→ **§14-5 의 재구성은 방향이 맞았다.** 그리고 §14-6 이 걱정한 window 분기는 kip-up 을
+`angle_vs_reference` 가 아니라 **`split_angle`** 로 가른다 — 그마저 같은 영상에서
+**100점과 80점을 오간다**(fault 75건 중 33.3%가 100점).
+
+### 15-2. ★ `[확인]` 위양성 — 정은지 본인 영상 358건 전수
+
+```
+동작                      n    중앙   <100 비율   최저
+ref-climb                 4     82     50.0%      60
+ref-power-spin           62    100     33.9%      72
+ref-combo                 4    100     25.0%      90
+ref-peter-pan            60    100      8.3%      10
+ref-kip-up               62    100      8.1%      50
+ref-pdshape             100    100      8.0%      10
+ref-elbow-twist-sister   54    100      7.4%      50
+ref-foxtop / -split / invert / sideway-spin   각 3건 전부 100
+                                     전체 46/358 = 12.8%
+```
+
+**같은 영상이다.** pdshape correct 97건 중 89건이 100점이고 8건이 미만이다.
+즉 이 흔들림은 실력도 촬영도 아니고 **실행마다 달라지는 것**이다.
+
+### 15-3. ★ `[확인]` 무엇이 깎았나 — 시점순 전량
+
+```
+2026-06-27  pdshape         10점   leg_extension = 67.7  (-90.0)
+2026-06-27  peter-pan       10점   leg_extension = 71.6  (-90.0)
+2026-06-27  pdshape         24점   leg_extension = 96.2  (-76.5)
+2026-06-27  peter-pan       47점   leg_extension = 115.8 (-53.0)
+2026-06-27  elbow-twist     62점   leg_extension = 128.3 (-38.0)
+2026-07-02  power-spin      74점   angle_vs_reference__left_hip 27.5(-9.0) · right_hip 34.4(-17.2)
+2026-07-02  peter-pan       85점   left_shoulder 27.8(-9.4) · right_elbow 24.9(-5.9)
+2026-07-02  elbow-twist     86점   right_shoulder 31.7(-14.1)
+2026-07-02  pdshape         92점   right_knee 26.5(-7.9)
+2026-07-08  power-spin      80점   leg_extension = 99.3  (-20.0)
+2026-07-22  pdshape         99점   left_knee 21.2(-1.4)
+2026-08-16  climb           60점   left_elbow 60.7(-20.0) · right_shoulder 23.2(-3.8) · split_angle 65.0(-20.0)
+2026-08-31  power-spin      80점   leg_extension = 135.8 (-20.0)
+```
+
+★ **재앙급 4건(10·10·24·47점)은 전부 `leg_extension` 이고 전부 2026-06-27 이다.**
+`leg_extension` 은 ipsf_absolute 축("다리는 180도로 펴져야 한다")이고,
+pdshape·peter-pan 은 **belle 가 2026-06-27 에 무릎 EXTEND 를 명시적으로 제거한** 동작이다
+(§10-1, `ref-pdshape.yaml:6-8`). 그 뒤로 그 형태는 **재발하지 않았다** `[확인]`.
+
+`[미확인]` **그 EXTEND 가 어디서 왔는지는 못 닫았다.** 후보는 §9-1 의 FallbackRecognizer
+(Gemini 실패 시 ≥150도 관절을 EXTEND 로 채운다)와 §8 의 캐시 상속이다. 그 분석들의
+`dimensionScores` 에 `line` 키가 있어 profile 에 EXTEND 관절이 있었던 것은 확실하지만,
+**분석 doc 은 `techniqueProfile` 을 저장하지 않는다** — 그래서 로컬로는 못 닫는다.
+`geminiB`/`geminiC` 의 fallback 플래그는 100점 군과 차이가 없었다(46/46 vs 34/35 동일).
+
+★ **그러나 위양성이 끝난 것은 아니다** `[확인]`:
+```
+2026-06 : 21.6% (n=134, 최저 10)
+2026-07 :  5.4% (n=204, 최저 74)
+2026-08 : 20.0% (n= 10, 최저 60)
+2026-09 :  0.0% (n=  2)          ← 표본이 2건이라 닫혔다고 말할 수 없다
+```
+2026-08-31 에도 power-spin 이 `leg_extension=135.8(-20)` 으로 80점을 받았다.
+
+★ **그리고 2026-08-16 climb 60점은 이 축이다** — `angle_vs_reference__left_elbow = 60.7도`.
+그 동작의 자기비교 바닥이 7.3도인데 **60.7도**가 나왔다. 바닥의 8배다.
+즉 **드문 큰 포즈 실패**가 median 집계를 뚫고 점수까지 닿는다. 바닥만 위험한 게 아니다.
+
+### 15-4. `[확인]` 관측 가능성 구멍 — 왜 그 점수가 나왔는지 사후에 못 묻는다
+
+분석 doc 에 `techniqueProfile` 이 없다. `leg_extension` 이 −90점을 냈는데 **어느 관절에
+무슨 기대가 걸려 있었는지** doc 만으로는 복원 불가다. `recognizedMotionId` 는
+`result.comparison` 에 있지만 그 4건은 전부 `None` 이다.
+→ 이 축을 파일럿에 내보낼 거라면 **profile 을 doc 에 박는 것**이 선행돼야 한다.
+같은 종류의 구멍을 §8 에서도 봤다(캐시가 자기 입력을 키에 안 담던 것).
+
+### 15-5. 이게 belle 판정에 주는 것
+
+- `[확인]` **이 축(reference_relative)은 운영 위양성의 주범이 아니다.** 재앙급 4건은
+  `leg_extension`(ipsf_absolute)이고 belle 의 06-27 yaml 결정 이전 건이다.
+- `[확인]` **그래도 이 축도 한 번 찍혔다** — 2026-08-16 climb, 바닥의 8배인 60.7도.
+- `[확인]` **같은 영상이 실행마다 10점~100점을 오간다.** 파일럿에서 수강생이 같은 영상을
+  두 번 올리면 다른 점수를 받을 수 있다.
+- `[미확인]` **지금도 그런지는 표본이 2건이라 말할 수 없다.** 09-17 rot180 이후 분석이
+  4건뿐이다. 이걸 닫는 가장 싼 길은 **Pod 을 한 번 띄워 같은 영상 10회 재분석**이다 —
+  belle 판정이 필요하다(돈).

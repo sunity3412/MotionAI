@@ -1,0 +1,25 @@
+{
+  "_what": "정은지 본인 영상을 자기 기준과 비교했을 때 나오는 편차 = 이 축의 바닥. 실력차 0 인 조건이므로 학생 편차에서 이만큼은 '못해서'가 아니다.",
+  "_how": "fixtures/phase15/{동작}/correct.mp4 (= 그 동작의 기준 영상 그 자체)를 앱과 동일 경로로 분석하고 backend/scripts/measure_reference_axis.py 로 편차를 냈다.",
+  "_when": "2026-09-20. Pod lx8hfw9pn32gge (L4) · commit a5ec1b08 · ROT180_INVERSION_ENABLED=1 · 기준 referenceRelease=rot180_v1 — 학생측·기준측이 둘 다 rot180 이다.",
+  "_caution": [
+    "이 값은 정은지 영상 1편씩이다. 표본이 아니라 단일 측정이다.",
+    "2026-09-17 rot180 승격 **이전** 판에서 잰 값과 섞지 마라 — pdshape 은 15.0 -> 5.8 로 내려갔다(역립 프레임 89.9% 동작).",
+    "EXTEND criterion 의 감점 문턱은 20도다(ipsf_criteria._ANGLE_TOLERANCE_DEG). 바닥과 그 사이가 학생에게 남은 여유다.",
+    "학생 바닥은 미측정이다 — 다른 몸/다른 카메라/다른 테이크가 이 위에 얼마나 얹히는지가 이 축의 마지막 미지수다."
+  ],
+  "ref-kip-up": 2.8,
+  "ref-peter-pan": 5.1,
+  "ref-pdshape": 5.8,
+  "ref-power-spin": 7.5,
+  "ref-climb": 7.9,
+  "_missing": {
+    "_note": "아래 6동작은 현재 판(rot180 양쪽)에서 미측정이다. 옛 판(phase4_v1 양쪽) 값만 있으므로 섞어 쓰지 말 것. Pod 한 번 더 띄우면 채워진다.",
+    "ref-elbow-twist-sister": "옛 판 15.8 — 역립 80.2% 동작이라 pdshape 처럼 크게 내려갔을 수 있다. 우선 측정 대상.",
+    "ref-combo": "옛 판 9.5",
+    "ref-invert": "옛 판 9.2",
+    "ref-foxtop": "옛 판 13.4",
+    "ref-foxtop-split": "옛 판 12.3",
+    "ref-sideway-spin": "옛 판 2.3"
+  }
+}

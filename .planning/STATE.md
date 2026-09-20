@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-20 동시 분석 오염 수리 완료(quick-260920-cac) — 분석별 값을 전역 싱글턴에서 분리. 다음 첫 일 = 분석 결함 ①(정렬 축) 또는 ③(얼어붙은 허용오차). 착수점 = .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md"
+stopped_at: "2026-09-20 마감 — 고친 것 2건(동시 분석 오염 · 캐시 키). mode3 는 규명만 하고 고친 것 0: 점수가 떨림 단독 · 객관 기준 9/10 부재 · 정은지 대비 축은 학생이 아니라 동작을 잰다(분산 79%). 판정 = mode3 자세 채점은 이번 파일럿에서 성립하지 않는다(재료 부재, 더 재도 불변). 착수점 = .planning/quick/260920-cac-concurrency-contamination-fix/260920-cac-SUMMARY.md"
 last_updated: "2026-09-20T02:00:00.000Z"
 last_activity: 2026-09-20
 progress:

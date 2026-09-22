@@ -39,6 +39,12 @@ FN = "sunity-motion-pilot-pipeline"
 PLACEHOLDER = "https://pod-down.invalid/analyze"
 API_KEY_PARAM = "/sunity/motion/runpod-api-key"
 GRAPHQL = "https://api.runpod.io/graphql"
+_UA = "sunity-motion-pod-teardown/1.0"
+# 무인자 실행이 종료해도 되는 Pod 이름 접두사. RunPod 계정은 프로젝트 공용이라
+# `myself{pods}` 에 **다른 프로젝트 Pod 이 섞인다** — 2026-09-22 실측으로
+# Sunityfunding 학습 Pod `sunity-pipe-translator-q9b` 가 같이 잡혔다.
+# 접두사를 안 걸면 무인자 실행이 남의 학습을 죽인다.
+OWNED_NAME_PREFIX = "sunity-motion"
 
 
 def _session() -> boto3.Session:
@@ -55,7 +61,17 @@ def _gql(key: str, query: str) -> dict:
     req = urllib.request.Request(
         GRAPHQL,
         data=json.dumps({"query": query}).encode(),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            # ★User-Agent 를 반드시 보낸다 — RunPod GraphQL 앞단 Cloudflare 가
+            # urllib 기본 UA(`Python-urllib/*`)를 차단한다. 2026-09-22 실측:
+            # 기본 UA → HTTP 403 + body `error code: 1010`, UA 를 주면 200.
+            # 같은 키로 curl 은 통과했으므로 키·권한 문제가 아니다.
+            # 이 헤더가 빠지면 종료 절차가 통째로 죽고, Lambda 는 죽은 Pod 주소를
+            # 계속 가리킨다(= 이 스크립트가 막으려던 상태 그 자체).
+            "User-Agent": _UA,
+        },
     )
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read())
@@ -70,12 +86,24 @@ def main() -> int:
     if not urls_only:
         key = ssm.get_parameter(Name=API_KEY_PARAM, WithDecryption=True)["Parameter"]["Value"]
         if args:
+            # 명시 지목은 그대로 존중한다 — 사람이 id 를 적었으면 그게 의도다.
             targets = args
         else:
             data = _gql(key, "query{myself{pods{id name}}}")
-            targets = [p["id"] for p in (data.get("data") or {}).get("myself", {}).get("pods", [])]
+            pods = (data.get("data") or {}).get("myself", {}).get("pods", [])
+            # ★소유 판별 — 이름 접두사가 맞는 것만 종료한다. 나머지는 손대지 않고
+            # 목록만 알린다(fail-safe): 놓쳐서 사람이 한 번 더 지목하는 쪽이
+            # 남의 프로젝트 Pod 을 죽이는 쪽보다 낫다.
+            targets = [p["id"] for p in pods if (p.get("name") or "").startswith(OWNED_NAME_PREFIX)]
+            skipped = [p for p in pods if (p.get("name") or "").startswith(OWNED_NAME_PREFIX) is False]
+            for p in skipped:
+                print(
+                    f"건너뜀 {p['id']} ({p.get('name')!r}) — 이름이 {OWNED_NAME_PREFIX!r} 로 "
+                    "시작하지 않아 Sunity-Motion 소유로 보지 않는다. "
+                    "정말 끄려면 id 를 인자로 지목할 것."
+                )
         if not targets:
-            print("실행 중 Pod 없음 — 종료 생략")
+            print("종료할 Sunity-Motion Pod 없음 — 종료 생략")
         for pid in targets:
             _gql(key, f'mutation{{podTerminate(input:{{podId:"{pid}"}})}}')
             print(f"terminate {pid}")

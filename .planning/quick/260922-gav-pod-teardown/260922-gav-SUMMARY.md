@@ -45,7 +45,16 @@ Mode1 측정이 `m2czli3w4wqpe5` 에서 돌고 있어 종료 경로를 밟으면
 
 ## 남은 것 (이번 범위 밖)
 
-- `[미확인]` 종료 경로 전체(terminate → Lambda 자리표시자 → SSM) 를 끝까지 실행한
-  검증은 없다. 오늘 측정이 끝나고 Pod 을 내릴 때 그 실행이 곧 검증이 된다.
+- `[해소 — 같은 날 실행]` 종료 경로 전체를 무인자로 끝까지 실행했다. 출력 원문:
+  ```
+  건너뜀 u9f1ykw4e89cxz ('sunity-pipe-translator-q9b') — 이름이 'sunity-motion' 로
+         시작하지 않아 Sunity-Motion 소유로 보지 않는다. 정말 끄려면 id 를 인자로 지목할 것.
+  terminate m2czli3w4wqpe5
+  Lambda 되돌림 https://m2czli3w4wqpe5-8000.proxy.runpod.net/analyze -> https://pod-down.invalid/analyze
+  SSM 되돌림 (pod-expected=down)
+  ```
+  사후 확인: 계정 Pod 목록에 `sunity-pipe-translator-q9b` 만 남음(우리 것만 종료),
+  Lambda `RUNPOD_ANALYZE_URL` = `https://pod-down.invalid/analyze`.
+  → **다른 프로젝트 Pod 보호가 실제 실행에서 작동했다.**
 - 접두사 방식의 한계: `sunity-motion` 으로 시작하지 않는 이름으로 우리 Pod 을
   만들면 무인자 실행이 놓친다. 놓치는 쪽을 택한 것은 의도다(fail-safe).

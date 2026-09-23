@@ -3055,8 +3055,19 @@ def _build_deduction_measured_deviations(
                 # 수술 ② (quick-260808-r82): 점수 경로와 동일 ref_fps → 동일 제외 창.
                 # 점수 경로와 순간 경로가 다른 창을 쓰면 "쟀다" 계약이 깨진다.
                 user_seg = angles[start:end]
+                # quick-260923-sqt — path 의 기준 인덱스는 window-local 이다(MotionMatch
+                # 계약). 호출부는 veto·segment 용으로 **전체** 기준(a_ref)을 넘기므로
+                # 여기서 점수 경로(_deviation_against)와 같은 창으로 자른다. 자르지 않으면
+                # 기준 창이 0 이 아닌 곳에서 시작할 때(학생 길이가 기준의 80~100% 라 DTW 가
+                # 기준 안에서 창을 미끄러뜨린 경우) 감점 재료가 기준의 엉뚱한 프레임과
+                # 비교된다 — 2026-09-23 재현: 정은지 기준 영상 앞 15% 를 잘라 넣으면 점수
+                # 경로 0도 / 감점 seed 29~33도 → 84~89점. 창이 기준 전체([0, nr))면
+                # 종전과 byte-동일(2026-09-22 운영 11건이 전부 이 경우였다).
+                ref_start = int(getattr(reference_dtw_match, "ref_start", 0) or 0)
+                ref_end = getattr(reference_dtw_match, "ref_end", None)
+                ref_win = np.asarray(reference_angles, dtype=float)[ref_start:ref_end]
                 dev = per_joint_deviation(
-                    path, user_seg, reference_angles, ref_fps=ref_fps
+                    path, user_seg, ref_win, ref_fps=ref_fps
                 )
                 for i, jk in enumerate(JOINT_KEYS):
                     dtw_by_joint[jk] = float(dev[i])
@@ -3069,7 +3080,7 @@ def _build_deduction_measured_deviations(
                         # 창이다. CI 는 record 억제 보조 지표(산식 아님)라 이번 diff
                         # 최소 원칙으로 남긴다 — 후속에서 같은 마스크 적용 검토.
                         _cis = _mer.per_joint_median_ci(
-                            path, user_seg, reference_angles
+                            path, user_seg, ref_win
                         )
                         _n = len(path)
                         for i, jk in enumerate(JOINT_KEYS):
@@ -3088,7 +3099,7 @@ def _build_deduction_measured_deviations(
                         # 수술 ② — 점수 경로(dev)와 동일 ref_fps: 표시 순간이 제외
                         # 구간 스텝에서 절대 나오지 않는다.
                         _reps = per_joint_representative_frames(
-                            path, user_seg, reference_angles, int(start),
+                            path, user_seg, ref_win, int(start),
                             frame_confidence=frame_confidence,
                             ref_fps=ref_fps,
                         )

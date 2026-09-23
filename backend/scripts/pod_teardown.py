@@ -17,7 +17,9 @@ Lambda 가 **3세대 전 Pod**(elevev58iv4mox)을 가리키고 있었다.
 사용:
     backend/.venv/bin/python backend/scripts/pod_teardown.py            # 실행 중 Pod 전부
     backend/.venv/bin/python backend/scripts/pod_teardown.py <podId>    # 특정 Pod
-    backend/.venv/bin/python backend/scripts/pod_teardown.py --urls-only  # 종료 없이 주소만
+    backend/.venv/bin/python backend/scripts/pod_teardown.py --urls-only  # 종료 없이 주소만 **자리표시자로 되돌린다**
+                                                                        # ★조회 아님 — 살아있는 Pod 의 주소를 지운다(2026-09-23 실수).
+                                                                        #   주소 확인은 aws lambda get-function-configuration 으로
 """
 from __future__ import annotations
 

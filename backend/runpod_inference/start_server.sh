@@ -31,6 +31,10 @@ export ROT180_INVERSION_ENABLED=1  # quick-260917-hjy: belle 승인(2026-09-17) 
 # 되돌리기 = 이 줄을 다시 주석 처리 + 재기동. 저장된 doc 은 안 바뀐다(재분석해야 반영).
 # 근거·실측 = .planning/quick/260920-m3r-mode3-reference-axis/SUMMARY.md
 # export MODE3_REFERENCE_RELATIVE_ENABLED=1
+# quick-260923-weq — 영상 다운로드는 S3 Transfer Acceleration 으로. EU-RO ↔ 서울 직결이 연결 단위로 멎어
+# 첫 분석 다운로드에 30분이 걸렸다(2026-09-23). 가속 엔드포인트 4/4 8.5MB/s. 버킷 가속 설정은 켜 둠.
+# 끄면(0/삭제) 종전 직결. 업로드·재생 URL 은 영향 없다(다운로드 클라이언트만 분리, app.py _s3_dl).
+export S3_USE_ACCELERATE=1
 export RTMW_DETERMINISTIC=1  # 08-08 렌더 정렬 비결정성 뿌리 수리 — 채점(rtmw_engine)+렌더 정렬(compare_align.build_model) 세션 양쪽 결정론. 미주입=OFF 함정(같은 영상이 매 실행 다른 정렬 → 리그 판정이 운에 걸림). rollback: 이 줄 삭제
 export RTMW_ONNX_PATH=/workspace/rtmw_weights/rtmw-x-384.onnx
 export YOLOX_ONNX_PATH=/workspace/yolox_weights/yolox_m.onnx

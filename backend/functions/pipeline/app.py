@@ -52,6 +52,7 @@ from pathlib import Path
 from typing import Iterator, NamedTuple
 
 import boto3  # Lambda 런타임 제공
+from botocore.config import Config as BotoConfig  # 다운로드 가속 엔드포인트(_s3_dl)
 import numpy as np
 
 from sunity_shared import firestore_admin, models, provenance
@@ -158,6 +159,25 @@ def _stage(timings: dict[str, int], analysis_id: str, name: str) -> Iterator[Non
         )
 
 _s3 = boto3.client("s3")
+# quick-260923-weq — 영상 **다운로드** 전용 클라이언트. EU-RO Pod ↔ 서울 S3 직결은 연결 단위로
+# 간헐적으로 멎는다(2026-09-23 실측: 30MB 4회 중 3회 5~7KB/s, 첫 분석 다운로드 55MB 에 30분).
+# 같은 Pod 에서 Transfer Acceleration 엔드포인트는 4/4 8.5MB/s. `S3_USE_ACCELERATE=1`(start_server.sh)
+# 이면 다운로드만 가속 엔드포인트로 붙는다. 업로드·서명 URL(`_s3`)은 종전 그대로 — 앱이 받는
+# 재생 URL 이 가속 호스트로 바뀌지 않게(가속 전송은 GB 당 과금). Lambda 는 미설정 = 종전과 동일.
+_s3_dl = (
+    boto3.client("s3", config=BotoConfig(s3={"use_accelerate_endpoint": True}))
+    if os.environ.get("S3_USE_ACCELERATE") == "1"
+    else None
+)
+
+
+def _s3_download(bucket: str, key: str, dest: str) -> None:
+    """영상 다운로드 — 가속 클라이언트가 있으면 그것, 없으면 `_s3`.
+
+    `_s3` 는 **호출 시점**에 본다(모듈 로드 때 묶지 않는다) — 테스트가 `app._s3` 를
+    가짜로 바꿔 끼우는 관례(49건)가 그대로 살아야 한다.
+    """
+    (_s3_dl if _s3_dl is not None else _s3).download_file(bucket, key, dest)
 # 결과 화면 영상 재생 서명 URL 만료(초). 7일 = sigv4 + 영구 IAM 키의 최대값.
 # 3600s 였을 때 belle 가 시연 후 다시 결과 화면을 열면 URL 이 만료돼 본인 영상이
 # 비어 보였다(P0 #6). 운영 경로(RunPod)는 sunity-motion 영구 키로 서명하므로
@@ -1548,7 +1568,7 @@ def _angles_from_video(bucket: str, key: str) -> np.ndarray:
     test_pipeline_recognizer_switch.TestB8FixSignature 가 차단.
     """
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
-        _s3.download_file(bucket, key, tmp.name)
+        _s3_download(bucket, key, tmp.name)
         frames = _FRAME_EXTRACTOR.extract(tmp.name)
     keypoints = _POSE_ESTIMATOR.estimate(frames)  # (T,17,4) — 미감지 시 NoHumanError
     angles = compute_joint_angles(keypoints)
@@ -1576,7 +1596,7 @@ def _angles_and_body_profile_from_video(
     """
     _ensure_adapters()
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
-        _s3.download_file(bucket, key, tmp.name)
+        _s3_download(bucket, key, tmp.name)
         frames = _FRAME_EXTRACTOR.extract(tmp.name)
     keypoints, profile = _POSE_ESTIMATOR.estimate_with_profile(frames)
     angles = compute_joint_angles(keypoints)
@@ -1652,7 +1672,7 @@ def _download_analysis_video(
     tmp.close()
     try:
         with _stage(timings_ms, analysis_id, "s3_download"):
-            _s3.download_file(bucket, key, tmp_path)
+            _s3_download(bucket, key, tmp_path)
     except Exception:
         Path(tmp_path).unlink(missing_ok=True)
         raise
@@ -4565,7 +4585,7 @@ def _build_mode3_fault_zoom_comparisons(
         # (종전엔 성공 후 할당이라 실패 반복 시 장수명 Pod 에 빈 파일 누적 —
         # T-05-03-02 "delete=False 는 caller 책임 정리" 규율).
         prev_video_path = tmp.name
-        _s3.download_file(bucket, prev_video_key, prev_video_path)
+        _s3_download(bucket, prev_video_key, prev_video_path)
         # Mode3 는 split_angle_present 기본 False(게이트 A) — 기준이 사용자 지난
         # 영상이라 도립 pose 대칭 문제로 사이각을 안전 생략(quick-260705-wbs).
         return _render_fault_zoom(
@@ -5189,7 +5209,7 @@ def _run_deferred_compare_render(
             key = item.get("key")
             if not rid or not isinstance(key, str) or not key:
                 continue
-            _s3.download_file(bucket, key, str(audio_dir / f"{rid}.mp3"))
+            _s3_download(bucket, key, str(audio_dir / f"{rid}.mp3"))
 
         breakdown = result.get("deductionBreakdown")
         records = breakdown.get("records") if isinstance(breakdown, dict) else None
@@ -5248,7 +5268,7 @@ def _run_deferred_compare_render(
             if not isinstance(_key, str) or not _key:
                 continue
             try:
-                _s3.download_file(
+                _s3_download(
                     bucket, _key, str(audio_dir / _key.rsplit("/", 1)[-1])
                 )
             except Exception:  # noqa: BLE001 - 항목별 비차단 (그 항목만 제외 회계)
@@ -8572,7 +8592,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                             suffix=ref_ext, delete=False
                         )
                         ref_tmp.close()
-                        _s3.download_file(bucket, ref["videoS3Key"], ref_tmp.name)
+                        _s3_download(bucket, ref["videoS3Key"], ref_tmp.name)
                         reference_local_video_path = ref_tmp.name
                     except Exception:  # noqa: BLE001 - 기준 영상 다운로드 실패 graceful
                         log.warning(

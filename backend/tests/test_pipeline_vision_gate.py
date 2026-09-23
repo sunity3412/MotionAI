@@ -828,6 +828,28 @@ class TestStillPairFanoutWiring:
         assert call["still_reference_png"] == "/tmp/ref_match.png"
         assert call["still_frame_indices"] == [12, 10]
 
+    def test_still_indices_name_the_image_actually_sent(self, monkeypatch):
+        """quick-260923-u2q — 기준 still 은 영상 프레임 공간(ref_image_idx)에서 뽑고, 정량화는
+        각도 공간(ref_frame_idx)을 쓴다. Gemini 캐시 키(still_frame_indices)는 **보낸 이미지**의
+        번호여야 한다 — 각도 번호로 두면 이미지가 바뀌어도 키가 같아 예전(어긋난 still) 판정이
+        캐시에서 되살아난다(90d038f stale-hit 규율)."""
+        app, vv = self._stub_collect(
+            monkeypatch, rich_status="candidate_verdict",
+            supported=[], root_causes=[],
+            telemetry={"completedCalls": 4, "plannedCalls": 4, "uploadCount": 4,
+                       "samplingComplete": True},
+            ref_match_source="dtw",
+        )
+        pair = vv.SelectedFramePair(
+            student_frame_path="/tmp/student_worst.png",
+            reference_frame_path="/tmp/ref_match.png",
+            user_frame_idx=12, ref_frame_idx=30, ref_image_idx=20,
+            student_confidence=0.9, cleanup_paths=(), ref_match_source="dtw",
+        )
+        monkeypatch.setattr(app, "_build_selected_frame_pair", lambda **k: pair)
+        app._collect_vision_fault_context(**self._COLLECT_ARGS)
+        assert self._fanout_calls[0]["still_frame_indices"] == [12, 20]
+
     @pytest.mark.parametrize("variant", ["ratio", "pair_none"])
     def test_ratio_or_missing_pair_is_video_only(self, monkeypatch, variant):
         """DTW 매칭 실패(시간비례 ratio 폴백) 또는 pair 부재 → still kwargs 미전달 =

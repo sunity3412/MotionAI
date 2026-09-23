@@ -1139,11 +1139,19 @@ def _matched_ref_frame(dtw_match, user_frame: int, ref_n: int) -> int | None:
 
     **본체 수정 금지** — veto still 경로(app.py `_build_selected_frame_pair`)가 이
     함수를 공유하며 그쪽 입력이 바뀌면 점수가 움직인다 (28-RESEARCH Open Q2).
+
+    `[2026-09-23 quick-260923-u2q]` 한 줄 예외: path 의 기준 인덱스는 **window-local** 이다
+    (33-M3-SPEC, `MotionMatch.path` 계약) — `ref_start` 를 더해 **전체** 기준 angles 인덱스로
+    돌려준다. 기준 창이 [0, …) 이면 종전과 byte-동일(2026-09-22 운영 11건 전부 이 경우).
+    창이 미끄러진 학생 영상(기준의 1.2~1.5배 길이)에서는 종전이 ref_start 만큼 앞선 순간을
+    골랐다 — 감점 seed 의 같은 결함(quick-260923-sqt)과 한 묶음. clamp 상한 ref_n 은
+    **각도 공간** 길이여야 한다(영상 프레임 수를 넘기면 후반이 끝 프레임에 눌린다).
     """
     if dtw_match is None:
         return None
     try:
         start = int(getattr(dtw_match, "start", 0))
+        ref_start = int(getattr(dtw_match, "ref_start", 0) or 0)
         path = getattr(dtw_match, "path", None) or []
     except Exception:  # noqa: BLE001 - match 형태 이상 시 graceful (proportional 폴백)
         return None
@@ -1151,7 +1159,7 @@ def _matched_ref_frame(dtw_match, user_frame: int, ref_n: int) -> int | None:
     js = sorted(j for (i, j) in path if i == local)
     if not js:
         return None
-    return max(0, min(int(js[len(js) // 2]), ref_n - 1))
+    return max(0, min(int(js[len(js) // 2]) + ref_start, ref_n - 1))
 
 
 def _kp_xy(report: dict, frame_idx: int, joint: str) -> tuple[float, float] | None:

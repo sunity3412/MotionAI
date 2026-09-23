@@ -2138,6 +2138,8 @@ def _build_selected_frame_pair(
     pose_frames=None,
     reference_pose_frames=None,
     cached_user_frames=None,
+    reference_angles_len: int | None = None,
+    reference_angles_fps: float | None = None,
 ):
     """still 프레임 추출/정리 helper (D-10 HIGH-2) → SelectedFramePair | None.
 
@@ -2145,6 +2147,16 @@ def _build_selected_frame_pair(
     프레임은 기존 FfmpegFrameExtractor(9fps/640px) 재사용. cleanup_paths = 생성된 로컬
     이미지 — 호출자 finally 가 unlink(Gemini File API delete 와 독립). graceful — 실패 시
     None (분석 흐름 차단 0).
+
+    quick-260923-u2q — 기준 쪽 인덱스 공간이 둘이다: 기준 **각도**(기준 doc, ~15fps)와
+    여기서 새로 뽑는 기준 **영상 프레임**(9fps 목표, ~10fps). `_matched_ref_frame` 은 각도
+    공간 번호를 준다. 종전에는 그 번호를 영상 프레임 배열에 그대로 꽂아 Gemini 가 받는
+    정은지 still 이 1.5배 늦은 순간이었고(후반은 끝 프레임에 눌림), 정량화도 영상 프레임
+    수로 clamp 돼 후반 기준 각도를 못 읽었다 — 2026-09-23 실측 0/10(같은 테이크 픽셀 대조).
+    확대 카드 경로는 28-05(2026-07-08)에 같은 변환을 넣었고 이 경로만 빠져 있었다.
+    reference_angles_len·reference_angles_fps 를 받으면 두 공간을 가른다:
+      ref_frame_idx = 각도 공간(정량화 소비) · ref_image_idx = 이미지가 나온 영상 프레임.
+    둘 중 하나라도 없으면(구 호출부) 종전과 같은 단일 공간 동작.
     """
     from sunity_shared.analysis import fault_zoom, vision_veto
 
@@ -2167,10 +2179,24 @@ def _build_selected_frame_pair(
         u_n = int(user_frames.shape[0])
         r_n = int(ref_frames.shape[0])
         u_idx = max(0, min(int(user_frame_idx), u_n - 1)) if u_n else 0
-        # DTW match 로 같은-pose 기준 프레임 (재계산 0).
-        r_matched = fault_zoom._matched_ref_frame(reference_dtw_match, u_idx, r_n)
+        r_eff = ext.effective_fps_for(reference_video_path)
+        split_spaces = bool(reference_angles_len) and bool(reference_angles_fps) and bool(r_eff)
+        if (reference_angles_len or reference_angles_fps) and not split_spaces:
+            log.info(
+                "still 기준 공간 분리 불가 — 종전 단일 공간 경로 angles_len=%s angles_fps=%s "
+                "ref_video_fps=%s", reference_angles_len, reference_angles_fps, r_eff,
+            )
+        n_ang = int(reference_angles_len) if split_spaces else r_n
+        # DTW match 로 같은-pose 기준 프레임 — 각도 공간 전체 인덱스 (재계산 0).
+        r_matched = fault_zoom._matched_ref_frame(reference_dtw_match, u_idx, n_ang)
         r_idx = r_matched if r_matched is not None else (
-            int(round(u_idx / max(1, u_n - 1) * (r_n - 1))) if (u_n > 1 and r_n > 1) else 0
+            int(round(u_idx / max(1, u_n - 1) * (n_ang - 1))) if (u_n > 1 and n_ang > 1) else 0
+        )
+        # 기준 still 이미지 = 같은 시각의 영상 프레임. 변환 공식은 확대 카드와 같은 단일
+        # 출처(fault_zoom._to_rep_idx — 28-05 가 zoom 에 넣은 그 식).
+        r_img = (
+            fault_zoom._to_rep_idx(r_idx, float(reference_angles_fps), float(r_eff), r_n)
+            if split_spaces else max(0, min(r_idx, r_n - 1))
         )
         # 선택 인덱스만 로컬 PNG 로 write.
         student_path = tempfile.NamedTemporaryFile(
@@ -2181,7 +2207,7 @@ def _build_selected_frame_pair(
         ).name
         cleanup.extend([student_path, ref_path])
         Image.fromarray(user_frames[u_idx]).convert("RGB").save(student_path)
-        Image.fromarray(ref_frames[r_idx]).convert("RGB").save(ref_path)
+        Image.fromarray(ref_frames[r_img]).convert("RGB").save(ref_path)
         # keypoint 가시성/confidence — pose_frames 직접 추출(veto 전에 존재, fps 정합 단순).
         student_kp = _pose_frame_keypoints(pose_frames, u_idx)
         ref_kp = _pose_frame_keypoints(reference_pose_frames, r_idx)
@@ -2198,6 +2224,7 @@ def _build_selected_frame_pair(
             # provenance 판별 (quick 260705-h5z): DTW 매칭 성공 여부 — 소비자가
             # "dtw" 일 때만 이 pair 를 하이브리드 vision still 입력으로 쓴다.
             ref_match_source="dtw" if r_matched is not None else "ratio",
+            ref_image_idx=r_img,
         )
     except Exception:  # noqa: BLE001 - still 추출 실패 graceful (보류 status 로 swallow)
         for p in cleanup:
@@ -2260,6 +2287,7 @@ def _collect_vision_fault_context(
     preuploaded_student_handle=None,
     preuploaded_reference_handle=None,
     cached_user_frames=None,
+    reference_angles_fps: float | None = None,
 ) -> "vision_veto.VisionFaultContext":
     """Gemini 호출 소유자 (coach 전 1회, D-10 HIGH-1). keyword pre-build primitive 시그니처.
 
@@ -2315,6 +2343,15 @@ def _collect_vision_fault_context(
         selection = vision_veto.select_worst_frame_candidates(profile)
         at = vision_veto.worst_pose_timestamp(profile)
         user_frame_idx = int(round((at or 0.0) * 9.0))  # 9fps 정합.
+        # quick-260923-u2q — 기준 각도 공간 길이·fps 를 넘겨 still 이미지(영상 프레임)와
+        # 정량화(각도 행)의 공간을 가른다. reference_angles 는 전체 기준(2D) 이다.
+        _ref_len = None
+        try:
+            _ra = np.asarray(reference_angles) if reference_angles is not None else None
+            if _ra is not None and _ra.ndim == 2:
+                _ref_len = int(_ra.shape[0])
+        except Exception:  # noqa: BLE001 - 형상 판정 실패 = 종전 단일 공간 경로
+            _ref_len = None
         pair = _build_selected_frame_pair(
             user_video_path=local_video_path,
             reference_video_path=reference_video_path,
@@ -2323,6 +2360,8 @@ def _collect_vision_fault_context(
             pose_frames=pose_frames,
             reference_pose_frames=reference_pose_frames,
             cached_user_frames=cached_user_frames,
+            reference_angles_len=_ref_len,
+            reference_angles_fps=reference_angles_fps,
         )
         # WR-02 — keypoint confidence 를 실제로 측정했는지 추적한다. pair 부재(frame-pair 선택
         # 실패) 또는 student_confidence None 이면 미측정 → visibility 0.0 은 sentinel 이지
@@ -2393,7 +2432,12 @@ def _collect_vision_fault_context(
                 still_kwargs = {
                     "still_student_png": pair.student_frame_path,
                     "still_reference_png": pair.reference_frame_path,
-                    "still_frame_indices": [pair.user_frame_idx, pair.ref_frame_idx],
+                    # 캐시 키 = **보낸 이미지**의 번호(quick-260923-u2q). 각도 공간 번호를
+                    # 쓰면 이미지가 바뀌어도 키가 같아 어긋난 still 의 예전 판정이 되살아난다.
+                    "still_frame_indices": [
+                        pair.user_frame_idx,
+                        pair.ref_image_idx if pair.ref_image_idx is not None else pair.ref_frame_idx,
+                    ],
                 }
             rich = gemini_vision_scorer.assess_fault_context_video(
                 local_video_path,
@@ -8685,6 +8729,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 preuploaded_student_handle=student_video_handle,
                 preuploaded_reference_handle=reference_video_handle,
                 cached_user_frames=cached_user_frames,  # Phase 27 Task 3 — 재추출 소멸
+                # quick-260923-u2q — 기준 각도 fps(점수 경로와 같은 값). still 이미지를
+                # 같은 시각의 기준 영상 프레임에서 뽑는 데 쓴다.
+                reference_angles_fps=reference_kp_fps or None,
             )
         # eligible 일 때만 support-gated root-cause 를 coach context 에 주입(graceful 무시 아님 —
         # writer 가 to_coach_context() 의 visionFault 키를 실제 프롬프트 causes 에 렌더).

@@ -334,6 +334,13 @@ class SelectedFramePair:
     2026-07-05 pod 진단 0/6) 하이브리드 vision 입력으로 부적격 — 소비자(pipeline
     _collect_vision_fault_context)는 "dtw" 일 때만 still 을 scorer 에 전달한다.
     defaulted 뒤쪽 필드라 기존 생성부 비파괴.
+
+    인덱스 공간 (quick-260923-u2q) — 기준 쪽은 공간이 둘이다:
+      ref_frame_idx  = 기준 **각도** 행(기준 doc, ~15fps). 정량화(window median)가 이걸로
+                       reference_angles 를 인덱싱한다.
+      ref_image_idx  = 기준 still **이미지**가 나온 영상 프레임(9fps 목표 추출, ~10fps).
+                       Gemini 캐시 키·메타는 이 번호 — 보낸 이미지를 가리켜야 이미지가 바뀔 때
+                       키도 바뀐다. None 이면 ref_frame_idx 와 같은 공간(구 생성부 호환).
     """
 
     student_frame_path: str | None
@@ -346,6 +353,7 @@ class SelectedFramePair:
     reference_confidence: float | None = None
     cleanup_paths: tuple = ()
     ref_match_source: str = "ratio"
+    ref_image_idx: int | None = None
 
 
 # ---------------------------------------------------------------------------

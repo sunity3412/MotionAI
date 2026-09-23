@@ -31,6 +31,9 @@
 - 이 스크립트는 **읽기 전용**이다. 쓰기 0.
 
 사용:
+  backend/.venv/bin/python backend/scripts/measure_reference_axis.py --pairs          # 원장의 짝 전부
+  backend/.venv/bin/python backend/scripts/measure_reference_axis.py --pair pr_kipup_je_001
+  backend/.venv/bin/python backend/scripts/measure_reference_axis.py --clips --floors backend/scripts/reference_axis_floors.json
   backend/.venv/bin/python backend/scripts/measure_reference_axis.py --uid <uid>
   backend/.venv/bin/python backend/scripts/measure_reference_axis.py --ids a1,a2 --json out.json
   backend/.venv/bin/python backend/scripts/measure_reference_axis.py --uid <uid> --ref-version phase4_v1
@@ -167,6 +170,143 @@ def collect(db, uid: str | None, ids: list[str], limit: int):
     return out
 
 
+# ── 원장에서 doc 찾기 + 짝 비교 (quick-260923-swh) ─────────────────────────────
+# 2026-09-23 kip-up 비교는 손으로 했고 (1) 어느 doc 을 썼는지 안 남았고 (2) 운영과 다른
+# 계산이었다(원시 각도 DTW · 경계 마스크 없음 → 어깨 20.1도, 운영·저장값은 20.62도).
+# 그래서 여기서는 새 계산을 만들지 않는다 — 편차는 이 파일의 deviate()(= 운영
+# _deviation_against), 점수·감점은 그 분석이 **저장한 값**을 읽는다.
+# doc 은 intake_clips.py 가 남긴 analysis_runs.jsonl 로 찾는다(video_hash → doc).
+
+DATA = REPO / "backend" / "training" / "data"
+
+
+def _jsonl(path: pathlib.Path) -> list[dict]:
+    if not path.exists():
+        return []
+    return [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+
+
+def latest_done_runs(runs: list[dict]) -> dict[str, dict]:
+    """video_hash → 가장 최근에 끝난(done) 분석 기록."""
+    out: dict[str, dict] = {}
+    for r in runs:
+        if r.get("status") != "done":
+            continue
+        cur = out.get(r["video_hash"])
+        if cur is None or str(r.get("analyzed_at", "")) >= str(cur.get("analyzed_at", "")):
+            out[r["video_hash"]] = r
+    return out
+
+
+def stored_consumer(d: dict) -> dict:
+    """그 분석이 **실제로 낸 것** — 저장된 점수·감점·억제. 재계산이 아니다."""
+    res = d.get("result") or {}
+    bd = res.get("deductionBreakdown") or {}
+    return {
+        "overall": res.get("overallScore"),
+        "records": [{"criterion": r.get("criterion"), "measured": r.get("measuredValue"),
+                     "points": r.get("points")} for r in bd.get("records") or []],
+        "suppressed": [{"criterion": s.get("criterion"), "measured": s.get("measuredValue"),
+                        "would_be": s.get("wouldBePoints"), "low": s.get("intervalLow"),
+                        "high": s.get("intervalHigh"), "tolerance": s.get("tolerance")}
+                       for s in bd.get("suppressedRecords") or []],
+        "version": res.get("analysisVersion") or {},
+    }
+
+
+def measure_doc(d: dict, rd: dict) -> dict:
+    """운영 점수 경로로 관절별 편차 + 정렬 창. 창이 [0, 기준 전체)가 아니면 DTW 가 기준 안에서
+    창을 미끄러뜨린 것이다(학생 영상이 기준의 1.2~1.5배 길이 — quick-260923-sqt)."""
+    nj = len(d.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
+    sa = np.asarray(d["angles"], dtype=float).reshape(-1, nj)
+    dev, m = deviate(sa, rd)
+    return {"per_joint": dict(zip(JOINT_KEYS, map(float, dev))),
+            "window": [int(m.ref_start), int(m.ref_end)], "user_frames": int(len(sa)),
+            "ref_frames": int(len(ref_matrix(rd))), "dtw_distance": float(m.distance)}
+
+
+def _fetch(db, run: dict) -> dict:
+    snap = db.document(f"users/{run['uid']}/analyses/{run['analysis_id']}").get()
+    return (snap.to_dict() or {}) if snap.exists else {}
+
+
+def _live_release(db) -> str | None:
+    return (db.document("reference/_release").get().to_dict() or {}).get("activeCandidate")
+
+
+def _suppressed_line(s: dict) -> str:
+    return (f"{s['criterion']} {s['measured']}도 → {s['would_be']}점이 측정오차 구간 "
+            f"{s['low']}~{s['high']}(허용 {s['tolerance']})에 걸려 빠짐")
+
+
+def compare_pairs(db, refs, pair_filter: str | None, ref_version: str | None) -> list[dict]:
+    """원장의 정타/실수 짝 → 같은 기준 대비 관절별 편차를 나란히 + 저장된 점수·감점."""
+    runs = latest_done_runs(_jsonl(DATA / "analysis_runs.jsonl"))
+    live = None if ref_version else _live_release(db)
+    out = []
+    for p in _jsonl(DATA / "pairs.jsonl"):
+        if pair_filter and p["pair_id"] != pair_filter:
+            continue
+        print(f"\n== {p['pair_id']}  {p['motion']} · {p['subject_id']} ==")
+        pick = {"정타": runs.get(p["correct_hash"]), "실수": runs.get(p["fault_hash"])}
+        missing = [k for k, r in pick.items() if r is None]
+        if missing:
+            print(f"  분석 기록 없음: {', '.join(missing)} — intake_clips.py analyze 필요")
+            continue
+        rd = refs.get(f"ref-{p['motion']}")
+        if rd is None:
+            print(f"  기준 doc ref-{p['motion']} 없음")
+            continue
+        sides = {}
+        for label, run in pick.items():
+            d = _fetch(db, run)
+            if d.get("status") != "done" or not d.get("angles"):
+                print(f"  {label} doc 을 못 읽었다 ({run['analysis_id'][:8]})")
+                break
+            sides[label] = {"analysis_id": run["analysis_id"], "uid": run["uid"],
+                            "measure": measure_doc(d, rd), "stored": stored_consumer(d)}
+        if len(sides) < 2:
+            continue
+        rels = {s["stored"]["version"].get("referenceRelease") for s in sides.values()}
+        used = ref_version or live
+        for label, s in sides.items():
+            m, st, v = s["measure"], s["stored"], s["stored"]["version"]
+            print(f"  {label}  {s['analysis_id'][:8]}  저장 점수 {st['overall']}  "
+                  f"창 [{m['window'][0]},{m['window'][1]}) 학생/기준 {m['user_frames']}/{m['ref_frames']}프레임  "
+                  f"DTW {m['dtw_distance']:.2f}  {str(v.get('commitSha') or '?')[:8]} · {v.get('referenceRelease')}")
+        if len(rels) > 1:
+            print(f"  ★두 분석의 기준 판이 다르다 {sorted(map(str, rels))} — 편차 비교가 판 차이를 섞는다")
+        elif used and rels != {used}:
+            print(f"  ★분석 당시 기준 판 {rels.pop()} ≠ 지금 재는 판 {used} — "
+                  f"--ref-version 으로 맞출 것 (reference-version-mismatch-trap)")
+        pc, pf = sides["정타"]["measure"]["per_joint"], sides["실수"]["measure"]["per_joint"]
+        print("  관절별 편차 — 운영 점수 경로(_deviation_against) 재계산, 도")
+        print(f"    {'관절':16s}{'정타':>7s}{'실수':>7s}{'차':>8s}")
+        for jk in sorted(JOINT_KEYS, key=lambda k: pf[k] - pc[k], reverse=True):
+            print(f"    {jk:16s}{pc[jk]:7.1f}{pf[jk]:7.1f}{pf[jk] - pc[jk]:+8.1f}")
+        for label, s in sides.items():
+            st = s["stored"]
+            recs = ", ".join(f"{r['criterion']} {r['measured']}도 {r['points']}점" for r in st["records"]) or "없음"
+            print(f"  {label} — 실제로 받은 감점(저장값): {recs}")
+            for sp in st["suppressed"]:
+                print(f"    억제: {_suppressed_line(sp)}")
+        out.append({"pair_id": p["pair_id"], "motion": p["motion"], "subject_id": p["subject_id"],
+                    "reference_version_used": used, **{k: v for k, v in sides.items()}})
+    return out
+
+
+def clip_docs(db) -> list[tuple[str, str, dict]]:
+    """원장(clips.jsonl)의 분석된 영상 → (uid, analysisId, doc). 기존 표 출력에 그대로 넣는다."""
+    runs = latest_done_runs(_jsonl(DATA / "analysis_runs.jsonl"))
+    out = []
+    for c in _jsonl(DATA / "clips.jsonl"):
+        r = runs.get(c["video_hash"])
+        if r is None:
+            continue
+        out.append((r["uid"], r["analysis_id"], _fetch(db, r)))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -176,13 +316,24 @@ def main() -> int:
     ap.add_argument("--ref-version", help="기준 버전 고정 (예: phase4_v1). 기본 = 라이브")
     ap.add_argument("--floors", help="동작별 바닥 JSON ({motionId: 도}). 주면 바닥 대비도 낸다")
     ap.add_argument("--json", help="결과를 이 경로에 JSON 으로 저장")
+    ap.add_argument("--pairs", action="store_true",
+                    help="원장 pairs.jsonl 의 짝 전부: 정타 vs 실수 (doc 은 analysis_runs.jsonl 로 찾음)")
+    ap.add_argument("--pair", help="짝 하나만 (pair_id, 예: pr_kipup_je_001)")
+    ap.add_argument("--clips", action="store_true",
+                    help="원장 clips.jsonl 의 분석된 영상 전부를 아래 표로 (학생 영상용)")
     a = ap.parse_args()
 
     db = _db()
     refs = load_references(db, a.ref_version)
+    if a.pairs or a.pair:
+        rows = compare_pairs(db, refs, a.pair, a.ref_version)
+        if a.json:
+            json.dump(rows, open(a.json, "w"), ensure_ascii=False, indent=1)
+            print(f"\n저장: {a.json}")
+        return 0 if rows else 1
     floors = json.load(open(a.floors)) if a.floors else {}
     ids = [x.strip() for x in a.ids.split(",") if x.strip()]
-    docs = collect(db, a.uid, ids, a.limit)
+    docs = clip_docs(db) if a.clips else collect(db, a.uid, ids, a.limit)
     if not docs:
         return 1
     print(f"대상 분석 {len(docs)}건 · 기준 {len(refs)}편"

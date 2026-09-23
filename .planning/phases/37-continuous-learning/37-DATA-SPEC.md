@@ -51,8 +51,8 @@ Phase 37 이 필요로 하는 네 가지가 들어갈 자리가 없다:
 
 ## 2. 레코드 4종
 
-기존 `manifest.json` 을 **대체하지 않고 확장**한다. 신규 3종은 별 파일로 두어
-스크랩 수집(harvest)과 사람 데이터가 섞이지 않게 한다.
+기존 `manifest.json` 을 **대체하지 않는다.** 사람 데이터(subject · clip · pair · judgment)는
+전부 별 파일로 두어 스크랩 수집(harvest)과 섞이지 않게 한다(`[2026-09-23]` clip 도 별 파일로 — 2-2).
 
 ### 2-1. `subject` — 누가 (신규: `backend/training/data/subjects.jsonl`)
 
@@ -68,9 +68,19 @@ Phase 37 이 필요로 하는 네 가지가 들어갈 자리가 없다:
 - 학생은 `display_name` 을 두지 않는다(PII). 식별은 `subject_id` 로만.
 - ★이게 없으면 **모든 기준이 정은지 한 사람**이라 "동작의 본질"과 "정은지 버릇"이 안 갈린다.
 
-### 2-2. `clip` — 영상 1편 (기존 manifest 확장)
+### 2-2. `clip` — 영상 1편 (`[변경 2026-09-23 quick-260923-swh]` 별 파일 `clips.jsonl`)
 
-기존 행에 **추가**할 필드(스크랩 행은 비워 둔다):
+> **사람이 모아준 영상은 `manifest.json` 에 넣지 않는다 — `backend/training/data/clips.jsonl` 에 둔다.**
+> 이유(코드 확인): 플라이휠이 manifest 의 `s3_key` 보유 행을 증류 후보로 자동 선택한다
+> (`gemini_teacher.eligible_for_distill` — holdout 아니고 s3_key 있으면 통과, 동의는 안 본다).
+> manifest 에 넣으면 동의 조건이 다른 학생 영상이 **주 1회 자동으로 학습에 들어가고**,
+> 규칙 6(인물·세션 분리 평가)의 평가셋이 학습셋으로 샌다.
+> 등록 도구 = `backend/scripts/intake_clips.py register`. 분석 doc 연결 =
+> `backend/training/data/analysis_runs.jsonl`(`intake_clips.py analyze`) — video_hash → (uid, analysisId,
+> analysisVersion). 짝 비교 = `measure_reference_axis.py --pairs`.
+> 아래 필드 구성은 그대로 유효하다(원본 파일명은 남기지 않는다 — 이름이 들어 있을 수 있다).
+
+필드:
 ```json
 {"s3_key": "...", "motion": "kip-up",
  "video_hash": "8a6f9f8f...",        // ★정본 키. 내용 해시

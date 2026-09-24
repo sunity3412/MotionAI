@@ -1,0 +1,14 @@
+동작             판         점수      엉덩이     낮은발     그립손    손아래엉덩이  1/3 전부 낮음  대체 문장
+ref-power-spin correct  100   -0.048  +0.088  -0.075    +0.031  False         -
+ref-power-spin fault     80   -0.184  +0.260  -0.646    +0.393  False         -
+ref-kip-up     correct  100   -0.008  +0.000  -0.015    +0.005  False         -
+ref-kip-up     fault     83   -0.145  -0.220  -0.021    -0.126  True          ['angle_vs_reference__left_shoulder']
+     statusLine: 돌기 시작해서 끝날 때까지 몸이 정은지 선수보다 낮게 떠 있어요
+     whyLine: 손 높이는 같은데 몸이 손 아래로 처졌고, 왼팔이 몸통에서 더 벌어져 있어요
+     cueLine: 왼팔을 굽혀 옆구리에 붙인 채 돌아보세요
+ref-climb      correct  100   -0.002  -0.004  +0.008    -0.007  False         -
+ref-climb      fault     60   -0.203  -0.012  +0.312    -0.501  False         -
+ref-peter-pan  correct  100   +0.011  +0.004  +0.016    -0.015  False         -
+ref-peter-pan  fault     60  높이 못 잼(None) — 창 (0, 62)/(10, 110)  대체 -
+ref-pdshape    correct  100  높이 못 잼(None) — 창 (35, 150)/(52, 224)  대체 -
+ref-pdshape    fault     80  높이 못 잼(None) — 창 (47, 162)/(52, 224)  대체 -

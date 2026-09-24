@@ -104,10 +104,10 @@ def test_hold_fault_is_not_diluted_by_full_clip_median():
     assert "left_elbow" not in audit["fallback_joints"]
     # 다른 관절은 차이 0 → 미방출(종전과 같은 규칙).
     assert [k for k in md_c if k.startswith("angle_vs_reference__")] == [key]
-    # 값과 구간이 같은 표본에서: n = 창 프레임 수, 구간이 값을 묶는다. (구간 폭은 창 안에서
-    # 관절이 움직이는 만큼이다 — 합성 궤적은 ±25 사인이라 넓다. 수치 타깃 아님.)
-    lo, hi, n = me[key]
-    assert n == 40 and 0.0 <= lo <= 30.0 <= hi
+    # 상수 경로는 measurement_error 를 남기지 않는다 — 창 안 표본의 구간은 관절의 움직임
+    # 폭(이 합성 궤적은 ±25 사인)이지 측정 잡음이 아니라서, 남기면 진짜 편차가 억제된다
+    # (2026-09-24 Pod 검증: power-spin 어깨 26.4 가 구간 15.3~33.0 으로 억제 → 점수 73→80).
+    assert key not in me
     # 측정 순간은 창 안 프레임이다.
     assert 30 <= at[key]["frame_idx"] < 70
 
@@ -177,12 +177,6 @@ def test_student_window_from_match_uses_edges_only():
     assert app._student_window_from_match(m, 102, 109) == (12, 17)           # 정체(3↔3,4,5)도 가장자리만
     assert app._student_window_from_match(m, 105, 107) is None               # 창 부족
     assert app._student_window_from_match(m, 200, 210) is None               # 창 밖
-
-
-def test_abs_median_interval():
-    assert app._abs_median_interval(25.0, 33.0) == (25.0, 33.0)
-    assert app._abs_median_interval(-33.0, -25.0) == (25.0, 33.0)
-    assert app._abs_median_interval(-3.0, 8.0) == (0.0, 8.0)
 
 
 def test_flag_default_on(monkeypatch):

@@ -2840,9 +2840,9 @@ def _window_constant_samples(angles, reference_angles, u_win, r_win):
 
     표본 = 학생 창의 각도 − 기준 창 각도의 **median**(상수). 따라서 median(표본) =
     학생 창 median − 기준 창 median — 두 상수의 차이지 짝별 차이의 median 이 아니다.
-    이 표본이 record 의 measuredValue(|median|)와 신뢰구간을 **같이** 만든다(값과 구간이
-    같은 표본에서 나와야 한다는 quick-260802-nse 규율). 비유한 값은 제외하고, 남은 표본이
-    최소 프레임 미만인 관절은 항목 부재(fail-closed → 그 관절은 DTW 로).
+    표본은 값(|두 median 의 차|)과 순간(학생 median 최근접 프레임)을 만든다. **신뢰구간은
+    만들지 않는다**(아래 2b 주석). 비유한 값은 제외하고, 남은 표본이 최소 프레임 미만인
+    관절은 항목 부재(fail-closed → 그 관절은 DTW 로).
     """
     A = np.asarray(angles, dtype=float)
     R = np.asarray(reference_angles, dtype=float)
@@ -2867,18 +2867,6 @@ def _window_constant_samples(angles, reference_angles, u_win, r_win):
         frames = (np.arange(u0, u1)[keep]).astype(int)
         out[j] = (stu - ref_med, float(np.median(stu)), ref_med, frames)
     return out
-
-
-def _abs_median_interval(lo, hi):
-    """signed median 구간 (lo, hi) → |median| 의 구간. 0 을 걸치면 하한 0(fail-closed 쪽:
-    하한이 낮을수록 억제가 잘 걸린다 = 단정을 덜 한다)."""
-    lo = float(lo)
-    hi = float(hi)
-    if lo >= 0.0:
-        return lo, hi
-    if hi <= 0.0:
-        return -hi, -lo
-    return 0.0, max(-lo, hi)
 
 
 def _build_deduction_measured_deviations(
@@ -2925,6 +2913,8 @@ def _build_deduction_measured_deviations(
         재면 +33.9. i38 측정: 5동작 전부 실수 갈림·정타 0 근처·판 간 차 ≤5(DTW 12.1).
         None(default) = 종전 byte-동일. 관절별 fail-closed(표본 부족·NaN) → 그 관절만 DTW.
         seed_audit_out["constant_joints"] 에 기록. Gemini 가 짚은 관절의 window 경로는 그대로.
+        measurement_error 는 **남기지 않는다**(window 경로와 같은 규율 — 창 안 표본의 구간은
+        관절의 움직임 폭이지 측정 잡음이 아니다, 2026-09-24 Pod 검증 실측).
       · seed_audit_out: dict 전달 시 {pointed, window_joints, fallback_joints,
         attributionReliability} 기록 (25-04 eval harness 구조 게이트 + 33-NEXT production
         다운스트림 강등 공통 채널). record/final 무접촉 — md(점수 substrate)는 읽기만.
@@ -3310,9 +3300,14 @@ def _build_deduction_measured_deviations(
     #     (가장자리만), 창 안에서 짝 없이 |학생 median − 기준 median| 을 낸다. 표본 = 학생 창
     #     각도 − 기준 창 median → 값과 신뢰구간이 같은 표본에서 나온다. 실패는 전부 항목
     #     부재 = 그 관절은 DTW-fallback(종전 byte-동일). md 는 아래 3 에서만 쓴다.
+    #
+    #     ★ measurement_error 는 **남기지 않는다**(항목 부재 = 종전대로 감점, window 경로와 같은
+    #     규율). 창 안 표본의 순서통계 구간은 측정 잡음이 아니라 **관절이 창 안에서 움직이는 폭**
+    #     을 잰다 — 2026-09-24 Pod 검증에서 power-spin 어깨 26.4/23.9(구간 15.3~33.0 / 19.0~27.4)·
+    #     peter-pan 무릎 33.8(13.9~46.1)·climb 팔꿈치 22.4(3.7~33.6)가 그 구간으로 억제됐다.
+    #     이 추정량의 실측 잡음은 판 간(09-22/09-23, 다른 GPU) ≤5도(i38)라 허용 20 이 그 몫을 한다.
     const_by_joint: dict = {}
     const_frame_by_joint: dict = {}
-    const_ci_by_joint: dict = {}
     if (
         ref_exec_window is not None and reference_dtw_match is not None
         and reference_angles is not None and angles is not None
@@ -3321,8 +3316,6 @@ def _build_deduction_measured_deviations(
             _r0, _r1 = int(ref_exec_window[0]), int(ref_exec_window[1])
             _u_win = _student_window_from_match(reference_dtw_match, _r0, _r1)
             if _u_win is not None:
-                from sunity_shared.analysis import measurement_error as _mer_c
-
                 _samples = _window_constant_samples(
                     angles, reference_angles, _u_win, (_r0, _r1)
                 )
@@ -3351,14 +3344,9 @@ def _build_deduction_measured_deviations(
                     )
                     if _idx is not None:
                         const_frame_by_joint[_jk] = int(_frames[int(_idx)])
-                    _ci = _mer_c.median_ci(_sig)
-                    if _ci is not None:
-                        _lo, _hi = _abs_median_interval(_ci[0], _ci[1])
-                        const_ci_by_joint[_jk] = (_lo, _hi, int(_sig.size))
         except Exception:  # noqa: BLE001 — 상수 경로 실패 = 항목 부재 = 종전 DTW-fallback
             const_by_joint = {}
             const_frame_by_joint = {}
-            const_ci_by_joint = {}
 
     def _window_moment_frame(jk):
         """pointed 관절의 순간 = window 안에서 student_deg 에 가장 가까운 프레임.
@@ -3424,10 +3412,7 @@ def _build_deduction_measured_deviations(
             if _emit_reference_relative(jk, const_by_joint[jk], at_frame):
                 constant_joints.append(jk)
                 _record_moment(f"angle_vs_reference__{jk}", at_frame)
-                if isinstance(measurement_error_out, dict) and jk in const_ci_by_joint:
-                    measurement_error_out[f"angle_vs_reference__{jk}"] = (
-                        const_ci_by_joint[jk]
-                    )
+                # measurement_error 항목 없음(위 2b) — 억제 없이 종전대로 감점된다.
         elif jk in dtw_by_joint:
             at_frame = dtw_frame_by_joint.get(jk)
             if _emit_reference_relative(jk, dtw_by_joint[jk], at_frame):

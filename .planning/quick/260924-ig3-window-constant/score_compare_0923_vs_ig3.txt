@@ -1,0 +1,28 @@
+# fixture 10편 — 09-23 밤(weq, L4, commit 86fa0f89) vs 오늘 ig3(L4 eqmfk0nwgaxset, commit 1d9a41e9). 저장 doc 의 deductionBreakdown 그대로.
+# ref:<joint> = angle_vs_reference__<joint>. 오늘은 전 관절이 constant 경로(Pod 로그 constant=5~8, fallback=0).
+
+동작/의도            판    점수  dims                                     records                                                                  suppressed
+kip-up/correct     09-23  100  angle 100 stability 97                   []                                                                       []
+kip-up/correct     오늘   100  angle 100 stability 97                   []                                                                       []
+kip-up/fault       09-23  100  angle 100 stability 97                   []                                                                       []
+kip-up/fault       오늘    83  angle 100 stability 97                   ref:left_shoulder 33.9 −16.6                                             []
+power-spin/correct 09-23  100  angle 100 line 91 stability 96           []                                                                       []
+power-spin/correct 오늘   100  angle 100 line 91 stability 96           []                                                                       []
+power-spin/fault   09-23   73  angle 82 line 0 stability 81             leg_extension 140.9 −20.0 · ref:left_shoulder 26.0 −7.2                  ref:left_hip 23.0 −3.6
+power-spin/fault   오늘    80  angle 82 line 0 stability 81             leg_extension 140.9 −20.0                                                ref:left_shoulder 26.4 −7.7 · ref:right_shoulder 23.9 −4.7
+climb/correct      09-23  100  angle 100 stability 94                   []                                                                       []
+climb/correct      오늘   100  angle 100 stability 94                   []                                                                       []
+climb/fault        09-23   86  angle 80 stability 94                    ref:right_hip 24.5 −5.4 · ref:right_knee 27.0 −8.4                       ref:left_shoulder 22.7 −3.3 · ref:right_shoulder 22.2 −2.7
+climb/fault        오늘    60  angle 80 stability 94                    ref:left_knee 36.8 −20 · ref:right_hip 40.3 −20 · ref:right_knee 37.9 −20  ref:right_elbow 22.4 −2.8
+peter-pan/correct  09-23  100  angle 100 stability 97                   []                                                                       []
+peter-pan/correct  오늘   100  angle 100 stability 97                   []                                                                       []
+peter-pan/fault    09-23   80  angle 80 stability 98                    ref:left_shoulder 36.7 −20                                               ref:right_hip 20.4 −0.5
+peter-pan/fault    오늘    60  angle 80 stability 98                    ref:left_shoulder 39.2 −20 · ref:right_elbow 38.7 −20                    ref:right_knee 33.8 −16.6
+pdshape/correct    09-23  100  angle 100 stability 93                   []                                                                       []
+pdshape/correct    오늘   100  angle 100 stability 93                   []                                                                       []
+pdshape/fault      09-23   87  angle 87 stability 91                    ref:left_elbow 31.1 −13.4                                                []
+pdshape/fault      오늘    80  angle 87 stability 91                    ref:left_elbow 43.7 −20                                                  []
+
+# 정타 5/5 = 100, dims 전부 동일(각도·안정성 차원은 이 경로 밖). 실수: kip-up 100→83 · climb 86→60 · peter-pan 80→60 · pdshape 87→80 · power-spin 73→80(↑).
+# power-spin ↑7 의 원인 = 어깨 2건이 **억제**됐다(상수 경로 표본 CI 하한 ≤ 20; 옛 경로에선 left_shoulder 26.0 이 record). leg_extension −20 은 그대로라 100 과는 여전히 갈린다.
+# climb·peter-pan 60 = 관절당 −20 캡 × 2~3 + 실행 합산 캡 −40 = 바닥 60 (IPSF 캡, 0점 뭉침 방지).

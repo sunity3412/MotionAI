@@ -1,0 +1,87 @@
+
+== pr_powerspin_je_001  power-spin · sub_je ==
+  정타  4541a570  저장 점수 100  창 [0,159) 학생/기준 106/159프레임  DTW 32.76  1d9a41e9 · rot180_v1
+  실수  c4ebed20  저장 점수 80  창 [0,159) 학생/기준 83/159프레임  DTW 61.01  1d9a41e9 · rot180_v1
+  관절별 편차 — 운영 점수 경로(_deviation_against) 재계산, 도
+    관절                   정타     실수       차
+    left_knee           4.6   25.6   +21.1
+    left_shoulder       7.2   26.0   +18.8
+    left_hip            7.8   23.0   +15.2
+    right_elbow         4.7   18.9   +14.2
+    right_shoulder      8.2   19.1   +10.9
+    left_elbow          7.1   15.8    +8.7
+    right_knee         11.9   20.3    +8.4
+    right_hip          12.0   16.4    +4.4
+  정타 — 실제로 받은 감점(저장값): 없음
+  실수 — 실제로 받은 감점(저장값): leg_extension 140.95도 -20.0점
+    억제: angle_vs_reference__left_shoulder 26.41도 → -7.7점이 측정오차 구간 15.25~33.0(허용 20.0)에 걸려 빠짐
+    억제: angle_vs_reference__right_shoulder 23.89도 → -4.7점이 측정오차 구간 18.95~27.4(허용 20.0)에 걸려 빠짐
+
+== pr_kipup_je_001  kip-up · sub_je ==
+  정타  e6264535  저장 점수 100  창 [0,118) 학생/기준 79/118프레임  DTW 6.51  1d9a41e9 · rot180_v1
+  실수  dacc4467  저장 점수 83  창 [0,118) 학생/기준 68/118프레임  DTW 27.01  1d9a41e9 · rot180_v1
+  관절별 편차 — 운영 점수 경로(_deviation_against) 재계산, 도
+    관절                   정타     실수       차
+    left_shoulder       3.5   19.0   +15.5
+    left_elbow          4.1   14.7   +10.6
+    right_shoulder      3.3   12.7    +9.4
+    right_hip           2.4    9.7    +7.3
+    left_hip            3.2    8.1    +4.9
+    right_elbow         1.5    2.5    +1.0
+    right_knee          0.8    1.7    +1.0
+    left_knee           1.1    1.8    +0.7
+  정타 — 실제로 받은 감점(저장값): 없음
+  실수 — 실제로 받은 감점(저장값): angle_vs_reference__left_shoulder 33.86도 -16.6점
+
+== pr_climb_je_001  climb · sub_je ==
+  정타  240e265e  저장 점수 100  창 [0,120) 학생/기준 80/120프레임  DTW 23.17  1d9a41e9 · rot180_v1
+  실수  1d00cc60  저장 점수 60  창 [0,120) 학생/기준 62/120프레임  DTW 57.70  1d9a41e9 · rot180_v1
+  관절별 편차 — 운영 점수 경로(_deviation_against) 재계산, 도
+    관절                   정타     실수       차
+    right_knee          5.0   27.0   +22.0
+    right_hip           7.2   24.5   +17.4
+    right_shoulder      8.8   22.2   +13.4
+    left_shoulder       9.7   22.7   +13.0
+    left_elbow          9.7   19.7   +10.0
+    left_knee           7.2   16.9    +9.6
+    right_elbow         8.6   17.5    +8.9
+    left_hip            6.6   13.9    +7.3
+  정타 — 실제로 받은 감점(저장값): 없음
+  실수 — 실제로 받은 감점(저장값): angle_vs_reference__right_hip 40.34도 -20.0점, angle_vs_reference__left_knee 36.8도 -20.0점, angle_vs_reference__right_knee 37.85도 -20.0점
+    억제: angle_vs_reference__right_elbow 22.36도 → -2.8점이 측정오차 구간 3.65~33.56(허용 20.0)에 걸려 빠짐
+
+== pr_peterpan_je_001  peter-pan · sub_je ==
+  정타  9a35ca8a  저장 점수 100  창 [0,130) 학생/기준 87/130프레임  DTW 21.40  1d9a41e9 · rot180_v1
+  실수  29b47497  저장 점수 60  창 [0,130) 학생/기준 62/130프레임  DTW 52.78  1d9a41e9 · rot180_v1
+  관절별 편차 — 운영 점수 경로(_deviation_against) 재계산, 도
+    관절                   정타     실수       차
+    left_shoulder       9.5   36.7   +27.2
+    right_hip           5.0   20.4   +15.4
+    right_knee          4.0   16.4   +12.4
+    right_elbow         6.0   17.1   +11.2
+    left_hip            5.8   11.5    +5.8
+    right_shoulder      5.2    9.7    +4.4
+    left_elbow          2.7    5.0    +2.3
+    left_knee           0.9    1.9    +1.0
+  정타 — 실제로 받은 감점(저장값): 없음
+  실수 — 실제로 받은 감점(저장값): angle_vs_reference__right_elbow 38.67도 -20.0점, angle_vs_reference__left_shoulder 39.24도 -20.0점
+    억제: angle_vs_reference__right_knee 33.81도 → -16.6점이 측정오차 구간 13.94~46.05(허용 20.0)에 걸려 빠짐
+
+== pr_pdshape_je_001  pdshape · sub_je ==
+  정타  d50cf457  저장 점수 100  창 [0,237) 학생/기준 159/237프레임  DTW 21.64  1d9a41e9 · rot180_v1
+  실수  8aad6846  저장 점수 80  창 [0,237) 학생/기준 182/237프레임  DTW 46.49  1d9a41e9 · rot180_v1
+  관절별 편차 — 운영 점수 경로(_deviation_against) 재계산, 도
+    관절                   정타     실수       차
+    left_elbow          5.7   31.1   +25.4
+    left_shoulder       3.6   18.5   +14.9
+    right_elbow         7.2   19.1   +11.9
+    left_knee           5.8   16.9   +11.1
+    right_knee          7.2   16.7    +9.5
+    right_shoulder      6.3   14.9    +8.6
+    left_hip            5.5   12.6    +7.1
+    right_hip           5.8   11.5    +5.7
+  정타 — 실제로 받은 감점(저장값): 없음
+  실수 — 실제로 받은 감점(저장값): angle_vs_reference__left_elbow 43.68도 -20.0점
+
+== pr_elbowtwistsister_je_001  elbow-twist-sister · sub_je ==
+  분석 기록 없음: 정타, 실수 — intake_clips.py analyze 필요

@@ -701,6 +701,19 @@ def _synthesis_enabled() -> bool:
     return raw.strip().lower() not in _SYNTHESIS_FALSY
 
 
+def _reference_constant_window_enabled() -> bool:
+    """REFERENCE_CONSTANT_WINDOW_ENABLED — reference_relative seed 의 "유지 구간 상수" 경로
+    (quick-260924-ig3, default ON). "0"/"false"/"off"/"no" 면 OFF = 종전 DTW-fallback 만.
+
+    왜 ON 이 기본인가: 2026-09-24 i38 측정(fixture 10편 + 09-22 판)에서 기준 clipRange
+    exec 창 안 **짝 없는** 각도 중앙값이 5동작 전부 실수를 갈랐고(kip-up 왼어깨 +33.9 vs
+    DTW 19.0), 정타는 0 근처, 판 간 차 ≤5(DTW 12.1). belle 09-24 배선 승인.
+    OFF 는 Pod A/B 재현용이다 — 빌더 인자 `ref_exec_window=None` 과 같은 산출(byte-동일).
+    """
+    raw = os.environ.get("REFERENCE_CONSTANT_WINDOW_ENABLED", "1")
+    return str(raw).strip().lower() not in ("0", "false", "off", "no")
+
+
 def _mode3_reference_relative_enabled() -> bool:
     """MODE3_REFERENCE_RELATIVE_ENABLED — mode3 채점에 정은지 기준 축을 건다 (default OFF).
 
@@ -2761,13 +2774,120 @@ def _line_moment_frame(
         return None
 
 
+# quick-260924-ig3 — 유지 구간 상수 경로. 창(학생·기준 각각)이 이보다 짧으면 fail-closed(DTW).
+# 5 프레임 ≈ 0.5s(학생 10fps) — 분포무관 median 구간의 최소표본과 같은 자릿수. 구조 유도.
+_CONSTANT_WINDOW_MIN_FRAMES = 5
+
+
+def _reference_exec_window(ref_doc, ref_fps, n_ref):
+    """기준 doc 의 `clipRange`(execStartS~landEndS) → 기준 **각도** 프레임 창 `(r0, r1)` | None.
+
+    quick-260924-ig3. 유지 구간은 사람이 짚지 않는다 — 기준 등록 때 기록된 동작 시작·끝
+    시각을 쓴다(2026-09-24 실측: 기준 5편 전부 보유, kip-up 1.0~7.2s = belle 이 짚은
+    "여기서부터"와 같은 자리). fail-closed 전부 None: dict 아님 / clipRange 부재 / fps·n 비정상
+    / 시각 비유한·역순 / 창이 `_CONSTANT_WINDOW_MIN_FRAMES` 미만. None 이면 그 분석은 종전
+    DTW-fallback 경로 그대로다(byte-동일).
+    """
+    if not isinstance(ref_doc, dict):
+        return None
+    cr = ref_doc.get("clipRange")
+    if not isinstance(cr, dict):
+        return None
+    try:
+        fps = float(ref_fps)
+        n = int(n_ref)
+        s0 = float(cr.get("execStartS"))
+        s1 = float(cr.get("landEndS"))
+    except (TypeError, ValueError):
+        return None
+    if not (fps > 0.0 and n > 0 and s0 == s0 and s1 == s1 and s0 >= 0.0 and s1 > s0):
+        return None
+    r0 = int(round(s0 * fps))
+    r1 = min(int(round(s1 * fps)), n)
+    if r1 - r0 < _CONSTANT_WINDOW_MIN_FRAMES:
+        return None
+    return r0, r1
+
+
+def _student_window_from_match(match, r0, r1):
+    """운영 DTW match 로 기준 창 [r0, r1) 을 학생 **각도** 프레임 창 `(u0, u1)` 으로 옮긴다.
+
+    짝은 **창의 가장자리에만** 쓴다 — 창 안에서는 프레임을 짝짓지 않는다(그것이 이 경로의
+    존재 이유: c3m 실측, 기준이 한 바퀴 더 도는 동안 학생 한 프레임에 정체한 짝들이 낮은
+    |Δ| 표본을 공급해 kip-up 실수를 지웠다). path 의 두 인덱스는 window-local
+    (`MotionMatch` 계약)이라 start/ref_start 를 더한다. 창이 최소 프레임 미만이면 None.
+    """
+    path = getattr(match, "path", None)
+    start = getattr(match, "start", None)
+    if not path or start is None:
+        return None
+    try:
+        start = int(start)
+        ref_start = int(getattr(match, "ref_start", 0) or 0)
+        us = [int(u) + start for u, r in path if r0 <= int(r) + ref_start < r1]
+    except (TypeError, ValueError):
+        return None
+    if not us:
+        return None
+    u0, u1 = min(us), max(us) + 1
+    if u1 - u0 < _CONSTANT_WINDOW_MIN_FRAMES:
+        return None
+    return u0, u1
+
+
+def _window_constant_samples(angles, reference_angles, u_win, r_win):
+    """`{joint_index: (signed 표본 (n,), 학생 창 median, 기준 창 median, 표본 프레임 (n,))}`.
+
+    표본 = 학생 창의 각도 − 기준 창 각도의 **median**(상수). 따라서 median(표본) =
+    학생 창 median − 기준 창 median — 두 상수의 차이지 짝별 차이의 median 이 아니다.
+    이 표본이 record 의 measuredValue(|median|)와 신뢰구간을 **같이** 만든다(값과 구간이
+    같은 표본에서 나와야 한다는 quick-260802-nse 규율). 비유한 값은 제외하고, 남은 표본이
+    최소 프레임 미만인 관절은 항목 부재(fail-closed → 그 관절은 DTW 로).
+    """
+    A = np.asarray(angles, dtype=float)
+    R = np.asarray(reference_angles, dtype=float)
+    if A.ndim != 2 or R.ndim != 2 or A.shape[1] != R.shape[1]:
+        return {}
+    u0, u1 = int(u_win[0]), int(u_win[1])
+    r0, r1 = int(r_win[0]), int(r_win[1])
+    Aw = A[u0:u1]
+    Rw = R[r0:r1]
+    if len(Aw) < _CONSTANT_WINDOW_MIN_FRAMES or len(Rw) < _CONSTANT_WINDOW_MIN_FRAMES:
+        return {}
+    out: dict = {}
+    for j in range(A.shape[1]):
+        rcol = Rw[:, j]
+        rcol = rcol[np.isfinite(rcol)]
+        acol = Aw[:, j]
+        keep = np.isfinite(acol)
+        if rcol.size < _CONSTANT_WINDOW_MIN_FRAMES or int(keep.sum()) < _CONSTANT_WINDOW_MIN_FRAMES:
+            continue
+        ref_med = float(np.median(rcol))
+        stu = acol[keep]
+        frames = (np.arange(u0, u1)[keep]).astype(int)
+        out[j] = (stu - ref_med, float(np.median(stu)), ref_med, frames)
+    return out
+
+
+def _abs_median_interval(lo, hi):
+    """signed median 구간 (lo, hi) → |median| 의 구간. 0 을 걸치면 하한 0(fail-closed 쪽:
+    하한이 낮을수록 억제가 잘 걸린다 = 단정을 덜 한다)."""
+    lo = float(lo)
+    hi = float(hi)
+    if lo >= 0.0:
+        return lo, hi
+    if hi <= 0.0:
+        return -hi, -lo
+    return 0.0, max(-lo, hi)
+
+
 def _build_deduction_measured_deviations(
     *, angles, profile, assessments, dimension_scores, quantification,
     reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
     vision_pointed_joints=None, seed_audit_out=None, alignment_visibility=None,
     alignment_visibility_measured=True, vision_status=None, measured_at_out=None,
     frame_confidence=None, measurement_error_out=None, ref_fps=None, pose_fps=None,
-    limb_collapsed=None, unjudged_out=None,
+    limb_collapsed=None, unjudged_out=None, ref_exec_window=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2796,6 +2916,15 @@ def _build_deduction_measured_deviations(
         Gemini-silent 관절은 기존 full-path DTW median 유지 — 260702-o0c(경로 either/or)
         FAIL 원인(silent 관절까지 window 편향 표집 → success 위양성)의 정확한 해소.
         pointed=None/빈(legacy/mode3) → 전 관절 DTW fallback (기존과 byte-동일, 무회귀).
+      · ref_exec_window (quick-260924-ig3): 기준 **각도** 프레임 창 `(r0, r1)` — 기준 doc
+        clipRange(execStartS~landEndS)에서 호출측이 `_reference_exec_window` 로 만든다.
+        주어지면 pointed 가 아닌 관절은 DTW-fallback 대신 **유지 구간 상수** 경로로 방출:
+        값 = |학생 창 median − 기준 창 median| (창 안에서 프레임을 짝짓지 않는다).
+        왜: kip-up 실수(c3m)에서 짝 프레임 |Δ| median 이 정체 표본(기준이 한 바퀴 더 도는
+        동안 학생 한 프레임)에 끌려 20.6(허용 20 자리) → 억제 → 100점. 같은 각도를 창 상수로
+        재면 +33.9. i38 측정: 5동작 전부 실수 갈림·정타 0 근처·판 간 차 ≤5(DTW 12.1).
+        None(default) = 종전 byte-동일. 관절별 fail-closed(표본 부족·NaN) → 그 관절만 DTW.
+        seed_audit_out["constant_joints"] 에 기록. Gemini 가 짚은 관절의 window 경로는 그대로.
       · seed_audit_out: dict 전달 시 {pointed, window_joints, fallback_joints,
         attributionReliability} 기록 (25-04 eval harness 구조 게이트 + 33-NEXT production
         다운스트림 강등 공통 채널). record/final 무접촉 — md(점수 substrate)는 읽기만.
@@ -3177,6 +3306,60 @@ def _build_deduction_measured_deviations(
             dtw_frame_by_joint = {}
             dtw_ci_by_joint = {}
 
+    # 2b. quick-260924-ig3 — 유지 구간 상수. 기준 clipRange 창을 DTW 로 학생 축에 옮기고
+    #     (가장자리만), 창 안에서 짝 없이 |학생 median − 기준 median| 을 낸다. 표본 = 학생 창
+    #     각도 − 기준 창 median → 값과 신뢰구간이 같은 표본에서 나온다. 실패는 전부 항목
+    #     부재 = 그 관절은 DTW-fallback(종전 byte-동일). md 는 아래 3 에서만 쓴다.
+    const_by_joint: dict = {}
+    const_frame_by_joint: dict = {}
+    const_ci_by_joint: dict = {}
+    if (
+        ref_exec_window is not None and reference_dtw_match is not None
+        and reference_angles is not None and angles is not None
+    ):
+        try:
+            _r0, _r1 = int(ref_exec_window[0]), int(ref_exec_window[1])
+            _u_win = _student_window_from_match(reference_dtw_match, _r0, _r1)
+            if _u_win is not None:
+                from sunity_shared.analysis import measurement_error as _mer_c
+
+                _samples = _window_constant_samples(
+                    angles, reference_angles, _u_win, (_r0, _r1)
+                )
+                for _j, (_sig, _stu_med, _ref_med, _frames) in _samples.items():
+                    if _j >= len(JOINT_KEYS):
+                        continue
+                    _jk = JOINT_KEYS[_j]
+                    # 값 = 두 상수(학생 창 median · 기준 창 median)의 차. median(_sig) 와 같은
+                    # 값이지만 짝수 표본의 부동소수 잔차(1e-14)가 "0 이 아닌 값"으로 방출되는
+                    # 것을 막기 위해 차를 직접 쓴다(정타 자기 비교 = 정확히 0).
+                    _med = float(_stu_med) - float(_ref_med)
+                    if _med != _med or abs(_med) < 1e-9:
+                        continue
+                    const_by_joint[_jk] = abs(_med)
+                    # 순간 = 창 안에서 학생 median 에 가장 가까운 프레임(동점만 신뢰도) —
+                    # |학생각 − 학생 median| = |표본 − median(표본)| (기준 median 은 상수).
+                    _gaps = np.abs(_sig - _med)
+                    _idx = _moment.select_moment_index(
+                        _gaps,
+                        confidence=(
+                            None
+                            if frame_confidence is None
+                            else (lambda k, _fr=_frames, _key=_jk:
+                                  frame_confidence(int(_fr[int(k)]), (_key,)))
+                        ),
+                    )
+                    if _idx is not None:
+                        const_frame_by_joint[_jk] = int(_frames[int(_idx)])
+                    _ci = _mer_c.median_ci(_sig)
+                    if _ci is not None:
+                        _lo, _hi = _abs_median_interval(_ci[0], _ci[1])
+                        const_ci_by_joint[_jk] = (_lo, _hi, int(_sig.size))
+        except Exception:  # noqa: BLE001 — 상수 경로 실패 = 항목 부재 = 종전 DTW-fallback
+            const_by_joint = {}
+            const_frame_by_joint = {}
+            const_ci_by_joint = {}
+
     def _window_moment_frame(jk):
         """pointed 관절의 순간 = window 안에서 student_deg 에 가장 가까운 프레임.
 
@@ -3221,6 +3404,7 @@ def _build_deduction_measured_deviations(
     # 3. 관절 단위 선택 — pointed ∩ wm 만 window, 나머지 전부 DTW (pointed=None/빈 → 전 관절 DTW).
     pointed = tuple(vision_pointed_joints or ())
     window_joints: list = []
+    constant_joints: list = []
     fallback_joints: list = []
     for jk in JOINT_KEYS:
         if jk in pointed and jk in wm_by_joint:
@@ -3233,6 +3417,17 @@ def _build_deduction_measured_deviations(
                 window_joints.append(jk)
                 # 방출된 관절만 순간을 남긴다 — md 키와 순간 키가 정확히 대응.
                 _record_moment(f"angle_vs_reference__{jk}", at_frame)
+        elif jk in const_by_joint:
+            # quick-260924-ig3 — 유지 구간 상수. DTW-fallback 자리만 대체한다(pointed 관절의
+            # window 경로는 위 분기 그대로). 방출 규칙(expects_extension·붕괴 게이트)은 공통.
+            at_frame = const_frame_by_joint.get(jk)
+            if _emit_reference_relative(jk, const_by_joint[jk], at_frame):
+                constant_joints.append(jk)
+                _record_moment(f"angle_vs_reference__{jk}", at_frame)
+                if isinstance(measurement_error_out, dict) and jk in const_ci_by_joint:
+                    measurement_error_out[f"angle_vs_reference__{jk}"] = (
+                        const_ci_by_joint[jk]
+                    )
         elif jk in dtw_by_joint:
             at_frame = dtw_frame_by_joint.get(jk)
             if _emit_reference_relative(jk, dtw_by_joint[jk], at_frame):
@@ -3248,14 +3443,16 @@ def _build_deduction_measured_deviations(
 
     # 4. 관찰 가능성 — 어느 경로가 감점 seed 를 만들었는지 로그 + eval audit 만
     #    (contract/Firestore 스키마 불변 — record source 는 기존 geometry 표기 유지).
-    if window_joints or fallback_joints:
+    if window_joints or constant_joints or fallback_joints:
         log.info(
-            "angle_vs_reference seed pointed=%d window=%d fallback=%d",
-            len(pointed), len(window_joints), len(fallback_joints),
+            "angle_vs_reference seed pointed=%d window=%d constant=%d fallback=%d ref_exec_window=%s",
+            len(pointed), len(window_joints), len(constant_joints), len(fallback_joints),
+            ref_exec_window,
         )
     if isinstance(seed_audit_out, dict):
         seed_audit_out["pointed"] = list(pointed)
         seed_audit_out["window_joints"] = list(window_joints)
+        seed_audit_out["constant_joints"] = list(constant_joints)
         seed_audit_out["fallback_joints"] = list(fallback_joints)
 
     # ── 33-NEXT — attribution_unreliable 마커 (seedObservation 확장, 점수 무관) ──
@@ -8283,6 +8480,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # 금지(재처리 시 방어, I1). EXPERT 분기에서 대입, <=0 이면 build 가 degenerate
     # 'disabled' 방출(28-02 W3). reference_dtw_match 와 동일 수명 관리.
     reference_kp_fps = 0.0
+    reference_exec_window = None  # quick-260924-ig3 — mode1 기준 clipRange 창, 플래그 ON 일 때만
     # 23-02 Task 5 — frame-specific 각도 정량화용 기준 영상 각도 (a_ref). Mode1 에서만 채움.
     # Mode3 는 None → collect 가 mode3_held 로 보류, quantification 미산출.
     reference_angles_for_veto = None
@@ -8466,6 +8664,18 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # 실제 산출 rate(~14.93)가 아니다. 실측 필드(anglesRealFps)가 있으면
                 # 그것을 쓴다 — 없으면 종전 라벨로 fail-open(백필 전까지 byte-동일).
                 reference_kp_fps = _reference_angles_fps(ref or {})
+                # quick-260924-ig3 — 유지 구간 상수 경로의 기준 창. 점수 경로와 같은 fps.
+                # None 이면(플래그 OFF·clipRange 부재·창 부족) 감점 seed 는 종전 DTW-fallback.
+                if _reference_constant_window_enabled():
+                    _nr_ref_c = len(ref.get("angles") or []) // max(num_joints, 1)
+                    reference_exec_window = _reference_exec_window(
+                        ref, reference_kp_fps, _nr_ref_c
+                    )
+                    log.info(
+                        "constant window reference=%s fps=%s window=%s",
+                        meta.get("referenceMotionId"), reference_kp_fps,
+                        reference_exec_window,
+                    )
                 if not reference_kp_fps:
                     log.info(
                         "ref-경계 제외 미적용 (keypointReport.fps 미상 — fail-open) "
@@ -8932,6 +9142,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # quick-260910-ovo — 관측하지 못한 사지에는 감점을 매기지 않는다.
                 limb_collapsed=_limb_collapsed,
                 unjudged_out=_unjudged,
+                # quick-260924-ig3 — 유지 구간 상수 경로(mode1, 플래그 ON, clipRange 보유 시).
+                ref_exec_window=reference_exec_window,
             )
             result = _apply_vision_veto(
                 result,

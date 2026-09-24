@@ -8,7 +8,7 @@ status: complete
 # Quick 260924-vw2 — kip-up 카드 **사진** 배선 (belle 4/4 ○)
 
 > 선행 vj1(문장, `33ffae38`). 코드 커밋 `c83700d6` + 자막 수리 `6d70f4b1`(push). Pod E2E 완료(L4 `4v60m6rjwnm5e3`, 약 40분 ≈ $0.33, 종료·주소 되돌림 확인).
-> **belle 사진 ○× 대기** — 판정지 `judge_e2e_kipup.png`(운영 산출물 그대로).
+> **belle 사진 ○ (09-24 밤)** — 판정지 `judge_e2e_kipup.png`(운영 산출물 그대로): *"좋아. 인계서에 작성하고 이후건 내일 하자. kip-up 것이었구나."*
 
 ## 0. 판정 (belle 에게)
 

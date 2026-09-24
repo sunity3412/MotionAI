@@ -8012,6 +8012,119 @@ def _collect_coach_questions(result: dict, mission: dict | None) -> list[dict]:
     return questions[:_MAX_EMITTED_COACH_QUESTIONS]
 
 
+# ── quick-260924-vj1 — 잰 값 조건부 승인 문장 (phrasebook measuredVariants) ─────────────
+# 패턴 이름 → 판정기((유지 구간 높이, 그 record 관절의 창 상수 부호) → bool). 이름은 phrasebook
+# `measuredVariants` 의 패턴 키와 같다. 데이터에 문장이 있어도 여기 판정기가 없으면 대체하지 않는다.
+def _measured_variant_predicates() -> dict:
+    from sunity_shared.analysis import hold_height as _hold_height
+
+    return {"body_low_arm_open": _hold_height.body_low_arm_open}
+
+
+
+def _measured_phrase_variants(
+    *,
+    mode: str,
+    motion_id: str | None,
+    reference_motion_id: str | None,
+    result: dict,
+    angles,
+    reference_angles,
+    reference_exec_window,
+    reference_dtw_match,
+    student_keypoint_report,
+    reference_keypoint_report,
+    constant_joints,
+    uid: str,
+    analysis_id: str,
+) -> dict:
+    """{criterion: {statusLine, whyLine, cueLine}} — 잰 값이 승인 패턴을 만족한 record 만.
+
+    belle 2026-09-24: 판정지 4/4 ○ 뒤 *"짜맞추는거면 이게 무슨 소용일지"* — 그래서 문장은 이 영상에 맞춘
+    문자열이 아니라 **분석마다 잰 값**이 고른다. 조건(전부 충족해야 대체, 하나라도 빠지면 {} = 종전 문구):
+      · mode1, 유지 구간 창(`reference_exec_window`, ig3)과 운영 DTW match 가 있다.
+      · 인식 동작(motion_id) == 사용자가 고른 기준(reference_motion_id) — 다른 동작과 잰 값으로 말하지 않는다.
+      · 학생·기준 keypointReport 가 각도 프레임과 1:1 이다(프레임 수 대조).
+      · 그 record 관절을 **상수 경로가 쟀다**(seed_audit constant_joints) — 값과 부호가 같은 창에서 나온다.
+      · phrasebook 에 (동작 × criterion × 패턴) 승인 문장이 있고 판정기가 True.
+    채점 무접촉: 읽기만 한다(창·match·각도·키포인트). 높이 사실은 로그 한 줄(E2E 호출 증거).
+    """
+    out: dict = {}
+    try:
+        if mode != models.MODE_EXPERT or reference_exec_window is None or reference_dtw_match is None:
+            return out
+        if angles is None or reference_angles is None:
+            return out
+        from sunity_shared.analysis import hold_height as _hold_height
+        from sunity_shared.analysis import phrasebook
+
+        r0, r1 = int(reference_exec_window[0]), int(reference_exec_window[1])
+        u_win = _student_window_from_match(reference_dtw_match, r0, r1)
+        if u_win is None:
+            return out
+        A = np.asarray(angles, dtype=float)
+        R = np.asarray(reference_angles, dtype=float)
+        stu_kp = (
+            _dataclass_to_camel_case_dict(student_keypoint_report)
+            if student_keypoint_report is not None and not isinstance(student_keypoint_report, dict)
+            else student_keypoint_report
+        )
+        if not isinstance(stu_kp, dict) or not isinstance(reference_keypoint_report, dict):
+            return out
+        if int(stu_kp.get("frames") or 0) != len(A) or int(
+            reference_keypoint_report.get("frames") or 0
+        ) != len(R):
+            log.info(
+                "hold heights skip (keypoint↔angle frame 불일치) student=%s/%d reference=%s/%d",
+                stu_kp.get("frames"), len(A), reference_keypoint_report.get("frames"), len(R),
+            )
+            return out
+        heights = _hold_height.hold_window_heights(stu_kp, reference_keypoint_report, u_win, (r0, r1))
+        if heights is None:
+            log.info("hold heights unavailable reference=%s window=%s/%s", reference_motion_id, u_win, (r0, r1))
+            return out
+        log.info(
+            "hold heights reference=%s window=%s/%s hip=%+.3f lowFoot=%+.3f grip=%+.3f "
+            "hipBelowHand=%+.3f thirds hip=%s lowFoot=%s",
+            reference_motion_id, u_win, (r0, r1),
+            heights["hip"]["diff"], heights["lowFoot"]["diff"], heights["grip"]["diff"],
+            heights["hipBelowHand"]["diff"],
+            [round(a - b, 3) for a, b in heights["hip"]["thirds"]],
+            [round(a - b, 3) for a, b in heights["lowFoot"]["thirds"]],
+        )
+        if not motion_id or motion_id != reference_motion_id:
+            return out
+        signed: dict = {}
+        joint_keys = list(skeleton.JOINT_KEYS)
+        for j, (_sig, stu_med, ref_med, _fr) in _window_constant_samples(A, R, u_win, (r0, r1)).items():
+            if j < len(joint_keys):
+                signed[joint_keys[j]] = float(stu_med) - float(ref_med)
+        const = set(constant_joints or ())
+        breakdown = result.get("deductionBreakdown")
+        records = breakdown.get("records") if isinstance(breakdown, dict) else None
+        predicates = _measured_variant_predicates()
+        for rec in records if isinstance(records, list) else []:
+            criterion = rec.get("criterion") if isinstance(rec, dict) else None
+            if not isinstance(criterion, str) or not criterion.startswith(_ANGLE_CRITERION_PREFIX):
+                continue
+            joint = criterion[len(_ANGLE_CRITERION_PREFIX):]
+            if joint not in const or joint not in signed:
+                continue
+            for pattern, predicate in predicates.items():
+                slots = phrasebook.assemble_measured_variant(motion_id, criterion, pattern)
+                if slots and predicate(heights, signed[joint]):
+                    out[criterion] = slots
+                    log.info(
+                        "measured variant applied criterion=%s pattern=%s signed=%+.2f uid=%s analysis_id=%s",
+                        criterion, pattern, signed[joint], uid, analysis_id,
+                    )
+                    break
+    except Exception:  # noqa: BLE001 - 문장 선택 실패 = 종전 문구(분석 무훼손)
+        log.exception("measured variant 선택 실패 — 종전 문구 uid=%s analysis_id=%s", uid, analysis_id)
+        return {}
+    return out
+
+
 def _attach_translation_emission(
     result: dict,
     *,
@@ -8021,8 +8134,13 @@ def _attach_translation_emission(
     uid: str,
     analysis_id: str,
     measured_at: dict | None = None,
+    measured_phrases: dict | None = None,
 ) -> None:
     """32-09 방출 배선 본체 — recordId·3단 문구·미션·summaryPraise·코치 질문.
+
+    measured_phrases (quick-260924-vj1): {criterion: {statusLine, whyLine, cueLine}} —
+    `_measured_phrase_variants` 가 잰 값으로 고른 승인 문장. 문구집보다 **먼저** 그 슬롯을
+    채운다(아래 setdefault 규율이 문구집을 막는다). 나머지 슬롯은 문구집 그대로. None/{} = 종전.
 
     complete_analysis 호출 **전에만** 호출한다 (27-06 게이트 — motionAlignment
     선례와 동일 위치 규율). 부작용 = result 신규 키 4개(mission/missionOutcome/
@@ -8057,6 +8175,13 @@ def _attach_translation_emission(
             try:
                 # 안정 조인 키 — 방출 시 1회 각인 (contract.md §12.3 형식).
                 rec.setdefault("recordId", f"r{i:02d}:{criterion}")
+                # quick-260924-vj1 — 잰 값 조건부 승인 문장(있을 때만) 먼저. 문구집은 빈 슬롯만 채운다.
+                variant = (measured_phrases or {}).get(criterion)
+                if isinstance(variant, dict):
+                    for slot in ("statusLine", "whyLine", "cueLine"):
+                        value = variant.get(slot)
+                        if isinstance(value, str) and value and slot not in rec:
+                            rec[slot] = value
                 rule_id = rec.get("ruleId")
                 phrases = phrasebook.assemble_phrases(
                     motion_id,
@@ -8466,6 +8591,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # 'disabled' 방출(28-02 W3). reference_dtw_match 와 동일 수명 관리.
     reference_kp_fps = 0.0
     reference_exec_window = None  # quick-260924-ig3 — mode1 기준 clipRange 창, 플래그 ON 일 때만
+    # quick-260924-vj1 — 감점 builder 의 seed_audit(어느 관절을 상수 경로가 쟀나)을 문장 선택까지 나른다.
+    # seed_audit 은 collect 분기 안에서만 생기므로 바깥 수명의 운반 변수를 둔다(레거시 경로 = None).
+    seed_audit_for_phrases: dict | None = None
     # 23-02 Task 5 — frame-specific 각도 정량화용 기준 영상 각도 (a_ref). Mode1 에서만 채움.
     # Mode3 는 None → collect 가 mode3_held 로 보류, quantification 미산출.
     reference_angles_for_veto = None
@@ -9160,6 +9288,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # 분기하는 곳은 0이다(소스 확인): 앱 result.tsx `?.unreliable === true` 엄격
             # 비교, assemble.rebuild_tips_for_vision_fault `attr.get("unreliable")` falsy.
             _attach_attribution_marker(result, seed_audit)
+            seed_audit_for_phrases = seed_audit  # quick-260924-vj1 — 문장 선택용 운반(읽기 전용)
             # quick-260910-ovo — 판정기가 실제로 돈 경로에서만 필드를 남긴다.
             # 빈 리스트 = "봤는데 붕괴 0", 필드 부재 = "안 봤다"(레거시/판정기 미상).
             if _limb_collapsed is not None:
@@ -9627,6 +9756,23 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 0, 신규 쿼리 0 (prev = 위 mode3 경로의 get_previous_analysis 재사용).
         # 채점 무접촉 — records 확장 키·result 신규 키 4개만 additive (32-03 스윕
         # 기준선 diff 0 이 acceptance). 실패해도 분석 완주 (helper 내 상위 try).
+        # quick-260924-vj1 — 잰 값이 승인 패턴(phrasebook measuredVariants)을 만족한 record 만
+        # 카드 3단 문장을 대체한다. mode1 · 상수 경로가 그 관절을 잰 경우만, 나머지는 {} = 종전 문구.
+        _measured_phrases = _measured_phrase_variants(
+            mode=mode,
+            motion_id=getattr(profile, "motion_id", None),
+            reference_motion_id=(meta or {}).get("referenceMotionId"),
+            result=result,
+            angles=angles,
+            reference_angles=reference_angles_for_veto,
+            reference_exec_window=reference_exec_window,
+            reference_dtw_match=reference_dtw_match,
+            student_keypoint_report=keypoint_report_raw,
+            reference_keypoint_report=reference_keypoint_report_dict,
+            constant_joints=(seed_audit_for_phrases or {}).get("constant_joints"),
+            uid=uid,
+            analysis_id=analysis_id,
+        )
         _attach_translation_emission(
             result,
             mode=mode,
@@ -9635,6 +9781,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             uid=uid,
             analysis_id=analysis_id,
             measured_at=measured_at,
+            measured_phrases=_measured_phrases,
         )
         # quick-260901-wbo — 코칭 작성 사후 분리 pending 마커 (faultZoomStatus 마커
         # 선례). coach 블록은 complete 도달 분석 전체가 돌던 경로라 mode1·mode3

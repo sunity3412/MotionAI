@@ -206,6 +206,35 @@ def assemble_phrases(
     return _fail_closed_slots()
 
 
+# quick-260924-vj1 — 잰 값이 패턴을 만족할 때만 쓰는 승인 문장(measuredVariants). 대체 가능한 슬롯은
+# 카드 3단뿐이다 — coachQuestion·exerciseId·exerciseReason 은 entries 그대로 남는다.
+_MEASURED_VARIANT_SLOTS = ("statusLine", "whyLine", "cueLine")
+
+
+def assemble_measured_variant(
+    motion_key: str | None,
+    criterion: str,
+    pattern: str,
+) -> dict:
+    """동작 × criterion × 패턴 → 승인 문장 슬롯 dict | {} (없으면 빈 dict = 대체 없음).
+
+    패턴 성립 판정은 호출측(잰 값) 책임이고 여기는 **문장만** 돌려준다 — 골격은 fixture 가
+    소유한다는 D-11 그대로. 동작 전용 키만 본다(`__common__` 없음): 승인은 동작 단위로 받았다.
+    세 슬롯이 전부 비어 있지 않은 문자열일 때만 돌려준다(반쪽 대체 금지).
+    """
+    if not motion_key or not criterion or not pattern:
+        return {}
+    variants = _load_phrasebook().get("measuredVariants", {})
+    entry = variants.get(f"{motion_key}.{criterion}")
+    slots = entry.get(pattern) if isinstance(entry, dict) else None
+    if not isinstance(slots, dict):
+        return {}
+    out = {slot: slots.get(slot) for slot in _MEASURED_VARIANT_SLOTS}
+    if not all(isinstance(v, str) and v for v in out.values()):
+        return {}
+    return out
+
+
 def assemble_safety_phrases(flag_type: str) -> dict:
     """safetyFlags 유형 → 안전 슬롯 dict (D-14 차분한 안전 톤, 게임 요소 0).
 
@@ -320,6 +349,8 @@ def rendered_copy_strings() -> list[str]:
                 _collect(v)
 
     _collect(pb.get("entries", {}))
+    # quick-260924-vj1 — 잰 값 조건부 승인 문장도 화면 카피다(같은 금지어·숫자 게이트).
+    _collect(pb.get("measuredVariants", {}))
     _collect(pb.get("safetyEntries", {}))
     _collect(pb.get("failClosed", {}))
     _collect(load_terminology_map().get("terms", {}))

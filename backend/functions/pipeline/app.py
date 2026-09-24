@@ -5661,6 +5661,98 @@ def _run_deferred_compare_render(
             shutil.rmtree(workdir, ignore_errors=True)
 
 
+def _stamp_gate_states(c: dict, decision) -> dict:
+    """게이트 판정(표시 전용, 채점 무관)을 카드에 싣는다 — 앱 계약의 세 상태 키 (optional).
+
+    quick-260903-upx 가 게이트 루프 안에 두던 세 줄을 quick-260924-vw2 가 함수로 뺐다 — 종전 카드와 잰 값 조건부
+    카드가 **같은 한 곳**에서 싣게(게이트 축 표면 불변 — test_pair_time_deviation 이 이 자리를 센다).
+    """
+    c["holdState"] = decision.hold_state
+    c["pairState"] = decision.pair_state
+    c["eyeState"] = decision.eye_state
+    return c
+
+
+def _measured_pattern_card(
+    *,
+    rec: dict,
+    u_sec: float,
+    r_sec: float,
+    align: dict,
+    frame_at,
+    deficits: dict,
+    decision,
+    u9: int,
+    r9: int,
+    user_report: dict | None,
+    ref_report: dict | None,
+    analysis_id: str,
+) -> dict | None:
+    """quick-260924-vw2 — measuredPattern record 의 확정 카드: 영상 멈춤 두 프레임 + 동그라미(그 팔·낮은발).
+
+    belle 09-24 판정지 ○ 사진의 운영판. 순간은 freeze(u_sec, r_sec) = record 대표 짝 그대로 — 고르지 않는다.
+    프레임 = 합성 영상 렌더가 추출한 30fps 판(`frame_at`, 영상과 같은 픽셀), 좌표 = 같은 align 17점,
+    원 = 영상과 같은 `_circle_marks`/`draw_circle_marks`. 그래서 카드와 영상 멈춤이 같은 그림이다.
+    게이트가 학생 표시를 막으면(decision.draw_user_marks=False) 원을 양쪽 다 생략한다(both-or-neither).
+    어떤 실패도 None → 호출측이 종전 카드 경로로 간다(사진 없는 카드보다 종전 사진이 낫다).
+    """
+    try:
+        from PIL import Image
+
+        from sunity_shared.analysis import compare_render as _cr
+        from sunity_shared.analysis import fault_zoom as _fz
+
+        uf = frame_at("user", float(u_sec))
+        rf = frame_at("ref", float(r_sec))
+        if uf is None or rf is None or "refKp" not in align:
+            return None
+        joint = str(rec.get("criterion") or "").split("__")[-1]
+        arm_side = joint.split("_", 1)[0]
+        um = _cr._circle_marks(_cr._kp_reader(align, "user"), float(u_sec), arm_side)  # noqa: SLF001
+        rm = _cr._circle_marks(_cr._kp_reader(align, "ref"), float(r_sec), arm_side)  # noqa: SLF001
+        if not getattr(decision, "draw_user_marks", True):
+            um = None
+        ub = _cr.person_bbox(align, "user", float(u_sec))
+        rb = _cr.person_bbox(align, "ref", float(r_sec))
+        if ub is None or rb is None:
+            return None
+        png, plain = _cr.circle_card_png(
+            Image.fromarray(uf), Image.fromarray(rf), ub, rb, um, rm,
+        )
+        marked = um is not None and rm is not None
+        at_idx = rec.get("atFrameIdx")
+        ur, rr = user_report or {}, ref_report or {}
+        card = {
+            "criterion": rec.get("criterion"),
+            "joint": joint,
+            "kind": "deficit",
+            "deficitDeg": deficits.get(joint),
+            "png": png,
+            "pngPlain": plain,
+            "userVideoSec": float(u_sec),
+            "refVideoSec": float(r_sec),
+            "userFrameIdx": _fz._to_rep_idx(  # noqa: SLF001 - 게이트 경로와 같은 rep 인덱스 환산
+                int(u9), 9.0, float(ur.get("fps") or 9.0), int(ur.get("frames") or 0)),
+            "refFrameIdx": _fz._to_rep_idx(  # noqa: SLF001
+                int(r9), 9.0, float(rr.get("fps") or 9.0), int(rr.get("frames") or 0)),
+            "refMatched": True,
+            "refMatch": "dtw",
+            "atMatched": isinstance(at_idx, int) and not isinstance(at_idx, bool) and int(u9) == at_idx,
+            "userMarked": marked,
+            "refMarked": marked,
+        }
+        _stamp_gate_states(card, decision)
+        log.info(
+            "measured_card rid=%s pattern=%s u=%.3f r=%.2f u9=%d at=%s marked=%s analysis_id=%s",
+            str(rec.get("recordId") or "").split(":")[0], rec.get("measuredPattern"),
+            float(u_sec), float(r_sec), int(u9), at_idx, marked, analysis_id,
+        )
+        return card
+    except Exception:  # noqa: BLE001 - 카드 합성 실패 = 종전 카드 경로 (비차단)
+        log.exception("measured_card 합성 실패 — 종전 카드 경로 analysis_id=%s", analysis_id)
+        return None
+
+
 def _run_gated_card_inherit(
     *,
     result: dict,
@@ -6072,6 +6164,19 @@ def _run_gated_card_inherit(
                 suppress: set[str] = set()
                 if not decision.draw_user_marks:
                     suppress.add("user")
+                # quick-260924-vw2 — 잰 값 조건부 카드(measuredPattern): 좁은 크롭·각도 선 대신 영상 멈춤 두
+                # 프레임 + 동그라미. 순간은 freeze 그대로(= record 대표 짝). 실패하면 아래 종전 경로.
+                if rec.get("measuredPattern"):
+                    _mc = _measured_pattern_card(
+                        rec=rec, u_sec=u_sec, r_sec=r_sec, align=align, frame_at=_frame_at,
+                        deficits=deficits, decision=decision,
+                        u9=_override_idx(u_sec, "user", int(user_frames.shape[0]), user_report),
+                        r9=_override_idx(r_sec, "ref", int(ref_frames.shape[0]), ref_report),
+                        user_report=user_report, ref_report=ref_report, analysis_id=analysis_id,
+                    )
+                    if _mc is not None:
+                        gated_raw.append(_mc)
+                        continue
                 # 게이트 freeze 초 → align 인덱스 (게이트 루프 u_idx/r_idx 와
                 # 동일 공식 — display_anchor·align_bake 공용 단일 출처).
                 u_ai = max(0, min(
@@ -6453,9 +6558,7 @@ def _run_gated_card_inherit(
                 for c in comps:
                     # quick-260903-upx — 게이트 결과를 카드에 싣는다 (표시 전용,
                     # 채점 무관). 앱 계약 holdState/pairState/eyeState (optional).
-                    c["holdState"] = decision.hold_state
-                    c["pairState"] = decision.pair_state
-                    c["eyeState"] = decision.eye_state
+                    _stamp_gate_states(c, decision)
                     # (g) 귀속 표현 (additive) — 각도 편차 축 + 폴거리 차 성립
                     # (user 몸중심이 ref 보다 POLE_MARGIN 이상 폴에서 멀다) →
                     # 폴 이탈 계열 (r03 문법 재사용 재료 — 문구는 표현 레이어).
@@ -8037,8 +8140,10 @@ def _measured_phrase_variants(
     constant_joints,
     uid: str,
     analysis_id: str,
+    student_fps: float | None = None,
+    reference_fps: float | None = None,
 ) -> dict:
-    """{criterion: {statusLine, whyLine, cueLine}} — 잰 값이 승인 패턴을 만족한 record 만.
+    """{criterion: {slots, pattern, atFrameIdx, atVideoSec, atRefVideoSec}} — 잰 값이 승인 패턴을 만족한 record 만.
 
     belle 2026-09-24: 판정지 4/4 ○ 뒤 *"짜맞추는거면 이게 무슨 소용일지"* — 그래서 문장은 이 영상에 맞춘
     문자열이 아니라 **분석마다 잰 값**이 고른다. 조건(전부 충족해야 대체, 하나라도 빠지면 {} = 종전 문구):
@@ -8047,6 +8152,9 @@ def _measured_phrase_variants(
       · 학생·기준 keypointReport 가 각도 프레임과 1:1 이다(프레임 수 대조).
       · 그 record 관절을 **상수 경로가 쟀다**(seed_audit constant_joints) — 값과 부호가 같은 창에서 나온다.
       · phrasebook 에 (동작 × criterion × 패턴) 승인 문장이 있고 판정기가 True.
+      · (quick-260924-vw2) 창 안 **대표 짝**(hold_height.representative_pair)이 있다 — 그 짝이 카드 사진·영상 멈춤의
+        한 순간이 된다. 없으면 문장도 바꾸지 않는다(문장만 바뀌고 사진은 각도 선인 반쪽 카드 금지).
+      · 학생·기준 fps 가 양수(초 환산 — 리터럴 fps 금지, 호출측이 운영 단일 출처에서 준다).
     채점 무접촉: 읽기만 한다(창·match·각도·키포인트). 높이 사실은 로그 한 줄(E2E 호출 증거).
     """
     out: dict = {}
@@ -8100,6 +8208,14 @@ def _measured_phrase_variants(
             if j < len(joint_keys):
                 signed[joint_keys[j]] = float(stu_med) - float(ref_med)
         const = set(constant_joints or ())
+        sfps = float(student_fps or 0.0)
+        rfps = float(reference_fps or 0.0)
+        _ref_start = int(getattr(reference_dtw_match, "ref_start", 0) or 0)
+        _start = int(getattr(reference_dtw_match, "start", 0) or 0)
+        path_pairs = [
+            (int(u) + _start, int(v) + _ref_start)
+            for u, v in (getattr(reference_dtw_match, "path", None) or [])
+        ]
         breakdown = result.get("deductionBreakdown")
         records = breakdown.get("records") if isinstance(breakdown, dict) else None
         predicates = _measured_variant_predicates()
@@ -8112,13 +8228,32 @@ def _measured_phrase_variants(
                 continue
             for pattern, predicate in predicates.items():
                 slots = phrasebook.assemble_measured_variant(motion_id, criterion, pattern)
-                if slots and predicate(heights, signed[joint]):
-                    out[criterion] = slots
+                if not slots or not predicate(heights, signed[joint]):
+                    continue
+                arm_side = joint.split("_", 1)[0]
+                pair = _hold_height.representative_pair(
+                    stu_kp, reference_keypoint_report, path_pairs, u_win, (r0, r1), arm_side=arm_side,
+                )
+                if pair is None or not (sfps > 0 and rfps > 0):
                     log.info(
-                        "measured variant applied criterion=%s pattern=%s signed=%+.2f uid=%s analysis_id=%s",
-                        criterion, pattern, signed[joint], uid, analysis_id,
+                        "measured variant skip (대표 짝 없음 — 카드 전체 종전) criterion=%s pattern=%s "
+                        "uid=%s analysis_id=%s", criterion, pattern, uid, analysis_id,
                     )
-                    break
+                    continue
+                out[criterion] = {
+                    "slots": slots,
+                    "pattern": pattern,
+                    "atFrameIdx": int(pair["userFrame"]),
+                    "atVideoSec": float(pair["userFrame"]) / sfps,
+                    "atRefVideoSec": float(pair["refFrame"]) / rfps,
+                }
+                log.info(
+                    "measured variant applied criterion=%s pattern=%s signed=%+.2f pair=u%d/r%d "
+                    "(%.2fs/%.2fs) uid=%s analysis_id=%s",
+                    criterion, pattern, signed[joint], pair["userFrame"], pair["refFrame"],
+                    out[criterion]["atVideoSec"], out[criterion]["atRefVideoSec"], uid, analysis_id,
+                )
+                break
     except Exception:  # noqa: BLE001 - 문장 선택 실패 = 종전 문구(분석 무훼손)
         log.exception("measured variant 선택 실패 — 종전 문구 uid=%s analysis_id=%s", uid, analysis_id)
         return {}
@@ -8138,9 +8273,9 @@ def _attach_translation_emission(
 ) -> None:
     """32-09 방출 배선 본체 — recordId·3단 문구·미션·summaryPraise·코치 질문.
 
-    measured_phrases (quick-260924-vj1): {criterion: {statusLine, whyLine, cueLine}} —
-    `_measured_phrase_variants` 가 잰 값으로 고른 승인 문장. 문구집보다 **먼저** 그 슬롯을
-    채운다(아래 setdefault 규율이 문구집을 막는다). 나머지 슬롯은 문구집 그대로. None/{} = 종전.
+    measured_phrases (quick-260924-vj1/vw2): {criterion: {slots, pattern, atFrameIdx, atVideoSec, atRefVideoSec}} —
+    `_measured_phrase_variants` 가 잰 값으로 고른 승인 문장 + 대표 짝 순간. 문구집보다 **먼저** 3슬롯을 채우고
+    (아래 setdefault 규율이 문구집을 막는다) measuredPattern·순간 3키를 박는다. 나머지 슬롯은 문구집 그대로. None/{} = 종전.
 
     complete_analysis 호출 **전에만** 호출한다 (27-06 게이트 — motionAlignment
     선례와 동일 위치 규율). 부작용 = result 신규 키 4개(mission/missionOutcome/
@@ -8177,11 +8312,17 @@ def _attach_translation_emission(
                 rec.setdefault("recordId", f"r{i:02d}:{criterion}")
                 # quick-260924-vj1 — 잰 값 조건부 승인 문장(있을 때만) 먼저. 문구집은 빈 슬롯만 채운다.
                 variant = (measured_phrases or {}).get(criterion)
-                if isinstance(variant, dict):
+                if isinstance(variant, dict) and isinstance(variant.get("slots"), dict):
                     for slot in ("statusLine", "whyLine", "cueLine"):
-                        value = variant.get(slot)
+                        value = variant["slots"].get(slot)
                         if isinstance(value, str) and value and slot not in rec:
                             rec[slot] = value
+                    # quick-260924-vw2 — 순간의 출처 하나: 이 record 의 순간 = 대표 짝(학생·기준).
+                    # 아래 measured_at setdefault 보다 먼저 박는다(그 규칙은 이 record 에선 대표 짝에 양보).
+                    rec["measuredPattern"] = str(variant.get("pattern") or "")
+                    for key in ("atFrameIdx", "atVideoSec", "atRefVideoSec"):
+                        if key in variant:
+                            rec[key] = int(variant[key]) if key == "atFrameIdx" else float(variant[key])
                 rule_id = rec.get("ruleId")
                 phrases = phrasebook.assemble_phrases(
                     motion_id,
@@ -9772,6 +9913,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             constant_joints=(seed_audit_for_phrases or {}).get("constant_joints"),
             uid=uid,
             analysis_id=analysis_id,
+            # 초 환산 = 운영 단일 출처(측정 순간과 같은 학생 실효 rate · 점수 경로와 같은 기준 fps).
+            student_fps=_pipeline_frame_fps(local_video_path),
+            reference_fps=reference_kp_fps,
         )
         _attach_translation_emission(
             result,

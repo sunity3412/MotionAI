@@ -929,6 +929,11 @@ export interface DeductionRecord {
   // vision 주입 split) 또는 legacy doc.
   atFrameIdx?: number;
   atVideoSec?: number;
+  // ── quick-260924-vw2 — 잰 값 조건부 카드 표시 (Python lockstep = models.py DEDUCTION_RECORD_DISPLAY_KEYS) ──
+  // measuredPattern 이 있으면 카드 문장은 잰 값이 고른 승인 문장이고, 영상 멈춤·카드 사진은 동그라미 문법이다.
+  // atRefVideoSec = 같은 순간의 기준(정은지) 초 — 영상 멈춤·카드가 재선정 없이 물려받는다. 앱은 읽기만 한다.
+  measuredPattern?: string;
+  atRefVideoSec?: number;
 }
 // HIGH-1: OBJECT shape (bare list 아님). final = max(0, round(100 + Σ record.points)) —
 // final 단위 clamp 은 max(0,…) 뿐(final 밴드 없음). record 단위로는 관절당 감점 상한 -20

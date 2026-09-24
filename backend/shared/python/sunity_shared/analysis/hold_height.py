@@ -91,8 +91,8 @@ def _nanmedian(v) -> float:
     return float(np.median(v)) if v.size else math.nan
 
 
-def _series(report, window):
-    """한 영상 → 창 안 프레임별 높이 5종 + 창 이전 기준(바닥·몸길이). 못 재면 None."""
+def _frame_series(report, window):
+    """한 영상 → **전체 길이** 프레임별 높이 5종 + 짝 선택 재료. 창 이전(서 있는) 프레임이 바닥·몸길이. 못 재면 None."""
     arr = _arrays(report)
     if arr is None:
         return None
@@ -121,14 +121,24 @@ def _series(report, window):
         low_ank = np.nanmax(ank, axis=1)        # 낮은발 = y 가 큰 쪽
         hip_y = np.nanmean(hip, axis=1)
         grip_y = np.nanmin(hand, axis=1)        # 그립 손 = 높은 손(y 가 작은 쪽)
-    sl = slice(w0, w1)
     return {
-        "hip": (floor - hip_y[sl]) / body,
-        "lowFoot": (floor - low_ank[sl]) / body,
-        "grip": (floor - grip_y[sl]) / body,
-        "hipBelowHand": (grip_y[sl] - hip_y[sl]) / body,
-        "lowFootBelowHand": (grip_y[sl] - low_ank[sl]) / body,
+        "window": (w0, w1),
+        "hip": (floor - hip_y) / body,
+        "lowFoot": (floor - low_ank) / body,
+        "grip": (floor - grip_y) / body,
+        "hipBelowHand": (grip_y - hip_y) / body,
+        "lowFootBelowHand": (grip_y - low_ank) / body,
+        "_X": X, "_C": C, "_idx": idx,
     }
+
+
+def _series(report, window):
+    """한 영상 → 창 안 프레임별 높이 5종. 못 재면 None."""
+    fs = _frame_series(report, window)
+    if fs is None:
+        return None
+    w0, w1 = fs["window"]
+    return {k: fs[k][w0:w1] for k in ("hip", "lowFoot", "grip", "hipBelowHand", "lowFootBelowHand")}
 
 
 def _thirds(v) -> list[float]:
@@ -198,3 +208,102 @@ def body_low_arm_open(
     if not (math.isfinite(grip) and abs(grip) <= noise):
         return False
     return math.isfinite(below) and below < -noise
+
+
+# ── 대표 짝 (quick-260924-vw2) — 카드 사진·영상 멈춤이 물려받을 **한 순간** ─────────────────────────
+# belle 08-09: 카드 순간 = 합성 영상 멈춤 순간(출처 하나). belle 09-03: 확대 비교는 양쪽이 같은 국면일 때만 가치가 있다.
+# 그래서 순간은 여기서 한 번 고르고(record), 영상·카드는 물려받기만 한다. 고르는 기준은 사람 눈이 아니라:
+#   · 운영 DTW 짝(창 안) 중 1:1 — 정체(학생 한 장 ↔ 기준 여러 장, c3m)는 같은 순간이라 말할 수 없다.
+#   · 몸이 폴(그립 손)의 **같은 쪽** — 거울 방향 짝은 나란히 놓으면 비교가 헷갈린다(uff 후보 c, 그때는 내 눈으로 뺐다).
+#   · 표식 관절(그 팔의 어깨·팔꿈치·손 + 낮은발)이 양쪽 다 신뢰 하한 이상.
+#   · 짝의 높이 차(엉덩이·낮은발)가 창 상수에 **가장 가까운** 짝 — 최대가 아니라 대표("끝까지 계속"과 맞는 장면).
+
+
+def _side_of_grip(fs: dict, t: int) -> int | None:
+    """그 프레임에서 엉덩이 중점이 그립 손(높은 손)의 왼쪽(-1)/오른쪽(+1) | 못 정함 None."""
+    X, C, idx = fs["_X"], fs["_C"], fs["_idx"]
+    lh, rh = idx["left_hip"], idx["right_hip"]
+    hands = [(idx[n], X[t, idx[n], 1]) for n in ("left_hand", "right_hand") if C[t, idx[n]] >= MIN_CONF]
+    if C[t, lh] < MIN_CONF or C[t, rh] < MIN_CONF or not hands:
+        return None
+    grip_j = min(hands, key=lambda h: h[1])[0]
+    off = (X[t, lh, 0] + X[t, rh, 0]) / 2.0 - X[t, grip_j, 0]
+    if not math.isfinite(off) or off == 0.0:
+        return None
+    return 1 if off > 0 else -1
+
+
+def _low_ankle(fs: dict, t: int) -> str | None:
+    """그 프레임의 낮은발(발목 y 가 큰 쪽, 신뢰 하한 이상만)."""
+    X, C, idx = fs["_X"], fs["_C"], fs["_idx"]
+    cands = [(n, X[t, idx[n], 1]) for n in ("left_ankle", "right_ankle") if C[t, idx[n]] >= MIN_CONF]
+    return max(cands, key=lambda c: c[1])[0] if cands else None
+
+
+def _marks_conf(fs: dict, t: int, arm_side: str, ankle: str) -> float:
+    C, idx = fs["_C"], fs["_idx"]
+    names = (f"{arm_side}_shoulder", f"{arm_side}_elbow", f"{arm_side}_hand", ankle)
+    return float(min(C[t, idx[n]] for n in names))
+
+
+def representative_pair(
+    student_report: Mapping | None,
+    reference_report: Mapping | None,
+    path_pairs,
+    u_win,
+    r_win,
+    *,
+    arm_side: str,
+) -> dict | None:
+    """창 안 운영 DTW 짝 중 대표 짝 → `{userFrame, refFrame, userLowAnkle, refLowAnkle, score}` | None.
+
+    `path_pairs` = 운영 match 의 (학생 각도 프레임, 기준 각도 프레임) **절대** 인덱스 짝. `arm_side` = 표식할 팔
+    ("left"/"right" — record 관절의 쪽). 조건을 만족하는 짝이 없으면 None — 호출측은 대체 자체를 하지 않는다.
+    """
+    if arm_side not in ("left", "right"):
+        return None
+    s = _frame_series(student_report, u_win)
+    r = _frame_series(reference_report, r_win)
+    if s is None or r is None:
+        return None
+    (u0, u1), (r0, r1) = s["window"], r["window"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        d_hip = _nanmedian(s["hip"][u0:u1]) - _nanmedian(r["hip"][r0:r1])
+        d_low = _nanmedian(s["lowFoot"][u0:u1]) - _nanmedian(r["lowFoot"][r0:r1])
+    if not (math.isfinite(d_hip) and math.isfinite(d_low)):
+        return None
+    try:
+        inside = [(int(u), int(v)) for u, v in path_pairs if u0 <= int(u) < u1 and r0 <= int(v) < r1]
+    except (TypeError, ValueError):
+        return None
+    n_u: dict = {}
+    n_r: dict = {}
+    for u, v in inside:
+        n_u[u] = n_u.get(u, 0) + 1
+        n_r[v] = n_r.get(v, 0) + 1
+    best = None
+    for u, v in inside:
+        if n_u[u] != 1 or n_r[v] != 1:
+            continue
+        su, sr = _side_of_grip(s, u), _side_of_grip(r, v)
+        if su is None or su != sr:
+            continue
+        au, ar = _low_ankle(s, u), _low_ankle(r, v)
+        if au is None or ar is None:
+            continue
+        conf = min(_marks_conf(s, u, arm_side, au), _marks_conf(r, v, arm_side, ar))
+        if conf < MIN_CONF:
+            continue
+        ph = float(s["hip"][u] - r["hip"][v])
+        pl = float(s["lowFoot"][u] - r["lowFoot"][v])
+        if not (math.isfinite(ph) and math.isfinite(pl)):
+            continue
+        score = abs(ph - d_hip) + abs(pl - d_low)
+        key = (score, -conf)
+        if best is None or key < best[0]:
+            best = (key, u, v, au, ar)
+    if best is None:
+        return None
+    (score, _negc), u, v, au, ar = best
+    return {"userFrame": u, "refFrame": v, "userLowAnkle": au, "refLowAnkle": ar, "score": float(score)}

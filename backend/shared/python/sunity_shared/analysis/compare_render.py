@@ -781,6 +781,127 @@ def _armpit_angle_viz(kp_at, t: float, side: str) -> dict | None:
             "deg": deg if (conf >= 0.5 and 20.0 <= deg <= 179.5) else None}
 
 
+# ── quick-260924-vw2 — 동그라미 문법 (belle 09-24: "각도 표기가 어긋났는데 … 동그라미나 다른 표시") ─────────
+# measuredPattern record 전용. 두 원 — 그 팔(어깨·팔꿈치·손목을 감싸는 원) + 낮은발(발목 원). 선·호·수치 0.
+# 좌표 신뢰 하한 = 렌더러 몸라인/사이각 층(0.35, hold_height.MIN_CONF 와 같은 값). 한쪽 패널이라도 못 그리면
+# 양쪽 다 안 그린다(both-or-neither — fault_zoom 계약 승계). 순수 함수 — GPU 없이 유닛 검증.
+CIRCLE_CONF_MIN = 0.35
+
+
+def _circle_marks(kp_at, t: float, arm_side: str) -> dict | None:
+    """한 패널의 원 재료 → {"arm": [[x, y] ×3], "foot": [x, y]} (정규화 좌표) | None."""
+    if kp_at is None or arm_side not in ("left", "right"):
+        return None
+    arm = []
+    for n in (f"{arm_side}_shoulder", f"{arm_side}_elbow", f"{arm_side}_wrist"):
+        xy, c = kp_at(n, t)
+        if c < CIRCLE_CONF_MIN or not np.isfinite(xy).all():
+            return None
+        arm.append([float(xy[0]), float(xy[1])])
+    feet = []
+    for n in ("left_ankle", "right_ankle"):
+        xy, c = kp_at(n, t)
+        if c >= CIRCLE_CONF_MIN and np.isfinite(xy).all():
+            feet.append([float(xy[0]), float(xy[1])])
+    if not feet:
+        return None
+    foot = max(feet, key=lambda p: p[1])  # 낮은발 = y 가 큰 쪽
+    return {"arm": arm, "foot": foot}
+
+
+def draw_circle_marks(d, marks: dict, off: float, pw: float, ph: float, s: float) -> None:
+    """원 두 개를 그린다 — 팔 원(세 점의 중심, 반경 = 가장 먼 점 + 여유), 발 원(고정 반경). 패널 픽셀 공간."""
+    pts = np.asarray([[x * pw + off, y * ph] for x, y in marks["arm"]], dtype=float)
+    c = pts.mean(axis=0)
+    r = float(np.max(np.linalg.norm(pts - c, axis=1))) + 14.0 * s
+    w = max(2, round(4 * s))
+    d.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], outline=BRAND + (255,), width=w)
+    fx, fy = marks["foot"][0] * pw + off, marks["foot"][1] * ph
+    fr = 26.0 * s
+    d.ellipse([fx - fr, fy - fr, fx + fr, fy + fr], outline=BRAND + (255,), width=w)
+
+
+# 카드 합성 규격 — 앱 ZoomCompositeImage.ZOOM_COMPOSITE_ASPECT lockstep ((360*2+6)/360 = fault_zoom._compose).
+CARD_PANEL = 360
+CARD_GAP = 6
+_CARD_BOX_MARGIN = 0.06   # 인물 상자 여유(정규화) — 07-28 확정 설계 "세로 패널(인물 keypoint bbox + 마진, 폴 포함)"
+_CARD_BG = (20, 18, 17)   # 영상 캔버스 배경과 같은 색(프레임 밖을 채울 때)
+
+
+def person_bbox(align: dict, side: str, t: float, conf_min: float = CIRCLE_CONF_MIN):
+    """멈춤 순간 한 패널의 인물 상자(정규화 x0, y0, x1, y1) — align 17점 중 신뢰 하한 이상. 없으면 None."""
+    kp_at = _kp_reader(align, side)
+    pts = []
+    for n in align["joints17"]:
+        xy, c = kp_at(n, t)
+        if c >= conf_min and np.isfinite(xy).all():
+            pts.append(xy)
+    if not pts:
+        return None
+    a = np.asarray(pts, dtype=float)
+    return (float(a[:, 0].min()), float(a[:, 1].min()), float(a[:, 0].max()), float(a[:, 1].max()))
+
+
+def _card_panel(img: Image.Image, box, marks: dict | None) -> tuple[Image.Image, Image.Image]:
+    """정규화 상자 → 정사각 패널(CARD_PANEL). 세로 범위가 정사각의 한 변, 가로는 상자 중심. 프레임 밖은 배경색.
+    반환 (표식 판, 표시 없는 판). 원은 영상과 같은 문법(draw_circle_marks)을 잘린 좌표로 옮겨 그린다."""
+    W, H = img.size
+    x0, y0, x1, y1 = box
+    top = (y0 - _CARD_BOX_MARGIN) * H
+    bot = (y1 + _CARD_BOX_MARGIN) * H
+    side_px = max(bot - top, 1.0)
+    left = (x0 + x1) / 2.0 * W - side_px / 2.0
+    # 정사각이 프레임 폭 안에 들어가면 안쪽으로 민다 — 인물은 중심에서 조금 비켜도 화면 밖 빈 띠가 없다(uff 후보와 같은 모양).
+    if side_px <= W:
+        left = min(max(left, 0.0), W - side_px)
+    if side_px <= H:
+        top = min(max(top, 0.0), H - side_px)
+    sq = Image.new("RGB", (int(round(side_px)), int(round(side_px))), _CARD_BG)
+    sx0, sy0 = max(0.0, left), max(0.0, top)
+    sx1, sy1 = min(float(W), left + side_px), min(float(H), top + side_px)
+    if sx1 > sx0 and sy1 > sy0:
+        region = img.crop((int(round(sx0)), int(round(sy0)), int(round(sx1)), int(round(sy1))))
+        sq.paste(region, (int(round(sx0 - left)), int(round(sy0 - top))))
+    plain = sq.resize((CARD_PANEL, CARD_PANEL), Image.LANCZOS)
+    marked = plain.copy()
+    if marks is not None:
+        k = CARD_PANEL / side_px
+        moved = {
+            "arm": [[(x * W - left) / side_px, (y * H - top) / side_px] for x, y in marks["arm"]],
+            "foot": [(marks["foot"][0] * W - left) / side_px, (marks["foot"][1] * H - top) / side_px],
+        }
+        # 영상 원 크기(s = PANEL_H/640, 영상 픽셀)를 카드 픽셀로 옮긴다 — 같은 원이 같은 크기로 보이게.
+        s_card = (H / 640.0) * k
+        draw_circle_marks(ImageDraw.Draw(marked, "RGBA"), moved, 0, CARD_PANEL, CARD_PANEL, s_card)
+    return marked, plain
+
+
+def circle_card_png(user_img: Image.Image, ref_img: Image.Image, user_box, ref_box,
+                    user_marks: dict | None, ref_marks: dict | None) -> tuple[bytes, bytes]:
+    """quick-260924-vw2 — 동그라미 문법 카드 PNG (표식 판, 표시 없는 판).
+
+    두 패널은 **같은 정규화 상자**(두 인물 상자의 합집합)로 자른다 — 영상이 두 프레임을 같은 높이로 나란히 놓는 것과
+    같은 약속이라, 촬영 구도가 같으면 높이 차가 그대로 보인다(uff 실측 바닥 0.811/0.814). 원은 both-or-neither:
+    한쪽이라도 None 이면 양쪽 다 안 그린다. 캔버스 = 정사각 두 장 + 흰 구분선(앱 종횡비 726×360).
+    """
+    import io
+
+    box = (min(user_box[0], ref_box[0]), min(user_box[1], ref_box[1]),
+           max(user_box[2], ref_box[2]), max(user_box[3], ref_box[3]))
+    draw = user_marks is not None and ref_marks is not None
+    u_m, u_p = _card_panel(user_img, box, user_marks if draw else None)
+    r_m, r_p = _card_panel(ref_img, box, ref_marks if draw else None)
+    out = []
+    for a, b in ((u_m, r_m), (u_p, r_p)):
+        canvas = Image.new("RGB", (CARD_PANEL * 2 + CARD_GAP, CARD_PANEL), (255, 255, 255))
+        canvas.paste(a, (0, 0))
+        canvas.paste(b, (CARD_PANEL + CARD_GAP, 0))
+        buf = io.BytesIO()
+        canvas.save(buf, format="PNG")
+        out.append(buf.getvalue())
+    return out[0], out[1]
+
+
 def _pair_lockstep_degrees(viz: dict | None) -> dict | None:
     """사이각 **수치**를 양 패널 짝으로만 남긴다 (belle 08-09 실기기 반려).
 
@@ -1239,7 +1360,19 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
         # 사이각 종류·좌우 — 확대 비교 사진이 기준 시각을 미세 보정한 뒤 **같은
         # 문법으로** 기준측을 다시 계산하기 위한 꼬리표. 렌더 동작 무관(표시 안 함).
         viz_kind, viz_side = None, None
-        if "_alignRefSec" in rec:
+        circle_viz = None
+        if "_alignRefSec" in rec and rec.get("measuredPattern"):
+            # quick-260924-vw2 — 순간은 record 가 정했고(대표 짝) select_pairs 가 그대로 물려줬다.
+            # 재선정(피크·①폴·②그립·③가중) 0, 사이각 선 0 — 동그라미 문법(그 팔·낮은발, 양 패널).
+            rt, src = float(rec["_alignRefSec"]), "measured"
+            u_at = _kp_reader(align, "user")
+            r_at = _kp_reader(align, "ref") if "refKp" in align else None
+            _arm_side = joint.split("_")[0]
+            _cu = _circle_marks(u_at, ut, _arm_side)
+            _cr = _circle_marks(r_at, rt, _arm_side) if r_at is not None else None
+            circle_viz = {"user": _cu, "ref": _cr} if (_cu is not None and _cr is not None) else None
+            markers = []
+        elif "_alignRefSec" in rec:
             rt, src = float(rec["_alignRefSec"]), "align"
             u_at = _kp_reader(align, "user")
             r_at = _kp_reader(align, "ref") if "refKp" in align else None
@@ -1353,6 +1486,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             "viz_side": viz_side,
             "pole_viz": pole_viz,
             "body_viz": body_viz,
+            "circle_viz": circle_viz,  # quick-260924-vw2 — measuredPattern 동그라미 문법(부재 = 종전)
             # 오버라이드 우선 — elbow_text_overrides.json 을 렌더 자막과 Polly
             # 재합성(p35_audio.py synth)이 공용으로 읽어 lockstep 이 구조 보장.
             "text": (text_overrides or {}).get(rid) or speech_text(rec),
@@ -1412,7 +1546,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             "dur": mp3_duration_s(d_mp3) + FREEZE_TAIL_S,
             "mp3": d_mp3, "joint": d_joint, "markers": d_markers,
             "legs_viz": None, "viz_kind": None, "viz_side": None,
-            "pole_viz": None, "body_viz": d_body_viz,
+            "pole_viz": None, "body_viz": d_body_viz, "circle_viz": None,
             "text": str(item.get("text", "")),
         })
     return warp_b, freezes, excluded
@@ -1694,6 +1828,13 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
                     for cx, cy in ((ax_, ay_), (bx_, by_)):
                         d.ellipse([cx - r_dot, cy - r_dot, cx + r_dot, cy + r_dot],
                                   fill=BRAND + (255,))
+            cv = fz.get("circle_viz")
+            if cv is not None:
+                # quick-260924-vw2 — 동그라미 문법: 양 패널 같은 원 두 개(그 팔·낮은발). 선·호·수치 없음.
+                for panel_key, off, pw in (("user", 0, a.width), ("ref", a.width + GAP, b.width)):
+                    m = cv.get(panel_key)
+                    if m:
+                        draw_circle_marks(d, m, off, pw, PANEL_H, S)
             for mx_n, my_n, style in fz.get("markers") or []:
                 mx, my = mx_n * a.width, my_n * PANEL_H
                 r_out, r_in = round(13 * S), round(4 * S)
@@ -1783,6 +1924,9 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
              "bodyViz": {k: round(fz["body_viz"][k]["dev"], 3)
                          for k in ("user", "ref") if fz["body_viz"].get(k)}
                         if fz.get("body_viz") else None,
+             # quick-260924-vw2 — 동그라미 문법 성립 여부(양 패널). 부재 = 종전 문법.
+             "circleViz": {k: fz["circle_viz"].get(k) is not None for k in ("user", "ref")}
+                          if fz.get("circle_viz") else None,
              "text": fz["text"]}
             for fz, (_, at) in zip(freezes, audio_plan)
         ],

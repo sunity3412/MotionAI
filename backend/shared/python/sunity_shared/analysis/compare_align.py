@@ -192,17 +192,23 @@ def select_pairs(records: list[dict], D: np.ndarray, curve: np.ndarray,
         if ut is None:
             continue
         ui = int(np.clip(round(float(ut) * FPS), 0, fu_len - 1))
-        center = int(round(curve[ui]))
-        lo, hi = max(0, center - int(2 * FPS)), min(fr_len, center + int(2 * FPS) + 1)
         joint = rec["criterion"].split("__")[-1]
-        window = D[ui, lo:hi]
-        dmin = float(window.min())
-        cand = np.where(window <= dmin * 1.15 + 1e-9)[0]
-        if joint in J17 and len(cand) > 1:
-            ji = J17.index(joint)
-            ri = lo + int(cand[np.argmax(rsc[lo + cand, ji])])
+        ref_at = rec.get("atRefVideoSec")
+        if rec.get("measuredPattern") and ref_at is not None:
+            # quick-260924-vw2 — record 가 같은 순간의 기준 초를 이미 정했다(대표 짝, 순간의 출처 하나 —
+            # belle 08-09). 자세거리 재선정 없이 그대로 물려받는다.
+            ri = int(np.clip(round(float(ref_at) * FPS), 0, fr_len - 1))
         else:
-            ri = lo + int(np.argmin(window))
+            center = int(round(curve[ui]))
+            lo, hi = max(0, center - int(2 * FPS)), min(fr_len, center + int(2 * FPS) + 1)
+            window = D[ui, lo:hi]
+            dmin = float(window.min())
+            cand = np.where(window <= dmin * 1.15 + 1e-9)[0]
+            if joint in J17 and len(cand) > 1:
+                ji = J17.index(joint)
+                ri = lo + int(cand[np.argmax(rsc[lo + cand, ji])])
+            else:
+                ri = lo + int(np.argmin(window))
         marker = None
         if joint in J17:
             ji = J17.index(joint)

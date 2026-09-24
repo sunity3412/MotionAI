@@ -120,7 +120,8 @@ def test_contract_lockstep():
     assert (set(models.DEDUCTION_RECORD_KEYS)
             | set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)
             | set(models.DEDUCTION_RECORD_EXTENSION_KEYS)
-            | set(models.DEDUCTION_RECORD_MOMENT_KEYS)) == ts_fields
+            | set(models.DEDUCTION_RECORD_MOMENT_KEYS)
+            | set(models.DEDUCTION_RECORD_DISPLAY_KEYS)) == ts_fields
     assert not set(models.DEDUCTION_RECORD_KEYS) & set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)
     assert not set(models.DEDUCTION_RECORD_KEYS) & set(models.DEDUCTION_RECORD_EXTENSION_KEYS)
     assert not set(models.DEDUCTION_RECORD_OPTIONAL_KEYS) & set(
@@ -131,6 +132,8 @@ def test_contract_lockstep():
         models.DEDUCTION_RECORD_EXTENSION_KEYS,
     ):
         assert not set(_other) & set(models.DEDUCTION_RECORD_MOMENT_KEYS)
+        assert not set(_other) & set(models.DEDUCTION_RECORD_DISPLAY_KEYS)
+    assert not set(models.DEDUCTION_RECORD_MOMENT_KEYS) & set(models.DEDUCTION_RECORD_DISPLAY_KEYS)
     assert "baselineValue" in models.DEDUCTION_RECORD_KEYS
     assert "baselineKind" in models.DEDUCTION_RECORD_KEYS
     assert "fallback" in models.DEDUCTION_BREAKDOWN_KEYS

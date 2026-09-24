@@ -1887,6 +1887,12 @@ const frameIdx = Math.floor(currentTime * report.fps);
 | `track?` | 'execution'\|'critical' | **optional** (Wave R, 33-SPEC.md R4, D-37) — 2트랙 분류. `'critical'` record 에만 방출; `'execution'`(기본)은 키 생략(기존 11필드 byte-호환, legacy doc 부재 안전). 실행 트랙은 −40 집계캡 대상, 치명 트랙(필수 완전신전 미달 = 요소 미인정)은 집계캡·관절캡 우회(§10.1). **현재 DORMANT** — 활성 criterion 0(D-35). |
 | `atFrameIdx?` | number | **optional** (quick-260801-gbk) — 이 감점을 **잰 학생 프레임**. 도메인은 학생 **9fps angles 행 인덱스**(keypointReport rep 인덱스 아님 — §11.8 F-3 과 다른 축). 순간을 신뢰 있게 정할 수 있는 criterion 에만 방출. |
 | `atVideoSec?` | number | **optional** — `atFrameIdx / 파이프라인 frames fps`. 백엔드가 나눠서 준다 — **앱이 rep fps 로 재계산 금지**(그 재계산이 §11.8 F-3 의 근본원인). fps 를 못 구하면 `atFrameIdx` 만 방출. |
+| `measuredPattern?` | string | **optional** (quick-260924-vw2) — phrasebook `measuredVariants` 패턴 이름. 있으면 카드 3단 문장은 **분석마다 잰 값**이 고른 승인 문장이고, 영상 멈춤·카드 사진은 각도 선 대신 동그라미 문법(그 팔·낮은발). §10.2.2 |
+| `atRefVideoSec?` | number | **optional** (quick-260924-vw2) — `measuredPattern` record 의 같은 순간 **기준(정은지) 초**. 영상 멈춤·카드가 재선정 없이 물려받는다. §10.2.2 |
+
+#### §10.2.2 잰 값 조건부 카드 — 순간의 출처 하나 (quick-260924-vw2)
+
+`measuredPattern` record 는 `atFrameIdx/atVideoSec`(학생)·`atRefVideoSec`(기준)이 **창 안 대표 짝**이다: 운영 DTW 짝 중 1:1(정체 아님) · 몸이 그립 손의 같은 쪽 · 표식 관절(그 팔 어깨·팔꿈치·손 + 낮은발) 신뢰 하한 이상 · 짝의 엉덩이·낮은발 높이 차가 창 상수에 가장 가까운 짝(`hold_height.representative_pair`). §10.2.1 의 "집계값 최근접" 규칙과 다른 이유: 이 record 의 카드는 각도가 아니라 **몸 높이 패턴**을 말하고, 확대 비교는 양쪽이 같은 국면일 때만 가치가 있다(belle 09-03). 합성 영상 멈춤과 카드 사진은 이 두 초를 **그대로** 물려받는다(belle 08-09 — 순간 출처 하나). 대표 짝이 없으면 문장 대체도 하지 않는다(카드 전체 종전).
 
 #### §10.2.1 측정 순간 산출 규칙 (quick-260801-gbk)
 

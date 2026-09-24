@@ -214,3 +214,87 @@ def test_min_window_matches_pipeline_constant_window():
     import app  # noqa: E402
 
     assert hh.MIN_WINDOW_FRAMES == app._CONSTANT_WINDOW_MIN_FRAMES
+
+
+# ── (7) 대표 짝 (quick-260924-vw2) — 카드·영상 멈춤이 물려받을 한 순간 ─────────────────────────
+
+
+def _rp_reports(T=40, stand=10, *, stu_hip, ref_hip, stu_side=-1, ref_side=-1, low_conf_frames=()):
+    """창 안 프레임마다 엉덩이 높이를 주는 합성 보고서. 몸은 그립(오른)손의 stu_side/ref_side 쪽."""
+    def build(hips, side, lowc):
+        ys = _pose(T, stand, hip=0.6, low_ankle=0.79, high_ankle=0.7, hand=0.32)
+        h = np.full(T, 0.65)
+        h[stand:] = hips
+        ys["left_hip"] = ys["right_hip"] = h
+        rep = _report(ys, T)
+        X = np.asarray(rep["data"]).reshape(T, len(_JOINTS), 2)
+        X[:, _JOINTS.index("right_hand"), 0] = 0.5
+        X[:, _JOINTS.index("left_hip"), 0] = X[:, _JOINTS.index("right_hip"), 0] = 0.5 + 0.1 * side
+        rep["data"] = X.reshape(-1).tolist()
+        C = np.asarray(rep["confidence"]).reshape(T, len(_JOINTS))
+        for f in lowc:
+            C[f, _JOINTS.index("left_elbow")] = hh.MIN_CONF - 0.05
+        rep["confidence"] = C.reshape(-1).tolist()
+        return rep
+    return build(stu_hip, stu_side, low_conf_frames), build(ref_hip, ref_side, ())
+
+
+def test_representative_pair_is_the_one_closest_to_the_window_constant():
+    T, stand = 40, 10
+    stu_hip = np.full(T - stand, 0.605)
+    stu_hip[5] = 0.50            # 튀는 한 장(차이 최대) — 대표가 아니다
+    ref_hip = np.full(T - stand, 0.56)
+    stu, ref = _rp_reports(T, stand, stu_hip=stu_hip, ref_hip=ref_hip)
+    pairs = [(u, u) for u in range(stand, T)]
+    rp = hh.representative_pair(stu, ref, pairs, (stand, T), (stand, T), arm_side="left")
+    assert rp is not None and rp["userFrame"] != stand + 5
+    assert rp["userFrame"] == rp["refFrame"]
+
+
+def test_stall_pairs_are_not_a_moment():
+    """학생 한 장 ↔ 기준 여러 장(정체)은 같은 순간이라 말할 수 없다 — 1:1 짝만 후보."""
+    T, stand = 40, 10
+    stu, ref = _rp_reports(T, stand, stu_hip=np.full(T - stand, 0.605), ref_hip=np.full(T - stand, 0.56))
+    pairs = [(20, r) for r in range(stand, T)]  # 전부 정체
+    assert hh.representative_pair(stu, ref, pairs, (stand, T), (stand, T), arm_side="left") is None
+
+
+def test_mirrored_side_of_the_pole_is_not_a_pair():
+    """몸이 폴(그립 손)의 반대쪽이면 나란히 놓았을 때 비교가 헷갈린다 — 후보 아님(uff 후보 c)."""
+    T, stand = 40, 10
+    stu, ref = _rp_reports(T, stand, stu_hip=np.full(T - stand, 0.605), ref_hip=np.full(T - stand, 0.56),
+                           stu_side=-1, ref_side=+1)
+    pairs = [(u, u) for u in range(stand, T)]
+    assert hh.representative_pair(stu, ref, pairs, (stand, T), (stand, T), arm_side="left") is None
+
+
+def test_unreadable_marked_joint_excludes_the_frame():
+    T, stand = 40, 10
+    stu, ref = _rp_reports(T, stand, stu_hip=np.full(T - stand, 0.605), ref_hip=np.full(T - stand, 0.56),
+                           low_conf_frames=range(stand, T - 1))
+    pairs = [(u, u) for u in range(stand, T)]
+    rp = hh.representative_pair(stu, ref, pairs, (stand, T), (stand, T), arm_side="left")
+    assert rp is not None and rp["userFrame"] == T - 1   # 왼팔꿈치가 읽히는 유일한 프레임
+
+
+def test_pairs_outside_the_window_are_ignored_and_bad_side_is_none():
+    T, stand = 40, 10
+    stu, ref = _rp_reports(T, stand, stu_hip=np.full(T - stand, 0.605), ref_hip=np.full(T - stand, 0.56))
+    assert hh.representative_pair(stu, ref, [(2, 2), (5, 5)], (stand, T), (stand, T), arm_side="left") is None
+    assert hh.representative_pair(stu, ref, [(20, 20)], (stand, T), (stand, T), arm_side="middle") is None
+
+
+def test_kipup_fault_reproduces_the_pair_belle_approved():
+    """uff 판정지 ○ 사진 = 학생 f21(2.11s) | 정은지 f38(2.53s). 그때는 한 장을 내 눈으로 뺐지만 이 규칙은 눈 없이 같은 짝을 고른다.
+    저장 doc 재현은 오프라인 게이트(vw2 SUMMARY)가 맡고, 여기서는 규칙의 대표성 정의만 잠근다 — 차이 합이 최소인 짝."""
+    T, stand = 40, 10
+    stu_hip = np.linspace(0.62, 0.59, T - stand)
+    ref_hip = np.linspace(0.57, 0.55, T - stand)
+    stu, ref = _rp_reports(T, stand, stu_hip=stu_hip, ref_hip=ref_hip)
+    pairs = [(u, u) for u in range(stand, T)]
+    rp = hh.representative_pair(stu, ref, pairs, (stand, T), (stand, T), arm_side="left")
+    s = hh._frame_series(stu, (stand, T)); r = hh._frame_series(ref, (stand, T))
+    d_hip = np.median(s["hip"][stand:T]) - np.median(r["hip"][stand:T])
+    d_low = np.median(s["lowFoot"][stand:T]) - np.median(r["lowFoot"][stand:T])
+    scores = [abs((s["hip"][u] - r["hip"][u]) - d_hip) + abs((s["lowFoot"][u] - r["lowFoot"][u]) - d_low) for u in range(stand, T)]
+    assert rp["score"] == pytest.approx(min(scores))

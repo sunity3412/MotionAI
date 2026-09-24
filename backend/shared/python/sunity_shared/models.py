@@ -359,6 +359,16 @@ DEDUCTION_RECORD_EXTENSION_KEYS = (
 # 3-way lockstep: app/src/types/analysis.ts DeductionRecord + docs/contract.md §10.2.
 DEDUCTION_RECORD_MOMENT_KEYS = ("atFrameIdx", "atVideoSec")
 
+# quick-260924-vw2 — 잰 값 조건부 카드 표시 (belle 09-24 판정지 4/4 ○).
+#   measuredPattern = phrasebook measuredVariants 의 패턴 이름(예 "body_low_arm_open"). 있으면 그 record 의 카드 3단
+#     문장은 잰 값이 고른 승인 문장이고, 영상 멈춤·카드 사진은 각도 선 대신 **동그라미 문법**(그 팔·낮은발)을 쓴다.
+#   atRefVideoSec = 같은 순간의 **기준(정은지) 초**. 이 record 의 atFrameIdx/atVideoSec 은 창 안 대표 짝(같은 국면·
+#     1:1·폴 같은 쪽·높이 차가 창 상수에 가장 가까움)의 학생 프레임이고, 이 값은 그 짝의 기준 쪽이다. 합성 영상
+#     멈춤(compare_align.select_pairs)과 카드가 **재선정 없이** 물려받는다 — 순간의 출처는 record 하나(belle 08-09).
+# 부재 = 종전(다른 record·legacy doc 전부). 전부 additive optional scalar — validator 본체 무변경.
+# 3-way lockstep: app/src/types/analysis.ts DeductionRecord + docs/contract.md §10.2.
+DEDUCTION_RECORD_DISPLAY_KEYS = ("measuredPattern", "atRefVideoSec")
+
 # result.summaryPraise — 잘한 점 후보 단일 원천 (백엔드 산출, D-06/D-26 + 리뷰
 # blocker 5). headline 은 사람 말 — **수치 미포함** (D-09 invariant: 수치는
 # evidenceValue/evidenceUnit 구조 필드로 분리, 렌더 위치는 앱 소관).

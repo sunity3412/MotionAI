@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-24 밤. **착수점 = .planning/quick/260924-jks-2026-09-24-close/260924-jks-HANDOFF.md §4 (진행 중).** §4 1~2단계(후보) = uff, belle 4/4 ○. **3단계 문장 배선 완료 = vj1 (33ffae38)**: 유지 구간 몸 높이(hold_height.py) + 승인 문장(phrasebook measuredVariants), 잰 값 네 조건 전부일 때만 대체·아니면 종전 byte-동일, 저장 10편 오프라인 게이트 = kip-up 실수만, 테스트 5069 통과. **다음 = 사진**: 카드 사진은 합성 영상 멈춤 순간 상속(belle 08-09) → record 순간을 같은 국면·대표 차이 짝으로 고르고 영상·카드가 물려받게, 카드 그림 전신·동그라미. 합성 영상이 바뀌므로 판정지 다시. 그 뒤 Pod E2E 한 번(문장+사진+구간 제거 판 e45d325f). belle 권고 대기 항목: 봉인 시험지(정은지 추가 촬영 부탁함, 도착 대기). ★다시 하지 말 것(jks §1): 허용오차 20 · 손 계산 · 상수 경로 CI · \"조절\" · 학생 영상 먼저 꺼내기. Pod 0 · Lambda 자리표시자 · 잔액 $22.74."
-last_updated: "2026-09-24T14:40:00.000Z"
+stopped_at: "2026-09-24 밤. **착수점 = .planning/quick/260924-jks-2026-09-24-close/260924-jks-HANDOFF.md §4 (진행 중).** uff(후보, belle 4/4 ○) → vj1 문장 배선(33ffae38) → **vw2 사진 배선(c83700d6) 코드 완료, Pod E2E 대기** — 볼륨 데이터센터 GPU 재고 0(백그라운드 재시도). vw2: 대표 짝(hold_height.representative_pair, belle ○ 사진과 같은 짝 2.11s|2.53s 를 눈 없이 고름) → record measuredPattern·atRefVideoSec(3-way 계약) → 영상 멈춤(select_pairs 그대로·circle_viz)·카드(circle_card_png) 같은 순간·같은 동그라미. 테스트 5095 통과. **다음 = Pod 기동 → 10편 재분석 → 운영 카드 PNG·영상 멈춤 프레임 판정지 → belle ○× → 시뮬레이터 캡처 → pod_teardown.py <id>**. 미확인: 운영 align 좌표의 원 위치(내 눈 금지), 리그 PASS, 스팟체크 숨김 여부, 앵커 부위 확인 미적용. ★다시 하지 말 것(jks §1): 허용오차 20 · 손 계산 · 상수 경로 CI · \"조절\" · 학생 영상 먼저 꺼내기. Lambda 자리표시자 · 잔액 $22.58."
+last_updated: "2026-09-24T14:20:00.000Z"
 last_activity: 2026-09-24
 progress:
   total_phases: 38
@@ -159,7 +159,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-09-24 - Completed quick task 260924-vj1: kip-up 카드 문장 배선(잰 값 조건부 승인 문장, 33ffae38)
+Last activity: 2026-09-24 - quick task 260924-vw2: kip-up 카드 사진 배선 코드 완료(c83700d6), Pod E2E 대기
 
 이전: 2026-08-31 - **코드리뷰 후속 수리 2건 (belle "고고")** — 리뷰(c2976102..HEAD, high)가 크레딧 소진으로 중단됐으나 확보된 후보를 실측 처분: ①vision tol 우회 소음 감점 위험 = **기각**(정타 6편 전부 vision 결함 보고 0건, N=1→N=6. 대조: kip-up fault 는 20도 보고 — 변별 유지) ②기준 doc joints3d 부재 = **기각**(11/11 보유) ③**신규 발견·수리**: 기준 4/11(foxtop·foxtop-split·invert·sideway-spin)이 y축 회전잔여(1e-13)뿐인 x-z 평면 저장 → 상체각이 상수 90도 = 지어낸 코칭. up축 소실 가드(좌표스케일x eps) 도입, 못 재면 NaN→라인 생략 ④**자세 축 양방향화**: 종전 한 방향 발화는 서 있는 동작(11개 중 3개)에서만 참 — 수평·뒤집힘 8개의 "덜 눕힘" 결함이 영영 안 나왔다. |delta| 판정+문구가 방향 구분, 절대 자세 지시 제거. ★수리 과정 교훈: 최초 가드("정확히 0")가 합성 픽스처만 통과하고 실데이터에서 무력 — 실데이터 검증에서 발각(VERIFY.md 에 FAIL 박제, 픽스처를 실데이터 형태로 교체). 4544 passed/0 failed. 점수 경로 무접촉. 커밋 1aac5b8f. ★미처리: stability 창 자 불일치(점수 이동 있어 belle 예고 후) · 리뷰 미완 각도(앱 result.tsx)
 
@@ -209,6 +209,7 @@ Last activity: 2026-09-24 - Completed quick task 260924-vj1: kip-up 카드 문�
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260924-vw2 | **kip-up 카드 사진 배선 — 코드 완료, Pod E2E 대기.** 순간 출처 하나: hold_height.representative_pair(창 안 1:1·그립 손 같은 쪽·표식 신뢰·높이 차가 창 상수에 최근접) → record measuredPattern·atRefVideoSec(3-way) → compare_align 짝 그대로·compare_render circle_viz·게이트 상속 카드 circle_card_png(726×360). 저장 10편 = kip-up 실수만 (2.106s|2.533s). 로컬 미리보기 = ○ 사진과 같은 그림. 테스트 26 신규·전체 5095 | 2026-09-24 | c83700d6 | [260924-vw2-kip-up-card-photo](./quick/260924-vw2-kip-up-card-photo/) |
 | 260924-vj1 | **kip-up 카드 문장 배선 — 잰 값이 고른다(belle 4/4 ○ 문장).** hold_height.py(유지 구간 엉덩이·낮은발·그립 손 높이, 몸길이 단위) + body_low_arm_open(네 조건) + phrasebook measuredVariants(승인 3줄) + app._measured_phrase_variants → 방출이 문구집보다 먼저 3슬롯. 못 재면 종전 byte-동일. 테스트 50 신규(문턱 0.03~0.12 둔감성 잠금)·전체 5069. 저장 10편 게이트 = kip-up 실수만 대체. 테스트가 JOINT_KEYS NameError(운영에서 조용히 무대체)를 잡음. 사진·Pod E2E 는 다음 | 2026-09-24 | 33ffae38 | [260924-vj1-kip-up-card-text](./quick/260924-vj1-kip-up-card-text/) |
 | 260924-uff | **kip-up 실수 카드 문장·사진 후보 — belle ○× 대기(배선 0).** 화면 문장 출처 추적: 전부 문구집 고정 문구, LLM tips 는 앱 소비처 0. 운영 창으로 잰 사실(게이트 왼어깨 33.86 재현): 몸이 끝까지 낮다(엉덩이 −0.15·낮은발 −0.22 몸길이, 정타 0.00) · 손은 같은 높이(−0.02) · 겨드랑이 +33.9 · 왼팔꿈치 +1.1(같다 → "덜 굽음" 문장 뺌). 사진 = 창 안 대표 DTW 짝(학생 2.11s | 정은지 2.53s), 같은 구도 나란히, 왼팔·낮은발 동그라미, 각도 선 0. 코드 0 | 2026-09-24 | (이 커밋) | [260924-uff-kip-up-belle](./quick/260924-uff-kip-up-belle/) |
 | 260924-ig3 | **reference_relative seed 에 유지 구간 상수 경로 배선 + Pod 검증 — kip-up 실수 100→83, 정타 5/5 유지.** 빌더 `ref_exec_window`(기준 clipRange 창, DTW 로 가장자리만) = pointed > constant > DTW, 플래그 default ON. L4 10편: climb 60·peter-pan 60·pdshape 80·power-spin 80(↑7 = 상수 경로 CI 가 움직임 폭을 잡음으로 읽어 억제 → 구간 제거, 산식 68). 테스트 10 신규·5019 통과. Pod $0.16 | 2026-09-24 | 1d9a41e9, e45d325f | [260924-ig3-window-constant](./quick/260924-ig3-window-constant/) |

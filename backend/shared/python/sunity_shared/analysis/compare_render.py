@@ -166,19 +166,54 @@ def _caption_bottom(W: int) -> int:
     return int(round(PANEL_H - (PANEL_H - visible_h) / 2))
 
 
+def _caption_band(W: int, n_lines: int, line_h: int, S: float, at_top: bool = False) -> tuple[int, int]:
+    """자막 밴드의 (y0, y1) — 앱이 잘라 내지 않는 구간 안. 기본은 아래변, at_top 이면 위변."""
+    band_h = round(18 * S) + line_h * n_lines
+    if at_top:
+        y0 = PANEL_H - _caption_bottom(W)   # 보이는 구간의 위변(아래 여백과 대칭)
+        return y0, y0 + band_h
+    y1 = _caption_bottom(W)
+    return y1 - band_h, y1
+
+
+def caption_should_move_up(circle_viz: dict | None, W: int, n_lines: int, line_h: int, S: float) -> bool:
+    """quick-260924-vw2 — 동그라미가 아래 자막 밴드에 **걸리고** 위 밴드에는 안 걸릴 때만 True.
+
+    kip-up 실수 E2E(466ee4c5)에서 학생 낮은발 원(= 이 카드의 핵심 증거 '낮게 떠 있다')이 자막 상자에 가려졌다.
+    자막 위치는 belle 승인 문법(아래)이라 **그 원이 가려지는 멈춤에서만** 위로 올린다. circle_viz 없는 멈춤 = 종전.
+    """
+    if not circle_viz:
+        return False
+    def overlaps(band):
+        y0, y1 = band
+        for m in (circle_viz.get("user"), circle_viz.get("ref")):
+            if not m:
+                continue
+            ys = [p[1] * PANEL_H for p in m["arm"]]
+            cy = sum(ys) / len(ys)
+            r_arm = max(abs(y - cy) for y in ys) + 14.0 * S
+            fy, r_foot = m["foot"][1] * PANEL_H, 26.0 * S
+            if (cy + r_arm > y0 and cy - r_arm < y1) or (fy + r_foot > y0 and fy - r_foot < y1):
+                return True
+        return False
+    return overlaps(_caption_band(W, n_lines, line_h, S)) and not overlaps(_caption_band(W, n_lines, line_h, S, True))
+
+
 def _draw_caption(images: list[Image.Image], text: str, font, W: int,
-                  pad: int, line_h: int, S: float) -> int:
+                  pad: int, line_h: int, S: float, circle_viz: dict | None = None) -> int:
     """자막 밴드를 **주어진 캔버스 전부**에 동일하게 굽고 밴드 높이를 돌려준다.
 
     표시(관절선·각도 수치)와 달리 자막은 '관절선 끄기' 판에도 남는다 — 토글이
     끄겠다고 이름 붙인 것은 관절선뿐이고, 코칭 문장까지 같이 사라지면 이름과
     동작이 어긋난다(belle 09-09). 음성이 읽는 문장이 곧 이 자막이다(D-07).
+    circle_viz(quick-260924-vw2): 동그라미가 아래 밴드에 가려질 때만 밴드를 위로(caption_should_move_up).
     """
     d0 = ImageDraw.Draw(images[0], "RGBA")
     lines = wrap_text(d0, text, font, W - 2 * pad)[:3]
     band_h = round(18 * S) + line_h * len(lines)
-    y1 = _caption_bottom(W)
-    y0 = y1 - band_h
+    y0, y1 = _caption_band(
+        W, len(lines), line_h, S, caption_should_move_up(circle_viz, W, len(lines), line_h, S)
+    )
     for img in images:
         d = d0 if img is images[0] else ImageDraw.Draw(img, "RGBA")
         d.rectangle([0, y0, W, y1], fill=(15, 13, 12, 216))
@@ -1848,7 +1883,7 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
                               outline=BRAND + (255,), width=round(4 * S))
                     d.ellipse([mx - r_in, my - r_in, mx + r_in, my + r_in], fill=BRAND + (255,))
             targets = [canvas] if plain_canvas is None else [canvas, plain_canvas]
-            _draw_caption(targets, fz["text"], font, W, pad, line_h, S)
+            _draw_caption(targets, fz["text"], font, W, pad, line_h, S, fz.get("circle_viz"))
         canvas.save(odir / f"{i + 1:06d}.jpg", quality=92)
         if odir_plain is not None:
             # 표시는 정지 프레임(fz)에만 그려지므로 재생 프레임은 두 판이 동일하다

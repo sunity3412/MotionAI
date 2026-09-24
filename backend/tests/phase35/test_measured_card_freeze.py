@@ -244,3 +244,37 @@ def test_person_bbox_uses_readable_points_only():
     rb = compare_render.person_bbox(align, "ref", 1.0)
     assert ub[3] == pytest.approx(0.85)          # 학생 왼발목까지
     assert rb[3] < 0.70                          # 기준은 발목이 안 읽혀 상자에서 빠진다
+
+
+# ── (6) 자막 위치 — 동그라미가 가려질 때만 위로 (vw2 E2E 466ee4c5 에서 발견) ───────────────
+
+
+_W = 608 * 2 + compare_render.GAP
+_S = compare_render.PANEL_H / 640.0
+_LINE_H = round(40 * _S)
+
+
+def _cv(foot_y, arm_y=0.5):
+    m = {"arm": [[0.45, arm_y - 0.03], [0.50, arm_y], [0.55, arm_y - 0.03]], "foot": [0.30, foot_y]}
+    return {"user": m, "ref": m}
+
+
+def test_caption_moves_up_only_when_a_circle_is_under_the_bottom_band():
+    y0, y1 = compare_render._caption_band(_W, 2, _LINE_H, _S)
+    under = (y0 + y1) / 2 / compare_render.PANEL_H
+    assert compare_render.caption_should_move_up(_cv(under), _W, 2, _LINE_H, _S) is True
+    assert compare_render.caption_should_move_up(_cv(0.55), _W, 2, _LINE_H, _S) is False
+    assert compare_render.caption_should_move_up(None, _W, 2, _LINE_H, _S) is False
+
+
+def test_top_band_sits_inside_the_visible_area_symmetric_to_the_bottom():
+    b0, b1 = compare_render._caption_band(_W, 2, _LINE_H, _S)
+    t0, t1 = compare_render._caption_band(_W, 2, _LINE_H, _S, at_top=True)
+    assert t0 == compare_render.PANEL_H - b1 and t1 - t0 == b1 - b0
+
+
+def test_caption_stays_down_when_the_top_band_would_hide_a_circle_too():
+    t0, t1 = compare_render._caption_band(_W, 2, _LINE_H, _S, at_top=True)
+    b0, b1 = compare_render._caption_band(_W, 2, _LINE_H, _S)
+    cv = _cv((b0 + b1) / 2 / compare_render.PANEL_H, arm_y=(t0 + t1) / 2 / compare_render.PANEL_H)
+    assert compare_render.caption_should_move_up(cv, _W, 2, _LINE_H, _S) is False

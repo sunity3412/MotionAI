@@ -3,7 +3,7 @@ quick_id: 260925-nnt
 slug: three-fixes
 date: 2026-09-25
 status: complete
-commits: [a3c881ea, f9ca6d7f]
+commits: [a3c881ea, f9ca6d7f, (3차) 바닥 기준 fail-closed]
 pod: ebo5coltal6p82 (RTX 4090, EU-RO-1 볼륨 a5z753defc)
 ---
 
@@ -16,7 +16,7 @@ pod: ebo5coltal6p82 (RTX 4090, EU-RO-1 볼륨 a5z753defc)
 | 칸 | 한 것 | Pod 결과(앱 경로) |
 |---|---|---|
 | ① Gemini 가 결함을 적고도 버리는 경로 | severity none 이어도 K-of-N 지목을 no_fault ctx 에 승계. 감점은 기하만 | **climb**: "왼팔을 크게 굽혀 폴을 감싸 안음"이 grip coverage gap → 화면 강사 질문 "정확히 재기 어려웠던 부분 (왼팔 및 왼손)". 감점 문장은 못 만든다(팔 각도 자가 회전 중 −17°만 읽음) |
-| ② 높이 카드 일반화 | 몸 전체 패턴 `body_low`(엉덩이 1/3 전부 낮음) → 어느 record 든 승인 문장이 있으면 호스트. 엉덩이 동그라미 | **power-spin 실수**: 카드 첫 줄 "정은지 선수보다 낮은 위치에서 돌고 있어요" + 엉덩이 원(6.91s\|9.80s). 점수 68 불변 |
+| ② 높이 카드 일반화 | 몸 전체 패턴 `body_low`(엉덩이 1/3 전부 낮음) → 어느 record 든 승인 문장이 있으면 호스트. 엉덩이 동그라미 | **power-spin 실수: 문장을 내렸다(3차).** 높이 자의 바닥 기준이 이 영상에선 거짓(두 영상 다 0초부터 봉에 매달림, 서 있는 프레임 0 → 기준 낮은발이 바닥 아래 −0.72). `hold_window_heights` 가 창 낮은발 10% 분위 < −0.10 이면 None. 배선·판정기는 남고 유효한 바닥이 있는 영상에서만 산다. 점수 68 불변 |
 | ③ 벌림 게이트 | **안 열었다** — 2D peak split 이 다리 접은 순간에도 180 으로 포화(기준 r43 180.0, kip-up 기준 180.0, pdshape 173.7). 실수 165.3 → 부족 14.7 < 20 이라 열어도 침묵 | belle 질문으로 대체: 카드의 "무릎이 덜 펴져 스플릿 라인이 꺾임" = belle 의 "다리 벌림이 다르다"인가 ○× |
 
 정타 5편 = 100/100/100/100/100 (4090). 실수 = power-spin 68 · kip-up 83 · climb 60 · peter-pan 60 · pdshape 80 — 09-24(L4)와 같은 값. GPU 가 달라(4090) 점수 비교는 참고([[gpu-type-changes-pose-angles]]).
@@ -26,9 +26,16 @@ pod: ebo5coltal6p82 (RTX 4090, EU-RO-1 볼륨 a5z753defc)
 - `[확인]` **①의 부작용**: 지목 승계가 split 의 vision-측정값(Gemini 추정 50°)까지 실어 와 **kip-up 실수 83→63**(split −20, primaryFault 는 "머리가 덜 젖혀져"), power-spin 68→60. belle 이 09-24 에 닫은 카드가 열렸다. → `deduction_engine._vision_values_allowed`: severity none 이면 Gemini 숫자 주입 0, 라우팅만. 재실측 kip-up **83**, power-spin **68**, 로그 `split vision value skipped (severity none)` 2건.
 - `[확인]` **②의 손 조건이 거짓이었다**: "grip −0.646" 은 손이 낮은 게 아니라 검출 탈락 비율이었다 — 회전 동작에서 "높은 손" 시계열이 1.3/0.6/0.1 세 봉우리(기준 영상도 같다, 공중에서 손이 바닥 높이일 수 없다). 대표 짝 사진에서 두 손 높이는 같았다. → 패턴을 엉덩이만으로(`body_low`), 문장·원에서 손 제거. [[grip-hand-height-series-is-trimodal-in-spins]]
 
+## 1-b. 3차 정정 — belle "파워스핀 뭔가 이상해"(말 안 함) 전에 내가 찾은 것
+
+`260925-nnt-PREDICTION-power-spin-card.md`(봉인) 의 1번: power-spin 은 학생·기준 영상 모두 0초에 이미 봉 위(서 있는 프레임 0). 바닥이 공중 발목(0.59~0.63, 진짜 바닥 0.81)으로 잡혀
+기준 창 낮은발 10% 분위 −0.72(정타 −0.20, peter-pan −0.34) — 발이 바닥 밑에 있을 수 없다. 자가 자기 정의를 어긴 값으로 문장을 만들었다 → fail-closed(문턱 −0.10, kip-up ≥ −0.03 · climb ≥ −0.06 통과).
+원좌표(같은 카메라)로는 학생 엉덩이가 프레임의 0.065 아래에 있긴 하다 — 방향은 맞았지만 그 자로 말할 자격이 없다. 제대로 하려면 바닥 기준을 폴 바닥(폴 검출)에서 잡아야 한다(미구현).
+예측 2·3·4(다른 국면 짝 · 엉덩이 원이 높이를 못 보여줌 · belle 말과 다른 표현)는 belle ○× 대기.
+
 ## 2. 화면에 실리는 것 (초안, belle ○× 대기)
 
-power-spin 실수 카드(leg_extension record, measuredPattern=body_low):
+power-spin 실수 카드(leg_extension record, measuredPattern=body_low) — **3차에서 내림. 아래는 2차 실측 기록**:
 - statusLine: 정은지 선수보다 낮은 위치에서 돌고 있어요
 - whyLine: 돌기 시작해서 끝날 때까지 엉덩이가 정은지 선수보다 눈에 띄게 아래에 있고, 무릎도 덜 펴져 있어요
 - cueLine: 몸을 더 높이 끌어올린 채로, 무릎을 끝까지 편 채 돌아보세요

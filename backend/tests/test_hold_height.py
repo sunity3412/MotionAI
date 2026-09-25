@@ -371,3 +371,33 @@ def test_grip_side_is_none_when_a_hand_is_unreadable_or_tied():
     ys["left_hand"] = ys["right_hand"]
     assert hh.grip_side_majority(_report(ys, T), (10, 40)) is None
     assert hh.grip_side_majority(None, (10, 40)) is None
+
+
+# ── (9) 바닥 기준 검증 — 창 안 낮은발이 바닥 아래면 None (quick-260925-nnt, power-spin 실측) ─────────
+
+
+def test_foot_below_the_floor_means_the_floor_reference_is_wrong_and_returns_none():
+    T, stand = 40, 10
+    ys = _pose(T, stand, hip=0.605, low_ankle=0.795, high_ankle=0.74, hand=0.325)
+    stu = _report(ys, T)
+    bad = _pose(T, stand, hip=0.56, low_ankle=0.73, high_ankle=0.70, hand=0.32)
+    bad["left_ankle"][20:30] = 0.8 + 0.3 * 0.20   # 창 30프레임 중 10프레임에서 발목이 바닥(0.8)보다 0.20 몸길이 아래 → 10% 분위 위반
+    assert hh.hold_window_heights(stu, _report(bad, T), (10, 40), (10, 40)) is None
+    one = _pose(T, stand, hip=0.56, low_ankle=0.73, high_ankle=0.70, hand=0.32)
+    one["left_ankle"][20] = 0.8 + 0.3 * 0.20      # 한 프레임 튐은 무시(10% 분위)
+    assert hh.hold_window_heights(stu, _report(one, T), (10, 40), (10, 40)) is not None
+    ok = _pose(T, stand, hip=0.56, low_ankle=0.73, high_ankle=0.70, hand=0.32)
+    ok["left_ankle"][20:30] = 0.8 + 0.3 * 0.06    # 잡음 폭 2배 안(0.06)은 바닥으로 본다(climb 실수 실측 −0.06)
+    assert hh.hold_window_heights(stu, _report(ok, T), (10, 40), (10, 40)) is not None
+
+
+@pytest.mark.parametrize("p10", [-0.72, -0.34, -0.20])
+def test_broken_floor_references_measured_on_0924_are_rejected(p10):
+    """09-24 저장 10편의 창 낮은발 10% 분위 — 깨진 바닥(power-spin 기준·정타, peter-pan) 은 전부 문턱 아래."""
+    assert p10 < -hh.FLOOR_VIOLATION_BODY_LENGTH
+
+
+@pytest.mark.parametrize("p10", [-0.03, +0.03, -0.06])
+def test_sound_floor_references_measured_on_0924_pass(p10):
+    """kip-up 정타·실수 −0.03/+0.03, climb 실수 −0.06 — 문턱 위."""
+    assert p10 >= -hh.FLOOR_VIOLATION_BODY_LENGTH

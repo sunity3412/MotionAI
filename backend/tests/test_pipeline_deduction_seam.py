@@ -696,3 +696,30 @@ def test_gemini_split_number_scores_only_split_line_elements(monkeypatch):
         measured_deviations={}, baseline_kind="hip_line", split_value_allowed=True,
     )
     assert "split_angle" in {r["criterion"] for r in allowed["deductionBreakdown"]["records"]}
+
+
+def test_pointed_but_unscored_observation_survives_as_a_coverage_gap(monkeypatch):
+    """quick-260925-nnt — belle 'climb 한 줄 흔들림': Gemini 가 왼팔을 짚었는데 잰 편차가 tol 안이면(record 0) 흔적이 0 이었다.
+    이제 pointed_not_scored gap 으로 남아 화면 '못 잰 부위' 한 줄이 된다. 감점으로 이어졌으면(record 있음) gap 없음."""
+    _enable(monkeypatch)
+    pair = vision_veto.SelectedFramePair(
+        student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
+        user_frame_idx=3, ref_frame_idx=3,
+    )
+    arm = {"body_part": "왼팔", "fault_state": "굽혀서 몸 앞쪽으로 감싸 안음", "observation_ko": "왼팔을 굽혀 폴을 감싸 안음"}
+    ctx = _ctx("no_fault", verdict=_verdict("none", differences=[arm]), supported=[arm], frame_pairs=[pair])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line",
+    )
+    gaps = out["deductionBreakdown"]["coverageGaps"]
+    assert any(g["faultType"] == "pointed_not_scored" and g["bodyPart"] == "왼팔" and g["observationKo"] == "왼팔을 굽혀 폴을 감싸 안음" for g in gaps)
+    assert out["overallScore"] == 100  # 점수 무접촉
+    obs = app.collect_unmeasured_observations(out["deductionBreakdown"])
+    assert app.unmeasured_question_text(**obs[0]) == "왼팔을 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요."
+    # 감점으로 이어졌으면 gap 없음
+    out2 = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("available"),
+        measured_deviations={"arm_extension": 30.0}, baseline_kind="hip_line",
+    )
+    assert not any(g["faultType"] == "pointed_not_scored" for g in out2["deductionBreakdown"]["coverageGaps"])

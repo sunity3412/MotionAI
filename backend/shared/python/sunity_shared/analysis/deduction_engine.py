@@ -327,6 +327,8 @@ def tally(
     split_vision_candidates: list[float] = []  # 25-04 #3(a) — 멤버별 추정치 median 집계
     differences = _supported_differences(fault_context)
     vision_values_ok = _vision_values_allowed(fault_context)
+    # quick-260925-nnt — 지목이 감점으로 이어졌는지 뒤에서 대조하기 위해 (멤버, 라우팅 criterion 집합)을 남긴다.
+    routed_members: list[tuple[dict, frozenset[str]]] = []
     for diff in differences:
         # 25-02 CR-01: fold 대표는 support 집계 산물일 뿐 — 라우팅은 그룹 멤버 전체의
         # RAW body_part/fault_state 로 수행한다. 같은 keypoint_set 의 서로 다른 결함
@@ -340,6 +342,7 @@ def tally(
                     coverage_gaps.append(gap)
                 continue
             pointed.update(res)
+            routed_members.append((member if isinstance(member, dict) else {}, frozenset(res)))
             # split 은 geometric 측정이 confounded(kip-up keypoint saturate)라 substrate 가
             # 없다(gated). vision 이 split 을 짚으면(router→split_angle) vision 이 영상서 잰
             # reference-상대 편차를 md["split_angle"]로 주입해 split_angle(reference_relative)
@@ -525,6 +528,26 @@ def tally(
     # final = max(25, round(100 − min(40, Σ|실행|) − Σ|치명|)). 산식·재구성은 _two_track_final.
     exec_raw, exec_capped, crit_total, final = _two_track_final(records)
     fallback = "gemini_silent" if (gemini_silent and records) else None
+    # quick-260925-nnt (belle 09-25 "climb 한 줄 흔들림") — K-of-N 확증 지목이 **감점으로 이어지지 않았으면**(그 criterion 의
+    # record 0: 잰 편차가 tol 안이거나 substrate 부재) coverage gap 으로 남긴다 → 화면 "못 잰 부위" 한 줄이 Gemini 가 본 것을 싣는다.
+    # 09-25 실측: climb 실수의 "왼팔을 굽혀서 몸 앞쪽으로 감싸 안음"이 grip 으로 분류되면 gap(한 줄 있음), alignment 로 분류되면
+    # 어깨 pointer(잰 편차 +5°, tol 안)로 흘러 흔적 0 이었다. 분류가 아니라 "지목이 점수로 안 이어짐"이 기준이 된다.
+    # 점수 무접촉(가장자리 기록만). 정타 방어 = 지목 자체가 support 게이트를 통과해야 한다(09-25 정타 12건 지목 0).
+    scored = {r.criterion for r in records}
+    for member, routed in routed_members:
+        if routed & scored or not routed:
+            continue
+        gap = {
+            "faultType": "pointed_not_scored",
+            "reason": "vision_pointed_not_scored",
+            "bodyPart": str(member.get("body_part", "") or ""),
+            "faultState": str(member.get("fault_state", "") or ""),
+            "keypointSet": sorted(routed)[0],
+            "ruleId": None,
+            "observationKo": (str(member.get("observation_ko", "") or "").strip() or None),
+        }
+        if gap["bodyPart"] and gap not in coverage_gaps:
+            coverage_gaps.append(gap)
     return DeductionBreakdown(
         baseline=int(_BASELINE), records=tuple(records), final=final,
         coverage_gaps=tuple(coverage_gaps), fallback=fallback,

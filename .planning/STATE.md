@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-24 밤 마감. **인계서 = .planning/quick/260924-x9i-2026-09-24-night-close/260924-x9i-HANDOFF.md — 다음 세션은 여기부터.** kip-up 실수 카드 문장·사진 완료(uff 4/4 ○ → vj1 33ffae38 → vw2 c83700d6·6d70f4b1, Pod E2E 앱 경로 확인: 점수 83 불변·승인 문장·동그라미 사진·영상 멈춤 같은 순간 2.11s|2.53s). 구간 제거 판 Pod 재검증 닫힘(power-spin 80→68, 나머지 불변). **belle 사진 ○ — kip-up 카드 끝.** 다음 = 정은지 추가 영상 오면 봉인 시험지, 그 전엔 belle 지시. 관측: power-spin 실수 합성 영상 리그 FAIL(멈춤 3개). ★다시 하지 말 것: 허용오차 20 · 손 계산 · 상수 경로 CI · 잡음 폭 0.05 이동 · \"조절\" · 카드 쪽 순간 재선정. Pod 0 · Lambda 자리표시자 · 잔액 $22.27 · origin 동기."
-last_updated: "2026-09-24T15:05:00.000Z"
-last_activity: 2026-09-24
+stopped_at: "2026-09-24 밤 마감. **인계서 = .planning/quick/260924-x9i-2026-09-24-night-close/260924-x9i-HANDOFF.md — 다음 세션은 여기부터.** kip-up 실수 카드 문장·사진 완료(uff 4/4 ○ → vj1 33ffae38 → vw2 c83700d6·6d70f4b1, Pod E2E 앱 경로 확인: 점수 83 불변·승인 문장·동그라미 사진·영상 멈춤 같은 순간 2.11s|2.53s). 구간 제거 판 Pod 재검증 닫힘(power-spin 80→68, 나머지 불변). **belle 사진 ○ — kip-up 카드 끝.** 다음 = 정은지 추가 영상 오면 봉인 시험지, 그 전엔 belle 지시. 관측: power-spin 실수 합성 영상 리그 FAIL(멈춤 3개). ★다시 하지 말 것: 허용오차 20 · 손 계산 · 상수 경로 CI · 잡음 폭 0.05 이동 · \"조절\" · 카드 쪽 순간 재선정. Pod 0 · Lambda 자리표시자 · 잔액 $22.27 · origin 동기. **09-25: 봉인 시험지 1회(기존 실수 영상 2편) = 0/2 → .planning/quick/260925-mvh-sealed-test-power-spin-climb/260925-mvh-SUMMARY.md. 다음 수리 후보 3칸(Gemini severity none 경로 · 높이 카드 일반화 · 벌림 게이트), belle 결정 대기.**"
+last_updated: "2026-09-25T07:45:00.000Z"
+last_activity: 2026-09-25
 progress:
   total_phases: 38
   completed_phases: 25
@@ -209,6 +209,7 @@ Last activity: 2026-09-24 - 밤 마감 (260924-x9i): kip-up 카드 문장·사�
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260925-mvh | **봉인 시험지 1회 — power-spin·climb 실수 0/2.** belle 정답을 카드 대조 전에 봉인(08fa54c0) → 09-24 Pod 카드와 대조. climb: belle "왼팔 접힌 채 돈다" vs 카드 오른고관절·무릎 둘(왼팔 0) — **Gemini 는 같은 것을 봤는데 severity none 으로 버림**. power-spin: belle "도는 높이·다리 벌림" vs 카드 무릎·어깨 — 높이는 잰 값(grip −0.646)만 있고 카드 배선 kip-up 전용, 벌림은 09-05 그대로 사문(belle 2번째 지적). 코드 0. 두 편은 연습 문제로 | 2026-09-25 | 08fa54c0 | [260925-mvh-sealed-test-power-spin-climb](./quick/260925-mvh-sealed-test-power-spin-climb/) |
 | 260924-x9i | 2026-09-24 밤 마감 인계서 — 착수점 교체(다음 = belle 사진 ○× · 봉인 시험지 대기), Pod 종료 확인 | 2026-09-24 | (이 커밋) | [260924-x9i-2026-09-24-night-close](./quick/260924-x9i-2026-09-24-night-close/) |
 | 260924-vw2 | **kip-up 카드 사진 배선 — Pod E2E 통과, belle 사진 ○.** 순간 출처 하나: hold_height.representative_pair(창 안 1:1·그립 손 같은 쪽·표식 신뢰·높이 차가 창 상수에 최근접) → record measuredPattern·atRefVideoSec(3-way) → compare_align 짝 그대로·compare_render circle_viz·게이트 상속 카드 circle_card_png(726×360). L4 E2E: kip-up 실수 83 불변·카드/영상 멈춤 같은 순간·동그라미, 자막 가림 수리(6d70f4b1), 9편 불변·power-spin 80→68(구간 제거 재검증 닫힘), power-spin 실수 합성 영상 리그 FAIL 관측. 테스트 전체 5098 | 2026-09-24 | c83700d6, 6d70f4b1 | [260924-vw2-kip-up-card-photo](./quick/260924-vw2-kip-up-card-photo/) |
 | 260924-vj1 | **kip-up 카드 문장 배선 — 잰 값이 고른다(belle 4/4 ○ 문장).** hold_height.py(유지 구간 엉덩이·낮은발·그립 손 높이, 몸길이 단위) + body_low_arm_open(네 조건) + phrasebook measuredVariants(승인 3줄) + app._measured_phrase_variants → 방출이 문구집보다 먼저 3슬롯. 못 재면 종전 byte-동일. 테스트 50 신규(문턱 0.03~0.12 둔감성 잠금)·전체 5069. 저장 10편 게이트 = kip-up 실수만 대체. 테스트가 JOINT_KEYS NameError(운영에서 조용히 무대체)를 잡음. 사진·Pod E2E 는 다음 | 2026-09-24 | 33ffae38 | [260924-vj1-kip-up-card-text](./quick/260924-vj1-kip-up-card-text/) |

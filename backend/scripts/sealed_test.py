@@ -23,7 +23,10 @@
 SHEET (한 줄 = 영상 1편, intake_clips 시트의 부분집합 + answer)
   {"file": "/Users/Shared/sunity-intake/1005/a.mov", "motion": "kip-up", "intent": "fault",
    "answer": "왼팔을 접은 채로 돈다", "subject_id": "sub_je", "session": "2026-10-05-studio", "view": "side"}
+  {"file": "/Users/Shared/sunity-sealed-2/raw/6Hs2wnRPu7M.mp4", "start": 31.0, "end": 47.0, "motion": "power-spin", "intent": "fault",
+   "answer": "…", "subject_id": "sub_yt01", "subject": {"role": "student", "consent": {"granted": false, "scope": "eval-only", "at": "n/a"}}}
   - answer: belle 한 줄. 정타면 "없음". 결과를 보기 **전에** 적는다.
+  - start/end(초): 수집 영상처럼 여러 동작이 이어진 파일이면 belle 이 짚은 구간만 잘라 시험 클립으로 쓴다(잘린 파일이 등록·봉인 대상).
   - subject 가 처음이면 intake_clips 시트처럼 "subject": {role, consent} 를 같이.
   - 파일은 홈 디렉터리 밖(/Users/Shared/)에 둘 것.
 """
@@ -144,6 +147,17 @@ def parse_marks(text: str, n: int) -> list[str]:
     return marks
 
 
+def cut_clip(src: pathlib.Path, t0: float, t1: float) -> pathlib.Path:
+    """src 의 [t0, t1) 초를 새 mp4 로(재인코딩 — 키프레임 경계 무관, 앱과 같은 H.264/AAC). 이름 = <원본>_<t0>-<t1>.mp4 (원본 옆)."""
+    out = src.with_name(f"{src.stem}_{t0:.1f}-{t1:.1f}.mp4")
+    if out.is_file():
+        return out
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", f"{t0:.3f}", "-to", f"{t1:.3f}", "-i", str(src),
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(out)],
+                   check=True)
+    return out
+
+
 # ── 파일·git ────────────────────────────────────────────────────────────────────
 
 
@@ -187,6 +201,19 @@ def cmd_seal(a) -> int:
         if not p.is_file():
             print(f"  파일 없음 {p}", file=sys.stderr)
             return 2
+        # start/end(초)가 있으면 그 구간만 잘라 새 파일로 — 수집 영상(여러 동작이 이어진 Shorts·튜토리얼)에서 belle 이 짚은 구간이 시험 클립이 된다.
+        # 자르는 것은 사람(belle)의 선택이고 코드는 초만 옮긴다. 잘린 파일이 등록·봉인 대상이다(원본 아님).
+        if r.get("start") is not None or r.get("end") is not None:
+            try:
+                t0 = float(r.get("start") or 0.0); t1 = float(r["end"])
+            except (TypeError, ValueError, KeyError):
+                print(f"  {p.name}: start/end 초가 이상하다 {r.get('start')}~{r.get('end')}", file=sys.stderr)
+                return 2
+            if not (t1 > t0 >= 0.0):
+                print(f"  {p.name}: end 가 start 보다 커야 한다", file=sys.stderr)
+                return 2
+            cut = cut_clip(p, t0, t1)
+            r["source_file"], r["file"], p = str(p), str(cut), cut
         r["video_hash"] = ic.sha256_file(p)
     try:
         tests, practice = plan_rows(rows, ic.read_jsonl(ic.CLIPS), ic.read_jsonl(ic.RUNS))

@@ -56,6 +56,11 @@ status: complete
 메모리 신설 4: severity-none-pointer… · grip-hand-height… · split-rule-final-phase-median · sealed-test-1… 갱신.
 
 ## 4. ★ 다음
+
+0. **봉인 시험지 2회 = 수집 영상(다른 사람·다른 스튜디오)** — belle 09-25 *"유튜브·인스타 수집본 중 다른 사람 영상이 있을 텐데 못 쓰노? 머리 좀 굴리는 게 어때?"*.
+   후보 = manifest 외부 수집본 중 1인·우리 동작(power-spin 21 · peter-pan 16 · pdshape 11 · climb 9, kip-up 0). 8편 내려받아 `/Users/Shared/sunity-sealed-2/`
+   (raw/ + 초 표시 그림표 fine_*.png + README 표). **belle 몫: 클립마다 시작~끝 초 + 한 줄**(여러 동작이 이어진 Shorts 라 구간은 belle 이 짚는다 — 내 눈 금지).
+   그 다음 `sealed_test.py seal`(start/end 로 자름) → Pod → grade. 정은지 영상을 기다리지 않아도 된다.
 1. **정은지 추가 영상 도착 = 봉인 시험지 2회 — `backend/scripts/sealed_test.py`** (09-25 밤 신설, 손 절차를 스크립트로):
    ① 시트 한 줄/영상(`file, motion, intent, answer`) — answer = belle 한 줄(정타면 "없음"), 결과 보기 **전**
    ② `seal --sheet` → 이미 분석된 영상은 연습 문제로 빠지고, 새 영상만 등록(S3·clips.jsonl) + 정답 봉인 커밋(코드 HEAD 고정)

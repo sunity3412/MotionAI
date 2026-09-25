@@ -86,3 +86,14 @@ def test_parse_marks_and_closed_table_counts():
     test = {"test_id": "t1", "sealed_at": "s", "code_commit": "abcdef0123", "rows": _rows()[:2], "practice": [], "runs": {}, "marks": ["○", "×"]}
     md = st.grade_table(test, {})
     assert "처음 보는 영상 2편 중 1편 맞게 말함" in md
+
+
+def test_cut_clip_produces_a_file_of_the_requested_length(tmp_path):
+    import subprocess
+    src = tmp_path / "src.mp4"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=64x64:rate=10", "-t", "6", "-pix_fmt", "yuv420p", str(src)], check=True)
+    out = st.cut_clip(src, 1.0, 3.5)
+    assert out.name == "src_1.0-3.5.mp4" and out.is_file()
+    dur = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(out)]).decode().strip())
+    assert abs(dur - 2.5) < 0.3
+    assert st.cut_clip(src, 1.0, 3.5) == out   # 이미 있으면 재사용

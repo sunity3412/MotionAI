@@ -42,3 +42,18 @@
 2026-09-25 08:58:16,497 INFO root: card_gates verdict analysis_id=64c93c3633964d369fc2a72e582af6fa total=1 survivors=['r00:inherit@u2.106/r2.53 eye=hold=moving pair=match eye=skip:torso_joint'] dropped=[] eye_calls=0
 2026-09-25 08:58:27,027 INFO root: measured_card rid=r00 pattern=body_low_arm_open u=2.106 r=2.53 u9=21 at=21 marked=True analysis_id=64c93c3633964d369fc2a72e582af6fa
 2026-09-25 08:59:19,269 WARNING root: compare_render FAIL 아티팩트 보존: /tmp/compare_fail_2e60f3e371a64a55b064d6c7ece946dc (mp4·report·align·프레임)
+2026-09-25 11:03:37,251 INFO root: split phase reference=ref-power-spin phase=(40, 70)/(101, 148) student=18.2 reference=136.3 deficit=118.1 frame=61 n=30/47 analysis_id=662c8650f6fe4040b13929525465b329
+2026-09-25 11:04:22,692 INFO root: vision severity none 이지만 supported differences=1 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 11:06:15,046 INFO root: measured variant applied criterion=angle_vs_reference__left_shoulder pattern=body_low_arm_open signed=+33.86 pair=u21/r38 (2.11s/2.53s)  analysis_id=08f48c54516d4cc197007879ff8b3420
+2026-09-25 11:08:23,526 INFO root: vision severity none 이지만 supported differences=2 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 11:09:16,857 INFO root: compare_render done  analysis_id=08f48c54516d4cc197007879ff8b3420 key=results/hHgVbMixtpOm11ely0ulGNtTnnL2/08f48c54516d4cc197007879ff8b3420/compare_v1.mp4 freezes=1
+2026-09-25 11:09:18,814 INFO root: card_gates verdict analysis_id=08f48c54516d4cc197007879ff8b3420 total=1 survivors=['r01:inherit@u2.106/r2.53 eye=hold=moving pair=match eye=skip:torso_joint'] dropped=['r00:no_freeze'] eye_calls=0
+2026-09-25 11:09:55,574 INFO root: vision severity none 이지만 supported differences=2 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 11:12:50,792 WARNING root: compare_render FAIL 아티팩트 보존: /tmp/compare_fail_662c8650f6fe4040b13929525465b329 (mp4·report·align·프레임)
+2026-09-25 11:13:11,964 INFO root: vision severity none 이지만 supported differences=1 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 11:13:11,993 INFO sunity_shared.analysis.deduction_engine: split vision value skipped (severity none) body_part=양다리 fault_state=기준 영상 대비 양다리 벌림 각도가 다소 좁음
+2026-09-25 11:14:36,098 INFO root: split phase reference=ref-power-spin phase=(68, 99)/(101, 148) student=133.9 reference=136.3 deficit=2.4 frame=98 n=31/47 analysis_id=d7960ce41ecb429ab27974858129dfdc
+2026-09-25 11:14:41,960 INFO root: compare_render done  analysis_id=6cd3913f50334a5580013c4eacceb234 key=results/q0akmzcBYBRDmEwG552CYZ1KDPs1/6cd3913f50334a5580013c4eacceb234/compare_v1.mp4 freezes=3
+2026-09-25 11:14:51,196 INFO root: card_gates verdict analysis_id=6cd3913f50334a5580013c4eacceb234 total=3 survivors=['r00:inherit@u2.133/r6.67 eye=hold=hold pair=match eye=skip:torso_joint', 'r02:inherit@u5.721/r6.47 eye=hold=hold pair=match eye=bent->bent/leg', 'r01:inherit@u5.821/r6.47 eye=hold=m
+2026-09-25 11:16:34,165 INFO root: compare_render done  analysis_id=b8d4442c59b14920bb021c2eb3530cb3 key=results/FOSwQE5BUCXYepDjtLdpvi5NXrD2/b8d4442c59b14920bb021c2eb3530cb3/compare_v1.mp4 freezes=3
+2026-09-25 11:16:48,144 INFO root: card_gates verdict analysis_id=b8d4442c59b14920bb021c2eb3530cb3 total=3 survivors=['r02:inherit@u2.911/r7.20 eye=hold=moving pair=match eye=bent->bent/leg', 'r00:inherit@u4.215/r6.07 eye=hold=hold pair=match eye=bent->bent/arm', 'r01:inherit@u4.818/r6.47 eye=hold=h

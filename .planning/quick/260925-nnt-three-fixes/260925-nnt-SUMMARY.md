@@ -3,7 +3,7 @@ quick_id: 260925-nnt
 slug: three-fixes
 date: 2026-09-25
 status: complete
-commits: [a3c881ea, f9ca6d7f, 048da6db, 5a1ee248]
+commits: [a3c881ea, f9ca6d7f, 048da6db, 5a1ee248, 2d76529e, 0c39163a, 27973c40]
 pod: ebo5coltal6p82 (RTX 4090, EU-RO-1 볼륨 a5z753defc)
 ---
 
@@ -50,7 +50,29 @@ peak 가 아니라 **국면 중앙값**이라 tuck 포화·회전 중 0° 프레
 
 `[확인: 로그]` `split phase … deficit=118.5 frame=58` · 정타 `deficit=2.4`. 문장은 기존 phrasebook(split_angle) — belle ○× 대기.
 판정지 = `e2e/judge_power-spin-split_2baa3e2b.png`(카드: 학생 5.8s 다리 좁음 vs 기준 1자 스플릿, 합성 영상 멈춤도 같은 문법 — 이번엔 리그 PASS). 이 영상(power-spin 실수)은 이제 **연습 문제**. 규칙 검증 = 정은지 추가 영상(봉인 2회).
-4차 Pod fgfw2e17fblg3z A4500 $0.25/h ≈ 25분, 종료 + 자리표시자 + pod-expected=down `[확인]`. 잔액 → 21.33.
+4차 Pod fgfw2e17fblg3z A4500 $0.25/h ≈ 25분 · 5차 Pod s5hrc3cfnefuvb L4 $0.49/h ≈ 25분 — 둘 다 종료 + 자리표시자 + pod-expected=down `[확인]`. 잔액 → $21.14(오늘 Pod 합계 ≈ $0.84).
+
+## 1-d. 5차 — 못 잰 부위 한 줄 + Gemini 짧은 관찰문 (belle 09-25 밤, 2d76529e → 0c39163a → 27973c40)
+
+belle: *"정확히 재기 어려웠던 부분이면 분석을 못했다는 말이냐?"* → 그렇다 → *"왼팔을 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요 같은 방향으로"* →
+*"짧은 형태로 달라고 하면 수준이 낮아질 가능성"* → 함께 정한 문구(부위 + 동작만 · 정도·경로·해석 금지 · 판단 기준 = 강사가 볼 곳). Gemini SCHEMA v8.2 `observation_ko` + PROMPT v11.3.
+화면 문장 = 어미만 "-는/은 것"으로(문법으로 잇지 않음) → "{절}이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요." 말투 = 앱이 수강생에게.
+
+**Pod L4 s5hrc3cfnefuvb 앱 경로 (7편 + 재실행 2편):**
+
+| 영상 | 점수 | 화면에 실린 "못 잰 부위" 한 줄 |
+|---|---|---|
+| kip-up 실수 | 63 → **83**(27973c40 뒤) | 왼팔을 가슴 앞으로 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요. |
+| peter-pan 실수 | 60 | 오른팔을 몸 앞으로 가져와 폴을 잡는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요. |
+| climb 실수 | 60 | (없음 — 이번 두 실행에선 Gemini 가 왼팔 지목을 grip 이 아닌 분류로 내 coverage gap 이 안 생김. primaryFault 는 여전히 "왼팔을 … 굽혀서 몸 앞쪽으로 감싸 안음") |
+| power-spin 실수 | 60 | (없음 — 벌림은 잰 값으로 감점, 지목은 다리) |
+| pdshape 실수 | 80 | (없음) |
+| power-spin 정타 · climb 정타 | 100 · 100 | (없음) |
+
+`[확인]` 짧은 관찰문 실물: "왼팔을 가슴 앞으로 굽혀 폴을 감싸 안음"(kip-up, 긴 서술과 같음) · "오른팔을 몸 앞으로 가져와 폴을 잡음"(peter-pan, 긴 서술은 "…가슴/허리 높이에서 폴을 잡고 있음").
+**부작용 3 (Pod 가 잡음):** v11.3 에서 kip-up 의 rank-median severity 가 none → **minor** 로 바뀌자 옛 vision 경로(결함 verdict 면 Gemini 숫자 허용)로 split −20 이 다시 들어와 83→63.
+→ `split_value_allowed`: Gemini 의 split 숫자도 스플릿 라인 요소에서만(기하 게이트와 같은 선언). 재실행 kip-up **83**. 정타 2/2 = 100.
+`[관측]` Gemini 지목의 분류(grip/alignment)가 실행마다 달라 climb 의 한 줄이 v11.2 실행에선 있고 v11.3 두 실행에선 없다 — 문장 자체가 아니라 Gemini 분류 변동.
 
 ## 2. 화면에 실리는 것 (초안, belle ○× 대기)
 

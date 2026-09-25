@@ -19,12 +19,15 @@ status: complete
        정타 5/5 = 100 (4090·A4500 두 종류에서)
 내림   power-spin "낮은 위치" 문장 — 높이 자의 바닥 기준이 이 영상에선 거짓(서 있는 프레임 0). fail-closed 로 고침
 대기   정은지 추가 영상 → 봉인 시험지 2회. kip-up·power-spin 실수는 이제 연습 문제(정답 공개)
-인프라 Pod 0 · Lambda 자리표시자 · pod-expected=down · 잔액 $21.33 · origin 동기(f04fa352 + 이 문서)
+5차    못 잰 부위 한 줄 = Gemini 짧은 관찰문(부위+동작) → "…하는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요" (0c39163a)
+       kip-up 실수 화면: 잰 문장(몸 낮음·왼팔 벌어짐) + 관찰 한 줄(왼팔 굽혀 폴 감싸 안음) — belle ○× 대기 · peter-pan 실수: 오른팔 몸 앞 그립 한 줄
+       Gemini split 숫자는 스플릿 라인 요소에서만(27973c40) — v11.3 에서 kip-up 이 다시 63 됐던 것 차단, 재실행 83
+인프라 Pod 0 · Lambda 자리표시자 · pod-expected=down · 잔액 $21.14 · origin 동기
 ```
 
 ## 1. 다시 하지 말 것 (x9i §1 승계 + 오늘)
 - x9i §1 그대로(허용오차 20 · 손 계산 · 상수 경로 CI · 잡음 폭 0.05 이동 · 카드 쪽 순간 재선정 · belle 판독을 문자열로).
-- ★**severity none 지목의 Gemini 숫자로 감점하지 말 것** — kip-up 83→63 을 만들었다. `deduction_engine._vision_values_allowed`.
+- ★**Gemini 의 split 숫자는 스플릿 라인 요소에서만, 그리고 결함 verdict 에서만** — severity none(83→63, 1차)·비스플릿 동작 minor(83→63, 5차) 두 번 다 kip-up 을 되돌렸다. `_vision_values_allowed` + `split_value_allowed`.
 - ★**회전 동작에서 "그립 손" 높이 통계를 쓰지 말 것** — 검출 탈락 3봉(1.3/0.6/0.1). 몸 전체 패턴은 엉덩이만(`body_low`).
 - ★**높이 자는 서 있는 프레임이 없으면 None** — 창 낮은발 10% 분위 < −0.10 이면 바닥 기준 거짓(power-spin·peter-pan).
 - ★**split 은 peak 금지** — tuck 에서도 180. 마지막 1/3 국면 중앙값만(`split_phase`). 새 동작은 `technique.SPLIT_LINE_ELEMENTS` 에 motionId 만.
@@ -51,7 +54,7 @@ status: complete
 
 ## 4. ★ 다음
 1. **정은지 추가 영상 도착 = 봉인 시험지 2회** — x9i §4-3 절차 그대로(belle 한 줄 먼저 봉인 → 코드 고정 → 앱 경로 → 대조). 이제 규칙이 늘었으니(높이·벌림·지목 승계) "처음 보는 영상 N 편 중 M 편".
-2. climb 강사 질문 1줄 belle ○× (물어보지 않았다 — belle 이 꺼낼 때).
+2. belle ○×: 관찰 한 줄 문장(kip-up "왼팔을 가슴 앞으로 굽혀 폴을 감싸 안는 것이…" · peter-pan "오른팔을 몸 앞으로 가져와 폴을 잡는 것이…") · 강사 질문 6줄 말투 통일 여부.
 3. (belle 이 꺼낼 때만) 높이 축을 회전 동작에도 쓰려면 바닥을 폴 바닥(폴 검출)에서 잡는 자가 필요하다.
 4. 재학습 게이트 7개 중 1개, 변동 없음.
 

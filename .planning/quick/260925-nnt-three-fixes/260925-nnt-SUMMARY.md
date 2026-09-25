@@ -3,7 +3,7 @@ quick_id: 260925-nnt
 slug: three-fixes
 date: 2026-09-25
 status: complete
-commits: [a3c881ea, f9ca6d7f, (3차) 바닥 기준 fail-closed]
+commits: [a3c881ea, f9ca6d7f, 048da6db, 5a1ee248]
 pod: ebo5coltal6p82 (RTX 4090, EU-RO-1 볼륨 a5z753defc)
 ---
 
@@ -32,6 +32,25 @@ pod: ebo5coltal6p82 (RTX 4090, EU-RO-1 볼륨 a5z753defc)
 기준 창 낮은발 10% 분위 −0.72(정타 −0.20, peter-pan −0.34) — 발이 바닥 밑에 있을 수 없다. 자가 자기 정의를 어긴 값으로 문장을 만들었다 → fail-closed(문턱 −0.10, kip-up ≥ −0.03 · climb ≥ −0.06 통과).
 원좌표(같은 카메라)로는 학생 엉덩이가 프레임의 0.065 아래에 있긴 하다 — 방향은 맞았지만 그 자로 말할 자격이 없다. 제대로 하려면 바닥 기준을 폴 바닥(폴 검출)에서 잡아야 한다(미구현).
 예측 2·3·4(다른 국면 짝 · 엉덩이 원이 높이를 못 보여줌 · belle 말과 다른 표현)는 belle ○× 대기.
+
+## 1-c. 4차 — 벌림 규칙 배선 (belle "그럼 벌림 규칙 배선해봐", 5a1ee248)
+
+belle ○×(4번): *"다리 벌림 = 1자로 쫙 벌려졌는가, 조금만 벌려졌는가"* → 규칙 = **기준 실행 창 마지막 1/3 구간의 두 허벅지 사이각 중앙값, 정은지 상대**
+(`split_phase.final_phase_split` → 기존 `split_angle` criterion, tol 20·관절 캡 −20, 새 문턱 0). 게이트 = `technique.SPLIT_LINE_ELEMENTS`(power-spin) ∪ 인식기 `required_split_deg`.
+peak 가 아니라 **국면 중앙값**이라 tuck 포화·회전 중 0° 프레임을 피한다. 순간(학생 중앙값 최근접 프레임)을 measured_at 에 각인 → 카드·멈춤이 물려받는다.
+
+| | 학생 | 기준 | 부족분 | 결과 |
+|---|---|---|---|---|
+| 오프라인 정타(09-24 doc) | 133.9 | 136.3 | +2.4 | 침묵 |
+| 오프라인 실수 | 18.2 | 136.3 | +118.1 | −20 |
+| 비스플릿 8편(게이트 밖, 참고) | | | \|부족분\| ≤ 8.2 | 열어도 침묵 |
+| **Pod A4500 앱 경로** 정타 16c0a4a2 | 133.9 | 136.3 | +2.4 | **100** |
+| **Pod** 실수 2baa3e2b | 17.8 | 136.3 | +118.5 | **60** (68−20+…캡), record `split_angle` 5.81s "다리를 벌린 각도가 기준보다 좁아요" |
+| **Pod** kip-up 실수 d5bf2f88 | — | — | 게이트 밖 | **83** 불변(Gemini 숫자 split 은 severity none 이라 skip) |
+
+`[확인: 로그]` `split phase … deficit=118.5 frame=58` · 정타 `deficit=2.4`. 문장은 기존 phrasebook(split_angle) — belle ○× 대기.
+판정지 = `e2e/judge_power-spin-split_2baa3e2b.png`(카드: 학생 5.8s 다리 좁음 vs 기준 1자 스플릿, 합성 영상 멈춤도 같은 문법 — 이번엔 리그 PASS). 이 영상(power-spin 실수)은 이제 **연습 문제**. 규칙 검증 = 정은지 추가 영상(봉인 2회).
+4차 Pod fgfw2e17fblg3z A4500 $0.25/h ≈ 25분, 종료 + 자리표시자 + pod-expected=down `[확인]`. 잔액 → 21.33.
 
 ## 2. 화면에 실리는 것 (초안, belle ○× 대기)
 

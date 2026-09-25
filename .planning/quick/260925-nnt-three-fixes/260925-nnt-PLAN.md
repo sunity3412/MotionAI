@@ -2,7 +2,7 @@
 quick_id: 260925-nnt
 slug: three-fixes
 date: 2026-09-25
-status: executing
+status: complete
 ---
 
 # 세 칸 수리 — belle "그럼 세 칸 고쳐봐" (봉인 시험지 1회 0/2 뒤)

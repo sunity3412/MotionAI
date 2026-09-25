@@ -1,0 +1,44 @@
+2026-09-25 08:28:05,661 INFO root: vision severity none 이지만 supported differences=1 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 08:28:05,977 INFO root: hold heights reference=ref-power-spin window=(6, 70)/(8, 148) hip=-0.184 lowFoot=+0.260 grip=-0.646 hipBelowHand=+0.393 thirds hip=[-0.225, -0.157, -0.18] lowFoot=[-0.203, -0.16, 0.244]
+2026-09-25 08:28:05,998 INFO root: measured variant applied criterion=leg_extension pattern=body_low_grip_low signed=- pair=u69/r147 (6.91s/9.80s)  analysis_id=d151d104d8d94edc9de8ddc412436d83
+2026-09-25 08:29:30,065 INFO root: vision severity none 이지만 supported differences=3 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 08:29:30,105 INFO root: hold heights reference=ref-climb window=(25, 62)/(22, 120) hip=-0.203 lowFoot=-0.014 grip=+0.308 hipBelowHand=-0.498 thirds hip=[-0.203, -0.212, -0.207] lowFoot=[-0.019, -0.013, -0.009]
+2026-09-25 08:30:56,698 INFO root: hold heights reference=ref-power-spin window=(6, 99)/(8, 148) hip=-0.048 lowFoot=+0.088 grip=-0.075 hipBelowHand=+0.031 thirds hip=[-0.037, -0.118, -0.038] lowFoot=[-0.051, -0.007, 0.006]
+2026-09-25 08:32:11,827 INFO root: hold heights reference=ref-kip-up window=(10, 72)/(15, 108) hip=-0.007 lowFoot=+0.002 grip=-0.013 hipBelowHand=+0.005 thirds hip=[-0.008, 0.001, -0.008] lowFoot=[-0.003, 0.004, 0.009]
+2026-09-25 08:33:18,202 INFO root: vision severity none 이지만 supported differences=1 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 08:33:18,242 INFO root: hold heights reference=ref-kip-up window=(5, 60)/(15, 108) hip=-0.145 lowFoot=-0.220 grip=-0.021 hipBelowHand=-0.125 thirds hip=[-0.13, -0.149, -0.15] lowFoot=[-0.208, -0.222, -0.229]
+2026-09-25 08:33:18,243 INFO root: measured variant applied criterion=angle_vs_reference__left_shoulder pattern=body_low_arm_open signed=+34.00 pair=u21/r38 (2.11s/2.53s)  analysis_id=a205bccbc807433fa0ac449e1741a928
+2026-09-25 08:33:21,000 INFO root: compare_render done  analysis_id=d725ee6ae7934c938a9beb19851dc9d2 key=results/0WjioR7KwRZJO2brGt4LCJ2sZO92/d725ee6ae7934c938a9beb19851dc9d2/compare_v1.mp4 freezes=0
+2026-09-25 08:34:30,418 INFO root: compare_render done  analysis_id=0e16a745a8574c62912e39926bcc38c8 key=results/YjCVxebC7WbUu1XV9mE685DSRRw1/0e16a745a8574c62912e39926bcc38c8/compare_v1.mp4 freezes=0
+2026-09-25 08:34:47,734 INFO root: compare_render done  analysis_id=d151d104d8d94edc9de8ddc412436d83 key=results/BLN8KYXzcHOH7SCZqZVP0Ro0Ojg1/d151d104d8d94edc9de8ddc412436d83/compare_v1.mp4 freezes=3
+2026-09-25 08:34:49,349 INFO root: card_gates verdict analysis_id=d151d104d8d94edc9de8ddc412436d83 total=3 survivors=['r03:inherit@u4.708/r7.53 eye=hold=hold pair=match eye=skip:torso_joint', 'r02:inherit@u6.811/r9.67 eye=hold=hold pair=match eye=skip:torso_joint', 'r00:inherit@u6.912/r9.80 eye=hold=hold pair=match'] dropped=['r
+2026-09-25 08:34:54,124 INFO root: hold heights reference=ref-climb window=(15, 80)/(22, 120) hip=-0.002 lowFoot=-0.004 grip=+0.005 hipBelowHand=-0.005 thirds hip=[-0.001, -0.003, -0.002] lowFoot=[-0.003, -0.003, -0.001]
+2026-09-25 08:35:03,844 INFO root: measured_card rid=r00 pattern=body_low_grip_low u=6.912 r=9.80 u9=69 at=69 marked=True analysis_id=d151d104d8d94edc9de8ddc412436d83
+2026-09-25 08:35:43,998 INFO root: compare_render done  analysis_id=465b4029af3e4eb3af4bf17535adad2f key=results/xJT3covIEKdR0JVUWjsEWBkT6T82/465b4029af3e4eb3af4bf17535adad2f/compare_v1.mp4 freezes=3
+2026-09-25 08:35:54,746 INFO root: card_gates verdict analysis_id=465b4029af3e4eb3af4bf17535adad2f total=3 survivors=['r00:inherit@u2.133/r6.67 eye=hold=hold pair=match eye=skip:torso_joint', 'r02:inherit@u5.721/r6.47 eye=hold=hold pair=match eye=bent->bent/leg', 'r01:inherit@u5.821/r6.47 eye=hold=moving pair=match eye=bent->ben
+2026-09-25 08:36:10,762 INFO root: hold heights reference=ref-peter-pan window=(6, 74)/(10, 110) hip=+0.010 lowFoot=+0.003 grip=+0.016 hipBelowHand=-0.015 thirds hip=[-0.003, 0.011, 0.018] lowFoot=[0.002, 0.003, -0.003]
+2026-09-25 08:37:11,472 INFO root: compare_render done  analysis_id=60680656a29b46cf9eab3035baa8e5e3 key=results/6msW5tvWEVgYMH7ZxMc8LE1ZCws1/60680656a29b46cf9eab3035baa8e5e3/compare_v1.mp4 freezes=0
+2026-09-25 08:37:15,729 INFO root: vision severity none 이지만 supported differences=2 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 08:37:15,771 INFO root: hold heights unavailable reference=ref-peter-pan window=(0, 50)/(10, 110)
+2026-09-25 08:38:01,329 INFO root: compare_render done  analysis_id=a205bccbc807433fa0ac449e1741a928 key=results/jpUziZJtswZnIpSKtCauYR0UUBH3/a205bccbc807433fa0ac449e1741a928/compare_v1.mp4 freezes=1
+2026-09-25 08:38:02,724 INFO root: card_gates verdict analysis_id=a205bccbc807433fa0ac449e1741a928 total=1 survivors=['r01:inherit@u2.106/r2.53 eye=hold=moving pair=match eye=skip:torso_joint'] dropped=['r00:no_freeze'] eye_calls=0
+2026-09-25 08:38:14,209 INFO root: measured_card rid=r01 pattern=body_low_arm_open u=2.106 r=2.53 u9=21 at=21 marked=True analysis_id=a205bccbc807433fa0ac449e1741a928
+2026-09-25 08:39:08,191 INFO root: hold heights unavailable reference=ref-pdshape window=(35, 150)/(52, 224)
+2026-09-25 08:39:15,738 INFO root: compare_render done  analysis_id=ad34d2a01917437fad952606ffbb9caa key=results/T29Wegig9jPPwuH0A5wHQD0yVEx1/ad34d2a01917437fad952606ffbb9caa/compare_v1.mp4 freezes=0
+2026-09-25 08:41:21,900 INFO root: hold heights unavailable reference=ref-pdshape window=(47, 162)/(52, 224)
+2026-09-25 08:41:42,881 INFO root: compare_render done  analysis_id=74e367eb252f4da981f655a3008a152c key=results/YDhDkpTKtbZi4fhk0P089PZxpDe2/74e367eb252f4da981f655a3008a152c/compare_v1.mp4 freezes=3
+2026-09-25 08:42:23,421 INFO root: card_gates verdict analysis_id=74e367eb252f4da981f655a3008a152c total=3 survivors=['r01:inherit@u2.007/r3.87 eye=hold=hold pair=match eye=skip:torso_joint', 'r02:inherit@u3.814/r8.07 eye=hold=moving pair=match eye=bent->extended/leg marks=none', 'r00:inherit@u4.717/r6.47 eye=hold=hold pair=matc
+2026-09-25 08:44:55,545 INFO root: compare_render done  analysis_id=f0dbcff6c87c4fdb9af35b1d4ba52e65 key=results/ShfLRzMVEgc0002LrfO18npWZqA2/f0dbcff6c87c4fdb9af35b1d4ba52e65/compare_v1.mp4 freezes=1
+2026-09-25 08:45:48,487 INFO root: card_gates verdict analysis_id=f0dbcff6c87c4fdb9af35b1d4ba52e65 total=1 survivors=['r00:inherit@u13.004/r11.87 eye=hold=hold pair=match eye=bent->bent/leg marks=none'] dropped=[] eye_calls=1
+2026-09-25 08:53:41,849 INFO root: vision severity none 이지만 supported differences=1 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 08:53:41,994 INFO sunity_shared.analysis.deduction_engine: split vision value skipped (severity none) body_part=양다리 fault_state=양다리 벌어짐 각도가 기준에 비해 현저히 좁음
+2026-09-25 08:53:42,167 INFO root: hold heights reference=ref-power-spin window=(6, 70)/(8, 148) hip=-0.184 lowFoot=+0.260 grip=-0.646 hipBelowHand=+0.393 thirds hip=[-0.225, -0.157, -0.18] lowFoot=[-0.203, -0.16, 0.244]
+2026-09-25 08:53:42,175 INFO root: measured variant applied criterion=leg_extension pattern=body_low signed=- pair=u69/r147 (6.91s/9.80s)  analysis_id=2e60f3e371a64a55b064d6c7ece946dc
+2026-09-25 08:54:56,137 INFO root: vision severity none 이지만 supported differences=1 — 지목 승계(no_fault, 감점은 기하)
+2026-09-25 08:54:56,142 INFO sunity_shared.analysis.deduction_engine: split vision value skipped (severity none) body_part=양다리 fault_state=기준 영상 대비 양다리 벌림 각도가 다소 좁음
+2026-09-25 08:54:56,177 INFO root: hold heights reference=ref-kip-up window=(5, 60)/(15, 108) hip=-0.145 lowFoot=-0.220 grip=-0.021 hipBelowHand=-0.125 thirds hip=[-0.13, -0.149, -0.15] lowFoot=[-0.208, -0.222, -0.229]
+2026-09-25 08:54:56,178 INFO root: measured variant applied criterion=angle_vs_reference__left_shoulder pattern=body_low_arm_open signed=+34.00 pair=u21/r38 (2.11s/2.53s)  analysis_id=64c93c3633964d369fc2a72e582af6fa
+2026-09-25 08:58:15,333 INFO root: compare_render done  analysis_id=64c93c3633964d369fc2a72e582af6fa key=results/usSFuodBgQedvbfdrdO7SKuLCVw2/64c93c3633964d369fc2a72e582af6fa/compare_v1.mp4 freezes=1
+2026-09-25 08:58:16,497 INFO root: card_gates verdict analysis_id=64c93c3633964d369fc2a72e582af6fa total=1 survivors=['r00:inherit@u2.106/r2.53 eye=hold=moving pair=match eye=skip:torso_joint'] dropped=[] eye_calls=0
+2026-09-25 08:58:27,027 INFO root: measured_card rid=r00 pattern=body_low_arm_open u=2.106 r=2.53 u9=21 at=21 marked=True analysis_id=64c93c3633964d369fc2a72e582af6fa
+2026-09-25 08:59:19,269 WARNING root: compare_render FAIL 아티팩트 보존: /tmp/compare_fail_2e60f3e371a64a55b064d6c7ece946dc (mp4·report·align·프레임)

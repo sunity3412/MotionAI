@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-25 밤(2차) 마감 — belle \"인계서 작성하고 내일 진행하자\". **인계서 = .planning/quick/260925-pln-two-sided-plan/260925-pln-HANDOFF.md — 다음 세션은 여기부터.** 시장조사 완료(스포츠+비스포츠 약 60곳 + Peloton, NotebookLM 21f482ad…, 리포 research/market-coaching-platforms-260925.md, 핵심 10건 원문 [확인]). 판정: 공급자 개인 실행 기준 + AI 비교 = 0곳, Peloton 은 \"강사 먼저\" 홈만 취함. 다음 = 양면 플랫폼 기획안(아직 0줄) — 관건 3: 공급자 앱 필요한가(초안: 실증까지 링크만) · 업로드 방식(초안: 링크 + 뒤쪽 자동화 4칸) · 메인 화면(초안: 강사 먼저 한 칸). 기준 등록 경로 실측은 인계서 §4(서브에이전트 보고, 미대조). 이전 인계서 260925-nnt = 이력. Pod 0 · 잔액 $21.14."
+stopped_at: "2026-09-25 밤(2차) 마감 — belle \"인계서 작성하고 내일 진행하자\". **인계서 = .planning/quick/260925-pln-two-sided-plan/260925-pln-HANDOFF.md — 다음 세션은 여기부터.** 시장조사 완료(스포츠+비스포츠 약 60곳 + Peloton, NotebookLM 21f482ad…, 리포 research/market-coaching-platforms-260925.md, 핵심 10건 원문 [확인]). 판정: 공급자 개인 실행 기준 + AI 비교 = 0곳, Peloton 은 \"강사 먼저\" 홈만 취함. 다음 = 양면 플랫폼 기획안(아직 0줄). ★belle 마지막 지시: 기획의 완성은 멀리(완성도 높은 앱 + 생태계), 실증은 중간 과정 — 끝 그림 먼저, 실증 기간은 그 안에서 맞춘다(인계서 ★절). 관건 3: 공급자 앱 필요한가(초안: 실증까지 링크만) · 업로드 방식(초안: 링크 + 뒤쪽 자동화 4칸) · 메인 화면(초안: 강사 먼저 한 칸). 기준 등록 경로 실측은 인계서 §4(서브에이전트 보고, 미대조). 이전 인계서 260925-nnt = 이력. Pod 0 · 잔액 $21.14."
 last_updated: "2026-09-25T14:05:00.000Z"
 last_activity: 2026-09-25
 progress:

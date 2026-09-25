@@ -952,6 +952,9 @@ export interface DeductionBreakdown {
     faultState?: string;
     keypointSet?: string;
     ruleId?: string;
+    // quick-260925-nnt — Gemini 짧은 관찰문(부위 + 동작). 백엔드가 "못 잰 부위" 질문 한 줄로 조립해
+    // coachQuestions(source 'unmeasured')에 넣는다. 앱은 이 필드를 직접 렌더하지 않는다. 구 doc 부재.
+    observationKo?: string | null;
   }[];
   fallback?: 'quantification_unavailable' | 'gemini_silent';
   // Wave R (33-SPEC.md R1/R4/INV-6, D-34/D-37) — 2트랙 산식 재구성 집계. two-track tally

@@ -83,3 +83,31 @@ def test_reach_gap_and_fallback_record_use_the_label_shape_and_dedup():
 def test_no_gaps_means_no_question():
     assert app.collect_unmeasured_observations({"records": [], "coverageGaps": []}) == []
     assert app.collect_unmeasured_observations(None) == []
+
+
+# ── SCHEMA v8.2 observation_ko — 짧은 관찰문 채택 조건 (부위 + 동작 꼴일 때만) ───────────
+
+
+def test_short_observation_is_preferred_when_it_is_part_plus_action():
+    bd = {"records": [], "coverageGaps": [{
+        "keypointSet": "grip", "bodyPart": "왼팔 및 왼손",
+        "faultState": "왼팔을 크게 굽혀 가슴 앞으로 가져와 폴을 감싸 안음", "observationKo": "왼팔을 굽혀 폴을 감싸 안음"}]}
+    obs = app.collect_unmeasured_observations(bd)
+    assert obs[0]["observation"] == "왼팔을 굽혀 폴을 감싸 안음"
+    assert app.unmeasured_question_text(**obs[0]) == "왼팔을 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요."
+
+
+@pytest.mark.parametrize("bad", [None, "", "완전히 다름", "굽힘", "x" * 41, "왼팔의 자세와 그립 방식이 기준과 완전히 다르다"])
+def test_malformed_short_observation_falls_back_to_the_long_one(bad):
+    bd = {"records": [], "coverageGaps": [{"keypointSet": "grip", "bodyPart": "왼팔 및 왼손",
+                                          "faultState": "왼팔을 크게 굽혀 가슴 앞으로 가져와 폴을 감싸 안음", "observationKo": bad}]}
+    assert app.collect_unmeasured_observations(bd)[0]["observation"] == "왼팔을 크게 굽혀 가슴 앞으로 가져와 폴을 감싸 안음"
+
+
+def test_schema_and_prompt_carry_the_observation_rule():
+    from sunity_shared.analysis import gemini_vision_scorer as gvs
+    props = gvs.build_schema()["properties"]["differences"]["items"]
+    assert "observation_ko" in props["properties"] and "observation_ko" in props["required"]
+    for prompt in (gvs._PROMPT, gvs._COMPARISON_PROMPT):
+        assert "부위 + 동작" in prompt and "강사가 봐야 할 곳이 바뀌지 않으면 뺀다" in prompt
+    assert gvs.PROMPT_VERSION == "v11.3" and gvs.SCHEMA_VERSION == "v8.2"

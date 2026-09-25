@@ -754,6 +754,8 @@ def _gap_to_dict(gap):
         "faultState": gap.fault_state,
         "keypointSet": gap.keypoint_set,
         "ruleId": gap.rule_id,
+        # quick-260925-nnt — Gemini 짧은 관찰문(부위 + 동작). 없으면 None(구 캐시·구 스키마).
+        "observationKo": (getattr(gap, "observation", "") or None),
     }
 
 

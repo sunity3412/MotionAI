@@ -1930,7 +1930,7 @@ const frameIdx = Math.floor(currentTime * report.fps);
 ### §10.6 strictness + coverageGaps provenance
 
 - **MEDIUM-2:** record 내부는 STRICT — `baselineKind` present-but-nullable(optional 아님, Python 이 항상 키 방출), `ipsfAnchor`+`baselineValue` 는 모든 record 에 REQUIRED. legacy-compat 는 whole `deductionBreakdown?` 필드 + breakdown-level `coverageGaps?`/`fallback?` 에서만. (예외: record-level `rawPoints?`/`capApplied?` — §10.2, 상한 적용 record 에만 방출되는 additive optional, quick-260705-k8h.)
-- **MEDIUM-3:** `coverageGaps` entry 는 flat-scalar provenance(`bodyPart`/`faultState`/`keypointSet`/`ruleId`, optional scalar — Firestore nested-array 금지)를 supported_difference 에서 채운다 → 보이지만-0감점 gap 추적가능.
+- **MEDIUM-3:** `coverageGaps` entry 는 flat-scalar provenance(`bodyPart`/`faultState`/`keypointSet`/`ruleId`, optional scalar — Firestore nested-array 금지)를 supported_difference 에서 채운다 → 보이지만-0감점 gap 추적가능. (quick-260925-nnt) `observationKo?` — Gemini 짧은 관찰문(부위 + 동작, SCHEMA v8.2). 백엔드가 coachQuestions(source `unmeasured`) 한 줄로 조립한다; 구 doc·구 캐시는 null.
 
 ### §10.7 mode3 방출 조건 (Phase 29 신설 — D-01/D-02/D-03, 신규 필드 0)
 

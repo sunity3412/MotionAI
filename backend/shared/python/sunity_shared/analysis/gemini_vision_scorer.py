@@ -75,8 +75,8 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v11.2"  # v11.2 (quick 260705-fmg): part_scope 배타 강제 — 2026-07-05 pod 진단(fresh upper_body scope 6회: 상체 방출 0, 하체 중복 방출 4, 빈 배열 2)에서 '집중' 참고 문구를 Gemini 가 무시하고 가장 눈에 띄는 결함(다리)만 반복 보고 → 부위-전용 판정으로 교체(타 부위 방출 금지) + 3-scope 하체 중복 방출의 support 자기부풀림(supportCount 3) 차단. v11.1 (25-05): fault_category 고정 분류 rule 추가 — 각 enum 값 정의 1줄(스플릿 = 양다리 벌림/찢기 각도 부족, "벌림"/"스플릿"/"다리 사이 각도" 전부 이것). 어휘 드리프트 3연속(v9 body_part→v10.1 fault_state→v11 "벌림"+extension 오분류) 근본 fix — 라우팅은 키워드가 아닌 enum 을 1순위 소비. v11.0 (25-04 #3): (a) 측정 rubric — 각도 편차는 학생/기준 각도를 각각 명시 추정(student_angle_deg/reference_angle_deg + measurement_basis 서술), 편차는 코드가 산술 계산("편차 한 방 추정" 앵커링 편향 축소 — run3 kip-up 측정 20° vs production 30° 변동 근거). (b) 관찰-전량 differences[] 방출 강제 — primary_fault 서사에만 남긴 결함은 무효(상체 faultKey 미산출 잔존 fix), 단 "편차 없으면 항목 없음" 정타 방어 유지·강화(짚기-FP 0/5 게이트). generic 유지(동작명/기대답 0, D-06). v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용. v10.0 (25-02): part_scope 구조화 강제. v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
-SCHEMA_VERSION = "v8.1"  # v8.1 (25-05): differences[] 에 fault_category 필수 — vision_veto.FAULT_CATEGORIES 고정 enum (split_angle/limb_extension/pole_gap/alignment/grip/other). 라우터(ipsf_criteria.criteria_for_fault)가 1순위 소비 — 자유-텍스트 키워드 파싱의 어휘 드리프트 봉인. v8.0 (25-04 #3(a)): differences[] 에 student_angle_deg/reference_angle_deg(명시 각도쌍 — 편차는 코드 산술) + measurement_basis(무엇을 어떻게 쟀는지 DESCRIPTIVE) 추가 (score-free, D-02/D-06). v7.0 (Phase 23-02): root_cause_hypothesis + source 추가
+PROMPT_VERSION = "v11.3"  # v11.3 (quick-260925-nnt): 짧은 관찰문(observation_ko) 규칙 — 부위+동작만, 정도·경로·해석 금지, 판단 기준 = 강사가 볼 곳(belle 09-25 문구). # v11.2 (quick 260705-fmg): part_scope 배타 강제 — 2026-07-05 pod 진단(fresh upper_body scope 6회: 상체 방출 0, 하체 중복 방출 4, 빈 배열 2)에서 '집중' 참고 문구를 Gemini 가 무시하고 가장 눈에 띄는 결함(다리)만 반복 보고 → 부위-전용 판정으로 교체(타 부위 방출 금지) + 3-scope 하체 중복 방출의 support 자기부풀림(supportCount 3) 차단. v11.1 (25-05): fault_category 고정 분류 rule 추가 — 각 enum 값 정의 1줄(스플릿 = 양다리 벌림/찢기 각도 부족, "벌림"/"스플릿"/"다리 사이 각도" 전부 이것). 어휘 드리프트 3연속(v9 body_part→v10.1 fault_state→v11 "벌림"+extension 오분류) 근본 fix — 라우팅은 키워드가 아닌 enum 을 1순위 소비. v11.0 (25-04 #3): (a) 측정 rubric — 각도 편차는 학생/기준 각도를 각각 명시 추정(student_angle_deg/reference_angle_deg + measurement_basis 서술), 편차는 코드가 산술 계산("편차 한 방 추정" 앵커링 편향 축소 — run3 kip-up 측정 20° vs production 30° 변동 근거). (b) 관찰-전량 differences[] 방출 강제 — primary_fault 서사에만 남긴 결함은 무효(상체 faultKey 미산출 잔존 fix), 단 "편차 없으면 항목 없음" 정타 방어 유지·강화(짚기-FP 0/5 게이트). generic 유지(동작명/기대답 0, D-06). v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용. v10.0 (25-02): part_scope 구조화 강제. v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
+SCHEMA_VERSION = "v8.2"  # v8.2 (quick-260925-nnt): differences[] 에 observation_ko 필수 — 부위+동작 짧은 관찰문(화면 "못 잰 부위" 한 줄 원천, 점수 무접촉). # v8.1 (25-05): differences[] 에 fault_category 필수 — vision_veto.FAULT_CATEGORIES 고정 enum (split_angle/limb_extension/pole_gap/alignment/grip/other). 라우터(ipsf_criteria.criteria_for_fault)가 1순위 소비 — 자유-텍스트 키워드 파싱의 어휘 드리프트 봉인. v8.0 (25-04 #3(a)): differences[] 에 student_angle_deg/reference_angle_deg(명시 각도쌍 — 편차는 코드 산술) + measurement_basis(무엇을 어떻게 쟀는지 DESCRIPTIVE) 추가 (score-free, D-02/D-06). v7.0 (Phase 23-02): root_cause_hypothesis + source 추가
 # 집계 알고리즘 버전 marker (25-02 Task 1) — 튜닝 상수 아님. rich 캐시(store_rich)는
 # support-게이트 **통과 후** supported_differences 를 저장하므로, 프롬프트를 안 바꿔도
 # _filter_supported_differences 의 그룹핑/fold 를 바꾸면 옛 집계 결과가 stale-hit 로
@@ -222,6 +222,18 @@ def build_schema() -> dict:
                         "body_part": {"type": "string"},
                         "correct_state": {"type": "string"},
                         "fault_state": {"type": "string"},
+                        # quick-260925-nnt (SCHEMA v8.2, belle 09-25) — 짧은 관찰문: **부위 + 동작**만.
+                        # 화면의 "못 잰 부위" 한 줄이 이것을 "…하는 것이 동작의 문제가 될 수 있어요"로 쓴다.
+                        # fault_state(긴 서술)는 그대로 두고 별도 항목으로 받는다(수준 저하 방지 — 부위+동작 꼴이
+                        # 아니면 화면은 긴 서술로 폴백).
+                        "observation_ko": {
+                            "type": "string",
+                            "description": (
+                                "짧은 관찰문 — 어느 부위가 무엇을 어떻게 하고 있는가만. 명사형으로 끝낸다. "
+                                "정도(크게·다소·현저히), 경로(가슴 앞으로 가져와), 이유·해석, 기준과의 비교는 적지 않는다. "
+                                "예: '왼팔을 굽혀 폴을 감싸 안음' / '양다리를 1자로 벌리지 못함' / '오른 무릎을 접은 채로 돎'."
+                            ),
+                        },
                         # 25-05 (SCHEMA v8.1) — 결함 고정 분류 enum. 자유-텍스트 키워드
                         # 파싱의 어휘 드리프트 3연속(v9→v10.1→v11) 근본 fix: 라우터
                         # (ipsf_criteria.criteria_for_fault)가 이 enum 을 1순위 소비한다.
@@ -297,6 +309,7 @@ def build_schema() -> dict:
                         "body_part",
                         "correct_state",
                         "fault_state",
+                        "observation_ko",  # v8.2 — 짧은 관찰문 필수(부재 응답은 긴 서술 폴백이라 화면이 다시 길어진다)
                         "severity",
                         # 25-05 — 분류는 필수: 부재 응답을 허용하면 라우팅이 다시
                         # 키워드 폴백에 의존하게 돼 enum 강제가 무력화된다.
@@ -335,6 +348,19 @@ def build_schema() -> dict:
 # "스플릿"/"다리 사이 각도"를 전부 split_angle 로 수렴시킨다. 새 분류 발명 금지 —
 # enum(vision_veto.FAULT_CATEGORIES)과 값·정의가 1:1. 이 블록을 바꾸면 PROMPT_VERSION
 # bump 필수(캐시 무효화).
+# quick-260925-nnt (PROMPT v11.3) — 짧은 관찰문 규칙. belle 09-25 와 함께 정한 문구 그대로("짧게"가 아니라 구조로,
+# 판단 기준은 강사). 두 프롬프트 공통 첨부. 바꾸면 PROMPT_VERSION bump.
+_OBSERVATION_RULE = """
+
+각 difference 의 observation_ko(짧은 관찰문) 규칙:
+   관찰문은 **부위 + 동작**만 적는다. 어느 부위가 무엇을 어떻게 하고 있는가. 명사형으로 끝낸다.
+   정도(크게·다소·현저히), 경로(가슴 앞으로 가져와), 이유·해석, 기준과의 비교는 적지 않는다.
+   판단 기준: 그 말을 빼도 강사가 봐야 할 곳이 바뀌지 않으면 뺀다.
+   예: "왼팔을 굽혀 폴을 감싸 안음" / "양다리를 1자로 벌리지 못함" / "오른 무릎을 접은 채로 돎"
+   안 되는 예: "왼팔을 크게 굽혀 가슴 앞으로 가져와 폴을 감싸 안음"
+   긴 서술은 fault_state 에 그대로 두고, observation_ko 는 별도로 짧게 쓴다.
+"""
+
 _FAULT_CATEGORY_RULE = """
 
 각 difference 의 fault_category 는 아래 고정 분류에서 정확히 하나를 선택하세요 (새 분류 발명 금지):
@@ -367,7 +393,7 @@ _PROMPT = """\
 4. differences 에는 **실제로 관찰된 결함만** 담으세요 (없으면 빈 배열). 각 항목 severity 도
    none/minor/moderate/major 로 보수적으로.
 5. primary_fault = 가장 지배적인 단일 결함 (결함 없으면 '없음').
-6. 한국어로 작성. 추측이 불확실하면 confidence 를 낮게 표기.""" + _FAULT_CATEGORY_RULE
+6. 한국어로 작성. 추측이 불확실하면 confidence 를 낮게 표기.""" + _FAULT_CATEGORY_RULE + _OBSERVATION_RULE
 
 
 def _build_prompt(at_seconds: float | None) -> str:
@@ -452,7 +478,7 @@ _COMPARISON_PROMPT = """\
    단정하지 말고(틀렸다/잘못됐다 금지), 사람 점수·등급 라벨을 ground truth 로 쓰지 마세요.
    확실하지 않으면 원인을 생략하거나 confidence 를 낮게. 각 difference 의 source 는
    'vision_hypothesis' 로 표기하세요(당신은 관찰·가설, 칸 수치는 코드가 계산).
-10. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기.""" + _FAULT_CATEGORY_RULE
+10. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기.""" + _FAULT_CATEGORY_RULE + _OBSERVATION_RULE
 
 
 def _build_comparison_prompt(at_seconds: float | None) -> str:

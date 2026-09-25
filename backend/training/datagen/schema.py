@@ -48,7 +48,7 @@ REPORT_KEYS: tuple[str, ...] = (
 
 # ── faults[] 서브스키마 (deduction_engine 계약 상위집합, 점수/severity 부재) ──
 #
-# gemini_vision_scorer SCHEMA v8.1 differences[] 를 미러한다 — 편차는 코드 산술이므로
+# gemini_vision_scorer SCHEMA v8.2 differences[] 를 미러한다 — 편차는 코드 산술이므로
 # 각도쌍(student/reference_angle_deg)이 필수. 감점 엔진(deduction_engine)이 소비하는
 # 키(DEDUCTION_CONSUMED_KEYS)의 상위집합이라 자체 모델 swap 후에도 무수정 채점된다.
 # severity/score 는 의도적으로 부재: 모델은 짚기·측정만, 점수는 Phase 24 엔진(ND-02).
@@ -60,6 +60,7 @@ FAULT_ITEM_KEYS: tuple[str, ...] = (
     "fault_state",                 # 결함 상태 서술 (라우팅 입력).
     "ipsf_note",                   # IPSF 기준 노트.
     "measurement_basis",           # 무엇을 어떻게 쟀는지 DESCRIPTIVE 서술.
+    "observation_ko",              # 짧은 관찰문(부위 + 동작) — SCHEMA v8.2 (quick-260925-nnt), 화면 "못 잰 부위" 한 줄 원천.
     "part_scope",                  # upper_body/core/lower_body/line.
     "reference_angle_deg",         # 기준(정타) 각도 추정(도).
     "root_cause_hypothesis",       # '~로 보임' 원인 가설 (단정·숫자 점수 금지).

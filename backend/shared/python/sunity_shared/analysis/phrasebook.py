@@ -243,6 +243,25 @@ _ADJECTIVE_STEM_TAILS = frozenset("좁넓낮높짧작많적깊얕늦굽")  # X�
 _SPECIAL_ENDINGS = {"폄": "펴는 것", "듦": "드는 것", "돎": "도는 것", "큼": "큰 것", "김": "긴 것", "멂": "먼 것", "닒": "너는 것"}
 
 
+# 짧은 관찰문이 "부위 + 동작" 꼴인지 — 부위 낱말이 있고 어미를 절로 바꿀 수 있어야 한다. 아니면 긴 서술로 폴백(수준 저하 방지).
+_BODY_PART_WORDS = (
+    "팔", "다리", "무릎", "어깨", "손", "발", "엉덩이", "골반", "허리", "머리", "목", "몸통", "상체", "하체", "가슴", "등",
+    "팔꿈치", "손목", "발목", "발끝", "허벅지", "종아리", "그립", "코어", "견갑", "고개", "시선", "라인",
+)
+
+
+def is_part_action_observation(text: str | None) -> bool:
+    """짧은 관찰문 채택 조건: 부위 낱말 포함 · 40자 이하 · 어미가 절로 바뀐다."""
+    if not isinstance(text, str):
+        return False
+    t = text.strip()
+    if not t or len(t) > 40:
+        return False
+    if not any(w in t for w in _BODY_PART_WORDS):
+        return False
+    return observation_clause_ko(t) is not None
+
+
 def observation_clause_ko(fault_state: str | None) -> str | None:
     """Gemini 명사형 관찰문 → "…하는 것" 절 | None(모르는 어미)."""
     if not isinstance(fault_state, str):

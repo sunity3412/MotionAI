@@ -7997,13 +7997,21 @@ def collect_unmeasured_observations(breakdown) -> list[dict]:
         keypoint_set = gap.get("keypointSet") or gap.get("faultType")
         mapped = _UNMEASURED_LABEL_KO.get(keypoint_set) if isinstance(keypoint_set, str) else None
         if isinstance(body_part, str) and body_part and body_part != "reach":
-            _add(body_part, gap.get("faultState"))
+            # quick-260925-nnt — Gemini 짧은 관찰문(부위 + 동작, SCHEMA v8.2)이 그 꼴이면 그것을, 아니면 긴 서술(faultState).
+            short = gap.get("observationKo")
+            _add(body_part, short if _phrasebook_mod().is_part_action_observation(short) else gap.get("faultState"))
         else:
             _add(mapped, None)
     for rec in breakdown.get("records") or []:
         if isinstance(rec, dict) and rec.get("ruleId") == "quantification_unavailable_dimension_overall":
             _add(_UNMEASURED_LABEL_KO["dimension_overall_fallback"], None)
     return out
+
+
+def _phrasebook_mod():
+    from sunity_shared.analysis import phrasebook
+
+    return phrasebook
 
 
 def unmeasured_question_text(label: str, observation: str | None) -> str:

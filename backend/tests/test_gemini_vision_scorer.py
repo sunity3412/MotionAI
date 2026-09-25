@@ -629,13 +629,13 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v11.2 (quick 260705-fmg: part_scope 배타 강제) / SCHEMA_VERSION = v8.1."""
-    assert PROMPT_VERSION == "v11.2"
-    assert PROMPT_VERSION not in ("v9.0", "v10.0", "v10.1", "v11.0", "v11.1"), (
+    """PROMPT_VERSION = v11.3 (quick-260925-nnt: 짧은 관찰문 규칙) / SCHEMA_VERSION = v8.2 (observation_ko 필수)."""
+    assert PROMPT_VERSION == "v11.3"
+    assert PROMPT_VERSION not in ("v9.0", "v10.0", "v10.1", "v11.0", "v11.1", "v11.2"), (
         "프롬프트 변경 = bump 필수 (캐시 무효화)"
     )
-    assert SCHEMA_VERSION == "v8.1"
-    assert SCHEMA_VERSION not in ("v7.0", "v8.0"), (
+    assert SCHEMA_VERSION == "v8.2"
+    assert SCHEMA_VERSION not in ("v7.0", "v8.0", "v8.1"), (
         "스키마 변경(fault_category 필수 enum) = bump 필수 (캐시 무효화)"
     )
 

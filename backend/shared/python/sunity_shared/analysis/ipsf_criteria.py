@@ -212,6 +212,8 @@ class CoverageGap:
     body_part: str = ""
     fault_state: str = ""
     rule_id: str | None = None
+    # quick-260925-nnt — Gemini 의 짧은 관찰문(부위 + 동작, SCHEMA v8.2 observation_ko). 화면의 "못 잰 부위" 한 줄이 쓴다.
+    observation: str = ""
 
 
 # ── fault_category 고정 enum 라우팅 (25-05, SCHEMA v8.1) ──────────────────────
@@ -324,6 +326,7 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     diff = supported_difference or {}
     body_part = str(diff.get("body_part", ""))
     fault_state = str(diff.get("fault_state", ""))
+    observation = str(diff.get("observation_ko", "") or "").strip()  # quick-260925-nnt
     combined = f"{body_part} {fault_state}"
     # 25-05 (SCHEMA v8.1): 고정 분류 enum — v8.1 이후 응답은 필수 필드, 구 캐시는 부재("").
     category = str(diff.get("fault_category", "")).strip().lower()
@@ -356,7 +359,7 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     if category == "grip":
         return CoverageGap(
             keypoint_set="grip", reason=COVERAGE_GAP_KEYPOINT_SETS["grip"],
-            body_part=body_part, fault_state=fault_state,
+            body_part=body_part, fault_state=fault_state, observation=observation,
         )
 
     # 2) hand OR knee + reach/distance/height shortfall → body_relative_reach.
@@ -383,7 +386,7 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     if _contains(body_part, _GRIP_KEYWORDS):
         return CoverageGap(
             keypoint_set="grip", reason=COVERAGE_GAP_KEYPOINT_SETS["grip"],
-            body_part=body_part, fault_state=fault_state,
+            body_part=body_part, fault_state=fault_state, observation=observation,
         )
 
     # 7) keypoint_set 이 gap set(head_neck/torso/shoulder/hip)으로 매핑 → coverage gap.
@@ -415,7 +418,7 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
                 return measured_cids
         return CoverageGap(
             keypoint_set=ks, reason=COVERAGE_GAP_KEYPOINT_SETS[ks],
-            body_part=body_part, fault_state=fault_state,
+            body_part=body_part, fault_state=fault_state, observation=observation,
         )
 
     # 8) 미상 — keypoint_set 으로 total-coverage fallback(silent None 금지).
@@ -423,6 +426,6 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     if resolved in COVERAGE_GAP_KEYPOINT_SETS:
         return CoverageGap(
             keypoint_set=resolved, reason=COVERAGE_GAP_KEYPOINT_SETS[resolved],
-            body_part=body_part, fault_state=fault_state,
+            body_part=body_part, fault_state=fault_state, observation=observation,
         )
     return (resolved,)

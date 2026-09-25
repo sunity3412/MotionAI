@@ -19,6 +19,7 @@ status: complete
        정타 5/5 = 100 (4090·A4500 두 종류에서)
 내림   power-spin "낮은 위치" 문장 — 높이 자의 바닥 기준이 이 영상에선 거짓(서 있는 프레임 0). fail-closed 로 고침
 대기   정은지 추가 영상 → 봉인 시험지 2회. kip-up·power-spin 실수는 이제 연습 문제(정답 공개)
+6차    봉인 시험지 자동화 `backend/scripts/sealed_test.py`(seal/run/grade/close) — 다음 시험은 이걸로
 5차    못 잰 부위 한 줄 = Gemini 짧은 관찰문(부위+동작) → "…하는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요" (0c39163a)
        kip-up 실수 화면: 잰 문장(몸 낮음·왼팔 벌어짐) + 관찰 한 줄(왼팔 굽혀 폴 감싸 안음) — **belle ○** · peter-pan 실수: 오른팔 몸 앞 그립 한 줄 — **belle ○** · 강사 질문 6줄 말투 = 앱이 수강생에게
        Gemini split 숫자는 스플릿 라인 요소에서만(27973c40) — v11.3 에서 kip-up 이 다시 63 됐던 것 차단, 재실행 83
@@ -53,7 +54,12 @@ status: complete
 메모리 신설 4: severity-none-pointer… · grip-hand-height… · split-rule-final-phase-median · sealed-test-1… 갱신.
 
 ## 4. ★ 다음
-1. **정은지 추가 영상 도착 = 봉인 시험지 2회** — x9i §4-3 절차 그대로(belle 한 줄 먼저 봉인 → 코드 고정 → 앱 경로 → 대조). 이제 규칙이 늘었으니(높이·벌림·지목 승계) "처음 보는 영상 N 편 중 M 편".
+1. **정은지 추가 영상 도착 = 봉인 시험지 2회 — `backend/scripts/sealed_test.py`** (09-25 밤 신설, 손 절차를 스크립트로):
+   ① 시트 한 줄/영상(`file, motion, intent, answer`) — answer = belle 한 줄(정타면 "없음"), 결과 보기 **전**
+   ② `seal --sheet` → 이미 분석된 영상은 연습 문제로 빠지고, 새 영상만 등록(S3·clips.jsonl) + 정답 봉인 커밋(코드 HEAD 고정)
+   ③ Pod 기동 → `run --test <id>` (봉인 커밋과 HEAD 가 다르면 멈춘다) ④ `grade --test <id>` → `.planning/sealed/<id>/GRADE.md`(정답·카드 나란히, ○× 빈 칸)
+   ⑤ belle ○× → `close --test <id> --marks "○,×,…"` → "처음 보는 N 편 중 M 편". 맞았다는 판정은 스크립트가 아니라 belle 만 한다.
+   ★촬영 요청: **서 있는 자세에서 시작**(높이 자 바닥 기준).
 2. ~~belle ○×: 관찰 한 줄~~ → **둘 다 ○**(09-25 밤). 강사 질문 6줄 말투 통일 완료("…확인해보세요").
 3. ~~높이 축 바닥을 폴 바닥에서~~ → **시도했고 안 됨**(SUMMARY §1-f: Hough 끝점·에지 열 스캔 둘 다 창문 구간만 잡는다). 대신 **정은지 추가 촬영은 서 있는 자세에서 시작**하도록 요청(그러면 지금 자가 그대로 된다).
 4. 재학습 게이트 7개 중 1개, 변동 없음.

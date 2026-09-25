@@ -111,3 +111,19 @@ def test_schema_and_prompt_carry_the_observation_rule():
     for prompt in (gvs._PROMPT, gvs._COMPARISON_PROMPT):
         assert "부위 + 동작" in prompt and "강사가 봐야 할 곳이 바뀌지 않으면 뺀다" in prompt
     assert gvs.PROMPT_VERSION == "v11.3" and gvs.SCHEMA_VERSION == "v8.2"
+
+
+def test_one_line_per_keypoint_set_even_when_labels_differ():
+    """09-25 Pod climb 실수 실측: 고개 지목이 '머리 및 목'·'머리' 두 라벨(둘 다 line)로 와 같은 말이 두 줄 떴다 → 한 줄."""
+    bd = {"records": [], "coverageGaps": [
+        {"faultType": "pointed_not_scored", "keypointSet": "arm_extension", "bodyPart": "왼팔", "faultState": "…", "observationKo": "왼팔을 굽혀 폴을 감싸 안음"},
+        {"faultType": "pointed_not_scored", "keypointSet": "arm_extension", "bodyPart": "왼팔", "faultState": "…", "observationKo": "왼팔을 굽혀 폴을 감싸 안음"},
+        {"faultType": "pointed_not_scored", "keypointSet": "line", "bodyPart": "머리 및 목", "faultState": "…", "observationKo": "고개를 숙임"},
+        {"faultType": "pointed_not_scored", "keypointSet": "line", "bodyPart": "머리", "faultState": "…", "observationKo": "고개를 아래로 숙임"},
+    ]}
+    obs = app.collect_unmeasured_observations(bd)
+    assert [o["label"] for o in obs] == ["왼팔", "머리 및 목"]
+    assert [app.unmeasured_question_text(**o) for o in obs] == [
+        "왼팔을 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요.",
+        "고개를 숙이는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요.",
+    ]

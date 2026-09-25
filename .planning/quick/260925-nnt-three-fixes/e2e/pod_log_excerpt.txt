@@ -57,3 +57,4 @@
 2026-09-25 11:14:51,196 INFO root: card_gates verdict analysis_id=6cd3913f50334a5580013c4eacceb234 total=3 survivors=['r00:inherit@u2.133/r6.67 eye=hold=hold pair=match eye=skip:torso_joint', 'r02:inherit@u5.721/r6.47 eye=hold=hold pair=match eye=bent->bent/leg', 'r01:inherit@u5.821/r6.47 eye=hold=m
 2026-09-25 11:16:34,165 INFO root: compare_render done  analysis_id=b8d4442c59b14920bb021c2eb3530cb3 key=results/FOSwQE5BUCXYepDjtLdpvi5NXrD2/b8d4442c59b14920bb021c2eb3530cb3/compare_v1.mp4 freezes=3
 2026-09-25 11:16:48,144 INFO root: card_gates verdict analysis_id=b8d4442c59b14920bb021c2eb3530cb3 total=3 survivors=['r02:inherit@u2.911/r7.20 eye=hold=moving pair=match eye=bent->bent/leg', 'r00:inherit@u4.215/r6.07 eye=hold=hold pair=match eye=bent->bent/arm', 'r01:inherit@u4.818/r6.47 eye=hold=h
+2026-09-25 12:08:20,246 INFO root: vision severity none 이지만 supported differences=2 — 지목 승계(no_fault, 감점은 기하)

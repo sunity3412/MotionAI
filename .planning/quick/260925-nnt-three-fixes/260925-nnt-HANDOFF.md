@@ -19,6 +19,7 @@ status: complete
        정타 5/5 = 100 (4090·A4500 두 종류에서)
 내림   power-spin "낮은 위치" 문장 — 높이 자의 바닥 기준이 이 영상에선 거짓(서 있는 프레임 0). fail-closed 로 고침
 대기   정은지 추가 영상 → 봉인 시험지 2회. kip-up·power-spin 실수는 이제 연습 문제(정답 공개)
+7차    climb 한 줄 = 지목이 감점 안 되면 pointed_not_scored gap → "왼팔을 굽혀 폴을 감싸 안는 것이…" 한 줄(Pod 확인) + 고개 줄(○× 대상). keypoint set 당 한 줄
 6차    봉인 시험지 자동화 `backend/scripts/sealed_test.py`(seal/run/grade/close) — 다음 시험은 이걸로
 5차    못 잰 부위 한 줄 = Gemini 짧은 관찰문(부위+동작) → "…하는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요" (0c39163a)
        kip-up 실수 화면: 잰 문장(몸 낮음·왼팔 벌어짐) + 관찰 한 줄(왼팔 굽혀 폴 감싸 안음) — **belle ○** · peter-pan 실수: 오른팔 몸 앞 그립 한 줄 — **belle ○** · 강사 질문 6줄 말투 = 앱이 수강생에게

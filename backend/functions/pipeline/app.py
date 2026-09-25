@@ -7986,11 +7986,19 @@ def collect_unmeasured_observations(breakdown) -> list[dict]:
         return []
     out: list[dict] = []
     seen: set[str] = set()
+    seen_sets: set[str] = set()
 
-    def _add(label, observation):
-        if isinstance(label, str) and label and label not in seen:
-            seen.add(label)
-            out.append({"label": label, "observation": observation if isinstance(observation, str) and observation.strip() else None})
+    def _add(label, observation, keypoint_set=None):
+        # 한 줄/부위 — 라벨이 같거나(왼팔·왼팔) 같은 keypoint set 의 두 번째 지목("머리 및 목"·"머리" 가 둘 다 line)은 한 줄로.
+        # 09-25 Pod climb 실수: 고개 지목이 두 호출에서 라벨만 다르게 와 같은 말이 두 줄 떴다.
+        if not (isinstance(label, str) and label) or label in seen:
+            return
+        if isinstance(keypoint_set, str) and keypoint_set in seen_sets:
+            return
+        seen.add(label)
+        if isinstance(keypoint_set, str) and keypoint_set:
+            seen_sets.add(keypoint_set)
+        out.append({"label": label, "observation": observation if isinstance(observation, str) and observation.strip() else None})
 
     for gap in breakdown.get("coverageGaps") or []:
         if not isinstance(gap, dict):
@@ -8001,9 +8009,10 @@ def collect_unmeasured_observations(breakdown) -> list[dict]:
         if isinstance(body_part, str) and body_part and body_part != "reach":
             # quick-260925-nnt — Gemini 짧은 관찰문(부위 + 동작, SCHEMA v8.2)이 그 꼴이면 그것을, 아니면 긴 서술(faultState).
             short = gap.get("observationKo")
-            _add(body_part, short if _phrasebook_mod().is_part_action_observation(short) else gap.get("faultState"))
+            _add(body_part, short if _phrasebook_mod().is_part_action_observation(short) else gap.get("faultState"),
+                 keypoint_set if isinstance(keypoint_set, str) else None)
         else:
-            _add(mapped, None)
+            _add(mapped, None, keypoint_set if isinstance(keypoint_set, str) else None)
     for rec in breakdown.get("records") or []:
         if isinstance(rec, dict) and rec.get("ruleId") == "quantification_unavailable_dimension_overall":
             _add(_UNMEASURED_LABEL_KO["dimension_overall_fallback"], None)

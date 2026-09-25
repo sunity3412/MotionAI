@@ -89,6 +89,12 @@ belle: *"둘 다 ○. 나머지 6줄도 같은 말투로 바꿔"* → 관찰 한
 → 값싼 수리가 아니다. 바닥판 자체를 찾는 검출(밝은 원판/그림자)이나 카메라 고정 가정이 필요하다. 지금 자는 fail-closed 그대로 둔다. 새 영상이 서 있는 장면부터 찍히면 문제가 사라진다 —
 **정은지 추가 촬영 요청에 "서 있는 자세에서 시작"을 넣을 것**(kip-up·climb 처럼).
 
+## 1-g. 6차 — climb 한 줄 흔들림 (belle "순서대로 돌아라" 2번, fe56129e)
+지목이 감점 record 로 이어지지 않으면(잰 편차 tol 안·substrate 부재) `pointed_not_scored` coverage gap → 같은 한 줄 조립. Gemini 분류(grip/alignment)에 안 걸린다.
+**Pod 4090 k7htp42ffdvy3c**: climb 실수 60 — 한 줄 "왼팔을 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요." (belle 봉인 정답과 같은 말) + "고개를 숙이는 것이…" · climb 정타 100, 줄 0.
+`[관측]` 고개 지목이 두 호출에서 라벨만 달라("머리 및 목"·"머리") 같은 말이 두 줄 → keypoint set 당 한 줄로 dedup(같은 커밋 뒤). 고개 줄 자체는 belle ○× 대상.
+6차 봉인 시험지 자동화 = `backend/scripts/sealed_test.py`(a383fb93).
+
 ## 2. 화면에 실리는 것 (초안, belle ○× 대기)
 
 power-spin 실수 카드(leg_extension record, measuredPattern=body_low) — **3차에서 내림. 아래는 2차 실측 기록**:

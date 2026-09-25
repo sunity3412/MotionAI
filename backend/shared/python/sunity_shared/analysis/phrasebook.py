@@ -97,7 +97,7 @@ FORBIDDEN_REGEX_PHRASEBOOK: tuple[str, ...] = (
 _GENERIC_SAFETY = {
     "statusLine": "안전과 관련해 살펴볼 부분이 있어요",
     "whyLine": "무리한 자세는 부상으로 이어질 수 있어요",
-    "coachQuestion": "이 부분이 안전한지 강사님과 이 화면을 함께 확인해보고 싶어요",
+    "coachQuestion": "이 부분이 안전한지 강사님과 이 화면을 함께 확인해보세요"  # quick-260925-nnt belle: 말투 = 앱이 수강생에게,
 }
 
 

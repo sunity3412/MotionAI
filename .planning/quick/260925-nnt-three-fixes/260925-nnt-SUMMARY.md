@@ -74,6 +74,10 @@ belle: *"정확히 재기 어려웠던 부분이면 분석을 못했다는 말�
 → `split_value_allowed`: Gemini 의 split 숫자도 스플릿 라인 요소에서만(기하 게이트와 같은 선언). 재실행 kip-up **83**. 정타 2/2 = 100.
 `[관측]` Gemini 지목의 분류(grip/alignment)가 실행마다 달라 climb 의 한 줄이 v11.2 실행에선 있고 v11.3 두 실행에선 없다 — 문장 자체가 아니라 Gemini 분류 변동.
 
+## 1-e. belle ○ (09-25 밤) + 강사 질문 6줄 말투 통일
+belle: *"둘 다 ○. 나머지 6줄도 같은 말투로 바꿔"* → 관찰 한 줄 문장 ○(kip-up 왼팔 · peter-pan 오른팔). 강사 질문 6줄("…강사님과 이 화면을 함께 확인해보고 싶어요")을
+"…확인해보세요"(앱이 수강생에게)로 — 내용은 그대로, 말투만. phrasebook.json 5줄 + phrasebook.py 기본 1줄.
+
 ## 2. 화면에 실리는 것 (초안, belle ○× 대기)
 
 power-spin 실수 카드(leg_extension record, measuredPattern=body_low) — **3차에서 내림. 아래는 2차 실측 기록**:

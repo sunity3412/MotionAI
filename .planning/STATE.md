@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-25 밤 마감. **인계서 = .planning/quick/260925-nnt-three-fixes/260925-nnt-HANDOFF.md — 다음 세션은 여기부터.** 봉인 시험지 1회 0/2 → 세 칸 수리(2칸 + 벌림 규칙) → belle ○(\"좋아 나름 괜찮은 듯\"). kip-up 83 그대로 · power-spin 60(벌림 −20, 카드 ○) · climb 60 · 정타 5/5=100. 5차: 못 잰 부위 한 줄 = Gemini 짧은 관찰문(v11.3/v8.2) → kip-up 화면에 \"왼팔을 가슴 앞으로 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요\" (belle ○× 대기) · Gemini split 숫자는 스플릿 요소에서만(27973c40). 내린 것: power-spin 높이 문장(바닥 기준 거짓). 다음 = belle ○× → 정은지 추가 영상 → 봉인 시험지 2회. ★다시 하지 말 것: severity none 의 Gemini 숫자 · 회전 동작 그립 손 통계 · 서 있는 프레임 없는 높이 · peak split. Pod 0 · Lambda 자리표시자 · 잔액 $21.14 · origin 동기."
+stopped_at: "2026-09-25 밤 마감. **인계서 = .planning/quick/260925-nnt-three-fixes/260925-nnt-HANDOFF.md — 다음 세션은 여기부터.** 봉인 시험지 1회 0/2 → 세 칸 수리(2칸 + 벌림 규칙) → belle ○(\"좋아 나름 괜찮은 듯\"). kip-up 83 그대로 · power-spin 60(벌림 −20, 카드 ○) · climb 60 · 정타 5/5=100. 5차: 못 잰 부위 한 줄 = Gemini 짧은 관찰문(v11.3/v8.2) → kip-up 화면에 \"왼팔을 가슴 앞으로 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요\" (belle ○) · peter-pan 오른팔 한 줄(belle ○) · 강사 질문 6줄 말투 통일 · Gemini split 숫자는 스플릿 요소에서만(27973c40). 내린 것: power-spin 높이 문장(바닥 기준 거짓). 다음 = 정은지 추가 영상 → 봉인 시험지 2회. ★다시 하지 말 것: severity none 의 Gemini 숫자 · 회전 동작 그립 손 통계 · 서 있는 프레임 없는 높이 · peak split. Pod 0 · Lambda 자리표시자 · 잔액 $21.14 · origin 동기."
 last_updated: "2026-09-25T11:35:00.000Z"
 last_activity: 2026-09-25
 progress:

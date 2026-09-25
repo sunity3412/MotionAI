@@ -728,28 +728,28 @@
     "asymmetry": {
       "statusLine": "좌우 균형이 한쪽으로 치우쳐 있어요",
       "whyLine": "한쪽으로 힘이 쏠린 채 버티면 그 관절에 무리가 쌓일 수 있어요",
-      "coachQuestion": "지금 자세로 계속 연습해도 괜찮은지 강사님과 이 화면을 함께 확인해보고 싶어요"
+      "coachQuestion": "지금 자세로 계속 연습해도 괜찮은지 강사님과 이 화면을 함께 확인해보세요"
     },
     "trunk_hyperextension": {
       "statusLine": "허리가 기준보다 많이 젖혀져 있어요",
       "whyLine": "허리를 과하게 젖힌 채 버티면 허리에 부담이 쌓일 수 있어요",
-      "coachQuestion": "허리를 어디까지 젖혀도 안전한지 강사님과 이 화면을 함께 확인해보고 싶어요"
+      "coachQuestion": "허리를 어디까지 젖혀도 안전한지 강사님과 이 화면을 함께 확인해보세요"
     },
     "joint_hyperextension": {
       "statusLine": "무릎이나 팔꿈치가 뒤로 꺾이는 방향까지 펴져 있어요",
       "whyLine": "관절이 중립을 넘어 뒤로 꺾이면 인대에 무리가 갈 수 있어요",
-      "coachQuestion": "관절을 어느 정도까지 펴야 안전한지 강사님과 이 화면을 함께 확인해보고 싶어요"
+      "coachQuestion": "관절을 어느 정도까지 펴야 안전한지 강사님과 이 화면을 함께 확인해보세요"
     },
     "level_mismatch": {
       "statusLine": "지금 동작이 현재 경력에 비해 난도가 높은 편이에요",
       "whyLine": "준비가 덜 된 상태에서 무리하면 부상 위험이 커질 수 있어요",
-      "coachQuestion": "이 동작을 지금 연습해도 괜찮을지 강사님과 이 화면을 함께 확인해보고 싶어요"
+      "coachQuestion": "이 동작을 지금 연습해도 괜찮을지 강사님과 이 화면을 함께 확인해보세요"
     }
   },
   "failClosed": {
     "statusLine": "심사 기준과 차이가 측정된 부분이에요",
     "whyLine": "기준과 차이가 있는 건 확인됐지만, 정확한 원인은 이 영상만으로 단정하기 어려운 부분이에요",
-    "coachQuestion": "이 부분을 어떻게 고치면 좋을지 강사님과 이 화면을 함께 확인해보고 싶어요"
+    "coachQuestion": "이 부분을 어떻게 고치면 좋을지 강사님과 이 화면을 함께 확인해보세요"
   },
   "measuredVariants": {
     "ref-kip-up.angle_vs_reference__left_shoulder": {

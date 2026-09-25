@@ -9029,6 +9029,61 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 )
                 reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
                 reference_angles_for_veto = a_ref  # 23-02 Task 5 — frame-specific 각도 정량화 입력.
+                # ── quick-260925-nnt — 벌림 규칙: 기준 창 마지막 1/3 사이각 중앙값, 정은지 상대 ──
+                # belle 09-25 "다리 벌림 = 1자로 쫙 vs 조금만". 스플릿 라인 요소(technique.SPLIT_LINE_ELEMENTS)
+                # 또는 인식기가 required_split_deg 를 준 동작에서만. 위 peak 경로(사문)보다 먼저 채워지면
+                # 그것이 md["split_angle"] 이 되고, 엔진의 vision split 주입은 자동으로 물러난다("geometric md
+                # 우선"). 순간은 measured_at 에 각인 → 영상 멈춤·카드가 물려받는다. 실패는 전부 미채점(honest 0).
+                try:
+                    _split_gate = (
+                        str(meta.get("referenceMotionId") or "") in technique.SPLIT_LINE_ELEMENTS
+                        or getattr(profile, "required_split_deg", None) is not None
+                    )
+                    if split_deficit_deg is None and _split_gate and reference_exec_window is not None:
+                        from sunity_shared.analysis import split_phase as _split_phase
+
+                        _kp4s = np.asarray(inputs.keypoints_4ch, dtype=float)
+                        _rj = ref.get("joints3d")
+                        _rn = int(ref.get("joints3dFrames") or 0)
+                        _rkp = (
+                            np.asarray(_rj, dtype=float).reshape(_rn, 17, -1)
+                            if _rj is not None and _rn > 0 else None
+                        )
+                        _sp_start = int(getattr(match, "start", 0) or 0)
+                        _sp_rstart = int(getattr(match, "ref_start", 0) or 0)
+                        _sp_pairs = [
+                            (int(u) + _sp_start, int(r) + _sp_rstart)
+                            for u, r in (getattr(match, "path", None) or [])
+                        ]
+                        _sp = (
+                            _split_phase.final_phase_split(
+                                _kp4s[:, :, :3], _rkp, reference_exec_window, _sp_pairs,
+                                u_win=_student_window_from_match(match, *reference_exec_window),
+                            )
+                            if _rkp is not None and _kp4s.ndim == 3 else None
+                        )
+                        if _sp is not None:
+                            split_deficit_deg = max(0.0, float(_sp["deficitDeg"]))
+                            _sp_fps = _pipeline_frame_fps(local_video_path)
+                            if _sp_fps and _sp_fps > 0:
+                                measured_at["split_angle"] = {
+                                    "frame_idx": int(_sp["studentFrame"]),
+                                    "video_sec": float(_sp["studentFrame"]) / float(_sp_fps),
+                                }
+                            log.info(
+                                "split phase reference=%s phase=%s/%s student=%.1f reference=%.1f deficit=%.1f "
+                                "frame=%d n=%d/%d analysis_id=%s",
+                                meta.get("referenceMotionId"), _sp["studentPhase"], _sp["referencePhase"],
+                                _sp["studentDeg"], _sp["referenceDeg"], _sp["deficitDeg"], _sp["studentFrame"],
+                                _sp["nStudent"], _sp["nReference"], analysis_id,
+                            )
+                        else:
+                            log.info(
+                                "split phase unavailable reference=%s window=%s analysis_id=%s",
+                                meta.get("referenceMotionId"), reference_exec_window, analysis_id,
+                            )
+                except Exception:  # noqa: BLE001 — 벌림 측정 실패는 채점 무영향(honest 0)
+                    log.exception("split phase 예외 — 미채점 analysis_id=%s", analysis_id)
                 # Phase 19 TRUST-01 (HIGH-2 iter-1): 표시 각도 = 점수 산출 DTW path-정렬 median.
                 # 기존 whole-clip np.nanmean(user_seg) vs np.nanmean(a_ref) 는 시간 비대칭
                 # (user matched-window vs ref full-clip) + jitter 민감 → 표시·점수 불일치.

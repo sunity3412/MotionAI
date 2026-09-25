@@ -32,6 +32,15 @@ JOINT_CONTACT = "contact"  # 그립/접촉 관절 → 라인 평가 제외
 
 # fallback 이 '명백히 펴려는' 관절만 EXTEND 로 추론할 때 쓰는 신전 영역 임계.
 _EXTENSION_ZONE_DEG = 150.0
+
+# ── 스플릿 라인 요소 (quick-260925-nnt) ─────────────────────────────────────────────────────────────
+# 동작이 끝날 때 두 다리를 **1자로 쫙** 벌려야 하는 기준 동작(IPSF split-line). belle 2026-09-25 power-spin
+# 봉인 정답: "다리 벌림이 다르다 = 1자로 쫙 벌려졌는가, 조금만 벌려졌는가". 여기 든 동작만 split_phase(마지막 국면
+# 사이각 중앙값, 정은지 상대)가 `split_angle` 감점 seed 를 낸다 — 비-스플릿 동작(kip-up 등)에서 2D 사이각이
+# 위양성을 내던 06-27 사고 재발 방지(belle #1 = 위양성 0). 인식기의 required_split_deg 와 OR 로 게이트.
+# 값 = 기준 doc motionId(referenceMotionId). 이 표에 넣는 것은 "그 동작이 스플릿 요소다"라는 도메인 선언이지
+# 영상별 조절이 아니다 — 검증은 정타(같은 테이크, 부족분 ≈ 0)와 봉인 시험지에서.
+SPLIT_LINE_ELEMENTS: frozenset[str] = frozenset({"ref-power-spin"})
 # 신전 평가 대상 사지(팔꿈치/무릎). 어깨/고관절은 '폄' 의미가 모호해 제외.
 _EXTENSION_JOINTS = ("left_elbow", "right_elbow", "left_knee", "right_knee")
 

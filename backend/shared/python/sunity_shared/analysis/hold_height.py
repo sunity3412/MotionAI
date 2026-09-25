@@ -210,6 +210,67 @@ def body_low_arm_open(
     return math.isfinite(below) and below < -noise
 
 
+# ── 몸 전체 패턴 — 낮은 위치에서 돈다 (quick-260925-nnt, belle 09-25 power-spin 판독) ──────────────────
+# 그립 손 낮음 폭(몸길이 비) — "도는 위치의 높이가 다르다"의 잰 값 문턱. 양쪽 실측(09-24 Pod L4, 운영 창):
+# 정타 5편 그립 |차| 최대 0.075(power-spin, 기준과 창이 다름) · 실수 kip-up −0.021 · climb +0.312(손이 **높음** —
+# 부호가 반대라 이 패턴 밖) · power-spin −0.646. 0.25 = 정타 최대의 3.3배, 실수의 0.39배.
+# ★판정은 이 값에 둔감하다 — 0.10~0.60 어디서든 같은 결론(test_hold_height.py 잠금). 영상에 맞춰 옮기지 말 것.
+# ★모르는 것: 다른 테이크의 정타 그립 변동(봉인 시험지에서 본다). 잡음 폭 NOISE_BODY_LENGTH 는 안 건드린다.
+GRIP_LOW_BODY_LENGTH = 0.25
+
+
+def body_low_grip_low(
+    heights: dict | None,
+    arm_signed_deg: float | None = None,
+    *,
+    noise: float = NOISE_BODY_LENGTH,
+    grip_gap: float = GRIP_LOW_BODY_LENGTH,
+) -> bool:
+    """belle power-spin 실수 판독("도는 위치의 높이가 다르다")의 측정판 — 몸 전체 패턴, 팔 부호는 안 본다.
+
+    ① 창 앞·중·뒤 1/3 **모두** 엉덩이가 정은지보다 잡음 폭 넘게 낮다 → "낮은 위치에서 돌아요"
+    ② 그립 손(창 중앙값)이 정은지보다 grip_gap 넘게 낮다 → "폴을 더 낮게 잡고"
+
+    `arm_signed_deg` 는 호출 규약(다른 판정기와 같은 서명)일 뿐 읽지 않는다. 하나라도 못 재거나 어긋나면 False.
+    """
+    if not isinstance(heights, dict):
+        return False
+    try:
+        for s, r in heights["hip"]["thirds"]:
+            if not (math.isfinite(s) and math.isfinite(r)) or not (s - r < -noise):
+                return False
+        grip = float(heights["grip"]["diff"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return math.isfinite(grip) and grip < -grip_gap
+
+
+def grip_side_majority(report: Mapping | None, window) -> str | None:
+    """창 안에서 그립 손(높은 손, y 작은 쪽)이 더 자주 어느 쪽 손이었나 → "left"/"right" | None(못 정함·동률).
+
+    몸 전체 패턴은 record 관절이 팔이 아니라(예: leg_extension) 표식할 팔을 criterion 에서 못 읽는다 —
+    대표 짝·동그라미가 쓸 팔은 그립 손 쪽이다. 신뢰 하한 미만 손은 그 프레임에서 세지 않는다.
+    """
+    fs = _frame_series(report, window)
+    if fs is None:
+        return None
+    X, C, idx = fs["_X"], fs["_C"], fs["_idx"]
+    w0, w1 = fs["window"]
+    votes = {"left": 0, "right": 0}
+    for t in range(w0, w1):
+        hands = [
+            (side, X[t, idx[f"{side}_hand"], 1])
+            for side in ("left", "right")
+            if C[t, idx[f"{side}_hand"]] >= MIN_CONF and math.isfinite(X[t, idx[f"{side}_hand"], 1])
+        ]
+        if len(hands) < 2 or hands[0][1] == hands[1][1]:
+            continue  # 한 손만 읽히거나 같은 높이면 그 프레임은 그립 손을 못 정한다
+        votes[min(hands, key=lambda h: h[1])[0]] += 1
+    if votes["left"] == votes["right"]:
+        return None
+    return "left" if votes["left"] > votes["right"] else "right"
+
+
 # ── 대표 짝 (quick-260924-vw2) — 카드 사진·영상 멈춤이 물려받을 **한 순간** ─────────────────────────
 # belle 08-09: 카드 순간 = 합성 영상 멈춤 순간(출처 하나). belle 09-03: 확대 비교는 양쪽이 같은 국면일 때만 가치가 있다.
 # 그래서 순간은 여기서 한 번 고르고(record), 영상·카드는 물려받기만 한다. 고르는 기준은 사람 눈이 아니라:

@@ -265,3 +265,90 @@ def test_selector_never_touches_the_score_fields():
         student_fps=9.9733, reference_fps=15.0,
     )
     assert result == before
+
+
+# ── (6) 몸 전체 패턴 — power-spin "낮은 위치에서 돈다" (quick-260925-nnt) ─────────────────────
+# belle 09-25 봉인 정답: "도는 위치의 높이가 다르고, 다리 벌림이 다르다". 문장 3줄은 belle ○× 대기(초안).
+
+_PS_MOTION = "ref-power-spin"
+_PS_KEY = "leg_extension"
+_PS_PATTERN = "body_low_grip_low"
+_PS_DRAFT = {
+    "statusLine": "정은지 선수보다 낮은 위치에서 돌고 있어요",
+    "whyLine": "폴을 잡은 손과 엉덩이가 정은지 선수보다 눈에 띄게 아래에 있고, 무릎도 덜 펴져 있어요",
+    "cueLine": "폴을 더 높이 잡고 올라가서, 무릎을 끝까지 편 채 돌아보세요",
+}
+
+
+def test_power_spin_sentences_are_verbatim_and_under_the_gates():
+    assert phrasebook.assemble_measured_variant(_PS_MOTION, _PS_KEY, _PS_PATTERN) == _PS_DRAFT
+    rendered = phrasebook.rendered_copy_strings()
+    pb = json.loads((Path(__file__).resolve().parents[1] / "data" / "phrasebook.json").read_text(encoding="utf-8"))
+    banned = pb["_meta"]["screenVocabularyGate"]["words"]
+    for text in _PS_DRAFT.values():
+        assert text in rendered
+        assert not re.search(r"[0-9%]", text)
+        assert not [w for w in banned if w in text]
+    # 관절 패턴 문장은 power-spin 에 없고, 몸 전체 패턴 문장은 kip-up 에 없다 — 동작 단위 승인.
+    assert phrasebook.assemble_measured_variant(_PS_MOTION, _KEY, _PATTERN) == {}
+    assert phrasebook.assemble_measured_variant(_MOTION, _KEY, _PS_PATTERN) == {}
+
+
+def _ps_result() -> dict:
+    return {"deductionBreakdown": {"records": [
+        {"criterion": _PS_KEY, "ruleId": "leg_extension_over_tol_linear", "points": -20.0,
+         "measuredValue": 140.95, "deviation": 19.05, "deviationSource": "ipsf_absolute"},
+    ]}}
+
+
+def _ps_select(**over):
+    # 학생: 엉덩이 0.15·그립 손 0.33 몸길이 낮음(몸길이 0.3, 바닥 0.8) — 09-24 실측(−0.184 / −0.646)의 방향.
+    kw = dict(
+        motion_id=_PS_MOTION, reference_motion_id=_PS_MOTION, result=_ps_result(), constant_joints=[],
+        student_keypoint_report=_kp(60, hip=0.605, low_ankle=0.795, hand=0.42),
+        reference_keypoint_report=_kp(60, hip=0.56, low_ankle=0.73, hand=0.32),
+    )
+    kw.update(over)
+    return _select(**kw)
+
+
+def test_whole_body_pattern_hosts_on_a_non_angle_record(caplog):
+    caplog.set_level("INFO")
+    out = _ps_select()
+    assert list(out) == [_PS_KEY]
+    v = out[_PS_KEY]
+    assert v["pattern"] == _PS_PATTERN and v["slots"] == _PS_DRAFT
+    assert isinstance(v["atFrameIdx"], int) and v["atVideoSec"] > 0 and v["atRefVideoSec"] > 0
+    assert "measured variant applied criterion=leg_extension pattern=body_low_grip_low" in caplog.text
+
+
+def test_whole_body_pattern_needs_the_grip_hand_low_not_only_the_body():
+    """kip-up 꼴(몸은 낮고 손 높이는 같다)은 power-spin 문장을 얻지 않는다 — 패턴이 다르다."""
+    assert _ps_select(student_keypoint_report=_kp(60, hip=0.605, low_ankle=0.795, hand=0.325)) == {}
+
+
+def test_whole_body_pattern_needs_a_determinable_grip_side():
+    stu = _kp(60, hip=0.605, low_ankle=0.795, hand=0.42)
+    X = np.asarray(stu["data"]).reshape(60, len(_KP_JOINTS), 2)
+    X[:, _KP_JOINTS.index("left_hand"), 1] = X[:, _KP_JOINTS.index("right_hand"), 1]  # 두 손 같은 높이 → 동률
+    stu["data"] = X.reshape(-1).tolist()
+    assert _ps_select(student_keypoint_report=stu) == {}
+
+
+def test_kip_up_selection_is_unchanged_by_the_new_pattern():
+    """관절 패턴 경로 byte-동일 — kip-up 실수는 여전히 왼어깨 record 에 body_low_arm_open 하나."""
+    out = _select()
+    assert list(out) == [_KEY] and out[_KEY]["pattern"] == _PATTERN
+
+
+def test_whole_body_emission_stamps_pattern_and_moment_on_the_leg_record():
+    result = _ps_result()
+    app._attach_translation_emission(
+        result, mode=models.MODE_EXPERT, motion_id=_PS_MOTION, prev_doc=None, uid="u", analysis_id="a",
+        measured_phrases={_PS_KEY: {"slots": dict(_PS_DRAFT), "pattern": _PS_PATTERN, "atFrameIdx": 30,
+                                    "atVideoSec": 3.0, "atRefVideoSec": 2.9}},
+    )
+    rec = result["deductionBreakdown"]["records"][0]
+    assert rec["measuredPattern"] == _PS_PATTERN
+    assert (rec["statusLine"], rec["whyLine"], rec["cueLine"]) == tuple(_PS_DRAFT.values())
+    assert (rec["atFrameIdx"], rec["atVideoSec"], rec["atRefVideoSec"]) == (30, 3.0, 2.9)

@@ -191,7 +191,7 @@ def caption_should_move_up(circle_viz: dict | None, W: int, n_lines: int, line_h
                 continue
             ys = [p[1] * PANEL_H for p in m["arm"]]
             cy = sum(ys) / len(ys)
-            r_arm = max(abs(y - cy) for y in ys) + 14.0 * S
+            r_arm = max(max(abs(y - cy) for y in ys) + 14.0 * S, 26.0 * S)  # draw_circle_marks 와 같은 반경 하한
             fy, r_foot = m["foot"][1] * PANEL_H, 26.0 * S
             if (cy + r_arm > y0 and cy - r_arm < y1) or (fy + r_foot > y0 and fy - r_foot < y1):
                 return True
@@ -823,9 +823,18 @@ def _armpit_angle_viz(kp_at, t: float, side: str) -> dict | None:
 CIRCLE_CONF_MIN = 0.35
 
 
-def _circle_marks(kp_at, t: float, arm_side: str) -> dict | None:
-    """한 패널의 원 재료 → {"arm": [[x, y] ×3], "foot": [x, y]} (정규화 좌표) | None."""
-    if kp_at is None or arm_side not in ("left", "right"):
+def _circle_marks(kp_at, t: float, arm_side: str, pattern: str | None = None) -> dict | None:
+    """한 패널의 원 재료 → {"arm": [[x, y] ×3], "foot": [x, y]} (정규화 좌표) | None.
+
+    pattern(quick-260925-nnt): 몸 전체 패턴 `body_low_grip_low` 는 팔·낮은발 대신 **그립 손(높은 손목) + 엉덩이 중점**
+    을 감싼다 — "낮은 위치에서 돈다"의 표식은 손과 몸이다. 키 이름("arm"=감쌀 점들, "foot"=고정 반경 점)은
+    그리는 문법(draw_circle_marks)·자막 회피(caption_should_move_up)가 그대로 쓰도록 유지한다.
+    """
+    if kp_at is None:
+        return None
+    if pattern == "body_low_grip_low":
+        return _circle_marks_grip_hip(kp_at, t)
+    if arm_side not in ("left", "right"):
         return None
     arm = []
     for n in (f"{arm_side}_shoulder", f"{arm_side}_elbow", f"{arm_side}_wrist"):
@@ -844,11 +853,31 @@ def _circle_marks(kp_at, t: float, arm_side: str) -> dict | None:
     return {"arm": arm, "foot": foot}
 
 
+def _circle_marks_grip_hip(kp_at, t: float) -> dict | None:
+    """몸 전체 패턴의 원 재료 — "arm" = [그립 손목 1점], "foot" = 엉덩이 중점. 손목 둘·엉덩이 둘이 다 읽혀야 한다."""
+    hands = []
+    for n in ("left_wrist", "right_wrist"):
+        xy, c = kp_at(n, t)
+        if c >= CIRCLE_CONF_MIN and np.isfinite(xy).all():
+            hands.append([float(xy[0]), float(xy[1])])
+    if not hands:
+        return None
+    grip = min(hands, key=lambda p: p[1])  # 그립 손 = 높은 손(y 작은 쪽) — hold_height 와 같은 정의
+    hips = []
+    for n in ("left_hip", "right_hip"):
+        xy, c = kp_at(n, t)
+        if c < CIRCLE_CONF_MIN or not np.isfinite(xy).all():
+            return None
+        hips.append([float(xy[0]), float(xy[1])])
+    hip = [(hips[0][0] + hips[1][0]) / 2.0, (hips[0][1] + hips[1][1]) / 2.0]
+    return {"arm": [grip], "foot": hip}
+
+
 def draw_circle_marks(d, marks: dict, off: float, pw: float, ph: float, s: float) -> None:
-    """원 두 개를 그린다 — 팔 원(세 점의 중심, 반경 = 가장 먼 점 + 여유), 발 원(고정 반경). 패널 픽셀 공간."""
+    """원 두 개를 그린다 — 팔 원(세 점의 중심, 반경 = 가장 먼 점 + 여유, 한 점이면 발 원과 같은 반경), 발 원(고정 반경). 패널 픽셀 공간."""
     pts = np.asarray([[x * pw + off, y * ph] for x, y in marks["arm"]], dtype=float)
     c = pts.mean(axis=0)
-    r = float(np.max(np.linalg.norm(pts - c, axis=1))) + 14.0 * s
+    r = max(float(np.max(np.linalg.norm(pts - c, axis=1))) + 14.0 * s, 26.0 * s)
     w = max(2, round(4 * s))
     d.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], outline=BRAND + (255,), width=w)
     fx, fy = marks["foot"][0] * pw + off, marks["foot"][1] * ph
@@ -1403,8 +1432,9 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             u_at = _kp_reader(align, "user")
             r_at = _kp_reader(align, "ref") if "refKp" in align else None
             _arm_side = joint.split("_")[0]
-            _cu = _circle_marks(u_at, ut, _arm_side)
-            _cr = _circle_marks(r_at, rt, _arm_side) if r_at is not None else None
+            _pattern = str(rec.get("measuredPattern") or "") or None
+            _cu = _circle_marks(u_at, ut, _arm_side, _pattern)
+            _cr = _circle_marks(r_at, rt, _arm_side, _pattern) if r_at is not None else None
             circle_viz = {"user": _cu, "ref": _cr} if (_cu is not None and _cr is not None) else None
             markers = []
         elif "_alignRefSec" in rec:

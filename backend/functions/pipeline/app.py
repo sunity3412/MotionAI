@@ -2501,8 +2501,21 @@ def _collect_vision_fault_context(
             return _ctx("skipped_error", frame_pairs=pairs_for_ctx,
                         alignment=alignment, telemetry=telemetry)
         if getattr(verdict, "severity", "none") == "none":
-            return _ctx("no_fault", verdict=verdict, frame_pairs=pairs_for_ctx,
-                        alignment=alignment, telemetry=telemetry)
+            # quick-260925-nnt (봉인 시험지 1회, climb 실수): 지배 severity 의 rank-median 이 none 이어도
+            # support 게이트(K-of-N 서로 다른 호출)를 통과한 부위 지목이 있으면 **버리지 않는다** — 09-24 Pod
+            # climb 실수는 primaryFault="왼팔 … 굽혀서 안고 있음"(belle 판독과 같은 말) + faultJoints 3개를 들고도
+            # 여기서 supported 없이 no_fault 로 떨어져 카드 0 이었다. 지목은 측정 대상을 가리킬 뿐이고 감점은
+            # 여전히 기하(deduction_engine.tally · window 측정 · tol)가 잰다 — 정타 방어는 support 게이트 + tol.
+            supported_none = list(rich.get("supported_differences") or ())
+            if supported_none:
+                log.info(
+                    "vision severity none 이지만 supported differences=%d — 지목 승계(no_fault, 감점은 기하)",
+                    len(supported_none),
+                )
+            return _ctx("no_fault", verdict=verdict,
+                        supported=supported_none,
+                        root_causes=list(rich.get("root_cause_hypotheses") or ()) if supported_none else None,
+                        frame_pairs=pairs_for_ctx, alignment=alignment, telemetry=telemetry)
 
         # cap_would_apply — band-free coach-root-cause eligibility pointer (HIGH-6,
         # severity-only): Gemini 이 coach-worthy(moderate/major) fault 를 짚었는지.
@@ -3736,8 +3749,9 @@ def _apply_vision_veto_from_context(
                 windowMedianAngleDeltas=None, warnings=["quantification_absent"],
             )
         # ctx 가 supported_differences + FaultKey 를 운반 → 엔진이 criteria_for_fault 로
-        # 라우팅(candidate_verdict). no_fault 는 supported_differences 가 비어 measured seed
-        # 만 활성화(Gemini-silent 방어). 엔진은 technique profile 을 받지 않는다(HIGH-2).
+        # 라우팅(candidate_verdict). no_fault 는 보통 supported_differences 가 비어 measured seed
+        # 만 활성화(Gemini-silent 방어) — 단 quick-260925-nnt 부터 severity none 이라도 K-of-N
+        # 확증 지목이 있으면 그것을 실어 온다(측정은 여전히 기하). 엔진은 technique profile 을 받지 않는다(HIGH-2).
         breakdown = deduction_engine.tally(
             quant, ctx,
             dimension_overall=score_result["overallScore"],
@@ -5708,8 +5722,9 @@ def _measured_pattern_card(
             return None
         joint = str(rec.get("criterion") or "").split("__")[-1]
         arm_side = joint.split("_", 1)[0]
-        um = _cr._circle_marks(_cr._kp_reader(align, "user"), float(u_sec), arm_side)  # noqa: SLF001
-        rm = _cr._circle_marks(_cr._kp_reader(align, "ref"), float(r_sec), arm_side)  # noqa: SLF001
+        _pattern = str(rec.get("measuredPattern") or "") or None
+        um = _cr._circle_marks(_cr._kp_reader(align, "user"), float(u_sec), arm_side, _pattern)  # noqa: SLF001
+        rm = _cr._circle_marks(_cr._kp_reader(align, "ref"), float(r_sec), arm_side, _pattern)  # noqa: SLF001
         if not getattr(decision, "draw_user_marks", True):
             um = None
         ub = _cr.person_bbox(align, "user", float(u_sec))
@@ -8121,7 +8136,17 @@ def _collect_coach_questions(result: dict, mission: dict | None) -> list[dict]:
 def _measured_variant_predicates() -> dict:
     from sunity_shared.analysis import hold_height as _hold_height
 
-    return {"body_low_arm_open": _hold_height.body_low_arm_open}
+    return {
+        "body_low_arm_open": _hold_height.body_low_arm_open,
+        # quick-260925-nnt — 몸 전체 패턴(낮은 위치에서 돈다). record 관절과 무관하게 phrasebook 에
+        # (동작 × criterion × 패턴) 승인 문장이 있는 record 에 얹힌다(아래 _MEASURED_WHOLE_BODY_PATTERNS).
+        "body_low_grip_low": _hold_height.body_low_grip_low,
+    }
+
+
+# 몸 전체 패턴 — 팔 부호(창 상수)를 안 읽으므로 angle_vs_reference·상수 경로 조건을 요구하지 않는다.
+# 표식할 팔은 criterion 이 아니라 그립 손 쪽(hold_height.grip_side_majority)에서 온다.
+_MEASURED_WHOLE_BODY_PATTERNS = frozenset({"body_low_grip_low"})
 
 
 
@@ -8221,16 +8246,31 @@ def _measured_phrase_variants(
         predicates = _measured_variant_predicates()
         for rec in records if isinstance(records, list) else []:
             criterion = rec.get("criterion") if isinstance(rec, dict) else None
-            if not isinstance(criterion, str) or not criterion.startswith(_ANGLE_CRITERION_PREFIX):
+            if not isinstance(criterion, str) or not criterion:
                 continue
-            joint = criterion[len(_ANGLE_CRITERION_PREFIX):]
-            if joint not in const or joint not in signed:
-                continue
+            # 관절 패턴(팔 부호를 읽는다)은 angle_vs_reference 이고 그 관절을 상수 경로가 쟀을 때만.
+            # 몸 전체 패턴(quick-260925-nnt)은 어느 record 든 phrasebook 에 승인 문장이 있으면 호스트가 된다.
+            is_angle = criterion.startswith(_ANGLE_CRITERION_PREFIX)
+            joint = criterion[len(_ANGLE_CRITERION_PREFIX):] if is_angle else None
+            joint_ok = is_angle and joint in const and joint in signed
             for pattern, predicate in predicates.items():
-                slots = phrasebook.assemble_measured_variant(motion_id, criterion, pattern)
-                if not slots or not predicate(heights, signed[joint]):
+                whole_body = pattern in _MEASURED_WHOLE_BODY_PATTERNS
+                if not whole_body and not joint_ok:
                     continue
-                arm_side = joint.split("_", 1)[0]
+                slots = phrasebook.assemble_measured_variant(motion_id, criterion, pattern)
+                signed_val = None if whole_body else signed[joint]
+                if not slots or not predicate(heights, signed_val):
+                    continue
+                if whole_body:
+                    arm_side = _hold_height.grip_side_majority(stu_kp, u_win)
+                    if arm_side is None:
+                        log.info(
+                            "measured variant skip (그립 손 쪽 못 정함) criterion=%s pattern=%s uid=%s analysis_id=%s",
+                            criterion, pattern, uid, analysis_id,
+                        )
+                        continue
+                else:
+                    arm_side = joint.split("_", 1)[0]
                 pair = _hold_height.representative_pair(
                     stu_kp, reference_keypoint_report, path_pairs, u_win, (r0, r1), arm_side=arm_side,
                 )
@@ -8248,9 +8288,10 @@ def _measured_phrase_variants(
                     "atRefVideoSec": float(pair["refFrame"]) / rfps,
                 }
                 log.info(
-                    "measured variant applied criterion=%s pattern=%s signed=%+.2f pair=u%d/r%d "
+                    "measured variant applied criterion=%s pattern=%s signed=%s pair=u%d/r%d "
                     "(%.2fs/%.2fs) uid=%s analysis_id=%s",
-                    criterion, pattern, signed[joint], pair["userFrame"], pair["refFrame"],
+                    criterion, pattern,
+                    "-" if signed_val is None else f"{signed_val:+.2f}", pair["userFrame"], pair["refFrame"],
                     out[criterion]["atVideoSec"], out[criterion]["atRefVideoSec"], uid, analysis_id,
                 )
                 break

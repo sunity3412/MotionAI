@@ -604,3 +604,46 @@ def test_legacy_path_unavailable_fallback(monkeypatch):
     assert len(bd["records"]) == 1
     assert bd["final"] == 84  # dimension_overall (리셋 0)
     assert out["overallScore"] == 84
+
+
+# ── quick-260925-nnt — severity none 이어도 K-of-N 확증 지목은 라우팅된다 (봉인 시험지 1회, climb) ──
+
+
+def test_no_fault_with_supported_pointer_routes_to_geometry(monkeypatch):
+    """09-24 Pod climb 실수: Gemini 가 "왼팔 … 굽혀서 안고 있음"을 지목하고도 rank-median severity 가 none 이라
+    지목이 버려져 카드 0 이었다. 이제 no_fault ctx 가 supported 를 실어 오면 라우터가 측정 대상을 켠다 —
+    감점은 여전히 md(기하)가 잰다."""
+    _enable(monkeypatch)
+    pair = vision_veto.SelectedFramePair(
+        student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
+        user_frame_idx=3, ref_frame_idx=3,
+    )
+    arm = {"body_part": "왼팔", "fault_state": "굽혀서 안고 있음"}
+    ctx = _ctx("no_fault", verdict=_verdict("none", differences=[arm]), supported=[arm], frame_pairs=[pair])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("available"),
+        measured_deviations={"arm_extension": 30.0}, baseline_kind="hip_line",
+    )
+    crits = {r["criterion"] for r in out["deductionBreakdown"]["records"]}
+    assert "arm_extension" in crits
+    assert out["visionVeto"]["status"] == "applied"
+    assert out["visionVeto"]["collectionStatus"] == "no_fault"   # 수집 경로는 그대로 투명하게 남는다
+    assert ctx.eligible_for_coach is False                          # coach 주입 게이트는 여전히 닫힘
+
+
+def test_no_fault_pointer_alone_never_deducts_when_geometry_is_clean(monkeypatch):
+    """정타 방어 — 지목만 있고 잰 편차가 없으면 감점 0(not_applicable). Gemini 는 점수를 만들지 않는다."""
+    _enable(monkeypatch)
+    pair = vision_veto.SelectedFramePair(
+        student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
+        user_frame_idx=3, ref_frame_idx=3,
+    )
+    arm = {"body_part": "왼팔", "fault_state": "굽혀서 안고 있음"}
+    ctx = _ctx("no_fault", verdict=_verdict("none", differences=[arm]), supported=[arm], frame_pairs=[pair])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line",
+    )
+    assert out["deductionBreakdown"]["records"] == []
+    assert out["overallScore"] == 100
+    assert out["visionVeto"]["status"] == "not_applicable"

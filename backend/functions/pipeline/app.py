@@ -7887,11 +7887,13 @@ _UNMEASURED_LABEL_KO: dict[str, str] = {
     "body_relative_reach": "목표 지점까지 몸을 뻗어 닿는 정도",
     "dimension_overall_fallback": "세부 부위별 측정",
 }
-# 질문 완성문 템플릿 (D-28 문구집 스타일 — 조사 회피 위해 라벨은 괄호 병기).
-_UNMEASURED_QUESTION_TEMPLATE = (
-    "이번 영상에서 정확히 재기 어려웠던 부분이 있어요 ({label}) — "
-    "강사님과 직접 확인해보고 싶어요"
-)
+# 질문 완성문 템플릿 — quick-260925-nnt (belle 09-25): 말투는 앱이 수강생에게, 못 잰 부위에는 Gemini 가 **본 것**을 싣는다.
+# belle: "정확히 재기 어려웠던 부분이면 분석을 못했다는 말이냐?" → 그렇다. 그래서 본 것을 "…하는 것이 동작의 문제가 될 수 있어요"로.
+# 세 꼴: (a) 관찰 절이 만들어지면 belle 방향 문장 (b) 관찰문은 있는데 어미를 모르면 인용문 (c) 관찰문이 없으면 라벨 괄호(종전 꼴, 말투만).
+# 점수·감점과 무관(source='unmeasured' 질문 칸). 정타에서는 Gemini 지목이 없어 뜨지 않는다(09-25 5/5 실측).
+_UNMEASURED_QUESTION_TEMPLATE = "{clause}이 동작의 문제가 될 수 있어요. 강사님과 확인해보세요."
+_UNMEASURED_QUOTE_TEMPLATE = "이렇게 보였어요: \"{observation}\". 잰 값은 없어요. 강사님과 확인해보세요."
+_UNMEASURED_LABEL_TEMPLATE = "이번 영상에서 정확히 재기 어려웠던 부분이 있어요 ({label}). 강사님과 확인해보세요."
 # coachQuestions 상한 — firestore_admin._MAX_COACH_QUESTIONS(10) lockstep.
 _MAX_EMITTED_COACH_QUESTIONS = 10
 
@@ -7970,6 +7972,50 @@ def collect_unmeasured_signals(breakdown, dimension_explanation) -> list[str]:
         ):
             _add_label(_UNMEASURED_LABEL_KO["dimension_overall_fallback"])
     return labels
+
+
+def collect_unmeasured_observations(breakdown) -> list[dict]:
+    """quick-260925-nnt — coverageGaps → [{label, observation}] (등장 순서, 라벨 dedup). observation = Gemini faultState | None.
+
+    collect_unmeasured_signals(라벨만)와 같은 신호원·같은 순서를 쓰되 Gemini 가 본 문장을 같이 나른다.
+    reach gap(bodyPart 'reach')·fallback record 는 관찰문 없음(None) — 라벨 꼴로 간다.
+    """
+    if not isinstance(breakdown, dict):
+        return []
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    def _add(label, observation):
+        if isinstance(label, str) and label and label not in seen:
+            seen.add(label)
+            out.append({"label": label, "observation": observation if isinstance(observation, str) and observation.strip() else None})
+
+    for gap in breakdown.get("coverageGaps") or []:
+        if not isinstance(gap, dict):
+            continue
+        body_part = gap.get("bodyPart")
+        keypoint_set = gap.get("keypointSet") or gap.get("faultType")
+        mapped = _UNMEASURED_LABEL_KO.get(keypoint_set) if isinstance(keypoint_set, str) else None
+        if isinstance(body_part, str) and body_part and body_part != "reach":
+            _add(body_part, gap.get("faultState"))
+        else:
+            _add(mapped, None)
+    for rec in breakdown.get("records") or []:
+        if isinstance(rec, dict) and rec.get("ruleId") == "quantification_unavailable_dimension_overall":
+            _add(_UNMEASURED_LABEL_KO["dimension_overall_fallback"], None)
+    return out
+
+
+def unmeasured_question_text(label: str, observation: str | None) -> str:
+    """quick-260925-nnt — 못 잰 부위 질문 한 줄. 관찰 절 → belle 방향 문장, 어미 미상 → 인용문, 관찰문 없음 → 라벨 꼴."""
+    from sunity_shared.analysis import phrasebook
+
+    clause = phrasebook.observation_clause_ko(observation)
+    if clause:
+        return _UNMEASURED_QUESTION_TEMPLATE.format(clause=clause)
+    if isinstance(observation, str) and observation.strip():
+        return _UNMEASURED_QUOTE_TEMPLATE.format(observation=observation.strip().rstrip(".。 "))
+    return _UNMEASURED_LABEL_TEMPLATE.format(label=label)
 
 
 def _criteria_met_for_praise(records: list, breakdown) -> bool:
@@ -8121,11 +8167,9 @@ def _collect_coach_questions(result: dict, mission: dict | None) -> list[dict]:
             record_id if isinstance(record_id, str) else None,
         )
 
-    # ③ 이번에 못 잰 것 (D-29 — 정직 고지, 강사 확인 유도).
-    for label in collect_unmeasured_signals(
-        result.get("deductionBreakdown"), result.get("dimensionExplanation")
-    ):
-        _add(_UNMEASURED_QUESTION_TEMPLATE.format(label=label), "unmeasured")
+    # ③ 이번에 못 잰 것 (D-29 — 정직 고지, 강사 확인 유도). quick-260925-nnt: Gemini 가 본 것을 실어 belle 방향 문장으로.
+    for obs in collect_unmeasured_observations(result.get("deductionBreakdown")):
+        _add(unmeasured_question_text(obs["label"], obs["observation"]), "unmeasured")
 
     return questions[:_MAX_EMITTED_COACH_QUESTIONS]
 

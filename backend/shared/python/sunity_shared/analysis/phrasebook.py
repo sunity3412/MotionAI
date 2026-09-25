@@ -235,6 +235,35 @@ def assemble_measured_variant(
     return out
 
 
+# ── quick-260925-nnt — 못 잰 부위에 Gemini 가 본 것을 싣는 문장 (belle 09-25) ────────────────────
+# belle: *"왼팔을 굽혀 폴을 감싸 안는 것이 동작의 문제가 될 수 있어요 같은 이런 방향의 문장으로"*.
+# Gemini 의 fault_state 는 명사형 종결("…감싸 안음", "…각도가 좁음")이다. 문법으로 잇지 않고 **어미만** "-는/은 것"으로
+# 바꾼다 — 아는 어미만(화이트리스트), 모르면 None 이라 호출측이 인용문 꼴로 폴백한다. 점수 무접촉(질문 칸 전용).
+_ADJECTIVE_STEM_TAILS = frozenset("좁넓낮높짧작많적깊얕늦굽")  # X음 → X은 것 (형용사)
+_SPECIAL_ENDINGS = {"폄": "펴는 것", "듦": "드는 것", "돎": "도는 것", "큼": "큰 것", "김": "긴 것", "멂": "먼 것", "닒": "너는 것"}
+
+
+def observation_clause_ko(fault_state: str | None) -> str | None:
+    """Gemini 명사형 관찰문 → "…하는 것" 절 | None(모르는 어미)."""
+    if not isinstance(fault_state, str):
+        return None
+    t = fault_state.strip().rstrip(".。 ")
+    if len(t) < 3 or len(t) > 80:
+        return None
+    if t.endswith("있음") or t.endswith("없음"):
+        return t[:-1] + "는 것"
+    for tail, rep in (("름", "른 것"), ("림", "리는 것"), ("힘", "히는 것"), ("짐", "지는 것"), ("임", "이는 것"), ("함", "하는 것"), ("됨", "되는 것")):
+        if t.endswith(tail) and len(t) > 1:
+            return t[:-1] + rep
+    if t.endswith("음") and len(t) > 1:
+        stem_tail = t[-2]
+        return t[:-1] + ("은 것" if stem_tail in _ADJECTIVE_STEM_TAILS else "는 것")
+    for tail, rep in _SPECIAL_ENDINGS.items():
+        if t.endswith(tail):
+            return t[:-1] + rep
+    return None
+
+
 def assemble_safety_phrases(flag_type: str) -> dict:
     """safetyFlags 유형 → 안전 슬롯 dict (D-14 차분한 안전 톤, 게임 요소 0).
 

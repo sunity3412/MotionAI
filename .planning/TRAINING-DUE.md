@@ -1,4 +1,4 @@
-# 재학습 — 건수는 도달, **아직 돌리면 안 됨** (2026-09-23 갱신)
+# 재학습 — 건수는 도달, **아직 돌리면 안 됨** (2026-09-25 갱신: 게이트 4 틀·점검 추가)
 
 플라이휠이 **건수 조건**을 자동 판정했다(2026-09-21). 그러나 2026-09-23 외부리뷰 판정으로
 **건수만으로는 시작하지 않는다.** 아래 게이트가 다 켜져야 "학습 가능"이고, 그때
@@ -11,7 +11,7 @@
 | 1 | 수집 건수 | ✅ **충족** 548 / 임계 400 · admit 336 / 60 (09-21 플라이휠, 다음 09-28) | `backend/training/data/manifest.json` |
 | 2 | **실패 원인이 실측으로 확정됐나** | 🔶 **부분** — kip-up 은 기준/감점 단계 확정: 저장된 감점 기록 = 어깨 편차 **20.62도** vs 허용오차 20.0도 → **−0.7점이 측정오차 구간(15.9~24.3도)에 걸려 억제**(quick-260923-smt 정정 — k02 의 "20.1도 · 0.12점 반올림"은 운영 계산이 아니었다). **국면 정렬 단계 미확인**(운영 DTW distance 정타 6.51 vs 실수 26.94) | Phase 37 Success 1 |
 | 3 | **이번 학습이 무엇을 개선할 가설이 있나** | ❌ 없음. v35·v36 은 같은 데이터로 두 번 돌렸다 | 가설 1문장 + 대상 실패유형 |
-| 4 | **인물·세션 분리 평가셋이 있나** | ❌ 현행은 video hash 분리라 같은 인물 누수 못 막음 | Phase 37 Success 2 |
+| 4 | **인물·세션 분리 평가셋이 있나** | 🔶 **틀 있음(09-25)** — 평가 항목 = `sealed_tests.jsonl`(봉인 시험지) + 짝 + 같은 인물·세션 클립. 점검 = `backend/scripts/eval_split_check.py`(L1 같은 파일·L2 같은 세션 = 오류, L3 같은 인물 = 경고). **현황: 누수** — 정은지 fixtures 실수 6편이 manifest 학습 후보(L1 6), reference 11편이 같은 인물(L3). 인물이 1명뿐이라 **인물 분리는 아직 불가**. 학습 전 `--mark-holdout`(belle 결정) | `eval_split_check.py` exit 0 |
 | 5 | **비학습 기준선(E1·E2)이 측정됐나** | ❌ 미측정. E3 가 E2 를 넘는지 볼 수가 없다 | Phase 37 Success 3 |
 | 6 | 예산 | ❌ 잔액 **$23.12** (09-23 밤 belle 충전 +$20 뒤 실측 · Pod 0대) / 사이클 **$33~38** — 아직 못 미침 | RunPod `clientBalance` |
 | 7 | GPU | ❌ A100급 필요(5090 OOM 실측). 현재 미확보 | RunPod 재고 |
@@ -32,7 +32,7 @@
 1. belle 이 A100급 Pod 추가 (EU-RO-1, 기존 볼륨 `a5z753defc`)
 2. `bash backend/scripts/pod_doctor.sh` — 결손 복구
 3. train_venv312 없으면: `TRAIN_VENV_ISOLATED=1 bash backend/training/sft/setup_train_venv.sh`
-4. 전 사이클: preflight → label → assemble → train → gates → promote
+4. **`backend/scripts/eval_split_check.py` 가 exit 0 이어야 한다**(평가셋 누수 0) → 전 사이클: preflight → label → assemble → train → gates → promote
 5. ★**학습 범위를 좁혀서 시작** — 좌표 생성·그림 명세·긴 코칭 문장은 같은 학습의 필수 출력에서
    분리(외부리뷰 §9.1). 한 번에 여러 조건을 바꾸지 않는다.
 

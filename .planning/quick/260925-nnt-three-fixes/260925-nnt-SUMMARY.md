@@ -95,6 +95,11 @@ belle: *"둘 다 ○. 나머지 6줄도 같은 말투로 바꿔"* → 관찰 한
 `[관측]` 고개 지목이 두 호출에서 라벨만 달라("머리 및 목"·"머리") 같은 말이 두 줄 → keypoint set 당 한 줄로 dedup(같은 커밋 뒤). 고개 줄 자체는 belle ○× 대상.
 6차 봉인 시험지 자동화 = `backend/scripts/sealed_test.py`(a383fb93).
 
+## 1-h. 7차 — 재학습 게이트 4 틀 (belle "순서대로" 3번, 돈 0)
+`backend/scripts/eval_split_check.py`: 평가 항목(봉인 시험지 + 짝 + 같은 인물·세션 클립) vs manifest 증류 후보. 오늘 실측: **L1 6건**(정은지 fixtures 실수 6편이 학습 후보) ·
+L3 11건(reference = 같은 인물) · 인물 1명이라 인물 분리 불가. 보고서 `.planning/sealed/EVAL-SPLIT.md`. `sealed_tests.jsonl` 에 1회(260925-mvh) 백필.
+뺄지(`--mark-holdout`, 정은지 fixtures 6편을 증류에서 제외)는 belle 결정 — TRAINING-DUE 게이트 4 갱신.
+
 ## 2. 화면에 실리는 것 (초안, belle ○× 대기)
 
 power-spin 실수 카드(leg_extension record, measuredPattern=body_low) — **3차에서 내림. 아래는 2차 실측 기록**:

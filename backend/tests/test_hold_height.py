@@ -300,59 +300,61 @@ def test_kipup_fault_reproduces_the_pair_belle_approved():
     assert rp["score"] == pytest.approx(min(scores))
 
 
-# ── (7) 몸 전체 패턴 — 낮은 위치에서 돈다 (quick-260925-nnt, 09-24 Pod L4 운영 창 실측) ──────────
-# belle 09-25 봉인 정답(power-spin 실수): "도는 위치의 높이가 다르다". 잰 값 = hold heights 로그(운영 창) 그대로.
+# ── (7) 몸 전체 패턴 — 낮은 위치에서 돈다 (quick-260925-nnt, 09-24 Pod L4 운영 창 실측, 엉덩이 1/3 차) ──────
+# belle 09-25 봉인 정답(power-spin 실수): "도는 위치의 높이가 다르다". 잰 값 = hold heights 로그의 thirds hip 그대로.
+# 그립 손은 조건 밖 — 회전 동작에서 "높은 손" 시계열이 검출 탈락으로 세 봉우리(1.3/0.6/0.1)라 중앙값이 탈락 비율을 잰다.
 
 
-def _heights(hip3, grip):
-    return {"hip": {"thirds": [[0.8 + d, 0.8] for d in hip3]}, "grip": {"diff": grip}}
+def _hip_thirds(hip3):
+    return {"hip": {"thirds": [[0.8 + d, 0.8] for d in hip3]}}
 
 
-_PS_FAULT = _heights((-0.225, -0.157, -0.180), -0.646)     # 09-24 14:39 power-spin 실수
-_PS_CORRECT = _heights((-0.037, -0.118, -0.038), -0.075)   # 09-24 14:37 power-spin 정타(기준과 다른 창)
-_KIPUP_FAULT_H = _heights((-0.130, -0.149, -0.150), -0.021)  # kip-up 실수 — 몸은 낮지만 손 높이는 같다
-_CLIMB_FAULT_H = _heights((-0.203, -0.212, -0.207), +0.312)  # climb 실수 — 몸은 낮지만 손이 **높다**
+_PS_FAULT = _hip_thirds((-0.225, -0.157, -0.180))     # 09-24 14:39 power-spin 실수
+_PS_CORRECT = _hip_thirds((-0.037, -0.118, -0.038))   # 09-24 14:37 power-spin 정타(기준과 다른 창) — 앞·뒤 1/3 이 잡음 폭 안
+_KIPUP_CORRECT_H = _hip_thirds((-0.009, -0.0, -0.009))
+_CLIMB_CORRECT_H = _hip_thirds((-0.0, -0.005, -0.003))
+_PETERPAN_CORRECT_H = _hip_thirds((-0.001, 0.012, 0.019))
 
 
-def test_low_position_pattern_holds_only_for_the_power_spin_fault():
-    assert hh.body_low_grip_low(_PS_FAULT) is True
-    assert hh.body_low_grip_low(_PS_CORRECT) is False
-    assert hh.body_low_grip_low(_KIPUP_FAULT_H) is False   # 손 높이 같음 → kip-up 패턴 소관
-    assert hh.body_low_grip_low(_CLIMB_FAULT_H) is False   # 손이 높음 → 부호 반대
+def test_low_position_holds_for_the_power_spin_fault_and_no_correct_take():
+    assert hh.body_low(_PS_FAULT) is True
+    for facts in (_PS_CORRECT, _KIPUP_CORRECT_H, _CLIMB_CORRECT_H, _PETERPAN_CORRECT_H):
+        assert hh.body_low(facts) is False
 
 
-@pytest.mark.parametrize("gap", [0.10, 0.15, 0.25, 0.40, 0.60])
-def test_low_position_decision_does_not_depend_on_where_the_grip_gap_sits(gap):
-    """그립 문턱을 6배 범위에서 옮겨도 실수 True·정타 False — 이 값을 영상에 맞춰 고른 게 아니다."""
-    assert hh.body_low_grip_low(_PS_FAULT, grip_gap=gap) is True
-    assert hh.body_low_grip_low(_PS_CORRECT, grip_gap=gap) is False
-    assert hh.body_low_grip_low(_KIPUP_FAULT_H, grip_gap=gap) is False
+@pytest.mark.parametrize("noise", [0.04, 0.05, 0.06, 0.08, 0.10, 0.12])
+def test_low_position_decision_does_not_depend_on_where_the_noise_band_sits(noise):
+    """잡음 폭을 3배 범위에서 옮겨도 실수 True·정타 False — 이 값을 영상에 맞춰 고른 게 아니다."""
+    assert hh.body_low(_PS_FAULT, noise=noise) is True
+    assert hh.body_low(_PS_CORRECT, noise=noise) is False
 
 
-def test_default_grip_gap_sits_inside_the_insensitive_range():
-    assert 0.10 <= hh.GRIP_LOW_BODY_LENGTH <= 0.60
+def test_low_position_margin_on_the_correct_take_is_thin_and_recorded():
+    """정타 power-spin 앞·뒤 1/3 = −0.037/−0.038 — 잡음 폭이 0.038 아래로 내려가면 정타가 뒤집힌다.
+    이 여유가 얇다는 사실을 잠근다(새 테이크가 오면 여기부터 본다)."""
+    assert hh.NOISE_BODY_LENGTH > 0.038
+    assert hh.body_low(_PS_CORRECT, noise=0.03) is True   # 알려진 뒤집힘 — 그래서 기본값을 0.03 으로 내리지 않는다
 
 
 @pytest.mark.parametrize(
     "facts",
     [
-        _heights((-0.225, -0.157, -0.01), -0.646),   # ① 마지막 1/3 은 안 낮다
-        _heights((-0.225, -0.157, -0.180), -0.10),   # ② 손이 잡음 폭보다는 낮지만 문턱 안
-        _heights((-0.225, -0.157, -0.180), float("nan")),
-        {"hip": {"thirds": [[0.6, 0.8]]}},           # grip 없음
+        _hip_thirds((-0.225, -0.157, -0.01)),   # 마지막 1/3 은 안 낮다 → "끝날 때까지" 자격 없음
+        _hip_thirds((-0.225, float("nan"), -0.180)),
+        {"grip": {"diff": -0.6}},               # 엉덩이 없음
         None,
     ],
 )
 def test_low_position_any_missing_condition_is_false(facts):
-    assert hh.body_low_grip_low(facts) is False
+    assert hh.body_low(facts) is False
 
 
 def test_low_position_ignores_the_arm_sign():
-    assert hh.body_low_grip_low(_PS_FAULT, -40.0) is True
-    assert hh.body_low_grip_low(_PS_FAULT, None) is True
+    assert hh.body_low(_PS_FAULT, -40.0) is True
+    assert hh.body_low(_PS_FAULT, None) is True
 
 
-# ── (8) 그립 손 쪽 — 몸 전체 패턴이 표식할 팔 ────────────────────────────────
+# ── (8) 그립 손 쪽 — 몸 전체 패턴이 표식·대표 짝에 쓸 팔 ────────────────────────
 
 
 def test_grip_side_is_the_hand_that_stays_higher_in_the_window():

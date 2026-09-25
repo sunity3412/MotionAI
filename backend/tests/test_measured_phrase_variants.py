@@ -272,11 +272,11 @@ def test_selector_never_touches_the_score_fields():
 
 _PS_MOTION = "ref-power-spin"
 _PS_KEY = "leg_extension"
-_PS_PATTERN = "body_low_grip_low"
+_PS_PATTERN = "body_low"
 _PS_DRAFT = {
     "statusLine": "정은지 선수보다 낮은 위치에서 돌고 있어요",
-    "whyLine": "폴을 잡은 손과 엉덩이가 정은지 선수보다 눈에 띄게 아래에 있고, 무릎도 덜 펴져 있어요",
-    "cueLine": "폴을 더 높이 잡고 올라가서, 무릎을 끝까지 편 채 돌아보세요",
+    "whyLine": "돌기 시작해서 끝날 때까지 엉덩이가 정은지 선수보다 눈에 띄게 아래에 있고, 무릎도 덜 펴져 있어요",
+    "cueLine": "몸을 더 높이 끌어올린 채로, 무릎을 끝까지 편 채 돌아보세요",
 }
 
 
@@ -302,7 +302,7 @@ def _ps_result() -> dict:
 
 
 def _ps_select(**over):
-    # 학생: 엉덩이 0.15·그립 손 0.33 몸길이 낮음(몸길이 0.3, 바닥 0.8) — 09-24 실측(−0.184 / −0.646)의 방향.
+    # 학생: 엉덩이 0.15 몸길이 낮음(몸길이 0.3, 바닥 0.8) — 09-24 실측(−0.184)의 방향. 손 높이는 조건 밖.
     kw = dict(
         motion_id=_PS_MOTION, reference_motion_id=_PS_MOTION, result=_ps_result(), constant_joints=[],
         student_keypoint_report=_kp(60, hip=0.605, low_ankle=0.795, hand=0.42),
@@ -319,12 +319,12 @@ def test_whole_body_pattern_hosts_on_a_non_angle_record(caplog):
     v = out[_PS_KEY]
     assert v["pattern"] == _PS_PATTERN and v["slots"] == _PS_DRAFT
     assert isinstance(v["atFrameIdx"], int) and v["atVideoSec"] > 0 and v["atRefVideoSec"] > 0
-    assert "measured variant applied criterion=leg_extension pattern=body_low_grip_low" in caplog.text
+    assert "measured variant applied criterion=leg_extension pattern=body_low signed=-" in caplog.text
 
 
-def test_whole_body_pattern_needs_the_grip_hand_low_not_only_the_body():
-    """kip-up 꼴(몸은 낮고 손 높이는 같다)은 power-spin 문장을 얻지 않는다 — 패턴이 다르다."""
-    assert _ps_select(student_keypoint_report=_kp(60, hip=0.605, low_ankle=0.795, hand=0.325)) == {}
+def test_whole_body_pattern_needs_the_hip_low_for_the_whole_window():
+    """엉덩이가 기준과 같은 높이면 power-spin 문장을 얻지 않는다(손·발 높이는 조건 밖)."""
+    assert _ps_select(student_keypoint_report=_kp(60, hip=0.56, low_ankle=0.795, hand=0.42)) == {}
 
 
 def test_whole_body_pattern_needs_a_determinable_grip_side():

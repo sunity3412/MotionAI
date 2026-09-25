@@ -280,32 +280,38 @@ def test_caption_stays_down_when_the_top_band_would_hide_a_circle_too():
     assert compare_render.caption_should_move_up(cv, _W, 2, _LINE_H, _S) is False
 
 
-# ── (5) 몸 전체 패턴 동그라미 — 그립 손 + 엉덩이 (quick-260925-nnt) ────────────────────────
+# ── (5) 몸 전체 패턴 동그라미 — 엉덩이 하나 (quick-260925-nnt) ─────────────────────────────
 
 
-def test_grip_hip_pattern_circles_the_higher_wrist_and_the_hip_center():
+def test_body_low_pattern_circles_the_hip_center_only():
     align = _align()
     kp_at = compare_render._kp_reader(align, "user")
-    m = compare_render._circle_marks(kp_at, 1.0, "leg", "body_low_grip_low")  # 팔 쪽은 읽지 않는다
-    assert m is not None and len(m["arm"]) == 1
-    assert m["arm"][0] == [0.55, 0.20]            # 오른손목(y 0.20)이 왼손목(0.40)보다 높다 = 그립 손
-    assert m["foot"] == pytest.approx([0.42, 0.60])   # 엉덩이 중점
+    m = compare_render._circle_marks(kp_at, 1.0, "leg", "body_low")  # 팔 쪽은 읽지 않는다
+    assert m == {"arm": [], "foot": pytest.approx([0.42, 0.60])}     # 엉덩이 중점
     # 관절 패턴은 종전 그대로(팔 3점 + 낮은발)
     old = compare_render._circle_marks(kp_at, 1.0, "left", "body_low_arm_open")
     assert len(old["arm"]) == 3 and old["foot"] == [0.30, 0.85]
 
 
-def test_grip_hip_pattern_needs_a_wrist_and_both_hips():
-    low = _align(ref_low_conf=("left_wrist", "right_wrist"))
-    assert compare_render._circle_marks(compare_render._kp_reader(low, "ref"), 1.0, "left", "body_low_grip_low") is None
+def test_body_low_pattern_needs_both_hips():
     low_hip = _align(ref_low_conf=("left_hip",))
-    assert compare_render._circle_marks(compare_render._kp_reader(low_hip, "ref"), 1.0, "left", "body_low_grip_low") is None
+    assert compare_render._circle_marks(compare_render._kp_reader(low_hip, "ref"), 1.0, "left", "body_low") is None
 
 
-def test_one_point_arm_circle_gets_the_foot_radius_floor():
+def test_empty_arm_marks_draw_only_the_hip_ring():
     img = Image.new("RGB", (400, 800), (255, 255, 255))
     d = ImageDraw.Draw(img, "RGBA")
-    compare_render.draw_circle_marks(d, {"arm": [[0.55, 0.20]], "foot": [0.42, 0.60]}, 0, 400, 800, 1.0)
+    compare_render.draw_circle_marks(d, {"arm": [], "foot": [0.42, 0.60]}, 0, 400, 800, 1.0)
     px = img.load()
-    assert px[220 + 26, 160] != (255, 255, 255)    # 손 원 반경 = 26 (발 원과 같은 하한)
-    assert px[220 + 5, 160] == (255, 255, 255)     # 안쪽은 비어 있다
+    assert px[168 + 26, 480] != (255, 255, 255)   # 엉덩이 원(반경 26)
+    assert px[168, 480] == (255, 255, 255)        # 안쪽은 비어 있다
+    assert px[220, 160] == (255, 255, 255)        # 다른 곳엔 아무 원도 없다
+
+
+def test_caption_avoidance_reads_hip_only_marks():
+    y0, y1 = compare_render._caption_band(720, 2, 30, 1.0)          # 아래 자막 밴드
+    inside = ((y0 + y1) / 2.0) / compare_render.PANEL_H
+    cv = {"user": {"arm": [], "foot": [0.42, inside]}, "ref": None}
+    assert compare_render.caption_should_move_up(cv, 720, 2, 30, 1.0) is True
+    cv_mid = {"user": {"arm": [], "foot": [0.42, 0.5]}, "ref": None}   # 밴드 밖 → 종전 위치
+    assert compare_render.caption_should_move_up(cv_mid, 720, 2, 30, 1.0) is False

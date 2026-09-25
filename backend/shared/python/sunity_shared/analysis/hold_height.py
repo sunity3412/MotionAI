@@ -211,26 +211,25 @@ def body_low_arm_open(
 
 
 # ── 몸 전체 패턴 — 낮은 위치에서 돈다 (quick-260925-nnt, belle 09-25 power-spin 판독) ──────────────────
-# 그립 손 낮음 폭(몸길이 비) — "도는 위치의 높이가 다르다"의 잰 값 문턱. 양쪽 실측(09-24 Pod L4, 운영 창):
-# 정타 5편 그립 |차| 최대 0.075(power-spin, 기준과 창이 다름) · 실수 kip-up −0.021 · climb +0.312(손이 **높음** —
-# 부호가 반대라 이 패턴 밖) · power-spin −0.646. 0.25 = 정타 최대의 3.3배, 실수의 0.39배.
-# ★판정은 이 값에 둔감하다 — 0.10~0.60 어디서든 같은 결론(test_hold_height.py 잠금). 영상에 맞춰 옮기지 말 것.
-# ★모르는 것: 다른 테이크의 정타 그립 변동(봉인 시험지에서 본다). 잡음 폭 NOISE_BODY_LENGTH 는 안 건드린다.
-GRIP_LOW_BODY_LENGTH = 0.25
+# belle: "도는 위치의 높이가 다르다". 잰 값 = 엉덩이 높이(바닥 기준, 몸길이 비)가 창 앞·중·뒤 1/3 **모두** 낮다.
+# ★그립 손은 조건에 넣지 않는다 — 09-25 실측: 회전 동작에서 "높은 손" 시계열이 1.3 / 0.6 / 0.1 세 봉우리로
+# 튄다(기준 영상도 같다 — 공중에서 손이 바닥 높이일 리 없으니 검출 탈락이 낮은 손·엉뚱한 점을 집는 것). 그 중앙값
+# 차 −0.646 은 손이 낮은 게 아니라 탈락 비율 차였고, 대표 짝 사진에서 두 손 높이는 같았다. 엉덩이는 안정하다.
+# 양쪽 실측(09-24 Pod L4, 운영 창, 엉덩이 1/3 차): power-spin 실수 [−0.225, −0.157, −0.180] · 정타 [−0.037, −0.118, −0.038]
+# (기준과 창이 다른 테이크) · kip-up 정타 ≈ −0.01 · climb·peter-pan 정타 ≈ 0. 잡음 폭 NOISE_BODY_LENGTH(0.05) 그대로 —
+# 판정은 0.04~0.12 에서 같다(test_hold_height.py 잠금). ★여유가 얇은 곳: 정타 power-spin 앞·뒤 1/3 −0.037/−0.038 이
+# 잡음 폭 바로 안쪽이다 — 0.03 이면 정타가 뒤집힌다. 새 테이크(봉인 시험지)에서 이 여유부터 본다.
 
 
-def body_low_grip_low(
+def body_low(
     heights: dict | None,
     arm_signed_deg: float | None = None,
     *,
     noise: float = NOISE_BODY_LENGTH,
-    grip_gap: float = GRIP_LOW_BODY_LENGTH,
 ) -> bool:
-    """belle power-spin 실수 판독("도는 위치의 높이가 다르다")의 측정판 — 몸 전체 패턴, 팔 부호는 안 본다.
+    """belle power-spin 실수 판독("도는 위치의 높이가 다르다")의 측정판 — 몸 전체 패턴, 팔 부호·손 높이는 안 본다.
 
-    ① 창 앞·중·뒤 1/3 **모두** 엉덩이가 정은지보다 잡음 폭 넘게 낮다 → "낮은 위치에서 돌아요"
-    ② 그립 손(창 중앙값)이 정은지보다 grip_gap 넘게 낮다 → "폴을 더 낮게 잡고"
-
+    창 앞·중·뒤 1/3 **모두** 엉덩이가 정은지보다 잡음 폭 넘게 낮다 → "정은지 선수보다 낮은 위치에서 돌아요".
     `arm_signed_deg` 는 호출 규약(다른 판정기와 같은 서명)일 뿐 읽지 않는다. 하나라도 못 재거나 어긋나면 False.
     """
     if not isinstance(heights, dict):
@@ -239,10 +238,9 @@ def body_low_grip_low(
         for s, r in heights["hip"]["thirds"]:
             if not (math.isfinite(s) and math.isfinite(r)) or not (s - r < -noise):
                 return False
-        grip = float(heights["grip"]["diff"])
     except (KeyError, TypeError, ValueError):
         return False
-    return math.isfinite(grip) and grip < -grip_gap
+    return True
 
 
 def grip_side_majority(report: Mapping | None, window) -> str | None:

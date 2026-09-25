@@ -8138,15 +8138,15 @@ def _measured_variant_predicates() -> dict:
 
     return {
         "body_low_arm_open": _hold_height.body_low_arm_open,
-        # quick-260925-nnt — 몸 전체 패턴(낮은 위치에서 돈다). record 관절과 무관하게 phrasebook 에
+        # quick-260925-nnt — 몸 전체 패턴(낮은 위치에서 돈다, 엉덩이만). record 관절과 무관하게 phrasebook 에
         # (동작 × criterion × 패턴) 승인 문장이 있는 record 에 얹힌다(아래 _MEASURED_WHOLE_BODY_PATTERNS).
-        "body_low_grip_low": _hold_height.body_low_grip_low,
+        "body_low": _hold_height.body_low,
     }
 
 
 # 몸 전체 패턴 — 팔 부호(창 상수)를 안 읽으므로 angle_vs_reference·상수 경로 조건을 요구하지 않는다.
 # 표식할 팔은 criterion 이 아니라 그립 손 쪽(hold_height.grip_side_majority)에서 온다.
-_MEASURED_WHOLE_BODY_PATTERNS = frozenset({"body_low_grip_low"})
+_MEASURED_WHOLE_BODY_PATTERNS = frozenset({"body_low"})
 
 
 

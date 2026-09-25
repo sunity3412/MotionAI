@@ -647,3 +647,29 @@ def test_no_fault_pointer_alone_never_deducts_when_geometry_is_clean(monkeypatch
     assert out["deductionBreakdown"]["records"] == []
     assert out["overallScore"] == 100
     assert out["visionVeto"]["status"] == "not_applicable"
+
+
+def test_no_fault_pointer_never_injects_gemini_numbers_for_split(monkeypatch):
+    """quick-260925-nnt 09-25 Pod 실측: severity none 지목 승계가 kip-up 실수에 split −20(Gemini 추정 50°)을 만들어
+    belle 이 닫은 카드(83)를 63 으로 되돌렸다. → severity none 이면 split 의 vision-측정값 주입 0(감점 0), 같은 지목이
+    severity moderate 면 종전대로 주입."""
+    _enable(monkeypatch)
+    pair = vision_veto.SelectedFramePair(
+        student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
+        user_frame_idx=3, ref_frame_idx=3,
+    )
+    split = {"body_part": "양다리", "fault_state": "스플릿 각도가 좁음", "approx_angle_deviation_deg": 50.0}
+    ctx_none = _ctx("no_fault", verdict=_verdict("none", differences=[split]), supported=[split], frame_pairs=[pair])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx_none, _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line",
+    )
+    assert out["deductionBreakdown"]["records"] == [] and out["overallScore"] == 100
+    ctx_mod = _ctx("candidate_verdict", verdict=_verdict("moderate", differences=[split]), supported=[split],
+                   frame_pairs=[pair], cap=True)
+    out2 = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx_mod, _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line",
+    )
+    crits = {r["criterion"] for r in out2["deductionBreakdown"]["records"]}
+    assert "split_angle" in crits and out2["overallScore"] < 100

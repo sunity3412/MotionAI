@@ -23,6 +23,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import logging
+
+log = logging.getLogger(__name__)
 
 from . import ipsf_criteria
 
@@ -317,6 +320,7 @@ def tally(
     vision_measured: dict[str, float] = {}  # cid → vision-측정 편차(geometric 불가 결함)
     split_vision_candidates: list[float] = []  # 25-04 #3(a) — 멤버별 추정치 median 집계
     differences = _supported_differences(fault_context)
+    vision_values_ok = _vision_values_allowed(fault_context)
     for diff in differences:
         # 25-02 CR-01: fold 대표는 support 집계 산물일 뿐 — 라우팅은 그룹 멤버 전체의
         # RAW body_part/fault_state 로 수행한다. 같은 keypoint_set 의 서로 다른 결함
@@ -336,6 +340,16 @@ def tally(
             # 규칙이 감점하게 한다(belle 2026-06-29 결정 A: geometric 불가 결함은 vision-측정값
             # 으로 점수화). geometric md 가 이미 있으면(진짜 split-요구 동작) 그것을 우선 —
             # 덮어쓰지 않는다.
+            if "split_angle" in res and "split_angle" not in md and not vision_values_ok:
+                # quick-260925-nnt — Gemini 가 이 영상을 "결함 없음"(severity none)이라 하면서 K-of-N 으로
+                # 실어 온 지목은 **측정 대상만** 가리킨다. Gemini 의 숫자(approx/각도쌍)로 감점하지 않는다 —
+                # 09-25 Pod 실측: 그 숫자가 kip-up 실수에 split −20 을 만들어 belle 이 닫은 카드(83)를 63 으로
+                # 되돌렸다. 기하 substrate 가 없는 split 은 여기서 조용히 0 — 침묵은 로그에만 남긴다.
+                log.info(
+                    "split vision value skipped (severity none) body_part=%s fault_state=%s",
+                    str((member or {}).get("body_part", ""))[:40], str((member or {}).get("fault_state", ""))[:60],
+                )
+                continue
             if "split_angle" in res and "split_angle" not in md:
                 dev = _vision_measured_deviation(member)
                 if dev is None and member is not diff:
@@ -644,6 +658,21 @@ def _criterion_deduction(cid, crit, md, quantification, baseline_kind,
         return big_over, measured_value, baseline_value, "deg", "ipsf_absolute", "critical"
     over = max(0.0, d - tol)
     return over, measured_value, baseline_value, "deg", "ipsf_absolute", "execution"
+
+
+def _vision_values_allowed(fault_context) -> bool:
+    """quick-260925-nnt — vision-측정값(Gemini 숫자) 주입 허용 여부.
+
+    verdict severity 가 결함(minor/moderate/major)일 때만 True. severity none(Gemini 가 결함 없음이라 한
+    영상)에 K-of-N 지목이 실려 오면 그 지목은 라우팅(측정 대상·coverage gap)에만 쓰고 Gemini 의 숫자는
+    감점에 넣지 않는다. verdict 부재(레거시 dict ctx·합성 테스트)는 종전대로 True(byte-불변)."""
+    if fault_context is None:
+        return True
+    verdict = fault_context.get("verdict") if isinstance(fault_context, dict) else getattr(fault_context, "verdict", None)
+    if verdict is None:
+        return True
+    sev = str(getattr(verdict, "severity", "") or "").strip().lower()
+    return sev not in ("", "none")
 
 
 def _supported_differences(fault_context):

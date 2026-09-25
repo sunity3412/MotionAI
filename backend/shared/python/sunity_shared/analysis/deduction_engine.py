@@ -278,8 +278,14 @@ def tally(
     baseline_kind,
     criterion_groups=ipsf_criteria.CRITERION_GROUPS,
     measurement_error=None,
+    split_value_allowed: bool = True,
 ):
     """측정-기하 substrate → 투명 감점-합산 DeductionBreakdown.
+
+    split_value_allowed (quick-260925-nnt): 이 동작이 스플릿 라인 요소(technique.SPLIT_LINE_ELEMENTS ∪ required_split_deg)
+    일 때만 True. False 면 Gemini 의 split 숫자를 감점에 넣지 않는다 — 기하 split 게이트와 같은 선언을 vision 주입에도
+    적용한다(06-27 "비-스플릿 동작에 벌림 기준 강요 금지" — 09-25 실측: PROMPT v11.3 에서 kip-up severity 가 minor 로
+    바뀌자 옛 경로로 split −20 이 다시 들어와 83→63). 기본 True = 종전 byte-동일(호출측이 안 넘기면).
 
     Args:
       quantification: VisionQuantificationResult|None — bodyRelativeNotches(reach substrate)
@@ -340,6 +346,12 @@ def tally(
             # 규칙이 감점하게 한다(belle 2026-06-29 결정 A: geometric 불가 결함은 vision-측정값
             # 으로 점수화). geometric md 가 이미 있으면(진짜 split-요구 동작) 그것을 우선 —
             # 덮어쓰지 않는다.
+            if "split_angle" in res and "split_angle" not in md and not split_value_allowed:
+                log.info(
+                    "split vision value skipped (not a split-line element) body_part=%s fault_state=%s",
+                    str((member or {}).get("body_part", ""))[:40], str((member or {}).get("fault_state", ""))[:60],
+                )
+                continue
             if "split_angle" in res and "split_angle" not in md and not vision_values_ok:
                 # quick-260925-nnt — Gemini 가 이 영상을 "결함 없음"(severity none)이라 하면서 K-of-N 으로
                 # 실어 온 지목은 **측정 대상만** 가리킨다. Gemini 의 숫자(approx/각도쌍)로 감점하지 않는다 —

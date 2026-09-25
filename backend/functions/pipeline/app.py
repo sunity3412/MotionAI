@@ -3515,6 +3515,7 @@ def _apply_vision_veto(
     measured_deviations=None,
     baseline_kind: str = "hip_line",
     measurement_error=None,
+    split_value_allowed: bool = True,
 ) -> dict:
     """v2 비전 채점 seam — reference-anchored 투명 감점-합산 (Phase 24 ND-01, 밴드 제거).
 
@@ -3551,7 +3552,7 @@ def _apply_vision_veto(
         return _apply_vision_veto_from_context(
             score_result, vision_fault_context, quantification,
             measured_deviations=measured_deviations, baseline_kind=baseline_kind,
-            measurement_error=measurement_error,
+            measurement_error=measurement_error, split_value_allowed=split_value_allowed,
         )
 
     try:
@@ -3631,7 +3632,7 @@ def _apply_vision_veto(
 def _apply_vision_veto_from_context(
     score_result: dict, ctx, quantification,
     *, measured_deviations=None, baseline_kind: str = "hip_line",
-    measurement_error=None,
+    measurement_error=None, split_value_allowed: bool = True,
 ) -> dict:
     """context 제공 경로 — Gemini 미호출, verdict 재사용 + deduction tally + to_audit_dict (D-12 HIGH-1).
 
@@ -3759,6 +3760,7 @@ def _apply_vision_veto_from_context(
             dimension_scores=score_result.get("dimensionScores"),
             baseline_kind=baseline_kind,
             measurement_error=measurement_error,
+            split_value_allowed=split_value_allowed,
         )
         # 측정 감점 record 가 있으면 applied(final<dimension_overall 가능). 없으면 not_applicable
         # (측정 감점 0 AND Gemini-located criterion 0 — 점수 불변). TRUST-08 무음실패 방지:
@@ -9559,6 +9561,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 measured_deviations=measured_deviations,
                 baseline_kind=baseline_kind,
                 measurement_error=_measurement_error,
+                # quick-260925-nnt — Gemini split 숫자는 스플릿 라인 요소에서만(기하 게이트와 같은 선언).
+                split_value_allowed=(
+                    str(meta.get("referenceMotionId") or "") in technique.SPLIT_LINE_ELEMENTS
+                    or getattr(profile, "required_split_deg", None) is not None
+                ),
             )
             # 33-NEXT — 저신뢰-광범위-다관절 귀속 마커를 result 에 실어 다운스트림
             # (coach/앱 표현)이 per-joint 단정을 회피하게 한다(belle DECISION 1). record/

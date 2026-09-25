@@ -673,3 +673,26 @@ def test_no_fault_pointer_never_injects_gemini_numbers_for_split(monkeypatch):
     )
     crits = {r["criterion"] for r in out2["deductionBreakdown"]["records"]}
     assert "split_angle" in crits and out2["overallScore"] < 100
+
+
+def test_gemini_split_number_scores_only_split_line_elements(monkeypatch):
+    """quick-260925-nnt — PROMPT v11.3 에서 kip-up severity 가 minor 로 바뀌자 옛 vision 경로로 split −20 이 들어와 83→63.
+    Gemini 의 split 숫자는 스플릿 라인 요소(power-spin)에서만 감점이 된다 — 기하 split 게이트와 같은 선언."""
+    _enable(monkeypatch)
+    pair = vision_veto.SelectedFramePair(
+        student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
+        user_frame_idx=3, ref_frame_idx=3,
+    )
+    split = {"body_part": "양다리", "fault_state": "스플릿 각도가 좁음", "approx_angle_deviation_deg": 50.0}
+    ctx = _ctx("candidate_verdict", verdict=_verdict("minor", differences=[split]), supported=[split],
+               frame_pairs=[pair], cap=False)
+    blocked = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line", split_value_allowed=False,
+    )
+    assert blocked["deductionBreakdown"]["records"] == [] and blocked["overallScore"] == 100
+    allowed = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line", split_value_allowed=True,
+    )
+    assert "split_angle" in {r["criterion"] for r in allowed["deductionBreakdown"]["records"]}

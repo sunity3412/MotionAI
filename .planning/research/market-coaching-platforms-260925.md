@@ -418,3 +418,10 @@ NotebookLM `21f482ad…` 에 "소스 원문 문장을 그대로 인용하라"로
 - 쿠폰: tonebase "coupon code EDU30 at checkout" (학생·교사 30%) · PoleFreaks "CHALLENGER1 it gives 50% off a month or year subscription" · PracticeMe "Get 3 days free with code#BLOG2026"
 - Trainera 푸터에 "Affiliate Program" 링크만 존재(내용 소스 없음). Patreon · Codementor · Gamer Sensei 의 추천 보상은 소스 없음.
 - Kling 의 "추천자 코드 입력 시 둘 다 크레딧" 은 belle 관측(09-26), 노트북 소스 아님.
+
+## G. 09-26 단가 출처 (웹, 기획안 §C-1 근거 — 노트북 소스 아님)
+- Gemini API 가격표 https://ai.google.dev/gemini-api/docs/pricing (09-26 조회): gemini-3.1-pro-preview 입력 $2.00 / 출력 $12.00 per 1M(≤200k 프롬프트), gemini-3.8-flash 입력 $0.75 / 출력 $3.75 (2026-12-31 까지, 2027-01-01 부터 $1.50 / $7.50). flash 는 무료 티어 있음, pro 는 없음.
+- Gemini 영상 토큰 https://ai.google.dev/gemini-api/docs/video-understanding : "Approximately 100 tokens per second of video at default (low) media resolution, or approximately 300 tokens per second of video at high media resolution." 1 FPS 샘플링. 실측(09-26, count_tokens, 79초 360x640 클립) = 103 토큰/초, 두 모델 동일.
+- Cerebras llama3.1-8b: 2026-04 기준 입력 $0.075 / 출력 $0.225 per 1M (2차 출처 — pricepertoken.com, computecomparison.com 검색 요약; 공식 페이지는 표를 못 읽음). 건당 영향 $0.001 미만이라 정밀도 무의미.
+- RunPod L4 $0.49/hr = 메모리 실측(demo-only-pod-bring-up-procedure).
+

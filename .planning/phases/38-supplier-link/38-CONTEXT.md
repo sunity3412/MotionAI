@@ -86,7 +86,7 @@ ROADMAP Requirements 1~8 을 이 문서에서는 `REQ-38-1` ~ `REQ-38-8` 로 부
 - `.planning/phases/38-supplier-link/38-SEED.md` — 이 phase 의 정의 · 결정 표 · 09-26 코드 관측 · 만들 것 순서 · 촬영 기준 표 · 추가 요구 6~9 · 열린 질문
 - `.planning/quick/260925-pln-two-sided-plan/260925-pln-PLAN-two-sided.md` §4(공급자 여정·실패 4형 문구) · §6(동의 문안) · §7(공급자 도구: 7-1 Q1 · 7-2 뒤쪽 4칸+선언 4 · 7-3 새 동작 기본 경로 · 7-4 마이페이지 카드) · §9(기술 관측 파일:줄 전부) · §10(단계 배치) · §C-2(강사 코드) · §C-6(실증 무료)
 - `.planning/ROADMAP.md` "### Phase 38" — Goal · Requirements 1~8 · Success ①~④ · Depends on · Not in scope
-- `.planning/quick/260925-nnt-first-analysis-not-expert/` 인계서 §3 — 높이 자 바닥 규칙(서 있는 시작 전제)
+- `.planning/quick/260925-nnt-three-fixes/260925-nnt-HANDOFF.md` :20 · :35 · :70-72 — 높이 자 바닥 규칙(서 있는 프레임이 없으면 None: 창 낮은발 10% 분위 < −0.10 이면 바닥 기준 거짓). 서 있는 시작 전제의 출처
 
 ### 디자인 · 문구
 - `design.md` §0(미설계 화면 자율 설계 원칙) · §5(컬러 #FF4B33 · 버튼 · 카드) — 페이지·가이드 화면 규칙. 라이트 전용, Pretendard

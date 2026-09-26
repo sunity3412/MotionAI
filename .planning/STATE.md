@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-26 — 양면 플랫폼 기획안 초안 v0.1 작성 완료, belle 판정 대기. **착수점 = .planning/quick/260925-pln-two-sided-plan/260925-pln-HANDOFF.md(★절) → 기획안 정본 260925-pln-PLAN-two-sided.md §A 부터.** §A 결정 5건(Q1 같은 앱 공급자 모드 · Q2 링크 + 뒤쪽 자동화 4칸 · Q3 \"강사 먼저\" 한 칸 · Q4 놓을 곳 · Q5 --mark-holdout) 판정 전까지 끝 그림은 초안. 09-26 2차: §B 벤치마킹 매칭 추가(결정 5건 + 설계 17건 + 벤치 없는 것 6건, 원문 인용 [확인] = 시장조사 §F). 3차: belle 판정 9건 반영 — Q1·Q2·Q3·D1·D4 ○, Q5 학습 끊김 없이(§10-2), D3 추천·귀속 §C-2(권장 코드 입력 + 양쪽 크레딧), 수익 = 크레딧(§C-4) + 지출 원가표(§C-1, Gemini 단가 미실측). 4차: Gemini·GPU 원가 실측(§C-1, 건당 800~3,900원, 건수 적을 땐 Pod 유휴가 원가) + 상품 구조 초기 버전 확정(§C-6: 실증 무료 → 실증 뒤 무료 3회·기본 1·상세 2 크레딧·가격대 2,000~3,000, Pod 온디맨드 전제). 5·6차: belle ○ 무만료 · 모션팩 크레딧 묶음(+귀속 수강생 개방) · 추천 2/2 · holdout("시험 영상은 배우지 않는다, 나머지 전부 배운다"). 용어 확정 시험 영상/연습 영상(구 봉인 시험지). ○× 전부 닫힘, 미결 = 정산 비율. 인계서 §4 파일 대조 완료(전부 확인, 정정 3, 미확인 1 닫힘 — yaml 키 = Gemini canonical, referenceMotionId 는 힌트; 버전 구조만 미대조). 코드 0줄. 정은지 영상 오면 봉인 시험지 2회 먼저. 상태 보드 미반영. Pod 0."
-last_updated: "2026-09-26T02:09:11.000Z"
+stopped_at: "2026-09-26 밤 — 기획 섹션 클리어(belle ○× 전부 닫힘, 미결 = 정산 비율). **다음 섹션 = Phase 38 공급자 링크(실증 최소). 착수점 = .planning/phases/38-supplier-link/38-SEED.md → belle 첫 줄 `/gsd-plan-phase 38`.** 기획안 정본 .planning/quick/260925-pln-two-sided-plan/260925-pln-PLAN-two-sided.md(§A 판정 · §B 벤치 · §C 수익/원가/크레딧/추천 · §7 공급자 도구 · §9 코드 관측 · §10 단계). 정은지 영상 오면 시험 영상 2차(구 봉인 시험지)가 먼저. 코드 0줄, 커밋 전부 push. Pod 0."
+last_updated: "2026-09-26T04:23:53.000Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 38
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** 실증(2026-10 중순) 전 분석 정확도 — Mode1 채점 경로 검증 · Phase 37 데이터 수집 준비 (Phase 33 잔여 3건은 사문 판정)
+**Current focus:** Phase 38 공급자 링크(실증 최소, belle 09-26 "공급자쪽") + 실증(2026-10 중순) 전 분석 정확도(시험 영상 2차 우선). 기획 정본 = quick-260925-pln 기획안
 
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 

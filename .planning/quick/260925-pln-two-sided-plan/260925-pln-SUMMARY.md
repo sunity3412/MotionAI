@@ -35,3 +35,11 @@ mode: inline
 - NotebookLM 원문 인용 5회로 [확인] 승격(시장조사 정본 §F): Skillest/Onform 같은 앱 · CoachNow 전용 공간 · Trainera 화이트라벨 · Lessonface 15%/4% · SwingSmith one priority fix · AI Golf School root-cause+drill · SAGES shared mental model · C-SATS 하위 5명 동일 식별 · PDA progress videos · X-Pole TV "all you see are instructors' names" · 폴댄스 강사 셀프 등록 도구 소스 없음.
 - 관측 하나가 §A 를 보강했다: 강사만 보이는 홈은 X-Pole TV 가 실패했다 → Q3 는 "강사 칸 + 그 강사의 동작 목록" 이 한 몸.
 - 판정에 새로 들어간 것: 학원이 데려온 수강생은 수수료 낮게(Lessonface 형) — §1-4 초안, belle 미승인.
+
+## 09-26 3차 — belle 판정 9건 반영
+- §A: Q1 ○ · Q2 ○ + 공급자 마이페이지(§7-4) · Q3 ○ · Q4 내 결정(리포 정본, 페이지는 v1 뒤) · Q5 "학습은 끊김 없이"(§10-2) · D1 ○ · D2 설명(§7-2) · D3 추천·귀속 기획(§C-2, 권장 = 코드 입력 + 양쪽 크레딧, 지급은 첫 분석 뒤) · D4 ○ 월정액은 학원 부가기능 때만(§C-3).
+- belle 추가 지시: 수익은 크레딧 개념(결정 기록 리포·메모리에 없음 → belle 말이 정본, §C-4) · 지출을 같이(§C-1 원가표: GPU 만 확정, Gemini 단가 미실측 — usage_metadata 미박제).
+- NotebookLM 인용 1회 추가 → 시장조사 §F-6(Lessonface·Skillest 티어·Metafy·Virtu·italki·Ringle·Polesphere·Uscreen·쿠폰 3).
+- 메모리 2건 신설(proposals-must-be-benchmarked · belle-260926-plan-verdicts-credits-cost-learning) + 재학습 메모리 갱신.
+- 남은 belle ○×: holdout 정책 · 크레딧 단위/만료 · 추천 크레딧 숫자.
+

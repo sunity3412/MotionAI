@@ -1,0 +1,75 @@
+{
+  "reviewed_at": "2026-09-26T11:34:04.204599+00:00",
+  "base_commit": "debb86bf3869e6a0f56bcb5bdeb78be3fb30fdf3",
+  "scope": "Plan review, current-code cross-check, and targeted synthetic reproduction; no Phase 38 implementation or live mutation.",
+  "python_version": "Python 3.14.6",
+  "reproduction_exit_code": 0,
+  "reproduction_results": {
+    "max_split_actual": [
+      90.0,
+      1
+    ],
+    "planned_float_conversion": "TypeError: float() argument must be a string or a real number, not 'tuple'",
+    "normal_floor_series_is_none": false,
+    "ankles_02_floor_series_is_none": true,
+    "crouched_floor_valid_by_planned_statistic": true,
+    "both_multiple_people_fixtures_have_same_ratio": [
+      0.3,
+      0.3
+    ]
+  },
+  "reproduction_code": "import sys\nimport json\nimport numpy as np\nsys.path.insert(0, '/Users/kimtaesung/Dev/SunityMotion/backend/shared/python')\nsys.path.insert(0, '/Users/kimtaesung/Dev/SunityMotion/backend/tests')\nfrom sunity_shared.analysis.features import max_split\nfrom sunity_shared.analysis import hold_height as hh\nfrom test_hold_height import _report, _pose\n\nout = {}\npeak = max_split(np.array([20.0,90.0,70.0]))\nout['max_split_actual'] = list(peak)\ntry:\n    float(peak)\nexcept Exception as exc:\n    out['planned_float_conversion'] = type(exc).__name__ + ': ' + str(exc)\n\nT, n_stand = 60, 10\nys = _pose(T, n_stand, hip=.6, low_ankle=.79, high_ankle=.7, hand=.32)\nfor name, conf in [('normal',None),('ankles_02',{'left_ankle':.2,'right_ankle':.2})]:\n    report = _report(ys, T, conf=conf)\n    series = hh._frame_series(report,(n_stand,T))\n    out[name + '_floor_series_is_none'] = series is None\n\n# A floor consistency check is not a posture classifier: same crouched y\n# throughout can satisfy the existing body>0 and floor checks.\nys_crouched = {key: np.full(T, .65 if 'shoulder' in key else .8 if 'ankle' in key else .7) for key in ys}\nfs = hh._frame_series(_report(ys_crouched, T),(n_stand,T))\nv = [] if fs is None else np.asarray(fs['lowFoot'])[n_stand:T]\nout['crouched_floor_valid_by_planned_statistic'] = bool(fs is not None and np.isfinite(v).any() and np.percentile(v[np.isfinite(v)],10) >= -hh.FLOOR_VIOLATION_BODY_LENGTH)\nout['both_multiple_people_fixtures_have_same_ratio'] = [sum(n>1 for n in counts)/len(counts) for counts in [[1,1,1,1,1,1,1,2,2,2],[2,2,2,1,1,1,1,1,1,1]]]\nprint(json.dumps(out,ensure_ascii=False,indent=2))\n",
+  "source_sha256": {
+    ".planning/phases/38-supplier-link/38-01-PLAN.md": "197742791351d133291c6666ebcd6e7bc0fab85fc86edf046d7bd038fcc4e7e0",
+    ".planning/phases/38-supplier-link/38-02-PLAN.md": "953e19de2852ffecb7df8c09906063739f06ab31e30ac653107b3c305f391892",
+    ".planning/phases/38-supplier-link/38-03-PLAN.md": "94b2d845f5312f0cb0d91a0c8f493ea5e648effb098aecc60e9d83ce26d18a99",
+    ".planning/phases/38-supplier-link/38-04-PLAN.md": "1ac473f169d9cf77c9e0793b524e2eb510764cb273024139cfa70afc06286d15",
+    ".planning/phases/38-supplier-link/38-05-PLAN.md": "66049e7195b1b16ca099c36d594524bd51ce1c4ccf31c7122026b13934bf9f8f",
+    ".planning/phases/38-supplier-link/38-06-PLAN.md": "8579f020cf50e0c35d9c8075b648a9f0b6d7ca5feb8ef5fdfd9c0e37dad4a113",
+    ".planning/phases/38-supplier-link/38-07-PLAN.md": "842f84dec653bbd13350d2edeee70311d49e7ddeb3b813aa996f2241da6e1740",
+    ".planning/phases/38-supplier-link/38-08-PLAN.md": "5375539157b7fd3e74c1b272bcb426709d5ee9357e1e934c899010d5f18b9e14",
+    ".planning/phases/38-supplier-link/38-09-PLAN.md": "e8a3e9805757a25cc4e2753dbce01458d1b00ca32211d2469d4b3ab0b71e045e",
+    ".planning/phases/38-supplier-link/38-10-PLAN.md": "e26d3c0ac6aba7b8108d6c6ec6df5610e9af1223c349f4c9b3334a2098d9bd11",
+    ".planning/phases/38-supplier-link/38-11-PLAN.md": "21e6b9ed1f2ceffdae4c92bd575d4727deef2080b57226da91032dbd6d7af287",
+    ".planning/phases/38-supplier-link/38-12-PLAN.md": "9ec3c647055a8abcd1232d82a46deb1efe04be928634c75fa1a6c7f1326a26ad",
+    ".planning/phases/38-supplier-link/38-13-PLAN.md": "d8b3f5eb5938c958f05e556ace590ef80007525827854fa813e09383ed708cf9",
+    ".planning/phases/38-supplier-link/38-14-PLAN.md": "88538ef64bfa3a72b13c03182b621006be902f69dc69758fff1e309d50a903d0",
+    "firestore.rules": "8ce59cc61aece649e713d7f6df30dbcc15e2bef1be31b2ea1b556a6f2bb99b88",
+    "backend/shared/python/sunity_shared/analysis/features.py": "a589f29bfdf023865871093241b6ea2e3c96600ad80be102505a7249cdbe8519",
+    "backend/shared/python/sunity_shared/analysis/hold_height.py": "7025e33bfb0fc462287e7986d3801d73c8234f83ed629dd376783eefc53f9661",
+    "backend/shared/python/sunity_shared/analysis/frame_extractor.py": "0561f481a5b553c68129f37b51ae7cffe9375aea90cd88bbf9e5cc50fa7c14b6",
+    "backend/scripts/extract_reference_angles.py": "59d77f83f3d064fbc7f4edd76c62331271f194cd260a34a2c194021947c07b19",
+    "backend/functions/pipeline/app.py": "35e447a58e605622a4d2ae1c0b575136bedafd31704a8e9ac7f70ed312b7a62e"
+  },
+  "external_review": {
+    "cli": "/Users/kimtaesung/.opencode/bin/opencode",
+    "configured_provider_credentials": 0,
+    "successful_external_reviews": 0,
+    "attempts": [
+      {
+        "scope": "full 14 plans plus context",
+        "default_model": "opencode/big-pickle",
+        "http_status": 500,
+        "error": "Internal server error",
+        "observed_error_attempts": 11,
+        "resolution": "terminated only this review process"
+      },
+      {
+        "scope": "reduced batch 1, plans 01-04",
+        "http_status": 403,
+        "error_type": "FreeTierError",
+        "message": "OpenCode's free tier can only be used from within OpenCode",
+        "exit_code": 0,
+        "result": "error JSON, no review text"
+      }
+    ],
+    "self_cli_skipped": "codex",
+    "independent_consensus_available": false
+  },
+  "live_checks_performed": [],
+  "official_sources": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html",
+    "https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/flat-rate-pricing-plan.html"
+  ]
+}

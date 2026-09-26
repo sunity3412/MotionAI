@@ -1525,6 +1525,7 @@ Plans:
 **착수 전 필독:** `.planning/phases/38-supplier-link/38-SEED.md` → 기획안 `.planning/quick/260925-pln-two-sided-plan/260925-pln-PLAN-two-sided.md` §7·§9·§C.
 
 **Requirements** (09-26 코드 대조, 기획안 §9):
+
 1. `reference/` 용 presigned PUT — 지금은 `uploads/*` 만(`template.yaml:194`). `parse_upload_key` 가 `uploads/{uid}/{id}` 만 받아 `reference/` 키는 파이프라인에 들어오지 못한다(`s3keys.py:18`, `pipeline/app.py:10309`).
 2. 기준 각도 자동 추출 → `reference/{id}` 에 `angles·anglesJointKeys·anglesFrames·anglesUpdatedAt` — 지금은 Pod 손 스크립트(`extract_reference_angles.py --out json`) → seed 스크립트 merge. 파이프라인 `is_reference` 분기는 G4 가드·scene 플래그만, 각도는 안 쓴다. angles 없으면 mode1 `RuntimeError`(`pipeline/app.py:8905`).
 3. 폼 메타 → doc: `name·athleteName·level`(없으면 picker 가 버림 `referenceMotions.ts:72-78`) + 선언 4개(동작 이름 = 기술 사전 선택 · 스플릿 · 유지 구간 · 서 있는 시작) + 동의 4항(§6). clipRange 는 손 입력 유지 가능(Gemini A 의 clip_range 승격은 선택).
@@ -1538,13 +1539,44 @@ Plans:
 
 **Depends on:** Phase 36(익명 uid·소셜 로그인) · Pod(각도 추출은 GPU). 온디맨드 자동 기동(기획안 §10 단계 1 "Pod 한 명령")은 이 phase 밖이나 실사용 전제. 정은지 영상이 오면 **시험 영상 2차가 먼저**(인터럽트).
 
-**Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리).
+**Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 0 plans
-
+**Plans:** 14 plans (7 waves · 12 실행 + 2 조건부 중 택1: 38-10/38-11(Expo web export) vs 38-12(단일 HTML) — 38-04 결정으로 정확히 한 쪽만 실행)
 Plans:
+**Wave 1**
 
-- [ ] TBD (/gsd-plan-phase 38 — 38-SEED.md 필독)
+- [ ] 38-01-PLAN.md — 계약·키·검증(순수): reference 키 build/parse(D-04·D-19) · 등록 status/error enum 3벌 lockstep(D-05·D-09) · 폼 검증(D-07·D-08·D-14) · s3keys 영구 보관 주석(D-17) · SUPPLIER_UIDS 파서(D-12) [W1]
+- [ ] 38-02-PLAN.md — 앱: 3~90초 즉시 검사 + tooShort/tooLong 문구(D-14) · 촬영 문구 정정 14자리 + grep 게이트(D-15·D-16) · 마이 탭 강사 코드 한 줄(D-12·D-13) [W1]
+- [ ] 38-04-PLAN.md — 호스팅 측정(react-native-web 설치 → expo export → 시뮬 Safari 4가지) → belle 결정 체크포인트(Claude's Discretion) → 미선택 트랙 스킵을 파일로(SUMMARY skipped-by-decision · PLAN skipped · 38-13 depends_on 확정) [W1, 체크포인트]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 38-03-PLAN.md — docs/supplier-guide.md 7항목(D-18) + supplierCopy.ts 문구 단일점(UI-SPEC 글자 단위 · 실패 문구 6개 = analysis.ts 조인 규칙 대조) [W2, 38-01 뒤]
+- [ ] 38-05-PLAN.md — 실패 4형 순수 판정 registration_checks + hold_height.floor_reference_valid + 엔진 estimate_with_person_counts(D-09, Success ②) [W2]
+- [ ] 38-06-PLAN.md — Firestore 등록 writer 7종(create()·ref- 가드·angles ADD-only) + reference-upload-url Lambda(화이트리스트 SSM 런타임 ∪ BELLE_UID · probe · presign)(D-03·D-04·D-08) [W2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 38-07-PLAN.md — 파이프라인 reference/ 분기(Pod 부재 = queued, D-20) + _register_reference(같은 함수 순서 angles · 실패 6코드 · 자기 재현성 트리거)(D-05·D-10) [W3]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 38-08-PLAN.md — selfScore 훅 + Pod POST /register-reference + requeue 스크립트(기동 절차 7단계)(D-10·D-20) [W4]
+- [ ] 38-10-PLAN.md — (후보 1) 페이지 핵심 Expo 라우트: 데이터 층 · A-1 로그인 · A-2 권한 없음 · A-3 홈 두 카드 · 실패/완료 상세(D-01·D-02·D-22) [W4, option-1 전용]
+- [ ] 38-12-PLAN.md — (후보 2, 조건부 대안) 정적 단일 페이지 HTML/CSS/JS — 같은 supplierCopy·상태기계 [W4, option-2 전용]
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 38-09-PLAN.md — 인프라: template(새 함수·정책·env) → SSM supplier-uids → sam build/changeset → belle 검토 → 배포 · 버킷 알림 2항목 · lifecycle 해제(D-17) — 원본 저장·롤백 [W5, 체크포인트]
+- [ ] 38-11-PLAN.md — (후보 1) 올리기 폼 STEP 01/02 · 업로드 진행/취소 · 가이드 화면 A-6(D-07·D-08·D-14·D-18) [W5, option-1 전용]
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 38-13-PLAN.md — 페이지 배포(정적 버킷 + CloudFront OAC) → belle Authorized domain → belle 실기기 검증 + Figma 대조 [W6, 체크포인트]
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 38-14-PLAN.md — Pod E2E: 정은지 uid → SSM · Pod 기동(GPU 한 종류) · requeue · 등록 1건 → picker → mode1 완주(Success ①) · selfScore(③) · legacy 11 무접촉 diff(④) · teardown [W7, 체크포인트]
 
 ---
 *Roadmap updated: 2026-09-22 (Phase 37 신설 — 시간이 갈수록 나아지는 분석 모델. belle 지시: "1년이든 몇 년이든 계속 똑똑해지는 모델", "다른 분석 종목에서도 쓸 수 있게 사람 동작에 대해 학습". 층 4분할(몸/종목/채점=모델아님/말) + 재학습은 데이터 누적형 B 확정(A 는 베이스 교체 때 다 날아감). 천장 = 교사가 Gemini 라 증류만으로는 못 넘음 → 강사 판정이 유일한 돌파 재료. 근거 = 2026-09-22 Mode1 실측(quick-260922-gnj) + belle 사진 판독. 금지 = 채점 모델화·사람 점수 라벨·각도 기준값 재보정.)*

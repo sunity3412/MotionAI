@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-26 밤 — 기획 섹션 클리어(belle ○× 전부 닫힘, 미결 = 정산 비율). **다음 섹션 = Phase 38 공급자 링크(실증 최소). 착수점 = .planning/phases/38-supplier-link/38-SEED.md → belle 첫 줄 `/gsd-plan-phase 38`.** 기획안 정본 .planning/quick/260925-pln-two-sided-plan/260925-pln-PLAN-two-sided.md(§A 판정 · §B 벤치 · §C 수익/원가/크레딧/추천 · §7 공급자 도구 · §9 코드 관측 · §10 단계). Phase 38 요구 8(뒤쪽 3칸 · 실패 4형+재현성 · 강사 코드 · 길이 검사+문구 정정 · 원본 보관 영구 · 공급자 가이드). 촬영 기준 = 정은지 영상 조건(belle ○). 정은지 영상 오면 시험 영상 2차(구 봉인 시험지)가 먼저. 코드 0줄, 커밋 전부 push. Pod 0."
-last_updated: "2026-09-26T04:23:53.000Z"
+stopped_at: "2026-09-26 저녁 — Phase 38 공급자 링크 **계획 완료**(14 플랜 · 7 웨이브, plan-checker 2회차 차단 0 · 결정 22/22 · 요구 8/8). **착수점 = `.planning/phases/38-supplier-link/38-01-PLAN.md` 부터 — belle 첫 줄 `/gsd-execute-phase 38`.** 읽는 순서 38-CONTEXT(D-01~22, D-22 = Figma 필수) → 38-RESEARCH → 38-UI-SPEC → PLAN. belle 결정 체크포인트 3곳: 38-04(호스팅 — Expo web export vs 단일 HTML, 측정 뒤) · 38-09(sam deploy changeset · 버킷 알림 2항목 · lifecycle 해제) · 38-14(Pod E2E, `pod:go` 동의). 정은지 영상 오면 시험 영상 2차(`sealed_test.py`)가 먼저. Pod 작업 전 push. 코드 0줄(문서만), 커밋 전부 push."
+last_updated: "2026-09-26T09:23:45.237Z"
 last_activity: 2026-09-26
 progress:
-  total_phases: 38
-  completed_phases: 25
-  total_plans: 118
-  completed_plans: 108
-  percent: 66
+  total_phases: 40
+  completed_phases: 21
+  total_plans: 241
+  completed_plans: 196
+  percent: 53
 ---
 
 # Project State
@@ -42,11 +42,14 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 **로드맵 39 페이즈 — 완료 30 / 진행중 4 / 미착수 5** (01·12_5·20·24·25 는 2026-08-31 quick/260831-c3l 스텁 마감으로 완료 편입 · 37 은 2026-09-22 신설)
 
 진행중 (남은 plan 수):
+
 ```
 22-custom-vlm-finetune               4   22-06 완료(SUMMARY 미작성) · 22-08/09/10 보류
                                          (재개 = promotion_ledger.current 가 null 을 벗어남 + RunPod 충전)
 31-api-visual-correction             1   31-12 사문(belle 2026-07-20 축소마감 + CALIBRATION blocked
+
                                          + 09-09 소비처 제거)
+
 33-result-trust-recovery             3   33-07/16/21 사문(2026-09-18 판정 — flip 은 09-17 rot180_v1 로
                                          실행됨 · 게이트 화면 소멸 · no-op)
 36-account-system                    2   36-01 완료(SUMMARY 미작성) · 36-02 살았다(belle 실계정 로그인
@@ -57,6 +60,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 > **20-04 마감은 SCORE-09 를 닫지 않는다 — SCORE-09 는 별도 PENDING 잔류 (위 20-04/SCORE-09 ownership 노트).**
 
 미착수 (PLAN 0):
+
 ```
 18-expert-deliberate-fault-reference-eval-set
                                      ← 보류: baseline·assert 실재(backend/evals/phase18).
@@ -159,7 +163,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-09-24 - 밤 마감 (260924-x9i): kip-up 카드 문장·사진 완료 + Pod E2E, belle 사진 ○× 대기
+Last activity: 2026-09-26
 
 이전: 2026-08-31 - **코드리뷰 후속 수리 2건 (belle "고고")** — 리뷰(c2976102..HEAD, high)가 크레딧 소진으로 중단됐으나 확보된 후보를 실측 처분: ①vision tol 우회 소음 감점 위험 = **기각**(정타 6편 전부 vision 결함 보고 0건, N=1→N=6. 대조: kip-up fault 는 20도 보고 — 변별 유지) ②기준 doc joints3d 부재 = **기각**(11/11 보유) ③**신규 발견·수리**: 기준 4/11(foxtop·foxtop-split·invert·sideway-spin)이 y축 회전잔여(1e-13)뿐인 x-z 평면 저장 → 상체각이 상수 90도 = 지어낸 코칭. up축 소실 가드(좌표스케일x eps) 도입, 못 재면 NaN→라인 생략 ④**자세 축 양방향화**: 종전 한 방향 발화는 서 있는 동작(11개 중 3개)에서만 참 — 수평·뒤집힘 8개의 "덜 눕힘" 결함이 영영 안 나왔다. |delta| 판정+문구가 방향 구분, 절대 자세 지시 제거. ★수리 과정 교훈: 최초 가드("정확히 0")가 합성 픽스처만 통과하고 실데이터에서 무력 — 실데이터 검증에서 발각(VERIFY.md 에 FAIL 박제, 픽스처를 실데이터 형태로 교체). 4544 passed/0 failed. 점수 경로 무접촉. 커밋 1aac5b8f. ★미처리: stability 창 자 불일치(점수 이동 있어 belle 예고 후) · 리뷰 미완 각도(앱 result.tsx)
 

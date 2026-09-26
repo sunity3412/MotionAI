@@ -596,16 +596,23 @@ aws s3api get-bucket-notification-configuration --bucket sunity-motion-pilot-vid
 | A14 | `tooLong` 문구 신규 | §F | IA 표에 행 추가 |
 | A15 | 전체 pytest suite 소요 시간 | Q12 | 게이트 시간 예측 불가 |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> 2026-09-26 플래너 리비전 1 — 다섯 질문 전부 **재는 task 로 귀속**됐다(답을 미리 적지 않는다; 잰 값은 그 task 의 산출물에 `[확인]` 으로). 원문은 그대로 두고 `RESOLVED:` 줄만 붙였다.
 
 1. **폰 브라우저에서 Google 팝업 로그인이 실제로 되는가**
    - 아는 것: 문서상 팝업은 모바일에서 "less smooth"; 리다이렉트는 S3/CloudFront 도메인에서 차단 [CITED]
    - 모르는 것: iOS Safari 팝업 차단 기본값에서의 실제 동작
    - 권장: §H 측정 ③ 을 계획의 첫 체크포인트로
+   - RESOLVED: 38-04 Task 1(로컬 export + 시뮬 Safari 스모크) → Task 2(belle 4항목 ○/× `[확인 belle]`, `38-04-MEASUREMENT.md` 관측 절) → Task 3(결정 + 미선택 트랙 스킵). 실기기 HTTPS 는 38-13 Task 3.
 2. **web export 가 번들되는가** — 의존성 설치 뒤에만 답이 난다(§H).
+   - RESOLVED: 38-04 Task 1(`npx expo install react-native-web` → `CI=1 npx expo export --platform web` exit/소요 초/크기 → MEASUREMENT.md 관측 절; 그 소요 초가 38-10/38-11 의 플랜 단위 export 게이트 기준값).
 3. **`sunity-motion` 의 배포 권한** — `sam deploy` changeset 생성으로 확인.
+   - RESOLVED: 38-09 Task 1(`sam deploy --no-execute-changeset` — AccessDenied 면 그 명령·오류 원문을 CHANGESET.md 에 적고 멈추는 auth gate) → Task 2 belle 승인 → Task 3 실행 + (E) `iam simulate-principal-policy` 읽기 전용 확인.
 4. **정은지 Google uid** — 로그인 1회 뒤 페이지가 uid 를 보여주고 belle 가 SSM 에 넣는 절차가 필요(닭-달걀: 화이트리스트 전에 페이지 접근은 "권한 없음" 화면).
+   - RESOLVED: 38-14 Task 1(체크포인트 — 정은지/대역이 A-2 화면 `내 ID` 를 belle 에게, belle 이 `uid:CODE` + `pod:go <GPU>`) → Task 2 step 0(`aws ssm put-parameter --overwrite`, 배포 없이 60초 캐시 뒤 반영; 롤백 = `get-parameter-history`).
 5. **여러 명·저신뢰 문턱** — 상수 하나로 두고 시험 영상 2차로만 조정(A6·A7).
+   - RESOLVED: 38-05 Task 1 의 상수 `MULTI_PERSON_FRAME_RATIO = 0.30` · `LOW_CONFIDENCE_MEDIAN_MIN = 0.5` · `STANDING_START_DEFAULT_SEC = 1.0` — `[ASSUMED A5·A6·A7]` 주석 박제, **시험 영상 2차(`sealed_test.py`)로만 조정**(목표 숫자 금지; 38-14 에서 실물 실패가 나오면 코드·문구만 기록).
 
 ## Environment Availability
 

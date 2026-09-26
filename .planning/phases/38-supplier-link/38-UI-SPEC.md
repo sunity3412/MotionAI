@@ -670,6 +670,24 @@ Figma 자체의 낡은 문구(`1:399` "측면 45°…3~10초", `1:482`·`1:483` 
 | 21 | 안내 알약(`1:399`)을 "분석 서버 꺼짐" 안내에 재사용 — amber 박스 신설 안 함 | Figma 문법 우선 | 상류 |
 | 22 | 로그아웃 = 틸 텍스트, 확인 없음 | design.md §0 위험 액션 = 틸 텍스트(Figma 없음); 데이터 손실 0 | (default) |
 
+### ui-checker flags (2026-09-26) — 비차단 11건, 적용값 정본
+
+> gsd-ui-checker 가 이 문서를 승인하며 남긴 비차단 플래그 11건(commit 25a221fd). **이 표의 "적용값" 이 위 §Copywriting·§Component Inventory 원문보다 우선한다** — 플랜 38-02/38-03/38-10/38-11/38-12 는 "UI-SPEC §Decisions ui-checker flags n행" 으로 인용한다. 원문 절은 이력으로 그대로 둔다(두 곳을 고치면 갈린다).
+
+| # | 자리 | UI-SPEC 원문 | 적용값 | 근거 | 소비 플랜 |
+|---|---|---|---|---|---|
+| 1 | `common.copy` | `복사` | `코드 복사` | 버튼이 무엇을 복사하는지 말한다(A-2 는 `noAccess.copyId` `ID 복사` 별도) | 38-03 T2 · 38-10 T2 · 38-12 T1 |
+| 2 | `common.cancel` | `취소` | `올리기 취소` | A-5 진행 패널의 링크가 업로드 중단임을 말한다 | 38-03 T2 · 38-11 T2 · 38-12 T2 |
+| 3 | `home.codePending` | `코드 준비 중` | `코드 준비 중 · 운영팀이 코드를 넣으면 여기에 보여요` | 빈 값에 다음 행동·주체를 붙인다(Phase 33 "표시마다 답") | 38-03 T2 · 38-10 T2 · 38-12 T1 |
+| 4 | `home.upload` | `동작 올리기 >` | `동작 올리기 >` **유지** | 체커가 `>` 어법을 물었으나 Figma `1:717` 알약 어법(`종목 선택하기 >`) 그대로 — 변경 없음 | 38-03 T2 |
+| 5 | `loading.tsx:546` | §C 표 최종 `· 기준 영상처럼 찍었는지(폴 전체와 전신이 들어오는 거리, 세로, 고정)` | 그대로 + SUMMARY 에 "deliberate deviation from D-15 sentence (grammar only)" 기록 | 체크리스트 "~했는지" 문법 — D-15 문장의 의도된 변형임을 기록으로 남긴다 | 38-02 T2 |
+| 6 | `analyze.tsx:593-596` 주석 | §C 표: ":594 주석 끝에 정정 문구 추가" | `2~3m` 가 남지 않게 주석을 **다시 쓴다** + 끝에 정정 문구 | 정정 게이트(`2~3m` 0건)가 주석까지 잡는다 — 추가만으로는 게이트 실패 | 38-02 T2 |
+| 7 | A-3 Gradient header | 헤더 안에 `촬영 가이드` 링크 + identity 1줄(§Component Inventory) | 링크·identity 는 흰 시트 맨 위 한 줄로; 헤더는 워드마크 + Display 제목만 | 그라디언트 위 흰 Label 17 명도 1.6~3.3:1(§Color 표) — 헤더 텍스트는 Display(large) 만 | 38-10 T2 · 38-12 T1 |
+| 8 | TIP 카드 간격 | 헤더 → 8 → 줄, 줄 간 4 | **8 / 4 로 확정**(모든 TIP 카드 자리에 같은 값) | 자리마다 다른 값이 생기지 않게 하나로 | 38-10 T2 · 38-11 T1 · 38-12 T1 |
+| 9 | 내 코드 문자 색 | Display 30/700 **#FF4B33**(선수 카드 · §Color "강사 코드 문자") | **#0C0C0C**(`colors.textPrimary`) | 화면당 브랜드 앵커 1개 = 알약 CTA; 코드는 정보이지 CTA 가 아니다 | 38-10 T2 · 38-12 T1 |
+| 10 | 오류코드 칩 패딩 | `2 8`(실패 패널) | `4 8` | 12px caption 의 터치·가독 여백 | 38-10 T2/T3 · 38-12 T1/T3 |
+| 11 | 파일 카드 아이콘-텍스트 간격 | 아이콘 → 14 → 텍스트(`1:407`) | **16** | 카드 규격 간격(16)과 통일 | 38-11 T1 · 38-12 T2 |
+
 ---
 
 ## Open for belle (기본값을 채택해 두었다 — 바꾸면 문구·상수만 바뀐다)
@@ -684,11 +702,11 @@ Figma 자체의 낡은 문구(`1:399` "측면 45°…3~10초", `1:482`·`1:483` 
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-09-26 (gsd-ui-checker, 비차단 플래그 11건 → §Decisions "ui-checker flags (2026-09-26)" 표에 적용값으로 박제; 플랜 38-02/03/10/11/12 가 그 표를 인용)

@@ -50,7 +50,12 @@ belle 원문: *"실증까지는 아니다라는 기준, 물론 중요하지만 �
 
 **belle 결정 필요**: Q1~Q3 초안 승인/기각 · `eval_split_check.py --mark-holdout`(정은지 실수 fixtures 6편 학습 제외) · 기획안을 어디에 쓸지(리포 md 정본 + Claude Docs 검토용 / 페이지).
 
-## 4. 기술 관측 — 기준 등록 경로 오늘 모습 [미확인 — Explore 서브에이전트 보고, 내일 착수 시 파일 열어 대조]
+## 4. 기술 관측 — 기준 등록 경로 오늘 모습 [09-26 파일 대조 완료 — 아래 줄 전부 [확인], 정정·보강은 첫 항목]
+- **09-26 대조 결과(파일 열어 확인, 정본은 `260925-pln-PLAN-two-sided.md` §9)**: 인계서 서술은 전부 맞았다. 정정 3건 + 미확인 1건 닫힘.
+  ① `pipeline/app.py` RuntimeError 줄은 8904 → **8905**. ② `motionThumbs.ts` 위치는 `app/src/lib/` 가 아니라 **`app/src/constants/`**.
+  ③ auto-register 가 쓰는 필드 = `geminiA` · `geminiAUpdatedAt` (+ 새 doc 이면 `isActive`/`inactiveReason`) — `firestore_admin.py:2368-2430`. "geminiA 만" 은 맞고 위치를 보강.
+  ④ **[미확인] 닫힘 — mode1 이 yaml 을 고르는 키**: `referenceMotionId` 는 Gemini 프롬프트 힌트로만(`pipeline/app.py:8670-8673` → `recognize(motion_hint=…)` 8875-8880). yaml 키 = Gemini 가 낸 이름을 분류한 canonical(`gemini_technique_recognizer.py:325-355` `_classify_motion` → `_build_profile(canonical, …)`). 등록 목록 밖이면 "unregistered" → joint_expectations 빈 dict.
+  대조 안 한 것 1: `reference/{id}/versions/{v}` + `_release.activeCandidate`(버전 구조) — 기획안 §11-3 에 [미확인] 으로 남김.
 - 컬렉션은 `reference/{motionId}` (`models.py:836`). `referenceMotions` 는 없다(`contract.md:330-333`). S3 `reference/{id}.mp4`. 버전은 `reference/{id}/versions/{v}` + `_release.activeCandidate`.
 - **등록 = 손 3단계**: ① mp4 를 S3 `reference/` 에 직접 ② Pod 에서 `backend/scripts/extract_reference_angles.py`(RTMW → angles JSON), `extract_reference_body_profiles.py`, `extract_reference_keypoint_reports.py` ③ `app/scripts/seed-reference-motions.mjs`(ADC 로그인, 손으로 쓴 MOTIONS 11개 L141-405: name·athleteName·level·entryType·**clipRange·checkpoints 손으로**) `--angles --keypoint-reports` 로 doc merge. mp4 업로드는 안 한다.
 - **자동 등록 Lambda 가 이미 있다**: `backend/functions/reference-auto-register/app.py` `POST /reference/auto-register`(template.yaml:299) — belle uid 화이트리스트(L89), body `{s3Key, studioAlias?, overrideMotionId?}`, S3 GetObject `reference/*` 만, Gemini A `extract_reference_metadata` → `geminiA{routing_branch, motion_name_ipsf, clip_range, checkpoint_joints, confidence}` 만 씀. **angles 없음 → mode1 `RuntimeError("기준 모션 또는 keyframe 데이터 없음")`(pipeline/app.py:8904)**, name/athleteName/level 없음 → 앱 picker 가 버림(`referenceMotions.ts:72-78`). 호출처는 `reactivate_new6_motions.py` 뿐.
@@ -59,7 +64,7 @@ belle 원문: *"실증까지는 아니다라는 기준, 물론 중요하지만 �
 - **업로드 경로**: presigned PUT 은 `uploads/*` 만(IAM template.yaml:195), 올리면 S3→SQS 로 **학생 분석이 시작**된다. `reference/` 용 presigned PUT 은 없다. CORS 는 `*`(178-181), 버킷 PUT `*`. 웹 페이지가 쓰려면 Firebase 익명 토큰 + `users/{uid}/analyses/{id}` doc 선작성(loading.tsx:146-163) 필요.
 - **인증**: 익명 + Google + Apple(`auth/login.tsx`, `socialAuth.ts` 링크). 이메일·카카오 없음. uid = ID 토큰.
 - **앱 화면**: routes `(tabs)/{index,analyze,history,profile}`, `analysis/{loading,reference,result}`, `auth/{login,signup}`, `help,inquiry,tutorial,legal/[doc]`. 홈 = 그라디언트 헤더 + NEW 동작 배너(최근 updatedAt) + 최근 분석 카드(없으면 "첫 분석하기") + "오늘 도전해볼 동작" 3개(전체보기 → `/analysis/reference`) + 주간 성장 그래프. analyze = `referenceMotionId` 파라미터면 mode1 강제, 없으면 mode 카드 2개 → mode1 은 picker.
-- [미확인] mode1 이 yaml 을 고를 때 Gemini 분류 결과를 쓰는지 referenceMotionId 를 쓰는지.
+- ~~[미확인] mode1 이 yaml 을 고를 때 Gemini 분류 결과를 쓰는지 referenceMotionId 를 쓰는지.~~ → 09-26 닫힘(위 ④): Gemini canonical 이 키, referenceMotionId 는 힌트.
 
 ## 5. 내일 순서
 1. §4 를 파일 열어 대조(특히 auto-register Lambda 와 seed 의 clipRange 손 입력, presigned PUT IAM). 틀린 줄은 여기 정정.
@@ -73,4 +78,4 @@ belle 원문: *"실증까지는 아니다라는 기준, 물론 중요하지만 �
 - 기획안에 숫자를 인용할 때 §0 [확인] 10건 외에는 원문 대조 후. Peloton 강사 급여(FourWeekMBA)는 2차 소스.
 - "실증까지 새 기능 금지"(belle 09-19)는 살아 있다 — 기획안은 문서이고, 코드로 옮기는 것은 ②파일럿 깨는 것 → ③공급자 링크 순서, 그것도 belle 승인 뒤. **단 "실증까지는 아니다"를 기획의 답으로 쓰지 말 것(★ 기준) — 끝 그림을 먼저, 실증은 그 안의 구간.**
 - 정은지 추가 영상 오면 이 기획안보다 **봉인 시험지 2회가 먼저**(`sealed_test.py`, 서 있는 자세에서 시작 요청).
-- 미확인: §4 전부(서브에이전트 보고) · 표 나머지 숫자 · "우리 자리가 비어 있는 이유" 진단.
+- 미확인: ~~§4 전부(서브에이전트 보고)~~ → 09-26 파일 대조 완료(버전 구조만 미대조) · 표 나머지 숫자 · "우리 자리가 비어 있는 이유" 진단.

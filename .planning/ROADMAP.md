@@ -1541,42 +1541,42 @@ Plans:
 
 **Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 14 plans (7 waves · 12 실행 + 2 조건부 중 택1: 38-10/38-11(Expo web export) vs 38-12(단일 HTML) — 38-04 결정으로 정확히 한 쪽만 실행)
+**Plans:** 14 plans (7 waves · 12 실행 + 2 조건부 중 택1: 38-10/38-11(Expo web export) vs 38-12(단일 HTML) — 38-04 결정으로 정확히 한 쪽만 실행). **리뷰 반영(2026-09-26, Codex R1~R15 전부 수용 — 기록 = `38-01-PLAN.md` 끝 `## Review Response`):** 등록 작업 소유권(claim/lease/jobId) · 업로드 키/확정 키(v1) 분리 · 자기 재현성 권위 가드 + 규칙 · 실패 분류 순서(측정 불가 먼저) · `expired`·`too_large` · 공개/비공개 doc 분리 · 배포 전 baseline/설정 보존 + 회귀/롤백 · 순수 규칙 공유(38-03) · 38-04 를 wave 3 으로(wave 1·2 에 사람 체크포인트 0).
 Plans:
 **Wave 1**
 
 - [ ] 38-01-PLAN.md — 계약·키·검증(순수): reference 키 build/parse(D-04·D-19) · 등록 status/error enum 3벌 lockstep(D-05·D-09) · 폼 검증(D-07·D-08·D-14) · s3keys 영구 보관 주석(D-17) · SUPPLIER_UIDS 파서(D-12) [W1]
 - [ ] 38-02-PLAN.md — 앱: 3~90초 즉시 검사 + tooShort/tooLong 문구(D-14) · 촬영 문구 정정 14자리 + grep 게이트(D-15·D-16) · 마이 탭 강사 코드 한 줄(D-12·D-13) [W1]
-- [ ] 38-04-PLAN.md — 호스팅 측정(react-native-web 설치 → expo export → 시뮬 Safari 4가지) → belle 결정 체크포인트(Claude's Discretion) → 미선택 트랙 스킵을 파일로(SUMMARY skipped-by-decision · PLAN skipped · 38-13 depends_on 확정) [W1, 체크포인트]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 38-03-PLAN.md — docs/supplier-guide.md 7항목(D-18) + supplierCopy.ts 문구 단일점(UI-SPEC 글자 단위 · 실패 문구 6개 = analysis.ts 조인 규칙 대조) [W2, 38-01 뒤]
-- [ ] 38-05-PLAN.md — 실패 4형 순수 판정 registration_checks + hold_height.floor_reference_valid + 엔진 estimate_with_person_counts(D-09, Success ②) [W2]
-- [ ] 38-06-PLAN.md — Firestore 등록 writer 7종(create()·ref- 가드·angles ADD-only) + reference-upload-url Lambda(화이트리스트 SSM 런타임 ∪ BELLE_UID · probe · presign)(D-03·D-04·D-08) [W2]
+- [ ] 38-03-PLAN.md — docs/supplier-guide.md 7항목(D-18) + supplierCopy.ts 문구 단일점(UI-SPEC 리뷰판 글자 단위 · 실패 문구 7개 = analysis.ts 조인 규칙 대조 · R7/R11 정직 문구) + **호스팅 무관 순수 규칙**(supplierRules·supplierForm + 공용 fixture, 리뷰 R14) [W2, 38-01 뒤]
+- [ ] 38-05-PLAN.md — 실패 4형 순수 판정 registration_checks(순서: 측정 불가 low_confidence → 여러 명 → 서 있는 시작, 바닥 규칙 = PROXY 명시 — 리뷰 R6/R15b) + hold_height.floor_reference_valid + 엔진 estimate_with_person_counts(D-09, Success ②) [W2]
+- [ ] 38-06-PLAN.md — Firestore 등록 writer 13종(공개/비공개 batch create · 트랜잭션 claim/lease · job 가드 · 자기 재현성 권위 가드 — 리뷰 R2/R3/R4/R8/R13) + reference-upload-url Lambda(화이트리스트 SSM 런타임 ∪ BELLE_UID · probe · upload 키 서명 → create) + firestore.rules(비공개 서브문서·표식 쓰기 거부) + Rules REST 스크립트(D-03·D-04·D-08) [W2]
 
-**Wave 3** *(blocked on Wave 2 completion)*
+**Wave 3** *(blocked on Wave 2 completion — 38-04 의 belle 체크포인트가 여기서 처음 나온다)*
 
-- [ ] 38-07-PLAN.md — 파이프라인 reference/ 분기(Pod 부재 = queued, D-20) + _register_reference(같은 함수 순서 angles · 실패 6코드 · 자기 재현성 트리거)(D-05·D-10) [W3]
+- [ ] 38-07-PLAN.md — 파이프라인 reference/ 분기(Pod 부재 = queued, 쓰기 실패 = 재전달, claim 뒤 위임 — 리뷰 R3/R4) + _register_reference(head_object 크기 · copy→v1 ETag 고정 · probe 길이 · 같은 함수 순서 angles · max_split 튜플 · 실패 7코드 · 자기 재현성 선기록→doc→복사 — 리뷰 R1/R5/R6/R8/R9)(D-05·D-10) [W3]
+- [ ] 38-04-PLAN.md — 호스팅 측정(react-native-web 설치 → expo export + 후보 (2) probe 한 장 → 시뮬 Safari 같은 4가지 × 2 후보, 테스트 계정·uid 대조 — 리뷰 R14/R15d) → belle 결정 체크포인트(Claude's Discretion) → 미선택 트랙 스킵을 파일로(SUMMARY skipped-by-decision · PLAN skipped · 38-13 depends_on 확정) [W3, 체크포인트 — 리뷰 실행전략 #3 로 W1→W3]
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 38-08-PLAN.md — selfScore 훅 + Pod POST /register-reference + requeue 스크립트(기동 절차 7단계)(D-10·D-20) [W4]
+- [ ] 38-08-PLAN.md — selfScore 훅(기준 doc 권위 가드) + Pod POST /register-reference(jobId/claim) + requeue 스크립트(claim 경유 · --reclaim-stale · --sweep-expired, 기동 절차 7단계 — 리뷰 R2/R3/R4/R8)(D-10·D-20) [W4]
 - [ ] 38-10-PLAN.md — (후보 1) 페이지 핵심 Expo 라우트: 데이터 층 · A-1 로그인 · A-2 권한 없음 · A-3 홈 두 카드 · 실패/완료 상세(D-01·D-02·D-22) [W4, option-1 전용]
-- [ ] 38-12-PLAN.md — (후보 2, 조건부 대안) 정적 단일 페이지 HTML/CSS/JS — 같은 supplierCopy·상태기계 [W4, option-2 전용]
+- [ ] 38-12-PLAN.md — (후보 2, 조건부 대안) 정적 단일 페이지 HTML/CSS/JS — 같은 supplierCopy·상태기계 + 38-03 규칙을 type-strip ESM(rules.js)으로 공유 + 생성물 행동 테스트(리뷰 R14) [W4, option-2 전용]
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 38-09-PLAN.md — 인프라: template(새 함수·정책·env) → SSM supplier-uids → sam build/changeset → belle 검토 → 배포 · 버킷 알림 2항목 · lifecycle 해제(D-17) — 원본 저장·롤백 [W5, 체크포인트]
+- [ ] 38-09-PLAN.md — 인프라: (배포 전) legacy baseline + 5함수 설정/코드 보존 + 규칙 원본(리뷰 R10/R12) → template(새 함수·정책·env) → SSM supplier-uids → sam build/changeset → belle 검토 → 배포 · 설정 diff · 기존 API 회귀 · baseline 재diff · 버킷 알림 2항목 · lifecycle 해제(D-17) · 규칙 테스트/배포/probe(R2/R13) — 원본 저장·함수 단위 롤백 [W5, 체크포인트]
 - [ ] 38-11-PLAN.md — (후보 1) 올리기 폼 STEP 01/02 · 업로드 진행/취소 · 가이드 화면 A-6(D-07·D-08·D-14·D-18) [W5, option-1 전용]
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 38-13-PLAN.md — 페이지 배포(정적 버킷 + CloudFront OAC) → belle Authorized domain → belle 실기기 검증 + Figma 대조 [W6, 체크포인트]
+- [ ] 38-13-PLAN.md — 페이지 배포(정적 버킷 + CloudFront OAC; 재사용 리소스는 복원 롤백, 과금은 관측값만 — 리뷰 R12) → belle Authorized domain → belle 실기기 검증 + Figma 대조 [W6, 체크포인트]
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 38-14-PLAN.md — Pod E2E: 정은지 uid → SSM · Pod 기동(GPU 한 종류) · requeue · 등록 1건 → picker → mode1 완주(Success ①) · selfScore(③) · legacy 11 무접촉 diff(④) · teardown [W7, 체크포인트]
+- [ ] 38-14-PLAN.md — Pod E2E: 정은지 uid → SSM · Pod 기동(GPU 한 종류) · requeue(claim) · 등록 1건 → picker → mode1 완주(Success ① = belle 아닌 사람 완주 때만, 대역은 구조 검증 — 리뷰 R15e) · selfScore(③, 재분석 일관성 의미 — R11) · legacy 11 재diff 2회(④, 38-09 baseline 대비 — R10) · 재PUT 불변 실물(R5) · teardown [W7, 체크포인트]
 
 ---
 *Roadmap updated: 2026-09-22 (Phase 37 신설 — 시간이 갈수록 나아지는 분석 모델. belle 지시: "1년이든 몇 년이든 계속 똑똑해지는 모델", "다른 분석 종목에서도 쓸 수 있게 사람 동작에 대해 학습". 층 4분할(몸/종목/채점=모델아님/말) + 재학습은 데이터 누적형 B 확정(A 는 베이스 교체 때 다 날아감). 천장 = 교사가 Gemini 라 증류만으로는 못 넘음 → 강사 판정이 유일한 돌파 재료. 근거 = 2026-09-22 Mode1 실측(quick-260922-gnj) + belle 사진 판독. 금지 = 채점 모델화·사람 점수 라벨·각도 기준값 재보정.)*

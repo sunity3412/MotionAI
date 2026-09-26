@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-26 저녁 — Phase 38 공급자 링크 **계획 완료**(14 플랜 · 7 웨이브, plan-checker 2회차 차단 0 · 결정 22/22 · 요구 8/8). **착수점 = `.planning/phases/38-supplier-link/38-01-PLAN.md` 부터 — belle 첫 줄 `/gsd-execute-phase 38`.** 읽는 순서 38-CONTEXT(D-01~22, D-22 = Figma 필수) → 38-RESEARCH → 38-UI-SPEC → PLAN. belle 결정 체크포인트 3곳: 38-04(호스팅 — Expo web export vs 단일 HTML, 측정 뒤) · 38-09(sam deploy changeset · 버킷 알림 2항목 · lifecycle 해제) · 38-14(Pod E2E, `pod:go` 동의). 정은지 영상 오면 시험 영상 2차(`sealed_test.py`)가 먼저. Pod 작업 전 push. 코드 0줄(문서만), 커밋 전부 push."
+stopped_at: "2026-09-26 밤 — Phase 38 리뷰(Codex R1–R15) 반영 완료, **실행 금지 상태**: 반영본 검사에서 플랜 간 계약 불일치 차단 3 · 경고 2, 수정 에이전트가 Fable 크레딧 소진(429)으로 중단 — 미수정. **착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md`**(차단 3 수정안 + 결정). belle 첫 줄 `/gsd-plan-phase 38 --reviews` — 재계획 말고 이 파일만 수정 루프(플래너 1 + 검사 1) → 통과하면 커밋·push → `/gsd-execute-phase 38`. 주의: `.planning/config.json` model_overrides 가 GSD 에이전트 전부 fable(belle 결정 대기). 결정 체크포인트 3곳(38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`) 그대로. 정은지 영상 오면 시험 영상 2차 먼저. Pod 0, 코드 0줄."
 last_updated: "2026-09-26T09:23:45.237Z"
 last_activity: 2026-09-26
 progress:

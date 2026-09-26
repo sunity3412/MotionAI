@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-26 — 양면 플랫폼 기획안 초안 v0.1 작성 완료, belle 판정 대기. **착수점 = .planning/quick/260925-pln-two-sided-plan/260925-pln-HANDOFF.md(★절) → 기획안 정본 260925-pln-PLAN-two-sided.md §A 부터.** §A 결정 5건(Q1 같은 앱 공급자 모드 · Q2 링크 + 뒤쪽 자동화 4칸 · Q3 \"강사 먼저\" 한 칸 · Q4 놓을 곳 · Q5 --mark-holdout) 판정 전까지 끝 그림은 초안. 인계서 §4 파일 대조 완료(전부 확인, 정정 3, 미확인 1 닫힘 — yaml 키 = Gemini canonical, referenceMotionId 는 힌트; 버전 구조만 미대조). 코드 0줄. 정은지 영상 오면 봉인 시험지 2회 먼저. 상태 보드 미반영. Pod 0."
+stopped_at: "2026-09-26 — 양면 플랫폼 기획안 초안 v0.1 작성 완료, belle 판정 대기. **착수점 = .planning/quick/260925-pln-two-sided-plan/260925-pln-HANDOFF.md(★절) → 기획안 정본 260925-pln-PLAN-two-sided.md §A 부터.** §A 결정 5건(Q1 같은 앱 공급자 모드 · Q2 링크 + 뒤쪽 자동화 4칸 · Q3 \"강사 먼저\" 한 칸 · Q4 놓을 곳 · Q5 --mark-holdout) 판정 전까지 끝 그림은 초안. 09-26 2차: §B 벤치마킹 매칭 추가(결정 5건 + 설계 17건 + 벤치 없는 것 6건, 원문 인용 [확인] = 시장조사 §F). 인계서 §4 파일 대조 완료(전부 확인, 정정 3, 미확인 1 닫힘 — yaml 키 = Gemini canonical, referenceMotionId 는 힌트; 버전 구조만 미대조). 코드 0줄. 정은지 영상 오면 봉인 시험지 2회 먼저. 상태 보드 미반영. Pod 0."
 last_updated: "2026-09-26T02:09:11.000Z"
 last_activity: 2026-09-26
 progress:
@@ -209,7 +209,7 @@ Last activity: 2026-09-24 - 밤 마감 (260924-x9i): kip-up 카드 문장·사�
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
-| 260925-pln | **양면 플랫폼 기획안 초안 v0.1 — 끝 그림(역할 4·돈·권리·공급자↑→수요자↑ 고리) 먼저, 실증은 그 안의 구간(단계 0~4).** belle 결정 요청 §A 5건(Q1 같은 앱 공급자 모드 · Q2 링크 + 뒤쪽 자동화 4칸 · Q3 "강사 먼저" 한 칸 · Q4 놓을 곳 · Q5 --mark-holdout), 판정 형식. 인계서 §4 파일 대조: 전부 확인, 정정 3(RuntimeError 8905 · thumbs 는 constants/ · auto-register 필드 위치), [미확인] 닫힘(mode1 yaml 키 = Gemini canonical, referenceMotionId 는 힌트). 설계 초안 2(강사 기준 복제 · 기술 사전/기준 분리) belle 미승인. 코드 0 | 2026-09-26 | 6481e56f | [260925-pln-two-sided-plan](./quick/260925-pln-two-sided-plan/) |
+| 260925-pln | **양면 플랫폼 기획안 초안 v0.1 — 끝 그림(역할 4·돈·권리·공급자↑→수요자↑ 고리) 먼저, 실증은 그 안의 구간(단계 0~4).** belle 결정 요청 §A 5건(Q1 같은 앱 공급자 모드 · Q2 링크 + 뒤쪽 자동화 4칸 · Q3 "강사 먼저" 한 칸 · Q4 놓을 곳 · Q5 --mark-holdout), 판정 형식. 인계서 §4 파일 대조: 전부 확인, 정정 3(RuntimeError 8905 · thumbs 는 constants/ · auto-register 필드 위치), [미확인] 닫힘(mode1 yaml 키 = Gemini canonical, referenceMotionId 는 힌트). 설계 초안 2(강사 기준 복제 · 기술 사전/기준 분리) belle 미승인. 2차: §B 벤치마킹 매칭(원문 인용 [확인], 시장조사 §F) — Q3 는 X-Pole TV 반면교사로 "강사 칸 + 동작 목록" 한 몸. 코드 0 | 2026-09-26 | 6481e56f | [260925-pln-two-sided-plan](./quick/260925-pln-two-sided-plan/) |
 | 260925-nnt | **세 칸 수리(belle "고쳐봐") — 2칸 수리·1칸 보류, Pod 4090 12편 실측.** ① severity none 이어도 K-of-N 지목 승계(climb 왼팔 → 강사 질문 1줄) ② 몸 전체 패턴 `body_low`(엉덩이 1/3 전부 낮음) → power-spin 실수 카드 "낮은 위치에서 돌고 있어요" + 엉덩이 원, 68 불변 ③ 벌림 게이트 안 엶(2D peak split 이 tuck 에서도 180 포화). Pod 가 잡은 부작용 2건 정정: Gemini 숫자 split −20(kip-up 83→63) 차단 · "손이 낮다"는 검출 탈락(3봉). 정타 5/5=100 · 실수 68/83/60/60/80. 문장·사진 belle ○× 대기. 테스트 5126 | 2026-09-25 | a3c881ea, f9ca6d7f | [260925-nnt-three-fixes](./quick/260925-nnt-three-fixes/) |
 | 260925-mvh | **봉인 시험지 1회 — power-spin·climb 실수 0/2.** belle 정답을 카드 대조 전에 봉인(08fa54c0) → 09-24 Pod 카드와 대조. climb: belle "왼팔 접힌 채 돈다" vs 카드 오른고관절·무릎 둘(왼팔 0) — **Gemini 는 같은 것을 봤는데 severity none 으로 버림**. power-spin: belle "도는 높이·다리 벌림" vs 카드 무릎·어깨 — 높이는 잰 값(grip −0.646)만 있고 카드 배선 kip-up 전용, 벌림은 09-05 그대로 사문(belle 2번째 지적). 코드 0. 두 편은 연습 문제로 | 2026-09-25 | 08fa54c0 | [260925-mvh-sealed-test-power-spin-climb](./quick/260925-mvh-sealed-test-power-spin-climb/) |
 | 260924-x9i | 2026-09-24 밤 마감 인계서 — 착수점 교체(다음 = belle 사진 ○× · 봉인 시험지 대기), Pod 종료 확인 | 2026-09-24 | (이 커밋) | [260924-x9i-2026-09-24-night-close](./quick/260924-x9i-2026-09-24-night-close/) |

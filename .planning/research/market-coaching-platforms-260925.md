@@ -372,3 +372,33 @@ Peloton 관련 소스(Q1 FY2026 실적 발표, Q3 FY2026 실적 발표, Strength
    * *근거*: Peloton은 스타 강사 1명이 수만 명에게 일방향 방송을 전달하는 구조이므로, 유저 개개인의 영상을 직접 보고 맞춤 폼(Form) 교정을 주는 밀도 높은 피드백은 불가능합니다 [17, 59]. 수요자의 영상을 기준 동작과 1:1로 비교해야 하는 소규모 코칭 앱은 Peloton의 1:N 대량 방송 형식을 그대로 모방해서는 안 됩니다.
 
 ---
+
+## F. 09-26 원문 대조 — 벤치마킹 매칭용 인용 (기획안 §B 의 [확인] 근거)
+
+NotebookLM `21f482ad…` 에 "소스 원문 문장을 그대로 인용하라"로 물어 받은 문장. 소스 제목은 노트북 표기 그대로.
+
+### F-1. 코치 도구형 vs 마켓형 — Skillest · Onform · CoachNow · Trainera
+- Skillest (`Skillest vs Onform: Which Is Better for Your Golf Game in 2026?`): "Skillest is a complete coaching platform for golfers, where you find the coach, book the lessons, get the analysis, message with video, buy courses, and keep your whole improvement history in one app." / "The marketplace is the front door. You browse 1,000+ active coaches and filter by sport, location, language, gender, specialty, and price." / "Coaches and students can use Skillest's video analysis tools to play a video, annotate it, draw lines, compare it side by side or overlay with another golfer, add skeleton tracking…"
+- Skillest 과금 (`Skillest vs CoachNow for Coaches`): "Skillest charges a $59/mo for a coach subscription…" / "Skillest has a revenue share but it depends on what you are selling. 0% for in-person lessons and lesson packages. 1% for subscriptions that include in-person lessons. 13% for online lesson packages and subscriptions."
+- Onform (`Skillest vs Onform`): "You either use it with a coach who already uses Onform with their clients, or you use it as a coach yourself." / "Onform runs a coach-side subscription paired with optional athlete-side tiers" / "Coach Basic $19.99/mo · Coach Standard $39.99/mo · Coach Pro $59.99/mo" / "Lesson pricing | Coach-set outside the app" / "Onform isn't a marketplace. There's no public directory where students browse coaches and hire one, no verified reviews, no lesson booking, no courses to buy."
+- CoachNow (`Skillest vs CoachNow for Coaches`): "CoachNow is coach-side software, a private workspace. You create a "space" for each client, they post videos and messages, and you reply with annotated video, voice notes, drills, and progress logs." / "CoachNow takes no cut of your lessons, because it's a pure tool to communicate with clients." / "There is no public coach directory: you bring your own clients."
+- Trainera (`Trainera vs Future: 2026 Comparison | Trainera`): "Your own branded coaching app - clients, plans and payments in one place. Free up to 3 clients, no card. Web, iOS and Android under your brand…" / "a true white-label native app on the app stores under your own brand" / "Price | Free plan, then from $19.99 / 19.99 KM per month" / "Revenue | You bill clients and keep it" / "$19.99 per month for 10 clients, $49.99 for 30 and $99 for 75" / "a listing in the Trainera marketplace so new clients can find you"
+
+### F-2. 학원·강사 유치 차등 — Lessonface
+- (`I Found My Harpist on the Internet | Harp Column`): "Pricing: teacher-controlled, 15 percent of site referrals, four percent of teacher referrals" / "Lessonface takes 15 percent of student bookings from its site, and four percent from your own recruits you send to the site."
+
+### F-3. 원인 하나 + 처방 — SwingSmith · AI Golf School · Sportsbox
+- SwingSmith (`Sportsbox Alternative: Compare SwingSmith`): "SwingSmith emphasizes a current result flow: P10 checkpoints, written analysis, visual context, and one priority fix."
+- AI Golf School (`Sportsbox AI Alternatives: Single-Camera 3D Swing Analysis Compared - AI Golf School`): "Instead of a vague list of swing tips, every analysis isolates your single root-cause fault, tracks 33 skeletal joints in 3D through impact, and pairs you with a focused drill plan." / "directly from any phone browser without enterprise coaching pricing"
+- Sportsbox 분석 마비 (같은 AI Golf School 페이지 — 경쟁사 주장): "Seeing that your chest turn at P4 is 78 degrees while tour pros average 92 degrees is interesting, but for a 15-handicapper, raw numbers can cause analysis paralysis."
+
+### F-4. 기준 영상 + 규칙 합의, 평가기 검증 — 수술 평가
+- SAGES 2025 포스터 (`2025 SAGES Annual Meeting … Poster - FluidAI Medical`): "Two intermediate-level general surgery residents completed the SAGES VBA for LF rater training modules and independently scored 10 LF videos." / "After a meeting with SMEs to discuss discrepancies and develop a shared mental model, residents scored an additional set of 8 LF videos."
+- 크라우드 (`Technical Skills Assessment in Robotic Surgery: A Review of Recent Methods - MAHI Lab`): "…recruits nonexpert raters, often via services like Amazon Mechanical Turk, to score surgical videos using structured grading rubrics such as GEARS… These raters undergo brief training…"
+- 하위 5명 동일 식별 (`Crowdsourcing to Assess Surgical Skill - Amazon S3`): "…crowdsourcing skills assessment of robotic prostatectomies performed by 12 clinicians … Both crowds and surgeon reviewers identified the same bottom 5 surgeons ranked in order of their technical skill…"
+
+### F-5. 폴댄스 7곳 — 누가 올리나, 강사 도구, 진도 영상, 강사 이름 분류
+- PDA Online (`www.poledanceacademyonline.com | Online Classes`): "With real PDA instructors and thoughtfully designed classes…" / "special guest instructors + live on demand" / 후기 "They ask for progress videos and always send great feedback." / 메뉴에 "PDA instructor portal" 탭 이름만 존재, 강사 셀프 등록 도구 설명은 **소스 없음**.
+- PoleFreaks (`Online Pole Classes Review … : r/poledancing`): "this is a one-woman-show, since the production quality isn't that high…" · ODA: "The creme de la creme of pole dancing is featured as guest coaches." · Veena: "Veena often reply and help out if you leave a comment" · X-Pole TV: "They have famous instructors like Jamilla Deville and Natasha Wang." · CRNP: "There are a lot of instructors, so the style varies."
+- X-Pole TV 불만 (같은 r/poledancing 리뷰): "The site is categorized by instructors (why? It's not like people know every pole champion), and there is no search function. It's confusing to navigate." / "The most important issue here is that there is no curriculum or search function. Imagine you want to learn shoulder mount, but all you see are instructors' names."
+- 강사가 스스로 콘텐츠를 등록하는 도구: 7곳 모두 **소스 없음**.

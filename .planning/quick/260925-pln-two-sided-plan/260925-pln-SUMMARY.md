@@ -29,3 +29,9 @@ mode: inline
 
 ## 다음 세션 착수
 `260925-pln-HANDOFF.md` ★절 → 기획안 §A 의 belle 판정 → ○ 는 §10 단계표로, × 는 해당 절 재작성. 코드는 §10 순서(단계 0 봉인 시험지 → 단계 1 파일럿 깨는 것 4 → 단계 2 공급자 링크, belle 승인 뒤)를 넘지 않는다.
+
+## 09-26 2차 — 벤치마킹 매칭 §B (belle "벤치마킹해서 우리 앱에 가장 잘 어울리는 것을 적용한다")
+- 기획안 §A 바로 아래 §B 신설: B-1 결정 5건의 벤치 · B-2 설계 항목 17건의 벤치 · B-3 벤치 없는 것 6건(창조하는 자리).
+- NotebookLM 원문 인용 5회로 [확인] 승격(시장조사 정본 §F): Skillest/Onform 같은 앱 · CoachNow 전용 공간 · Trainera 화이트라벨 · Lessonface 15%/4% · SwingSmith one priority fix · AI Golf School root-cause+drill · SAGES shared mental model · C-SATS 하위 5명 동일 식별 · PDA progress videos · X-Pole TV "all you see are instructors' names" · 폴댄스 강사 셀프 등록 도구 소스 없음.
+- 관측 하나가 §A 를 보강했다: 강사만 보이는 홈은 X-Pole TV 가 실패했다 → Q3 는 "강사 칸 + 그 강사의 동작 목록" 이 한 몸.
+- 판정에 새로 들어간 것: 학원이 데려온 수강생은 수수료 낮게(Lessonface 형) — §1-4 초안, belle 미승인.

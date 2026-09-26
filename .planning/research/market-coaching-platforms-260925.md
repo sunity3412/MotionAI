@@ -425,3 +425,14 @@ NotebookLM `21f482ad…` 에 "소스 원문 문장을 그대로 인용하라"로
 - Cerebras llama3.1-8b: 2026-04 기준 입력 $0.075 / 출력 $0.225 per 1M (2차 출처 — pricepertoken.com, computecomparison.com 검색 요약; 공식 페이지는 표를 못 읽음). 건당 영향 $0.001 미만이라 정밀도 무의미.
 - RunPod L4 $0.49/hr = 메모리 실측(demo-only-pod-bring-up-procedure).
 
+### F-7. 촬영 조건 (09-26 3차 인용, Phase 38 SEED 촬영 기준 근거)
+- 골프 온라인 레슨 가이드 (`How Do Online Golf Lessons Work? - Golf Year Round`): "You need a smartphone capable of recording video at 60fps least, a tripod or phone holder to position the camera correctly, and decent lighting conditions." / "handheld or propped-up phones usually result in unusable camera angles." / "A true down-the-line view means the camera is positioned directly on the extension of your target line, roughly 10-12 feet behind you, with the lens at about mid-torso height. If the camera is even 10-15 degrees off this angle, it creates optical distortion…" / "Many golfers frame too tightly, cutting off the club head…" / "Shooting with the sun directly behind you creates a silhouette effect…" / "Computer vision algorithms can get confused when there are many people moving in the frame. A plain background … dramatically improves analysis quality."
+- 골프존 GDR AI (`뉴스1` · 리뷰 블로그): "화면을 터치하면 어드레스 자세를 인지해 자동으로 촬영을 시작한다. 피니시 자세를 마치면 촬영이 자동으로 종료된다." / "본인의 골프스윙을 정면, 측면에서 촬영을 하고" / 시뮬레이터 "정면과 측면의 양방향 카메라".
+- AI Golf School: "Any modern smartphone camera capable of recording at 30 or 60 frames per second works cleanly. High-speed 120 or 240 fps slow motion provides even clearer impact fidelity."
+- Sportsbox (`Sportsbox Alternative: Compare SwingSmith`): "golfers who want 3D measurements from slow-motion face-on video."
+- Onform (공식 페이지): "Capture 1080p HD video @ up to 240fps" / "Manual Shutter Speed … eliminate motion blur" / "In the Studio … Full control over lighting and angles."
+- SwingVision (`r/10s`): "The accuracy numbers are measured on dedicated courts with the Swing Stick fully extended 2 ft above the fence" / "I do see it making wrong calls in low-light conditions".
+- UNFORCE (`Tennis Video Analysis: UNFORCE vs …`): "It still requires a stable view, enough light and a visible court" / "Check the view. Record a short test with the court and both players visible. Review it before recording a longer session."
+- OpenCap 리뷰 (`Frontiers`): 안전바 가림으로 고관절 오차 상승 / 카메라를 등지고 걸을 때 오차 상승(후면 키포인트 인식 정확도 낮음).
+- 폴댄스 7곳·Skillest·CoachNow·SwingSmith: 세부 촬영 조건 **소스 없음**.
+

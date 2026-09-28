@@ -1263,6 +1263,14 @@ export interface AnalysisDoc {
   // 필터는 Phase 22 후속에서 반영해야 함). loading.tsx 가 항상 boolean 으로 기록.
   // 3-way lockstep: models.py + docs/contract.md §3 과 동시 갱신 (계약 변경 규약).
   learningOptIn?: boolean;
+  // Phase 38 D-10 — 이 분석이 기준 `reference/{refId}` 의 자기 재현성 분석임을 표시
+  // (값 = refId) + 그 등록 작업 id. 서버(38-07 `_trigger_self_check`)만 쓰고 38-08 훅이
+  // `self_check_authorized` 로 대조한 뒤 읽는다; 앱은 읽지도 쓰지도 않는다
+  // (`userAnalyses.normalize` 무접촉); 클라이언트 create/update 는 firestore.rules 가
+  // 거부(리뷰 R2). 3-way lockstep: models.py `ANALYSIS_FIELD_SELF_CHECK_FOR_REFERENCE`
+  // · `ANALYSIS_FIELD_SELF_CHECK_JOB_ID` + contract.md §3.
+  selfCheckForReference?: string | null;
+  selfCheckJobId?: string | null;
   // quick-260918-0q8 — 강사 교정 (v2). 앱(학생 세션)이 쓰고 백엔드는 읽지도 쓰지도
   // 않는다. `result` 밖 최상위인 이유는 CoachReview 주석 참조 — 사후 부분갱신이
   // result 를 건드려도 이 값은 안전하다.
@@ -1297,6 +1305,94 @@ export interface Checkpoint {
   joint: string; // COCO-17 keypoint 이름 (spine_mid 등 보간 관절 포함)
   weight: number;
   note?: string;
+}
+
+// ── Phase 38 — 공급자 링크 등록 계약 (models.py REGISTRATION_* 미러, contract.md §2/§3/§5) ──
+// 공급자(정은지·강사)가 링크 페이지로 기준 영상을 올리면 `reference/{refId}` doc 이
+// 아래 상태를 거쳐 picker 에 뜬다. AnalysisStatus/AnalysisErrorCode 와 **별개 enum** —
+// 분석 doc 의 status 머신에 절대 섞지 않는다(models.py COACH_STATUSES 선례).
+// 전이: registering → queued|processing|expired · queued → processing ·
+//       processing → active|failed|processing(lease 재claim) · active/failed/expired 종결
+//       (failed 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(리뷰 R4).
+export type ReferenceRegistrationStatus =
+  | 'registering'
+  | 'queued'
+  | 'processing'
+  | 'failed'
+  | 'active'
+  | 'expired';
+
+// 자기 재현성 분석(D-10) 진행 — 기준 doc `selfCheckStatus`. 등록 상태와 독립.
+export type SelfCheckStatus = 'pending' | 'queued' | 'done' | 'failed';
+
+// 등록 실패 코드 — models.py REGISTRATION_ERROR_CODES 와 같은 문자열·같은 순서.
+// too_large = 실제 객체 크기(head_object)가 100MB 초과(리뷰 R9), 클라이언트 메타와 별개.
+export type ReferenceRegistrationErrorCode =
+  | 'no_human'
+  | 'multiple_people'
+  | 'no_standing_start'
+  | 'low_confidence'
+  | 'too_short'
+  | 'too_long'
+  | 'too_large'
+  | 'server_error';
+
+export interface ReferenceRegistrationError {
+  code: ReferenceRegistrationErrorCode;
+  message: string; // REGISTRATION_ERROR_MESSAGE[code] ({joints} 치환 뒤)
+  joints?: string[]; // low_confidence — KEYPOINT_LABEL_KO 한국어 부위명 목록 (38-05 가 채움)
+}
+
+// 동의 기록(기획안 §6 문안). 필수 3(portrait·usage·silent)은 검증 통과 = 전부 true,
+// training 은 기본 false(D-08). version·at·uid 는 서버가 붙인다 — 본문 값은 무시(T-38-01-4).
+export interface ReferenceConsent {
+  portrait: boolean;
+  usage: boolean;
+  silent: boolean;
+  training: boolean;
+  version: string; // models.py CONSENT_VERSION
+  at: number; // epoch ms (서버 시각)
+  uid: string;
+}
+
+// 공급자 폼의 선택 구간 입력(D-06 — 손 입력 유지 가능, 없으면 런타임 DTW 폴백).
+// 기준 doc 의 5-필드 `ClipRange` 가 아니라 실행 구간 두 시각만 받는다 — 38-06 이 비공개
+// doc `clipRange` 에 이 모양 그대로 적고, validation.py 가 (start, end) 튜플로 검증한다.
+export interface ReferenceClipRangeInput {
+  execStartS: number;
+  execEndS: number;
+}
+
+// POST /reference/upload-url 요청 — uid/refId 필드는 두지 않는다(키는 서버가 토큰 uid +
+// 서버 생성 refId 로만 구성, T-38-01-2). 서버 2차 검증 = validation.validate_reference_upload_request.
+export interface ReferenceUploadUrlRequest {
+  name: string; // 동작 이름 (≤ 30자)
+  athleteName: string;
+  level: SkillLevel;
+  techniqueRefId?: string | null; // 사전 선택한 기존 motionId — 등록 정보로만 보관(R7)
+  isCombo: boolean; // true 면 길이 상한 60초
+  isSplit: boolean;
+  hasHold: boolean;
+  standingStart: boolean; // false 는 서버가 400 으로 거부(D-09 사전 차단)
+  clipRange?: ReferenceClipRangeInput | null;
+  consent: { portrait: boolean; usage: boolean; silent: boolean; training: boolean };
+  format: VideoFormat;
+  fileSizeBytes: number;
+  durationSec?: number | null; // 웹이 metadata 를 못 읽으면 null (fail-open, RESEARCH A12)
+}
+
+export interface ReferenceUploadUrlResponse {
+  refId: string; // 기준 doc ID = Firestore reference/{refId}
+  uploadUrl: string; // S3 presigned PUT URL — upload.{ext} 키에만 발급(R5)
+  s3Key: string; // reference/{uid}/{refId}/upload.{ext}
+  expiresInSec: number; // = models.py REFERENCE_UPLOAD_EXPIRES_SEC (doc uploadExpiresAt 과 같은 값)
+}
+
+// `{"probe": true}` 변형 응답 — 화이트리스트 확인만(페이지 진입 게이트, D-12).
+export interface SupplierProbeResponse {
+  probe: true;
+  uid: string;
+  supplierCode: string | null; // SUPPLIER_UIDS 의 `uid:CODE` — 코드 없으면 null
 }
 
 export interface ReferenceMotion {
@@ -1370,6 +1466,49 @@ export interface ReferenceMotion {
   // D-03 / SC#4 — 단일시점 v1 reference 는 모두 captureViews=1. 다각도 부재 시
   // confidence 를 낮게 표기하기 위한 플래그 (RESEARCH A5 / Open-Q4 default).
   captureViews?: number;
+
+  // ── Phase 38 공급자 링크 등록 — 공개 doc 필드 (`// register` = reference-upload-url
+  // Lambda + pipeline._register_reference 가 채움, reference-motions.md §3 어법).
+  // 공개 doc 은 인증자 전체가 읽는다(firestore.rules) — picker·상태·점수·작업 필드만.
+  // 동의·실패 상세·선언·techniqueRefId 는 **여기 두지 않고** 비공개 서브문서
+  // `ReferenceRegistrationPrivate` 로(리뷰 R13). AnalysisStatus/ERROR_MESSAGE 무접촉.
+  isActive?: boolean; // seed · register — 등록 중 false, active 전이 때 true (picker 가 거른다)
+  supplierUid?: string; // register — 올린 공급자 uid (페이지 목록 조회 조건)
+  supplierCode?: string; // register — SUPPLIER_UIDS 의 강사 코드(D-12), 없으면 필드 없음
+  source?: 'supplier-link'; // register — 손 등록 11개(seed)와 구분
+  registrationStatus?: ReferenceRegistrationStatus; // register — AnalysisStatus 와 별개 enum
+  queuedReason?: string | null; // register — queued 사유(Pod 부재 등, 안내 알약 문구)
+  registrationUpdatedAt?: number; // register — epoch ms, 상태 전이 시각
+  uploadKey?: string; // register — reference/{uid}/{refId}/upload.{ext}; 재개 스크립트 전용, 재생 금지
+  uploadExpiresAt?: number; // register — epoch ms, presign 만료(R4 스윕 기준; 민감정보 아님)
+  videoS3Key?: string; // seed · register — 등록은 **v1 키만**(reference/{uid}/{refId}/v1.{ext}, R5) — upload 키 금지
+  videoETag?: string; // register — v1 객체 ETag(R5, 등록 산출물과 영상을 묶는다)
+  jobId?: string | null; // register — 현재 등록 작업 id(R3 claim). 완료/실패 쓰기는 일치할 때만
+  leaseUntil?: number | null; // register — epoch ms, claim lease 만료(R3). 만료 뒤에만 재claim
+  selfScore?: number | null; // register — 자기 재현성 점수(D-10), 38-08 훅이 씀
+  selfCheckStatus?: SelfCheckStatus; // register
+  selfCheckAnalysisId?: string | null; // register — 예정된 자기 분석 doc id(R8: 분석 doc 생성 전에 먼저 기록)
+  selfCheckJobId?: string | null; // register — 자기 분석을 만든 등록 작업 id(R2·R8 권위 검사 재료)
+  anglesRealFps?: number; // reprocess · register — angles 의 실제 fps (ref-경계 제외에 필요)
+  referenceSplitAngle?: number | null; // seed · register — 벌림 peak(deg); 38-07 R1: 유한값만 저장
+  createdAt?: number; // register — epoch ms, 선작성 시각
+}
+
+// 비공개 서브문서 `reference/{refId}/private/registration` (리뷰 R13, models.py
+// reference_private_path). 읽기 = `supplierUid == request.auth.uid` 만, 쓰기 = 서버
+// (firestore.rules 38-06 T3). 페이지는 상세(실패 문구·선언 표·다시 올리기 프리필)에서만
+// 이 doc 을 읽는다 — 목록은 공개 doc 구독만.
+export interface ReferenceRegistrationPrivate {
+  supplierUid: string;
+  consent: ReferenceConsent;
+  registrationError?: ReferenceRegistrationError | null; // registrationStatus==='failed'
+  techniqueRefId: string | null; // 등록 정보로 보관 — 채점 소비 배선 없음(R7)
+  isCombo: boolean;
+  isSplit: boolean;
+  hasHold: boolean;
+  standingStart: boolean;
+  clipRange?: ReferenceClipRangeInput | null;
+  updatedAt: number; // epoch ms
 }
 
 // ── Pose Engine 데이터 계약 (Phase 1, D-04/D-05/D-11/D-12) ─────────────────
@@ -2224,6 +2363,24 @@ export const ERROR_MESSAGE: Record<AnalysisErrorCode, string> = {
   server_error: '분석 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.',
   not_pole_motion:
     '선택한 기준 동작과 너무 달라요. 폴스포츠 동작이 맞는지 확인하고 다시 시도해주세요.',
+};
+
+// Phase 38 — 기준 등록 실패 문구. models.py REGISTRATION_ERROR_MESSAGE 와 글자 단위 동일
+// (contract.md §5; tests/test_registration_contract.py 가 이 파일 텍스트를 대조한다).
+// no_human 만 기존 ERROR_MESSAGE.no_human 참조(D-09) — 공급자 페이지 `row.fail.no_human`
+// 문구와 다른 것이 의도된 예외. 나머지 7개 = UI-SPEC `row.fail.<code>.title + '. ' + body`.
+// low_confidence 의 `{joints}` 는 서버가 치환한 message 로 도착한다(페이지는 치환하지 않는다).
+export const REGISTRATION_ERROR_MESSAGE: Record<ReferenceRegistrationErrorCode, string> = {
+  no_human: ERROR_MESSAGE.no_human,
+  multiple_people: '영상에 여러 사람이 나와요. 한 사람만 나오게 다시 촬영해 주세요.',
+  no_standing_start:
+    '서 있는 자세로 시작하지 않았어요. 서 있는 자세에서 시작해 주세요. 폴 옆에 서서 1초쯤 있다가 동작을 시작하면 돼요.',
+  low_confidence:
+    '일부 관절을 못 읽었어요. 잘 안 보인 부위: {joints}. 밝은 곳에서, 옷과 배경이 구분되게 다시 촬영해 주세요.',
+  too_short: '영상이 너무 짧아요. 기준 동작은 5초 이상이어야 해요. 동작 전체가 담기게 다시 올려주세요.',
+  too_long: '영상이 너무 길어요. 동작 하나는 30초 이내로 올려주세요. 콤보는 60초까지예요.',
+  too_large: '용량이 너무 커요. 100MB 이하 영상으로 다시 올려주세요.',
+  server_error: '등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.',
 };
 
 // 로딩 화면 단계 진행 순서 (design.md §5-9). failed 는 별도 처리.

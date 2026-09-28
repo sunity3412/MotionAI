@@ -234,6 +234,67 @@ analysisId  string   본인 소유 분석 건
 - **`feature_disabled` 는 조용히 처리:** flag OFF 응답을 받으면 앱은 에러를 띄우지 않고
   버튼을 비활성화한다 (D-08 조용한 폴백). R3F 뷰어는 그대로 표시된다.
 
+### POST /reference/upload-url
+공급자 링크(Phase 38, Plan 38-01 계약 / 38-06 Lambda) — 기준 영상 presigned PUT URL 발급 +
+`reference/{refId}` doc 선작성. 학생 `POST /upload-url` 과 **별도 함수**(`reference-upload-url`,
+`reference/*` PutObject + Firestore 쓰기 권한이 추가로 필요, 얇은 핸들러 규율).
+
+인증: Firebase ID 토큰 + **공급자 uid 화이트리스트** — SSM `/sunity/motion/supplier-uids`
+(`models.SUPPLIER_UIDS_PARAM_DEFAULT`, 항목 `uid` 또는 `uid:CODE`, `models.parse_supplier_uids`)
+∪ `BELLE_UID`. env 미설정 = 403 (Shared Pattern 2 — 화이트리스트 부재는 거부).
+
+요청 `ReferenceUploadUrlRequest` (서버 2차 검증 = `validation.validate_reference_upload_request`,
+D-07/D-08/D-14 — 본문에 uid/refId 필드는 없다, 키는 서버가 토큰 uid + 서버 생성 refId 로만 구성)
+```
+name             string                 동작 이름 (strip, 1~30자 — REFERENCE_NAME_MAX_LEN)
+athleteName      string                 선수 이름 (strip, 1~30자)
+level            'basic'|'intermediate'|'advanced'   REFERENCE_LEVELS (picker normalize 가 버리지 않는 값)
+techniqueRefId?  string | null          사전 선택한 기존 motionId — 등록 정보로만 보관, 채점 소비 없음 (리뷰 R7)
+isCombo          boolean                부재 = false. true 면 길이 상한 60초
+isSplit          boolean                선언 4 — bool 만 (int 위장 거부)
+hasHold          boolean                선언 4
+standingStart    boolean                선언 4 — false 는 400 bad_request (D-09 사전 차단)
+clipRange?       { execStartS, execEndS } | null   선택(D-06). 0 ≤ start < end. 비공개 doc 에 그대로 저장
+consent          { portrait, usage, silent, training }   필수 3 은 true 만 통과, training 부재 = false (D-08)
+format           'mp4' | 'mov'
+fileSizeBytes    number                 > 0, ≤ 100MB (서버 재검증). 실제 객체 크기는 파이프라인 head_object 가 따로 거른다(R9 too_large)
+durationSec?     number | null          웹이 metadata 를 못 읽으면 null (fail-open). 있으면 5~30초, 콤보 60초
+```
+
+`{"probe": true}` 변형 — 화이트리스트 확인만(페이지 진입 게이트, D-12), 부작용 0.
+응답 `SupplierProbeResponse`
+```
+probe          true
+uid            string
+supplierCode   string | null   SUPPLIER_UIDS 의 `uid:CODE`, 없거나 형식 오류면 null
+```
+
+응답 `ReferenceUploadUrlResponse`
+```
+refId          string   기준 doc ID = Firestore reference/{refId} (서버 생성, 32 hex)
+uploadUrl      string   S3 presigned PUT URL — **upload 키에만** 발급 (리뷰 R5)
+s3Key          string   reference/{uid}/{refId}/upload.{ext} (s3keys.build_reference_upload_key)
+expiresInSec   number   = models.REFERENCE_UPLOAD_EXPIRES_SEC (900) — doc uploadExpiresAt 과 같은 값 (리뷰 R4)
+```
+
+오류
+```
+401  unauthorized         토큰 없음/무효
+403  forbidden            화이트리스트 밖 (env 미설정 포함)
+400  bad_request          폼 메타·선언·동의·clipRange 규칙 위반 (message 는 한국어 안내)
+400  unsupported_format   format ∉ mp4/mov (ERROR_MESSAGE 재사용)
+400  size_exceeded        fileSizeBytes > 100MB (ERROR_MESSAGE 재사용)
+400  too_short            durationSec < 5초 (REGISTRATION_ERROR_MESSAGE.too_short)
+400  too_long             durationSec > 30초 (콤보 60초) (REGISTRATION_ERROR_MESSAGE.too_long)
+500  server_error         presign/Firestore 실패
+```
+
+부작용: `reference/{refId}` 공개 doc + `reference/{refId}/private/registration` 비공개 doc 을
+**배치 `create()`** 로 선작성 — 공개 doc `registrationStatus: 'registering'`, `isActive: false`,
+`uploadKey`, `uploadExpiresAt`(R4); 비공개 doc 에 동의(서버가 version/at/uid 부착)·선언·
+techniqueRefId·clipRange (리뷰 R13). 필드 분배 표는 §3. 이후 S3 ObjectCreated(upload 키) →
+SQS → pipeline `_register_reference`(38-07) 가 `processing → active|failed` 로 옮긴다.
+
 > 참고: backend/CLAUDE.md 의 `POST /analyze`, `GET /history/{userId}` 는
 > 본 계약에선 각각 "S3 트리거 자동 실행", "Firestore 직접 쿼리"로 대체한다
 > (앱은 분석 트리거 API를 직접 호출하지 않고, 기록은 users/{uid}/analyses 쿼리).
@@ -244,7 +305,8 @@ analysisId  string   본인 소유 분석 건
 
 ```
 users/{uid}/analyses/{analysisId}   AnalysisDoc   분석 진행/결과
-reference/{motionId}        ReferenceMotion  기준 모션 (읽기 전용)
+reference/{motionId}        ReferenceMotion  기준 모션 (읽기 전용; Phase 38 등록 필드는 공개 doc)
+reference/{refId}/private/registration   ReferenceRegistrationPrivate   Phase 38 등록 비공개 메타 (공급자 본인 읽기, 서버 쓰기 — 리뷰 R13)
 ```
 
 `AnalysisDoc`
@@ -269,12 +331,32 @@ learningOptIn? boolean             학습활용 동의값 (Phase 26, D-08/D-09).
                                    소비 예정: Phase 22 manifest 게이트가 learningOptIn===true
                                    인 분석의 영상만 학습 후보로 삼아야 함 — 게이트측 필터는
                                    Phase 22 후속 반영 필요 (현 22-04 는 아직 미집행).
+selfCheckForReference? string | null   Phase 38 D-10 자기 재현성 표식 — 이 분석이 기준
+                                   reference/{refId} 의 자기 재현성 분석임을 표시(값 = refId).
+                                   기록 주체 = 파이프라인 `_trigger_self_check`(38-07,
+                                   create_analysis_doc payload 키 = models.py
+                                   ANALYSIS_FIELD_SELF_CHECK_FOR_REFERENCE — 리터럴 금지).
+                                   소비 = selfScore 훅(38-08 `_record_self_score_if_needed` /
+                                   `_mark_self_check_failed_if_needed`, `self_check_authorized`
+                                   대조 뒤에만). 앱 무접촉(userAnalyses.normalize 가 읽지 않는다).
+                                   클라이언트 create/update 는 firestore.rules 가 거부(리뷰 R2).
+selfCheckJobId? string | null      위 자기 분석을 만든 등록 작업 id(리뷰 R2·R8) — 기준 doc
+                                   selfCheckJobId 와 일치할 때만 훅이 selfScore/실패를 쓴다.
+                                   기록·소비·규칙은 selfCheckForReference 와 같다
+                                   (models.py ANALYSIS_FIELD_SELF_CHECK_JOB_ID).
 ```
 
 > Phase 26 (Plan 26-03) — learningOptIn 신설. app 이 기록만 하고 backend 파이프라인/
 > 게이트는 무접촉 (models.py 는 주석-only 계약 미러). 3-way lockstep:
 > 본 §3 + app/src/types/analysis.ts AnalysisDoc.learningOptIn +
 > backend/shared/python/sunity_shared/models.py 주석 미러. 세 곳 동시 갱신 필수.
+
+> Phase 38 (Plan 38-01) — selfCheckForReference · selfCheckJobId 신설. 서버(38-07)만
+> 쓰고 38-08 훅만 읽는다; 앱은 읽지도 쓰지도 않는다. 두 문자열 리터럴은 models.py
+> `ANALYSIS_FIELD_SELF_CHECK_FOR_REFERENCE` · `ANALYSIS_FIELD_SELF_CHECK_JOB_ID` 한 곳에만 —
+> 38-07 writer · 38-08 reader 는 그 상수만 쓴다. 3-way lockstep: 본 §3 +
+> app/src/types/analysis.ts AnalysisDoc.selfCheckForReference/selfCheckJobId + models.py 상수.
+> 클라이언트가 두 표식을 만들거나 바꾸는 create/update 는 firestore.rules(38-06 T3)가 거부한다.
 
 쓰기 권한
 ```
@@ -294,7 +376,7 @@ entryDescription?  string                 진입 방식 상세 (사용자 안내
 description?       string
 videoUrl?          string                 HTTPS presigned URL (S3, 7일 서명) — 앱 동작 비교 영상 재생
 videoUrlExpiresAt? number (epoch ms)      위 URL 만료 시각 (재시드 시점 추정)
-videoS3Key?        string                 'reference/{motionId}.mp4' — 백엔드 pipeline mode1 비교 영상 서명 URL 발급에 사용
+videoS3Key?        string                 'reference/{motionId}.mp4' — 백엔드 pipeline mode1 비교 영상 서명 URL 발급에 사용. 공급자 링크 등록은 `reference/{uid}/{refId}/v1.{ext}` — 불변 확정 키, upload 키 금지(R5)
 thumbnailUrl?      string
 clipRange?         ClipRange              구간 시점(초)
 checkpoints?       Checkpoint[]           KISMAM 가중 관절 (weight 합 1.0)
@@ -310,6 +392,74 @@ techniqueProfile?  { name, category, jointExpectations } EXTEND joint_expectatio
 forceDirectionPattern? ForcePatternInference  힘 방향 패턴 (§9.11 shape). Phase 14 백필. nullable (D-01/SC#2)
 captureViews?      number                 단일시점 v1 = 1 (D-03/SC#4). 다각도 부재 시 confidence 낮춤 (RESEARCH A5)
 updatedAt?         number (epoch ms)
+
+# ── Phase 38 공급자 링크 등록 필드 (공개 doc — 인증자 전체 읽기; picker·상태·점수·작업 필드만) ──
+isActive?          boolean                등록 중 false, active 전이 때 true — picker normalize 가 false 를 거른다
+supplierUid?       string                 올린 공급자 uid (페이지 목록 조회 조건 — 접근 제어 아님)
+supplierCode?      string                 SUPPLIER_UIDS 의 강사 코드(D-12). 없으면 필드 없음
+source?            'supplier-link'        손 등록 11개(seed)와 구분
+registrationStatus? 'registering'|'queued'|'processing'|'failed'|'active'|'expired'
+                                          **AnalysisStatus 와 별개 enum** (models.py REGISTRATION_STATUSES,
+                                          analysis.ts ReferenceRegistrationStatus). 전이: registering →
+                                          queued|processing|expired · queued → processing · processing →
+                                          active|failed|processing(lease 재claim) · active/failed/expired 종결
+                                          (failed 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(R4)
+queuedReason?      string | null          queued 사유(Pod 부재 등) — 페이지 안내 알약
+registrationUpdatedAt? number (epoch ms)  상태 전이 시각
+uploadKey?         string                 reference/{uid}/{refId}/upload.{ext} — 재개 스크립트 전용, 재생 금지
+uploadExpiresAt?   number (epoch ms)      presign 만료 = 발급 시각 + REFERENCE_UPLOAD_EXPIRES_SEC (R4 스윕 기준; 민감정보 아님)
+videoETag?         string                 v1 객체 ETag (R5 — 등록 산출물과 영상을 묶는다)
+jobId?             string | null          현재 등록 작업 id (R3 claim). 완료/실패 쓰기는 doc.jobId 일치 때만
+leaseUntil?        number (epoch ms) | null   claim lease 만료 = claim 시각 + REGISTRATION_LEASE_SEC. 만료 뒤에만 재claim
+selfScore?         number | null          자기 재현성 점수 (D-10, 38-08 훅이 씀)
+selfCheckStatus?   'pending'|'queued'|'done'|'failed'   models.py SELF_CHECK_STATUSES
+selfCheckAnalysisId? string | null        예정된 자기 분석 doc id (R8 — 분석 doc 생성 **전에** 먼저 기록)
+selfCheckJobId?    string | null          자기 분석을 만든 등록 작업 id (R2·R8 `self_check_authorized` 재료)
+anglesRealFps?     number                 angles 의 실제 fps (ref-경계 제외에 필요; 없으면 fail-open)
+referenceSplitAngle? number | null        벌림 peak(deg) — 38-07 R1: 유한값만 저장
+createdAt?         number (epoch ms)      선작성 시각
+```
+
+> Phase 38 (Plan 38-01) — 공급자 링크 등록 필드 신설. 위 등록 필드는 전부 OPTIONAL —
+> 손 등록 11개 legacy doc 은 무접촉(D-19), picker `normalize()` 는 name·athleteName·level·
+> isActive 만 본다. 3-way lockstep: 본 §3 + app/src/types/analysis.ts ReferenceMotion(`// register`
+> 주석) + models.py REGISTRATION_* / SELF_CHECK_* 상수 + docs/reference-motions.md §3.
+> **공개 doc 에 두지 않는 것(R13):** consent · registrationError · techniqueRefId · isCombo ·
+> isSplit · hasHold · standingStart · clipRange(등록 입력) → 아래 비공개 서브문서.
+
+`reference/{refId}/private/registration` — `ReferenceRegistrationPrivate` (Phase 38, 리뷰 R13)
+```
+supplierUid        string                 = 공개 doc supplierUid (규칙의 읽기 조건 재료)
+consent            { portrait, usage, silent, training, version, at, uid }
+                                          필수 3 = true 만 통과, training 기본 false (D-08). version =
+                                          models.CONSENT_VERSION, at/uid 는 서버가 붙인다 (본문 값 무시)
+registrationError? { code, message, joints? } | null   registrationStatus='failed' 일 때.
+                                          code ∈ REGISTRATION_ERROR_CODES, message = REGISTRATION_ERROR_MESSAGE[code]
+                                          ({joints} 치환 뒤), joints = KEYPOINT_LABEL_KO 부위명 (low_confidence)
+techniqueRefId     string | null          사전 선택한 기존 motionId — 등록 정보로만 보관 (R7)
+isCombo            boolean
+isSplit            boolean                선언 4 (D-07)
+hasHold            boolean
+standingStart      boolean                검증 통과 = 항상 true (false 는 400)
+clipRange?         { execStartS, execEndS } | null   폼 선택 입력 (D-06)
+updatedAt          number (epoch ms)
+```
+
+접근 규칙: 읽기 = `supplierUid == request.auth.uid` 인 공급자 본인만, 쓰기 = 서버(Admin SDK)만 —
+firestore.rules 는 38-06 T3 가 기존 `reference/{document=**}` 재귀 와일드카드를 `reference/{refId}` 로
+좁힌 뒤 private 블록을 더한다. 이유: `reference/**` 가 인증자(익명 포함) 전체 읽기라 동의·실패
+상세를 공개 doc 에 두면 모든 사용자에게 읽힌다(리뷰 R13).
+
+공개/비공개 필드 분배 (어느 doc 에 어느 필드가 있는가)
+```
+공개  reference/{refId}                      motionId · name · athleteName · level · isActive · supplierUid ·
+                                            supplierCode · source · registrationStatus · queuedReason ·
+                                            registrationUpdatedAt · uploadKey · uploadExpiresAt · videoS3Key(v1) ·
+                                            videoETag · jobId · leaseUntil · selfScore · selfCheckStatus ·
+                                            selfCheckAnalysisId · selfCheckJobId · angles* · anglesRealFps ·
+                                            referenceKeypointReport · referenceSplitAngle · createdAt · updatedAt
+비공개 reference/{refId}/private/registration  supplierUid · consent · registrationError · techniqueRefId ·
+                                            isCombo · isSplit · hasHold · standingStart · clipRange · updatedAt
 ```
 
 > Phase 14 (Plan 14-01) — techniqueProfile / forceDirectionPattern / captureViews
@@ -819,6 +969,20 @@ not_pole_motion     선택한 기준 동작과 너무 달라요. 폴스포츠 �
 ```
 
 `not_pole_motion` — mode1 비교 시 KISMAM similarity 가 `models.NOT_POLE_SIMILARITY_THRESHOLD`(현재 25) 미만이면 백엔드 pipeline 이 `NotPoleMotionError` 로 분기. mode3 는 reference 가 없어 적용 불가.
+
+`REGISTRATION_ERROR_MESSAGE` (Phase 38 기준 등록 실패 — models.py = analysis.ts 글자 단위 동일, 비공개 doc `registrationError.message`)
+```
+no_human            영상에서 사람을 찾지 못했어요. 전신이 보이게 다시 촬영해주세요.
+multiple_people     영상에 여러 사람이 나와요. 한 사람만 나오게 다시 촬영해 주세요.
+no_standing_start   서 있는 자세로 시작하지 않았어요. 서 있는 자세에서 시작해 주세요. 폴 옆에 서서 1초쯤 있다가 동작을 시작하면 돼요.
+low_confidence      일부 관절을 못 읽었어요. 잘 안 보인 부위: {joints}. 밝은 곳에서, 옷과 배경이 구분되게 다시 촬영해 주세요.
+too_short           영상이 너무 짧아요. 기준 동작은 5초 이상이어야 해요. 동작 전체가 담기게 다시 올려주세요.
+too_long            영상이 너무 길어요. 동작 하나는 30초 이내로 올려주세요. 콤보는 60초까지예요.
+too_large           용량이 너무 커요. 100MB 이하 영상으로 다시 올려주세요.
+server_error        등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.
+```
+
+`no_human` 은 기존 `ERROR_MESSAGE.no_human` 재사용(D-09) — 공급자 페이지 `row.fail.no_human` 제목/본문(Figma `1:479`)과 다르다, 의도된 예외. 나머지 7개 = UI-SPEC `row.fail.<code>.title + '. ' + body`(38-03 `supplierCopy.test.ts` 가 이 규칙으로 대조). `low_confidence` 의 `{joints}` 는 파이프라인이 `str.replace` 로 치환한다(`str.format` 금지). `too_large` 는 실제 객체 크기를 다운로드 전 `head_object` 로 거른 결과(리뷰 R9).
 
 ---
 

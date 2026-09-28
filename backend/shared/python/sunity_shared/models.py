@@ -6,6 +6,8 @@ PoseFrame/PoleAxis 는 analysis/pose_frame.py 에 정의 (lockstep with app/src/
 
 from __future__ import annotations
 
+import re
+
 # ── 분석 모드 (contract.md §2 / ml_CLAUDE.md) ──────────────────────────
 MODE_EXPERT = "mode1"  # 정은지(전문가) 비교
 MODE_SELF = "mode3"  # 자기 성장 추적
@@ -606,6 +608,27 @@ PAIN_AREAS = (
 #   belle 2026-07-13 일괄승인(--bulk-approval + 컷오프 2026-07-13)으로 파일럿 이전
 #   문서만 예외 통과(LICENSE-AUDIT §7-1). 필드 계약 자체는 불변 — 3-way lockstep 유지.
 
+# ── Phase 38 D-10 (Plan 38-01) — 자기 재현성 분석 doc 표식 (문자열 리터럴은 여기 한 곳) ──
+# 사람용 명세: docs/contract.md §3 AnalysisDoc "selfCheckForReference". TS 미러:
+# app/src/types/analysis.ts (AnalysisDoc.selfCheckForReference?: string | null). 이 셋
+# (analysis.ts / models.py / contract.md)이 바뀌면 동시 갱신 필수 (3-way lockstep).
+#
+# 의미: 공급자 링크로 등록된 기준 `reference/{refId}` 의 **자기 재현성 분석**(같은
+#   영상을 학생 경로로 한 번 더 돌려 추출·저장이 일관되는지 보는 분석)임을 표시.
+#   값 = 기준 refId.
+# 쓰기 = `pipeline._trigger_self_check`(38-07) 의 `create_analysis_doc` payload 키.
+# 읽기 = `_record_self_score_if_needed` / `_mark_self_check_failed_if_needed`(38-08).
+# 앱은 읽지도 쓰지도 않는다(`userAnalyses.normalize` 무접촉). 38-07/38-08 은 이 상수만
+#   쓴다 — 리터럴 "selfCheckForReference" 를 다른 파일에 적지 않는다.
+# 클라이언트가 이 두 표식을 만들거나 바꾸지 못하게 firestore.rules 가 막는다(38-06 T3,
+#   리뷰 R2 — `users/{uid}/**` 는 본인 쓰기 허용이라 규칙 없이는 위조 가능).
+ANALYSIS_FIELD_SELF_CHECK_FOR_REFERENCE = "selfCheckForReference"
+# 리뷰 R2·R8 — 자기 재현성 분석 doc 에 서버가 같이 적는 등록 작업 id. 훅의 권위 검사
+# `self_check_authorized(ref_doc, uid, analysis_id, job_id)`(38-06) 재료 — 기준 doc 의
+# `selfCheckJobId` 와 일치할 때만 selfScore/실패 상태를 쓴다(오래된 작업의 뒤늦은 완료가
+# 최신 상태를 덮지 못하게).
+ANALYSIS_FIELD_SELF_CHECK_JOB_ID = "selfCheckJobId"
+
 # height/weight 합리적 범위 (범위 밖 → None, 위조/오타 graceful 차단).
 _BODY_HEIGHT_CM_MIN = 90
 _BODY_HEIGHT_CM_MAX = 250
@@ -767,6 +790,58 @@ COACH_STATUSES = (
     COACH_STATUS_FAILED,
 )
 
+# ── 기준 모션 등록 상태 (Phase 38 D-05·D-09, 리뷰 R4 — 공급자 링크 등록) ──────────
+#   공급자가 링크로 올린 기준 영상이 `reference/{refId}` doc 이 되기까지의 진행 상태.
+#   분석 doc 의 status 머신과는 **다른 물건**이다 — 기준 doc 의 별도 필드
+#   `registrationStatus` 에만 쓴다.
+#
+#   **PIPELINE_SEQUENCE / status enum 에는 절대 추가 금지** — status 머신에 넣으면
+#   3-way lockstep(analysis.ts AnalysisStatus + models.py + contract.md §3) 비용이
+#   발생한다 (COACH_STATUSES 블록 서술 미러). 3-way lockstep 은
+#   analysis.ts ReferenceRegistrationStatus + contract.md §3 ReferenceMotion 등록 필드.
+#
+#   전이 규칙(38-06 claim/writer · 38-07 파이프라인 · 38-08 requeue 가 이 표를 따른다):
+#     registering → queued | processing | expired
+#     queued      → processing
+#     processing  → active | failed | processing(lease 만료 뒤 재claim, 리뷰 R3)
+#     active · failed · expired = 종결 (단 `failed` 는 사람이 다시 올리면 **새 refId** —
+#                                    같은 doc 재사용 없음)
+#   expired(리뷰 R4) = presign 만료(`uploadExpiresAt`) 뒤에도 객체가 없는 `registering`
+#   을 requeue 스윕이 닫는 종결 상태. 페이지 문구 `row.status.expired`.
+REGISTRATION_STATUS_REGISTERING = "registering"
+REGISTRATION_STATUS_QUEUED = "queued"
+REGISTRATION_STATUS_PROCESSING = "processing"
+REGISTRATION_STATUS_FAILED = "failed"
+REGISTRATION_STATUS_ACTIVE = "active"
+REGISTRATION_STATUS_EXPIRED = "expired"
+REGISTRATION_STATUSES = (
+    REGISTRATION_STATUS_REGISTERING,
+    REGISTRATION_STATUS_QUEUED,
+    REGISTRATION_STATUS_PROCESSING,
+    REGISTRATION_STATUS_FAILED,
+    REGISTRATION_STATUS_ACTIVE,
+    REGISTRATION_STATUS_EXPIRED,
+)
+
+# 자기 재현성 분석(D-10) 진행 상태 — 기준 doc 의 `selfCheckStatus`. 등록 상태와 독립.
+SELF_CHECK_STATUS_PENDING = "pending"
+SELF_CHECK_STATUS_QUEUED = "queued"
+SELF_CHECK_STATUS_DONE = "done"
+SELF_CHECK_STATUS_FAILED = "failed"
+SELF_CHECK_STATUSES = (
+    SELF_CHECK_STATUS_PENDING,
+    SELF_CHECK_STATUS_QUEUED,
+    SELF_CHECK_STATUS_DONE,
+    SELF_CHECK_STATUS_FAILED,
+)
+
+# 리뷰 R3 — claim 의 `leaseUntil` = now + 이 값. Pod 등록 1건은 수 분이므로 만료 전에는
+# 같은 doc 을 다른 전달자가 재claim 하지 못한다. [ASSUMED] 시험 영상 2차로 실측 뒤 조정.
+REGISTRATION_LEASE_SEC = 900
+# 리뷰 R4 — presign `ExpiresIn` 과 doc `uploadExpiresAt` 이 **같은 값**을 쓴다(두 값을
+# 한 상수로 — 스윕이 만료를 판정하는 시각과 URL 이 실제로 죽는 시각이 어긋나지 않게).
+REFERENCE_UPLOAD_EXPIRES_SEC = 900
+
 # ── 판정 불가 관절 사유 (quick-260910-ovo — contract.md §4 unjudgedJoints) ──
 #   belle 2026-09-10: *"아는척 하면 안되지."* 카메라 방향 때문에 사지가 렌즈 축으로
 #   포개져 버리면 그 팔·다리의 각도는 잰 것이 아니라 추측한 것이다. 그 추측으로 감점
@@ -834,6 +909,120 @@ def reference_motion_path(motion_id: str) -> str:
 # Firestore 컬렉션 경로는 홀수 segment 여야 함. "reference/motions" 같은 2-segment는
 # invalid path 라 collection() 호출 시 ValueError. → reference 단일 컬렉션 채택.
 REFERENCE_MOTIONS_COLLECTION = "reference"
+
+
+# ══════════ Phase 38 (Plan 38-01): 공급자 링크 기준 등록 — 실패 코드·문구·폼 상수 ══════════
+#
+# 등록 상태 enum 은 위 REGISTRATION_STATUSES 블록(COACH_STATUSES 아래). 여기는 실패 코드,
+# UI 고정 문구, 폼 검증 상수(validation.validate_reference_upload_request 가 import),
+# 공급자 화이트리스트 파서, 비공개 서브문서 경로.
+# 3-way lockstep: app/src/types/analysis.ts ReferenceRegistrationErrorCode /
+# REGISTRATION_ERROR_MESSAGE + docs/contract.md §5. 테스트
+# tests/test_registration_contract.py 가 세 벌 텍스트를 대조한다.
+
+# 등록 실패 코드 — 분석 doc 의 ANALYSIS_ERROR_CODES 와 **별개 enum**(D-05·D-09).
+# 판정 순서(리뷰 R6, 38-05): no_human → low_confidence → multiple_people → no_standing_start.
+REG_ERR_NO_HUMAN = "no_human"
+REG_ERR_MULTIPLE_PEOPLE = "multiple_people"
+REG_ERR_NO_STANDING_START = "no_standing_start"
+REG_ERR_LOW_CONFIDENCE = "low_confidence"
+REG_ERR_TOO_SHORT = "too_short"
+REG_ERR_TOO_LONG = "too_long"
+# 리뷰 R9 — 실제 객체 `ContentLength > MAX_VIDEO_BYTES` 를 다운로드 **전** `head_object`
+# 로 거른 결과. 클라이언트 `fileSizeBytes` 는 메타일 뿐이라 server_error 로 위장하지 않는다.
+REG_ERR_TOO_LARGE = "too_large"
+REG_ERR_SERVER_ERROR = "server_error"
+REGISTRATION_ERROR_CODES = (
+    REG_ERR_NO_HUMAN,
+    REG_ERR_MULTIPLE_PEOPLE,
+    REG_ERR_NO_STANDING_START,
+    REG_ERR_LOW_CONFIDENCE,
+    REG_ERR_TOO_SHORT,
+    REG_ERR_TOO_LONG,
+    REG_ERR_TOO_LARGE,
+    REG_ERR_SERVER_ERROR,
+)
+
+# UI 고정 문구 — 글자 단위 정본. app/src/types/analysis.ts REGISTRATION_ERROR_MESSAGE 와
+# 동일 문자열(contract.md §5).
+# 조인 규칙(38-03 supplierCopy.test.ts 가 이 규칙으로 대조): no_human 을 뺀 7개는
+#   UI-SPEC `row.fail.<code>.title` + '. ' + `row.fail.<code>.body` 를 그대로 이은 문자열
+#   (제목 끝 마침표 없음, 본문은 마침표로 끝난다).
+# no_human 만 D-09 대로 기존 ERROR_MESSAGE 를 **객체 그대로 참조**(문자열 복사 금지) —
+#   공급자 페이지 `row.fail.no_human`(Figma 1:479) 문구와 다른 것이 의도된 예외다.
+# low_confidence 의 `{joints}` 는 파이프라인이 `str.replace("{joints}", ...)` 로 치환한다 —
+#   `str.format` 금지(문구에 중괄호가 더 생기면 KeyError 로 등록이 죽는다).
+REGISTRATION_ERROR_MESSAGE = {
+    REG_ERR_NO_HUMAN: ERROR_MESSAGE[ERR_NO_HUMAN],
+    REG_ERR_MULTIPLE_PEOPLE: "영상에 여러 사람이 나와요. 한 사람만 나오게 다시 촬영해 주세요.",
+    REG_ERR_NO_STANDING_START: "서 있는 자세로 시작하지 않았어요. 서 있는 자세에서 시작해 주세요. 폴 옆에 서서 1초쯤 있다가 동작을 시작하면 돼요.",
+    REG_ERR_LOW_CONFIDENCE: "일부 관절을 못 읽었어요. 잘 안 보인 부위: {joints}. 밝은 곳에서, 옷과 배경이 구분되게 다시 촬영해 주세요.",
+    REG_ERR_TOO_SHORT: "영상이 너무 짧아요. 기준 동작은 5초 이상이어야 해요. 동작 전체가 담기게 다시 올려주세요.",
+    REG_ERR_TOO_LONG: "영상이 너무 길어요. 동작 하나는 30초 이내로 올려주세요. 콤보는 60초까지예요.",
+    REG_ERR_TOO_LARGE: "용량이 너무 커요. 100MB 이하 영상으로 다시 올려주세요.",
+    REG_ERR_SERVER_ERROR: "등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.",
+}
+
+# 폼 레벨 — 앱 `SkillLevel` 미러. picker `referenceMotions.normalize()` 가 버리지 않는
+# 값만(D-07/D-19 — 여기 없는 값을 저장하면 등록은 됐는데 앱에 안 뜬다).
+REFERENCE_LEVELS = ("basic", "intermediate", "advanced")
+
+# 폼 검증 상수(D-07·D-08·D-14). 길이 규칙은 클라이언트 fail-open(웹이 metadata 를 못
+# 읽으면 durationSec 없이 보낸다, RESEARCH A12) + 서버 2차 방어(validation.py) +
+# 파이프라인 probe(38-07, R9) 세 겹.
+REFERENCE_MIN_DURATION_SEC = 5.0
+REFERENCE_MAX_DURATION_SEC = 30.0
+REFERENCE_COMBO_MAX_DURATION_SEC = 60.0
+REFERENCE_NAME_MAX_LEN = 30
+# 기획안 §6 동의 문안 판 — 동의 문안이 바뀌면 이 값을 올린다(비공개 doc `consent.version`).
+CONSENT_VERSION = "2026-09-26"
+# 강사 코드(D-12) — `SUPPLIER_UIDS` 의 `uid:CODE` 항목. 대문자 영숫자 3~8자.
+SUPPLIER_CODE_RE = re.compile(r"^[A-Z0-9]{3,8}$")
+SUPPLIER_UIDS_PARAM_DEFAULT = "/sunity/motion/supplier-uids"
+
+
+def parse_supplier_uids(value: str | None) -> dict[str, str | None]:
+    """`SUPPLIER_UIDS` 문자열 → {uid: 강사코드|None} (Phase 38 D-12). 순수 함수.
+
+    쉼표 구분, 각 항목은 `uid` 또는 `uid:CODE`. 공백 strip, 빈 항목 무시.
+    CODE 가 SUPPLIER_CODE_RE 에 안 맞으면 **uid 는 유지하고 code 만 None** — 운영 오타
+    하나가 공급자 페이지 전체를 잠그지 않게(호출측이 warning 로그). 화이트리스트 판정은
+    uid 만 쓰므로 잘못된 코드로 권한이 오르지 않는다(T-38-01-5). None/빈 문자열 → {}.
+
+    예: "abc:EUNJI, def, ghi:bad code" → {"abc": "EUNJI", "def": None, "ghi": None}
+    """
+    out: dict[str, str | None] = {}
+    if not value:
+        return out
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        uid, sep, code = item.partition(":")
+        uid = uid.strip()
+        if not uid:
+            continue
+        code = code.strip() if sep else ""
+        out[uid] = code if (code and SUPPLIER_CODE_RE.match(code)) else None
+    return out
+
+
+# 리뷰 R13 — 기준 doc 을 공개/비공개 두 문서로 가른다.
+# 공개 doc = `reference/{refId}` : picker·상태·점수·작업 필드(인증자 전체 읽기, firestore.rules).
+# 비공개 doc = `reference/{refId}/private/registration` : 동의·실패 상세·선언·techniqueRefId
+#   (공급자 본인만 읽기, 쓰기 서버 — 규칙은 38-06 T3). 필드 분배 표는 contract.md §3.
+# 이유: `reference/**` 가 인증자 전체 읽기라 동의·실패 상세를 공개 doc 에 두면 익명 포함
+#   모든 사용자에게 읽힌다.
+REFERENCE_PRIVATE_SUBCOLLECTION = "private"
+REFERENCE_PRIVATE_DOC_ID = "registration"
+
+
+def reference_private_path(motion_id: str) -> str:
+    """Firestore: reference/{refId}/private/registration (공급자 본인 읽기, 서버 쓰기)."""
+    return (
+        f"{reference_motion_path(motion_id)}/"
+        f"{REFERENCE_PRIVATE_SUBCOLLECTION}/{REFERENCE_PRIVATE_DOC_ID}"
+    )
 
 
 # ══════════════════════ Phase 31: 시각 교정물 (D-05~D-08) ══════════════════════

@@ -44,7 +44,9 @@ athleteName : 현재는 '정은지' 고정 (파일럿)
 
 정본 = `app/src/types/analysis.ts` 의 `ReferenceMotion` (`docs/contract.md` §3 와 동기).
 Firestore 실제 키는 camelCase 다 (`app/scripts/seed-reference-motions.mjs:473-499`).
-주석의 seed / reprocess / backfill 은 그 필드를 채우는 스크립트다.
+주석의 seed / reprocess / backfill 은 그 필드를 채우는 스크립트다. register 는 Phase 38 공급자
+링크(`reference-upload-url` Lambda 선작성 + `pipeline._register_reference` 활성화)가 채우는 필드다 —
+등록 필드는 전부 optional 이라 손 등록 11개는 무접촉(D-19).
 
 ```typescript
 interface ReferenceMotion {
@@ -85,6 +87,43 @@ interface ReferenceMotion {
   } | null;
   forceDirectionPattern?: ForcePatternInference | null;        // backfill
   captureViews?: number;                  // backfill — v1 단일시점은 전부 1
+
+  // Phase 38 공급자 링크 등록 — 공개 doc 필드 (인증자 전체 읽기; picker·상태·점수·작업만).
+  // 동의·실패 상세·선언·techniqueRefId 는 비공개 서브문서(아래, 리뷰 R13).
+  supplierUid?: string;                   // register — 올린 공급자 uid
+  supplierCode?: string;                  // register — SUPPLIER_UIDS 강사 코드(D-12), 없으면 필드 없음
+  source?: 'supplier-link';               // register — seed 11개와 구분
+  registrationStatus?: ReferenceRegistrationStatus;  // register — AnalysisStatus 와 별개 enum
+  queuedReason?: string | null;           // register — queued 사유(Pod 부재 등)
+  registrationUpdatedAt?: number;         // register — epoch ms
+  uploadKey?: string;                     // register — reference/{uid}/{refId}/upload.{ext}, 재개 전용
+  uploadExpiresAt?: number;               // register — epoch ms, presign 만료(R4 스윕 기준)
+  // videoS3Key 는 등록이면 reference/{uid}/{refId}/v1.{ext} 확정 키만 (R5) — 위 seed 행과 같은 필드
+  videoETag?: string;                     // register — v1 객체 ETag(R5)
+  jobId?: string | null;                  // register — 등록 작업 id(R3 claim)
+  leaseUntil?: number | null;             // register — epoch ms, lease 만료(R3)
+  selfScore?: number | null;              // register — 자기 재현성 점수(D-10)
+  selfCheckStatus?: SelfCheckStatus;      // register — 'pending'|'queued'|'done'|'failed'
+  selfCheckAnalysisId?: string | null;    // register — 예정 자기 분석 doc id(R8 선기록)
+  selfCheckJobId?: string | null;         // register — 자기 분석을 만든 작업 id(R2·R8)
+  anglesRealFps?: number;                 // reprocess · register — angles 실제 fps
+  referenceSplitAngle?: number | null;    // seed · register — 벌림 peak(deg), 유한값만(38-07 R1)
+  createdAt?: number;                     // register — epoch ms
+}
+
+// 비공개 서브문서 reference/{refId}/private/registration (리뷰 R13). 읽기 = supplierUid 본인,
+// 쓰기 = 서버(Admin SDK). 정본 = analysis.ts `ReferenceRegistrationPrivate`, contract.md §3.
+interface ReferenceRegistrationPrivate {
+  supplierUid: string;                    // register
+  consent: ReferenceConsent;              // register — {portrait, usage, silent, training, version, at, uid}
+  registrationError?: ReferenceRegistrationError | null;  // register — failed 일 때 {code, message, joints?}
+  techniqueRefId: string | null;          // register — 등록 정보로만 보관(R7)
+  isCombo: boolean;                       // register
+  isSplit: boolean;                       // register — 선언 4
+  hasHold: boolean;                       // register
+  standingStart: boolean;                 // register — 검증 통과 = 항상 true
+  clipRange?: { execStartS: number; execEndS: number } | null;  // register — 폼 선택 입력(D-06)
+  updatedAt: number;                      // register
 }
 
 type EntryType =

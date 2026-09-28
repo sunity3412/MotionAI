@@ -53,6 +53,7 @@ from typing import Iterator, NamedTuple
 
 import boto3  # Lambda 런타임 제공
 from botocore.config import Config as BotoConfig  # 다운로드 가속 엔드포인트(_s3_dl)
+from botocore.exceptions import ClientError  # Phase 38 (38-07) — copy_object PreconditionFailed 판별(R5)
 import numpy as np
 
 from sunity_shared import firestore_admin, models, provenance
@@ -115,10 +116,13 @@ from sunity_shared.events import iter_s3_keys_from_sqs
 from sunity_shared.s3keys import (
     build_coach_audio_key,
     build_fault_zoom_key,
+    build_reference_final_key,  # Phase 38 (38-07) — upload → v1 확정 키(R5)
     build_rendered_compare_key,
+    build_upload_key,  # Phase 38 (38-07) — 자기 재현성 복사 목적지(D-10)
     parse_reference_key,  # Phase 38 (38-07) — reference/ 접두사 분기
     parse_upload_key,
 )
+from sunity_shared.analysis import registration_checks  # Phase 38 (38-05/38-07) — 등록 판정(순수)
 
 # FfmpegFrameExtractor / NlfPoseEstimator / CerebrasCoachWriter 는 imageio·torch·
 # requests 같은 무거운 의존성을 끌어옴. RunPod 위임 모드에선 사용하지 않으므로
@@ -10435,6 +10439,323 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 내부 finally 가 이미 unlink+None 처리 (idempotent — None 이면 no-op). 다운로드~
         # veto 사이 예외 시에도 누수 0 (outer 초기화 → 항상 bound).
         _safe_unlink_local_video(reference_local_video_path)
+
+
+# ── Phase 38 (38-07 T2) — 공급자 링크 등록 서비스: reference/{uid}/{refId}/upload.{ext} → angles + active ──
+#
+# Pod `/register-reference`(38-08)와 Lambda 폴백이 같은 함수를 부른다 — "분기 0, 코드 1벌". 채점 경로
+# (`_process` · recognizer · `dimensions` · assemble 의 mode1 조립)는 **호출하지 않는다** — 어댑터(추출기 ·
+# RTMW 엔진)만 빌린다(RESEARCH 안티패턴 1). 산출은 기준 11개(`scripts/extract_reference_angles.py`)와
+# **같은 함수 순서**로 나와야 mode1 이 같은 원질을 비교한다(D-05 · D-09): estimate → measure_body_profile →
+# to_coco17_array → compute_joint_angles → joint_uncertainty → temporal_fill → max_split 튜플 언패킹(R1).
+#
+# 순서(리뷰 반영, 2026-09-26 · plan-checker 2026-09-28):
+#   R9   head_object 크기(다운로드 전) → probe_duration_sec 길이(디코딩 전) → extract(end_s=상한+1) 프레임 캡 → T/fps 재검사
+#   R5   upload → v1 `copy_object(CopySourceIfMatch)` 불변 확정 — angles · 재생 · 자기 재현성 전부 v1 바이트
+#   R6   no_human(엔진 예외) → check_registration(low_confidence → multiple_people → no_standing_start, 38-05 소유)
+#   차단1 KeypointReport dataclass → `_dataclass_to_camel_case_dict` **한 번** → 같은 dict 를 판정과 writer 에
+#   R3   입구 jobId 대조 + 모든 writer 가 job 가드(38-06) — stale 작업은 쓰기 0
+#   R8   자기 재현성 = begin_self_check(선기록) → create_analysis_doc → copy_object(v1 → uploads/)
+
+
+def _fail_registration(
+    ref_id: str,
+    job_id: str,
+    code: str,
+    *,
+    message: str | None = None,
+    joints: list[str] | None = None,
+) -> None:
+    """실패 기록 한 벌 — 공개 doc `failed` + 비공개 `registrationError{code,message[,joints]}`(38-06 writer).
+
+    message 기본값은 `models.REGISTRATION_ERROR_MESSAGE[code]`(contract.md §5 글자 단위 정본). writer 가 False
+    (stale 작업 · 이미 종결)면 doc 무변경 — 늦은 실패가 활성 doc 을 못 뒤집는다(R3). 예외는 전파(호출측 라우트가 로그).
+    """
+    error: dict = {"code": code, "message": message or models.REGISTRATION_ERROR_MESSAGE[code]}
+    if joints:
+        error["joints"] = list(joints)
+    ok = firestore_admin.set_registration_failed(ref_id, job_id, error=error)
+    if not ok:
+        log.warning(
+            "register-reference failed 기록 스킵(stale/종결) ref_id=%s job_id=%s code=%s", ref_id, job_id, code
+        )
+        return
+    log.info(
+        "register-reference failed ref_id=%s job_id=%s code=%s joints=%s",
+        ref_id,
+        job_id,
+        code,
+        error.get("joints"),
+    )
+
+
+def _duration_verdict(duration_sec, limit_sec: float) -> str | None:
+    """길이(초) → None(통과 또는 모름) | too_short | too_long. 모름(None)은 호출측이 프레임 캡으로 2차 방어(R9)."""
+    if duration_sec is None:
+        return None
+    d = float(duration_sec)
+    if d < models.REFERENCE_MIN_DURATION_SEC:
+        return models.REG_ERR_TOO_SHORT
+    if d > limit_sec:
+        return models.REG_ERR_TOO_LONG
+    return None
+
+
+def _stand_frames(clip_range, real_fps: float) -> int:
+    """서 있는 창 프레임 수 — 폼 `clipRange.execStartS` 가 있으면 그것 × fps, 없으면 38-05 기본(첫 1.0초)."""
+    exec_start = clip_range.get("execStartS") if isinstance(clip_range, dict) else None
+    if (
+        isinstance(exec_start, (int, float))
+        and not isinstance(exec_start, bool)
+        and np.isfinite(exec_start)
+        and exec_start > 0
+    ):
+        return int(round(float(exec_start) * real_fps))
+    return registration_checks.default_stand_frames(real_fps)
+
+
+def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: str) -> None:
+    """공급자 링크 기준 영상 등록 — upload 키 → 불변 v1 → 판정 → angles → active → 자기 재현성(REQ-38-2, D-05·D-09·D-10).
+
+    `key` 는 **upload 키**(`reference/{uid}/{refId}/upload.{ext}`). 호출측(Pod `/register-reference` · 전달자)이
+    `claim_registration` 으로 `job_id` 를 이미 얻었다 — 입구에서 doc.jobId 를 대조해 stale 이면 쓰기 0 으로 끝낸다.
+    실패는 `_fail_registration` 이 doc 에 남기고 정상 반환한다(no_human · low_confidence · multiple_people ·
+    no_standing_start · too_short · too_long · too_large · server_error). 등록 doc 이 없거나 키가 upload 형이
+    아니면 RuntimeError(호출측 라우트가 server_error 로 기록). 채점 경로(`_process` · recognizer · dimensions ·
+    assemble 의 mode1 조립) 호출 0 — 어댑터만 빌린다. 임시 파일은 성공·실패 모두 finally 에서 지운다.
+    """
+    _ensure_adapters()
+    doc = firestore_admin.get_reference_registration(ref_id)
+    if doc is None:
+        raise RuntimeError(f"등록 문서 없음 reference/{ref_id}")
+    current_job = doc.get("jobId")
+    if current_job != job_id:
+        log.warning(
+            "register-reference stale job ref_id=%s job_id=%s current=%s — 쓰기 0", ref_id, job_id, current_job
+        )
+        return
+    priv = firestore_admin.get_reference_registration_private(ref_id) or {}
+    is_combo = bool(priv.get("isCombo"))
+    clip_range = priv.get("clipRange")
+    training_opt_in = bool((priv.get("consent") or {}).get("training"))
+    ref = parse_reference_key(key)
+    if ref is None or not ref.is_upload:
+        raise RuntimeError(f"등록 upload 키 아님 key={key}")
+    if ref.uid != uid or ref.ref_id != ref_id:
+        raise RuntimeError(f"키와 인자 불일치 key={key} uid={uid} ref_id={ref_id}")
+
+    # R9 크기 — 다운로드 **전**. 클라이언트 fileSizeBytes 는 신고값이고 이것이 실제 객체 크기다.
+    head = _s3.head_object(Bucket=bucket, Key=key)
+    size = int(head.get("ContentLength") or 0)
+    if size > models.MAX_VIDEO_BYTES:
+        log.info("register-reference too_large ref_id=%s bytes=%s", ref_id, size)
+        _fail_registration(ref_id, job_id, models.REG_ERR_TOO_LARGE)
+        return
+    etag = str(head["ETag"])
+
+    # R5 확정 복사 — presigned URL 은 만료 전까지 같은 upload 키를 덮어쓸 수 있으므로 처리한 바이트를 서버가
+    # v1 로 옮기고(원본이 그 사이 바뀌면 PreconditionFailed) 이후 읽기·videoS3Key·자기 재현성은 전부 v1.
+    final_key = build_reference_final_key(uid, ref_id, ref.ext)
+    try:
+        _s3.copy_object(
+            Bucket=bucket,
+            CopySource={"Bucket": bucket, "Key": key},
+            Key=final_key,
+            CopySourceIfMatch=etag,
+            MetadataDirective="COPY",
+        )
+    except ClientError as e:
+        err_code = ((e.response or {}).get("Error") or {}).get("Code")
+        if err_code == "PreconditionFailed":
+            log.warning("register-reference 처리 중 원본 교체 ref_id=%s key=%s", ref_id, key)
+        else:
+            # AccessDenied 등 — Pod 자격증명의 reference/* PutObject 범위(T-38-07-7, [미확인 — 38-09/38-14]).
+            log.exception("register-reference v1 복사 실패 ref_id=%s key=%s code=%s", ref_id, final_key, err_code)
+        _fail_registration(ref_id, job_id, models.REG_ERR_SERVER_ERROR)
+        return
+    v1_etag = str(_s3.head_object(Bucket=bucket, Key=final_key)["ETag"])
+    if v1_etag != etag:
+        # 단일 PUT 객체는 ETag = MD5 라 복사본과 같아야 한다 — 다르면 예상 밖 상태(멀티파트 등), 등록하지 않는다.
+        log.warning("register-reference v1 ETag 불일치 ref_id=%s upload=%s v1=%s", ref_id, etag, v1_etag)
+        _fail_registration(ref_id, job_id, models.REG_ERR_SERVER_ERROR)
+        return
+
+    path = _download_analysis_video(bucket, final_key, analysis_id=ref_id)
+    try:
+        limit = models.REFERENCE_COMBO_MAX_DURATION_SEC if is_combo else models.REFERENCE_MAX_DURATION_SEC
+        # R9 길이 — 디코딩 **전**. 메타를 못 읽으면(None) 아래 extract 캡 + T/fps 재검사가 2차 방어.
+        dur = _FRAME_EXTRACTOR.probe_duration_sec(path)
+        code = _duration_verdict(dur, limit)
+        if code is not None:
+            log.info("register-reference %s(probe) ref_id=%s dur=%.1f limit=%.0f", code, ref_id, dur, limit)
+            _fail_registration(ref_id, job_id, code)
+            return
+        # 프레임 캡 — 라벨이 틀린 긴 파일이 전체 배열로 메모리를 못 채운다(9fps/640 은 추출기 기본).
+        frames = _FRAME_EXTRACTOR.extract(path, end_s=limit + 1.0)
+        real_fps = _FRAME_EXTRACTOR.effective_fps_for(path) or _FRAME_EXTRACTOR.probe_effective_fps(path)
+        n_frames = int(len(frames))
+        if n_frames == 0 or not real_fps or not np.isfinite(real_fps) or real_fps <= 0:
+            # Pitfall 7 — 0 프레임은 NoHumanError 가 아니다(엔진이 빈 목록을 돌려준다).
+            log.warning("register-reference 프레임/fps 없음 ref_id=%s frames=%s fps=%s", ref_id, n_frames, real_fps)
+            _fail_registration(ref_id, job_id, models.REG_ERR_SERVER_ERROR)
+            return
+        real_fps = float(real_fps)
+        dur2 = n_frames / real_fps
+        code = _duration_verdict(dur2, limit)
+        if code is not None:
+            log.info("register-reference %s(frames) ref_id=%s dur=%.1f limit=%.0f", code, ref_id, dur2, limit)
+            _fail_registration(ref_id, job_id, code)
+            return
+
+        # 포즈 + 프레임별 사람 수 — no_human 은 엔진 예외(D-09 재사용, 판정 순서의 첫째 R6).
+        try:
+            pose_frames, counts = _POSE_ESTIMATOR._engine.estimate_with_person_counts(  # type: ignore[attr-defined]
+                frames, _POSE_ESTIMATOR._default_pole  # type: ignore[attr-defined]
+            )
+        except NoHumanError:
+            log.info("register-reference no_human ref_id=%s frames=%s", ref_id, n_frames)
+            _fail_registration(
+                ref_id, job_id, models.REG_ERR_NO_HUMAN, message=models.ERROR_MESSAGE[models.ERR_NO_HUMAN]
+            )
+            return
+        # `_RTMWNlfCompat.estimate_with_profile` 와 같은 순서 — 기준 11개(extract_reference_angles.py)와 원질 동일.
+        profile = measure_body_profile(pose_frames)
+        pose_frames = [dataclasses.replace(pf, body_shape=profile) for pf in pose_frames]
+        keypoints = to_coco17_array(pose_frames)
+
+        # keypointReport — `KeypointReport` frozen dataclass 를 camelCase dict 로 **한 번** 바꾸고(기존 11개 legacy
+        # `referenceKeypointReport` 와 같은 형상 = D-05, `axis_data → axisData`) 같은 객체를 판정과 writer 에 넘긴다.
+        # dataclass 그대로면 `hold_height._arrays` 가 None 을 내 정상 영상도 no_standing_start 로 끝난다(차단 1,
+        # 2026-09-28) — 38-05 는 비Mapping 을 TypeError 로 막는다.
+        report_obj = build_keypoint_report(pose_frames, fps=real_fps)
+        if report_obj is None:
+            log.warning("register-reference keypointReport 없음 ref_id=%s frames=%s", ref_id, n_frames)
+            _fail_registration(ref_id, job_id, models.REG_ERR_SERVER_ERROR)
+            return
+        report = _dataclass_to_camel_case_dict(report_obj)
+        n_stand = _stand_frames(clip_range, real_fps)
+        verdict = registration_checks.check_registration(counts, report, n_stand=n_stand)
+        if not verdict.ok:
+            labels = registration_checks.joint_labels_ko(verdict.joints)
+            message = models.REGISTRATION_ERROR_MESSAGE[verdict.reason]
+            if "{joints}" in message:
+                message = message.replace("{joints}", " · ".join(labels))
+            if verdict.detail == registration_checks.DETAIL_NO_FLOOR_REFERENCE:
+                # 38-05 권장 — 형상 불량/바닥 못 세움은 파이프라인 버그 신호일 수 있다(38-14 실물 관측이 가른다).
+                log.warning(
+                    "register-reference no_floor_reference ref_id=%s frames=%s n_stand=%s fps=%.3f",
+                    ref_id,
+                    n_frames,
+                    n_stand,
+                    real_fps,
+                )
+            log.info(
+                "register-reference verdict ref_id=%s reason=%s detail=%s joints=%s",
+                ref_id,
+                verdict.reason,
+                verdict.detail,
+                labels,
+            )
+            _fail_registration(ref_id, job_id, verdict.reason, message=message, joints=labels or None)
+            return
+
+        # angles — extract_reference_angles.py :127-154 그대로(소수 2자리 · NaN→0.0 · max_split 튜플 언패킹 R1).
+        raw = compute_joint_angles(keypoints)
+        unc = joint_uncertainty(keypoints)
+        filled = temporal_fill(raw, unc)
+        angles = np.nan_to_num(
+            np.round(np.asarray(filled, dtype=np.float64), 2), nan=0.0, posinf=0.0, neginf=0.0
+        )
+        peak, peak_idx = max_split(split_angle_series(keypoints))
+        split = round(float(peak), 2) if np.isfinite(peak) else None
+
+        ok = firestore_admin.set_reference_angles(
+            ref_id,
+            job_id=job_id,
+            angles_flat=angles.reshape(-1).tolist(),
+            joint_keys=list(skeleton.JOINT_KEYS),
+            frames=int(angles.shape[0]),
+            real_fps=real_fps,
+            keypoint_report=report,
+            split_angle=split,
+        )
+        if not ok:
+            log.warning("register-reference stale job(angles) ref_id=%s job_id=%s", ref_id, job_id)
+            return
+        ok = firestore_admin.set_registration_active(ref_id, job_id, video_s3_key=final_key, video_etag=etag)
+        if not ok:
+            log.warning("register-reference stale job(active) ref_id=%s job_id=%s", ref_id, job_id)
+            return
+        log.info(
+            "register-reference ok ref_id=%s job_id=%s frames=%s fps=%.3f dur=%.1f split=%s peak_idx=%s etag=%s",
+            ref_id,
+            job_id,
+            int(angles.shape[0]),
+            real_fps,
+            dur2,
+            split,
+            peak_idx,
+            etag,
+        )
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+    # D-10 자기 재현성 — active 뒤에만(위 return 들은 여기 오지 않는다).
+    _trigger_self_check(bucket, final_key, uid, ref_id, ref.ext, training_opt_in, job_id)
+
+
+def _trigger_self_check(
+    bucket: str,
+    final_key: str,
+    uid: str,
+    ref_id: str,
+    ext: str,
+    training_opt_in: bool,
+    job_id: str,
+) -> None:
+    """등록 `active` 직후 같은 영상(v1)을 공급자 uid 의 mode1 분석으로 기존 경로에 태운다(D-10, 리뷰 R8 순서).
+
+    ① `begin_self_check` — 기준 doc 에 analysisId · pending · jobId 를 **먼저** 영속(가드 실패면 여기서 끝, 등록은 active).
+    ② `create_analysis_doc` — 앱 loading.tsx 형상 + 표식 2개(`models.ANALYSIS_FIELD_SELF_CHECK_*` 상수만).
+    ③ `copy_object` v1 → `uploads/{uid}/{newId}.{ext}` — ObjectCreated 가 SQS → 기존 학생 경로를 깨운다.
+    ②·③ 어느 쪽이든 실패면 `set_reference_self_check(failed)`(권위 가드 통과 시). uid = 공급자 uid
+    ([ASSUMED 선택] RESEARCH A8 — 정은지 앱 기록에 남아 눈으로 확인할 수 있다).
+    """
+    new_id = uuid.uuid4().hex
+    if not firestore_admin.begin_self_check(ref_id, job_id=job_id, analysis_id=new_id):
+        log.warning("self-check 선기록 실패(가드) ref_id=%s job_id=%s — 등록은 active 그대로", ref_id, job_id)
+        return
+    now_ms = int(time.time() * 1000)
+    payload = {
+        "analysisId": new_id,
+        "mode": models.MODE_EXPERT,
+        "referenceMotionId": ref_id,
+        "status": models.STATUS_UPLOADING,
+        "fileName": f"self-check-{ref_id}.{ext}",
+        "createdAt": now_ms,
+        "updatedAt": now_ms,
+        "learningOptIn": bool(training_opt_in),
+        models.ANALYSIS_FIELD_SELF_CHECK_FOR_REFERENCE: ref_id,
+        models.ANALYSIS_FIELD_SELF_CHECK_JOB_ID: job_id,
+    }
+    dest_key = build_upload_key(uid, new_id, ext)
+    try:
+        firestore_admin.create_analysis_doc(uid, new_id, payload)
+        _s3.copy_object(Bucket=bucket, CopySource={"Bucket": bucket, "Key": final_key}, Key=dest_key)
+    except Exception:  # noqa: BLE001 - 자기 재현성 실패는 등록을 깨지 않는다(등록은 이미 active)
+        log.exception("self-check 트리거 실패 ref_id=%s analysis_id=%s", ref_id, new_id)
+        try:
+            firestore_admin.set_reference_self_check(
+                ref_id,
+                status=models.SELF_CHECK_STATUS_FAILED,
+                uid=uid,
+                analysis_id=new_id,
+                job_id=job_id,
+            )
+        except Exception:  # noqa: BLE001
+            log.exception("self-check failed 기록 실패 ref_id=%s analysis_id=%s", ref_id, new_id)
+        return
+    log.info("self-check 트리거 ok ref_id=%s analysis_id=%s key=%s", ref_id, new_id, dest_key)
 
 
 def lambda_handler(event: dict, _context) -> dict:

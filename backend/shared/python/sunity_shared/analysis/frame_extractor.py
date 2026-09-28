@@ -99,6 +99,36 @@ class FfmpegFrameExtractor:
             self._effective_fps_by_path[_norm_path(path)] = eff
         return eff
 
+    def probe_duration_sec(self, path) -> float | None:
+        """추출 **없이** 영상 길이(초) — imageio 메타 `duration`, 없으면 `nframes / fps` 폴백, 못 재면 None.
+
+        Phase 38 리뷰 R9 — 전체 디코딩 전에 길이를 거른다(등록 영상 5~30초, 콤보 60초). 판정 불가는
+        None 이라 호출측(`pipeline._register_reference`)이 `extract(end_s=상한+1)` 캡으로 2차 방어한다 —
+        0 이나 추정값으로 눙치지 않는다(모듈 상단 규율, `probe_effective_fps` 와 같은 reader/meta 어법).
+        fps 이력(`_effective_fps_by_path`)은 건드리지 않는다 — 그것은 추출·fps probe 의 몫이다.
+        """
+        try:
+            reader = imageio.get_reader(path)
+        except Exception:  # noqa: BLE001 - 열 수 없으면 판정 불가
+            return None
+        try:
+            meta = reader.get_meta_data() or {}
+        except Exception:  # noqa: BLE001
+            return None
+        finally:
+            reader.close()
+        duration = meta.get("duration")
+        if isinstance(duration, (int, float)) and not isinstance(duration, bool):
+            d = float(duration)
+            if math.isfinite(d) and d > 0.0:
+                return d
+        fps = meta.get("fps")
+        nframes = meta.get("nframes")
+        for v in (fps, nframes):
+            if not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) or v <= 0:
+                return None
+        return float(nframes) / float(fps)
+
     def _resize(self, frame: np.ndarray) -> np.ndarray:
         h, w = frame.shape[:2]
         longest = max(h, w)

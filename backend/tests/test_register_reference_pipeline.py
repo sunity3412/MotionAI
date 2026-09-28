@@ -111,12 +111,13 @@ class _FakeS3:
     def head_object(self, *, Bucket, Key):
         self.calls.append(("head_object", {"Bucket": Bucket, "Key": Key}))
         self.events.append(("head_object", Key))
-        if self.on_head is not None:
-            self.on_head(Key)
         obj = self.objects.get(Key)
         if obj is None:
             raise ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject")
-        return {"ETag": obj["ETag"], "ContentLength": obj["ContentLength"]}
+        meta = {"ETag": obj["ETag"], "ContentLength": obj["ContentLength"]}
+        if self.on_head is not None:
+            self.on_head(Key)  # head 응답 **뒤**에 원본이 바뀌는 상황(재PUT) 재현
+        return meta
 
     def copy_object(self, *, Bucket, CopySource, Key, **kw):
         self.calls.append(("copy_object", {"Bucket": Bucket, "CopySource": CopySource, "Key": Key, **kw}))

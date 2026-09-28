@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authCopy } from '../../constants/authCopy';
+import { profileCopy } from '../../constants/profileCopy';
 import { auth } from '../../lib/firebase';
 import { displayNameOf, useAuthUser } from '../../lib/authUser';
 import { useMyAnalyses } from '../../lib/userAnalyses';
@@ -172,6 +173,24 @@ export default function Profile() {
             </View>
           </View>
         )}
+
+        {/* instructorCode 행 — 공급자 페이지 "내 코드"의 수요자 쪽 자리 (Phase 38 D-12).
+            표시만: 입력·귀속·크레딧 지급은 다음 업데이트(D-13 결제 없음). 그래서
+            Pressable 이 아니고 값은 고정(문구는 profileCopy.ts 단일 출처 — 화면 리터럴 금지).
+            게스트·회원 모두 보인다. 기존 infoList/InfoRow/guestHint 스타일 재사용 —
+            신규 스타일 0 (UI-SPEC §B). */}
+        <View
+          style={styles.infoList}
+          accessible
+          accessibilityLabel={profileCopy.instructorCode.a11y}
+        >
+          <InfoRow
+            label={profileCopy.instructorCode.label}
+            value={profileCopy.instructorCode.value}
+            isLast
+          />
+        </View>
+        <Text style={styles.guestHint}>{profileCopy.instructorCode.hint}</Text>
 
         {/* 내 몸 정보 — 미입력=권유 / 입력됨=요약+수정 (D-01/D-02/D-06) */}
         <Pressable

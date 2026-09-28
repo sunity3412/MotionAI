@@ -1541,11 +1541,11 @@ Plans:
 
 **Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 14 plans (7 waves · 12 실행 + 2 조건부 중 택1: 38-10/38-11(Expo web export) vs 38-12(단일 HTML) — 38-04 결정으로 정확히 한 쪽만 실행). **리뷰 반영(2026-09-26, Codex R1~R15 전부 수용 — 기록 = `38-01-PLAN.md` 끝 `## Review Response`):** 등록 작업 소유권(claim/lease/jobId) · 업로드 키/확정 키(v1) 분리 · 자기 재현성 권위 가드 + 규칙 · 실패 분류 순서(측정 불가 먼저) · `expired`·`too_large` · 공개/비공개 doc 분리 · 배포 전 baseline/설정 보존 + 회귀/롤백 · 순수 규칙 공유(38-03) · 38-04 를 wave 3 으로(wave 1·2 에 사람 체크포인트 0).
+**Plans:** 1/14 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 38-01-PLAN.md — 계약·키·검증(순수): reference 키 build/parse(D-04·D-19) · 등록 status/error enum 3벌 lockstep(D-05·D-09) · 폼 검증(D-07·D-08·D-14) · s3keys 영구 보관 주석(D-17) · SUPPLIER_UIDS 파서(D-12) [W1]
+- [x] 38-01-PLAN.md — 계약·키·검증(순수): reference 키 build/parse(D-04·D-19) · 등록 status/error enum 3벌 lockstep(D-05·D-09) · 폼 검증(D-07·D-08·D-14) · s3keys 영구 보관 주석(D-17) · SUPPLIER_UIDS 파서(D-12) [W1]
 - [ ] 38-02-PLAN.md — 앱: 3~90초 즉시 검사 + tooShort/tooLong 문구(D-14) · 촬영 문구 정정 14자리 + grep 게이트(D-15·D-16) · 마이 탭 강사 코드 한 줄(D-12·D-13) [W1]
 
 **Wave 2** *(blocked on Wave 1 completion)*

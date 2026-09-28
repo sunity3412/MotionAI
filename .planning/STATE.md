@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-28 — Phase 38 차단 3 해소(플래너 1 + 검사 1, Fable — belle 09-28 모델 선택 '그대로'): 검사 VERIFICATION PASSED · 새 차단 0 · 경고 2 이월(W1 과적 · W2 38-12 번들 자기 import — 38-04 가 단일 HTML(38-12)을 고르면 38-12 실행 전 반영) · 결정 커버리지 D-06 proceed-anyway(belle). **착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md`**(status: resolved, '다음' 절) → `/gsd-execute-phase 38`(14 플랜 7 웨이브, 결정 체크포인트 38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`). 정은지 영상 오면 시험 영상 2차 먼저. Pod 0 · 코드 0줄. 별건: 플라이휠(09-28 10:07)이 TRAINING-DUE.md 를 옛 템플릿으로 덮음(미커밋, `backend/scripts/flywheel_cycle.sh:102` 의 `cat >`)."
-last_updated: "2026-09-28T12:41:44.771Z"
+stopped_at: Phase 33 §9 수리 사이클 컨텍스트 기록 완료(D-39~D-45) — 다음 = 수리 plan
+last_updated: "2026-09-28T13:09:15.380Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 111
+  completed_plans: 112
   percent: 52
 ---
 
@@ -21,12 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 38 공급자 링크(실증 최소, belle 09-26 "공급자쪽") + 실증(2026-10 중순) 전 분석 정확도(시험 영상 2차 우선). 기획 정본 = quick-260925-pln 기획안
+**Current focus:** Phase 38 공급자 링크(실증 최소, belle 09-26 "공급자쪽") 실행 중 + 실증(2026-10 중순) 전 분석 정확도(시험 영상 2차 우선). 기획 정본 = quick-260925-pln 기획안
 
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 
 ## Current Position
 
+Phase: 38 (supplier-link) — EXECUTING
+Plan: 2 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -646,7 +648,7 @@ Last activity: 2026-07-20 - Completed quick task 260720-hn8: 영상 선택 실�
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 92%
+Progress: [████████░░] 84%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -911,6 +913,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 33 P13 | 25분 | 2 tasks | 6 files |
 | Phase 33 P14 | 50m | 2 tasks | 9 files |
 | Phase 33 P15 | 20분 | 2 tasks | 7 files |
+| Phase 38 P01 | 15min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -1025,6 +1028,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 33-15: 각도 수치 단일 거처 = 점수 계산 내역 '관절 각도 참고' (legacy doc 은 이동 거처 부재라 팁 잔류 — 삭제 금지)
 - [Phase ?]: 33-15: 초 표기 라벨 '(감점 부분)' = zoom.criterion 보유 카드 한정 (구 PNG 초 미베이크 거짓 지칭 방지)
 - [Phase ?]: 33-15: OctagonScore 중앙 수치 크기 유지 + 토큰화만 (D-16 대상 아님 해석 — 33-16 belle 재판단 재료)
+- [Phase 38]: 38-01: 요청/비공개 doc 의 clipRange 는 {execStartS, execEndS}(ReferenceClipRangeInput) — 5-필드 ClipRange 아님 — Task 3 검증이 execStartS/execEndS 만 읽고 38-06 이 비공개 doc 에 그 두 키로 적는다 — 5-필드 ClipRange 를 요구하면 폼이 만들 수 없는 값을 강제한다
+- [Phase 38]: 38-01: models.py 배치 — 상태 enum 은 COACH_STATUSES 아래, 실패 코드·문구·파서·private 경로는 ERROR_MESSAGE/reference_motion_path 뒤; TS REGISTRATION_ERROR_MESSAGE 도 ERROR_MESSAGE 뒤 — REGISTRATION_ERROR_MESSAGE 가 ERROR_MESSAGE 객체를, reference_private_path 가 reference_motion_path 를 참조 — 정의 순서(Python NameError / TS TDZ)
+- [Phase 38]: 38-01: REGISTRATION_ERROR_MESSAGE.no_human 은 ERROR_MESSAGE 객체 참조(is), TS 도 ERROR_MESSAGE.no_human 참조 — 문자열 복사 0 — D-09 — 기존 문구가 바뀌면 같이 바뀐다; 공급자 페이지 row.fail.no_human 과 다른 것이 의도된 예외
+- [Phase 38]: 38-01: ReferenceMotion TS 에 isActive? 추가 — referenceMotions.normalize() 가 raw.isActive===false 를 거르고 38-06 이 isActive:false 를 쓰는데 타입에 없었다
 
 ### Pending Todos
 
@@ -1059,7 +1066,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-30T05:47:37.672Z
+Last session: 2026-09-28T13:08:26.391Z
 
 Stopped at: Phase 33 §9 수리 사이클 컨텍스트 기록 완료(D-39~D-45) — 다음 = 수리 plan
 
@@ -1128,7 +1135,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/33-result-trust-recovery/33-CONTEXT.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

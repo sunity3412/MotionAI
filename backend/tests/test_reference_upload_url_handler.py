@@ -246,16 +246,15 @@ def test_happy_path_mov_format_signs_mov_key(handler_module, monkeypatch):
 def test_body_uid_and_ref_id_are_ignored(handler_module, monkeypatch):
     """V4 — 본문 uid/refId 는 어떤 호출 인자에도 닿지 않는다."""
     events, s3, create = _wire(handler_module, monkeypatch, uid="u1")
-    evil = {**OK_BODY, "uid": "evil", "refId": "ref-kip-up"}
+    # techniqueRefId 는 정당한 폼 필드라 None 으로 비운다 — "ref-kip-up" 이 주입 refId 로만 남게.
+    evil = {**OK_BODY, "techniqueRefId": None, "uid": "evil", "refId": "ref-kip-up"}
     resp = handler_module.lambda_handler(_bearer_event(evil), None)
     assert resp["statusCode"] == 200
     body = json.loads(resp["body"])
     assert body["refId"] != "ref-kip-up" and not body["refId"].startswith("ref-")
     assert body["s3Key"].startswith("reference/u1/")
     dump = repr(s3.calls) + repr(create.calls) + resp["body"]
-    assert "evil" not in dump and "ref-kip-up" not in dump.replace(
-        "'technique_ref_id': 'ref-kip-up'", ""
-    )
+    assert "evil" not in dump and "ref-kip-up" not in dump
     assert create.calls[0]["supplier_uid"] == "u1"
     assert create.calls[0]["ref_id"] == body["refId"]
 

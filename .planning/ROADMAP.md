@@ -1541,12 +1541,12 @@ Plans:
 
 **Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 1/14 plans executed
+**Plans:** 2/14 plans executed
 Plans:
 **Wave 1**
 
 - [x] 38-01-PLAN.md — 계약·키·검증(순수): reference 키 build/parse(D-04·D-19) · 등록 status/error enum 3벌 lockstep(D-05·D-09) · 폼 검증(D-07·D-08·D-14) · s3keys 영구 보관 주석(D-17) · SUPPLIER_UIDS 파서(D-12) [W1]
-- [ ] 38-02-PLAN.md — 앱: 3~90초 즉시 검사 + tooShort/tooLong 문구(D-14) · 촬영 문구 정정 14자리 + grep 게이트(D-15·D-16) · 마이 탭 강사 코드 한 줄(D-12·D-13) [W1]
+- [x] 38-02-PLAN.md — 앱: 3~90초 즉시 검사 + tooShort/tooLong 문구(D-14) · 촬영 문구 정정 14자리 + grep 게이트(D-15·D-16) · 마이 탭 강사 코드 한 줄(D-12·D-13) [W1]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

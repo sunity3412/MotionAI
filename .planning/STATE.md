@@ -4,13 +4,13 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: "2026-09-28 — Phase 38 실행 중 (`/gsd-execute-phase 38` 순차 · executor fable, belle 09-28). 완료분 = `.planning/phases/38-supplier-link/*-SUMMARY.md` 가 있는 플랜, 재개는 같은 명령. 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — 결정 체크포인트 38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`, W2 는 38-04 가 단일 HTML 을 고르면 38-12 전 반영). 정은지 영상 오면 시험 영상 2차 먼저. 별건 — 플라이휠이 TRAINING-DUE.md 를 옛 템플릿으로 덮음(미커밋, `backend/scripts/flywheel_cycle.sh` 102행)."
-last_updated: "2026-09-28T13:09:15.380Z"
+last_updated: "2026-09-28T14:05:38.624Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 112
+  completed_plans: 113
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 2 of 14
+Plan: 3 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -914,6 +914,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 33 P14 | 50m | 2 tasks | 9 files |
 | Phase 33 P15 | 20분 | 2 tasks | 7 files |
 | Phase 38 P01 | 15min | 3 tasks | 9 files |
+| Phase 38 P02 | 19min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -1032,6 +1033,8 @@ Recent decisions affecting current work:
 - [Phase 38]: 38-01: models.py 배치 — 상태 enum 은 COACH_STATUSES 아래, 실패 코드·문구·파서·private 경로는 ERROR_MESSAGE/reference_motion_path 뒤; TS REGISTRATION_ERROR_MESSAGE 도 ERROR_MESSAGE 뒤 — REGISTRATION_ERROR_MESSAGE 가 ERROR_MESSAGE 객체를, reference_private_path 가 reference_motion_path 를 참조 — 정의 순서(Python NameError / TS TDZ)
 - [Phase 38]: 38-01: REGISTRATION_ERROR_MESSAGE.no_human 은 ERROR_MESSAGE 객체 참조(is), TS 도 ERROR_MESSAGE.no_human 참조 — 문자열 복사 0 — D-09 — 기존 문구가 바뀌면 같이 바뀐다; 공급자 페이지 row.fail.no_human 과 다른 것이 의도된 예외
 - [Phase 38]: 38-01: ReferenceMotion TS 에 isActive? 추가 — referenceMotions.normalize() 가 raw.isActive===false 를 거르고 38-06 이 isActive:false 를 쓰는데 타입에 없었다
+- [Phase 38]: 38-02: 길이 검사 보장 범위 = 클라이언트 fail-open 하나 — duration 부재 픽 통과, 수요자 uploads/ 서버 측 길이 상한 없음(범위 밖, 리뷰 R15c)
+- [Phase 38]: 38-02: 시뮬레이터 확인 = iOS 18.6 sim 08-31 dev client + Metro (09-10 빌드는 번들 내장이라 Metro 무시). 실기기 미반영 — OTA/EAS 는 belle 결정 대기
 
 ### Pending Todos
 

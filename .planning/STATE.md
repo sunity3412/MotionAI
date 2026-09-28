@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-26 밤 — Phase 38 리뷰(Codex R1–R15) 반영 완료, **실행 금지 상태**: 반영본 검사에서 플랜 간 계약 불일치 차단 3 · 경고 2, 수정 에이전트가 Fable 크레딧 소진(429)으로 중단 — 미수정. **착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md`**(차단 3 수정안 + 결정). belle 첫 줄 `/gsd-plan-phase 38 --reviews` — 재계획 말고 이 파일만 수정 루프(플래너 1 + 검사 1) → 통과하면 커밋·push → `/gsd-execute-phase 38`. 주의: `.planning/config.json` model_overrides 가 GSD 에이전트 전부 fable(belle 결정 대기). 결정 체크포인트 3곳(38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`) 그대로. 정은지 영상 오면 시험 영상 2차 먼저. Pod 0, 코드 0줄."
-last_updated: "2026-09-26T09:23:45.237Z"
-last_activity: 2026-09-26
+stopped_at: "2026-09-28 — Phase 38 차단 3 해소(플래너 1 + 검사 1, Fable — belle 09-28 모델 선택 '그대로'): 검사 VERIFICATION PASSED · 새 차단 0 · 경고 2 이월(W1 과적 · W2 38-12 번들 자기 import — 38-04 가 단일 HTML(38-12)을 고르면 38-12 실행 전 반영) · 결정 커버리지 D-06 proceed-anyway(belle). **착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md`**(status: resolved, '다음' 절) → `/gsd-execute-phase 38`(14 플랜 7 웨이브, 결정 체크포인트 38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`). 정은지 영상 오면 시험 영상 2차 먼저. Pod 0 · 코드 0줄. 별건: 플라이휠(09-28 10:07)이 TRAINING-DUE.md 를 옛 템플릿으로 덮음(미커밋, `backend/scripts/flywheel_cycle.sh:102` 의 `cat >`)."
+last_updated: "2026-09-28T12:41:44.771Z"
+last_activity: 2026-09-28
 progress:
-  total_phases: 40
-  completed_phases: 21
-  total_plans: 241
-  completed_plans: 196
-  percent: 53
+  total_phases: 21
+  completed_phases: 11
+  total_plans: 134
+  completed_plans: 111
+  percent: 52
 ---
 
 # Project State
@@ -163,7 +163,9 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-09-26
+> ⚠ Phase 38 Decision-Coverage Gate override (2026-09-28): 21/22 CONTEXT 결정이 plan 에 인용. 미커버 D-06(clipRange 승격은 **선택** — 손 입력 유지 가능, Gemini A 는 붙이거나 미룬다)은 38-01·38-12 `read_first` 에만 인용(리뷰 전 debb86bf 도 같은 줄 — 09-28 차단 수정과 무관). 현 플랜은 D-06 의 허용 갈래: 요청 계약 `clipRange?` 선택 필드(38-01:162) · 공급자 폼은 clipRange 를 보내지 않음(38-03:162) → 없으면 런타임 DTW 폴백, Gemini A 승격은 미룸. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 09-28).
+
+Last activity: 2026-09-28
 
 이전: 2026-08-31 - **코드리뷰 후속 수리 2건 (belle "고고")** — 리뷰(c2976102..HEAD, high)가 크레딧 소진으로 중단됐으나 확보된 후보를 실측 처분: ①vision tol 우회 소음 감점 위험 = **기각**(정타 6편 전부 vision 결함 보고 0건, N=1→N=6. 대조: kip-up fault 는 20도 보고 — 변별 유지) ②기준 doc joints3d 부재 = **기각**(11/11 보유) ③**신규 발견·수리**: 기준 4/11(foxtop·foxtop-split·invert·sideway-spin)이 y축 회전잔여(1e-13)뿐인 x-z 평면 저장 → 상체각이 상수 90도 = 지어낸 코칭. up축 소실 가드(좌표스케일x eps) 도입, 못 재면 NaN→라인 생략 ④**자세 축 양방향화**: 종전 한 방향 발화는 서 있는 동작(11개 중 3개)에서만 참 — 수평·뒤집힘 8개의 "덜 눕힘" 결함이 영영 안 나왔다. |delta| 판정+문구가 방향 구분, 절대 자세 지시 제거. ★수리 과정 교훈: 최초 가드("정확히 0")가 합성 픽스처만 통과하고 실데이터에서 무력 — 실데이터 검증에서 발각(VERIFY.md 에 FAIL 박제, 픽스처를 실데이터 형태로 교체). 4544 passed/0 failed. 점수 경로 무접촉. 커밋 1aac5b8f. ★미처리: stability 창 자 불일치(점수 이동 있어 belle 예고 후) · 리뷰 미완 각도(앱 result.tsx)
 

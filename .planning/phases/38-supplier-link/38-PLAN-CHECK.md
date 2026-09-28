@@ -2,12 +2,31 @@
 phase: 38
 checked_at: 2026-09-26
 checker: gsd-plan-checker (리뷰 R1-R15 반영본 대상)
-status: open
+status: resolved
+resolved_at: 2026-09-28
+resolved_by: gsd-planner 수정 1회 + gsd-plan-checker 1회 (model fable — belle 09-28 선택)
 blockers: 3
 warnings: 2
 ---
 
-# Phase 38 — 리뷰 반영 뒤 plan-checker 결과 (미반영)
+# Phase 38 — 리뷰 반영 뒤 plan-checker 결과 (차단 3 해소 2026-09-28)
+
+## 해소 (2026-09-28)
+
+belle 지시: *"재계획은 하지 않고, 차단 3건만 플래너 1회와 검사 1회로 고친 뒤 실행으로"*.
+
+- **차단 3 전부 해소** [확인: 검사기 `## VERIFICATION PASSED` — 새 차단 0 · 코드 소비처까지 추적(`hold_height._arrays` 키 `joints/frames/data/confidence` · `_NEEDED` 8관절 ⊂ `build_keypoint_report` 12관절) · 오케스트레이터 grep: 38-06 `13함수` 0 / `9함수` 5 · 38-09 `--offline` 5 · 38-07 `_dataclass_to_camel_case_dict` 6 / `dataclasses.asdict(report)` 0 · 38-14 diff 0].
+- 바뀐 파일: 38-05 · 38-06 · 38-07 · 38-09 PLAN + 38-VALIDATION(Wave 0 세 줄). wave · depends_on · files_modified · task 수 무변경. 테스트 하한 38-05 ≥15 · 38-07 ≥17 · 38-09 ≥6 · 38-06 ≥24 유지.
+  - 차단 1: 38-07 T2 step 8 `report_obj → None 이면 server_error → _dataclass_to_camel_case_dict` 한 dict 를 `check_registration` 과 `set_reference_angles` 에 같은 객체로. 38-05 T1 `_require_mapping` — 비Mapping TypeError, 형상 불량 Mapping 은 fail-closed 그대로(`hold_height._arrays` 무변경).
+  - 차단 2: `_require_registration_ref_id` = reference 쓰기 9함수만. 읽기 3(`get_reference_registration` · `_private` · `list_…_by_status`)과 `create_analysis_doc` · `self_check_authorized` 는 비가드. 테스트 `test_legacy_ref_id_read_allowed` 추가.
+  - 차단 3: 38-09 T1 에 `--diff <before> --out <path> --offline <after.json>`(Firestore · AWS 호출 0) + exit 0/1 규약(온라인 · 오프라인 같음). 38-14 무변경.
+- **미반영(이월, belle "차단 3건만")**: 아래 경고 2 · 정보 전부. 검사기 추가 관측:
+  - **W2 실패 기전 재현** [검사기 확인, Node 24.15]: supplierForm 이 `./supplierRules` 를 값 import 하면 이어 붙인 `rules.js` 가 자기 자신을 import → 모듈 컴파일 `SyntaxError`, 그런데 T1 게이트 `node --check` 는 통과(못 봄). **38-04 가 단일 HTML(38-12)을 고르면 38-12 실행 전에 W2 결정을 반영할 것.** 38-10/38-11 경로면 무관.
+  - 정보: 38-09 T1 의 "docs/reference-motions.md §3 의 id 11개" — 실제 `ref-*` 는 §5(= `motionThumbs.ts` 11개), §3 엔 0개.
+  - 정보: 38-06 "writer 13종" 라벨 = I/O 함수 수(쓰기 9 + 읽기 3 + `create_analysis_doc`). 가드 범위는 본문 · truth · acceptance 가 9 로 못 박아 실행 모순 아님(검사기 판정).
+- 결정 커버리지 게이트 21/22 — D-06(clipRange 승격 선택) 미인용 → belle proceed-anyway, STATE.md 에 기록.
+
+## 원 검사 기록 (2026-09-26)
 
 > 리뷰(`38-REVIEWS.md`, Codex R1-R15)는 전부 플랜에 들어갔다. 38-01 끝 `## Review Response` 표가 기록이고, 검사기가 R 항목 15개를 플랜 본문과 대조해 PASS 했다.
 > 그 반영 과정에서 플랜 사이 계약 불일치 3건이 새로 생겼다. 수정 에이전트가 Fable 크레딧 소진(HTTP 429)으로 중단돼 **아직 안 고쳤다** [확인: `13함수` 1건 · `--offline` 0건 · `_dataclass_to_camel_case_dict` 0건].
@@ -37,7 +56,11 @@ warnings: 2
 - 38-04 T3 · VALIDATION 범례의 `⏭` → ASCII `[skipped-by-decision]`(CLAUDE.md §7 이모지 금지). `★` 는 그대로.
 - 그 밖(rtk 접두 없음 · PATTERNS 행 누락 · low_confidence 가 multiple_people 보다 먼저) 변경 없음.
 
-## 다음 세션
+## 다음 (2026-09-28 갱신)
+
+`/gsd-execute-phase 38` — 14 플랜 7 웨이브. 결정 체크포인트 3곳(38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`). 38-04 에서 단일 HTML(38-12)이 골라지면 위 W2 먼저. GSD 에이전트 모델 = config 그대로 fable(belle 09-28) — 429 가 나면 멈추고 belle 에게 다시 묻는다.
+
+## 다음 세션 (2026-09-26 기록 — 이행 완료)
 
 `/gsd-plan-phase 38 --reviews` 로 들어가되 **재계획하지 않는다.** 오케스트레이터가 이 파일을 checker_issues 로 넣어 플래너 수정 1회(plan-phase 12단계) → 검사기 1회 → 통과하면 이 파일 `status: resolved` + 커밋·push → `/gsd-execute-phase 38`.
 주의: `.planning/config.json` 의 `model_overrides` 가 GSD 에이전트 전부 `fable` 이다. 바꾸지 않으면 에이전트가 Fable 크레딧을 쓴다(belle 결정 대기, 2026-09-26).

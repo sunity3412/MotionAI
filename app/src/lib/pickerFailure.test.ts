@@ -25,6 +25,8 @@ const ALL_KINDS: PickFailureKind[] = [
   'libraryOpen',
   'cameraOpen',
   'processFailed',
+  'tooShort',
+  'tooLong',
 ];
 
 test('tooLarge: Figma 확정 문구 원문 일치', () => {
@@ -42,6 +44,30 @@ test('format: Figma 확정 문구 원문 일치 (mp4, mov형식의 붙임 유지
   assert.equal(f.title, '지원할 수 없는 파일이에요');
   assert.deepEqual(f.lines, ['mp4, mov형식의 영상만', '업로드 가능해요.']);
   assert.equal(f.primaryLabel, '다른 파일 선택');
+});
+
+// Phase 38 D-14 — 길이 검사 2종. UI-SPEC §C "C 길이 검사 문구" 표가 글자 단위 정본이라
+// Figma 확정 문구와 같은 어법으로 원문 일치를 잠근다.
+test('tooShort: UI-SPEC §C 문구 원문 일치 + 다른 파일 선택', () => {
+  const f = describePickFailure('tooShort');
+  assert.equal(f.title, '영상이 너무 짧아요');
+  assert.deepEqual(f.lines, [
+    '동작 전체가 담긴 영상이 필요해요.',
+    '3초 이상인 영상을 다시 선택해주세요.',
+  ]);
+  assert.equal(f.primaryLabel, '다른 파일 선택');
+  assert.equal(f.primaryAction, 'repick');
+});
+
+test('tooLong: UI-SPEC §C 문구 원문 일치 + 다른 파일 선택', () => {
+  const f = describePickFailure('tooLong');
+  assert.equal(f.title, '영상이 너무 길어요');
+  assert.deepEqual(f.lines, [
+    '90초 이내 영상만 분석할 수 있어요.',
+    '동작이 담긴 부분만 잘라서 다시 선택해주세요.',
+  ]);
+  assert.equal(f.primaryLabel, '다른 파일 선택');
+  assert.equal(f.primaryAction, 'repick');
 });
 
 test('권한 거부 2종: 오른쪽 버튼이 설정 열기', () => {

@@ -1,0 +1,115 @@
+{
+  "_comment": "Phase 38 (38-06 T3) — Firebase Rules REST projects:test 케이스. 리뷰 R2(selfCheck 표식 클라이언트 create/update 거부) · R13(private 서브문서는 supplierUid 본인만 읽기). 경로는 절대 경로, `resource.data` = 요청 전 저장 상태, `request.resource.data` = 쓰기 후 상태. 실행: backend/.venv/bin/python backend/scripts/deploy_firestore_rules.py --test (읽기 전용, 배포 0).",
+  "testCases": [
+    {
+      "expectation": "ALLOW",
+      "request": {
+        "auth": {"uid": "A"},
+        "path": "/databases/(default)/documents/reference/r1/private/registration",
+        "method": "get"
+      },
+      "resource": {"data": {"supplierUid": "A", "consent": {"portrait": true, "usage": true, "silent": true, "training": false, "version": "2026-09-26", "at": 1700000000000, "uid": "A"}}}
+    },
+    {
+      "expectation": "DENY",
+      "request": {
+        "auth": {"uid": "B"},
+        "path": "/databases/(default)/documents/reference/r1/private/registration",
+        "method": "get"
+      },
+      "resource": {"data": {"supplierUid": "A", "consent": {"portrait": true, "usage": true, "silent": true, "training": false, "version": "2026-09-26", "at": 1700000000000, "uid": "A"}}}
+    },
+    {
+      "expectation": "DENY",
+      "request": {
+        "path": "/databases/(default)/documents/reference/r1/private/registration",
+        "method": "get"
+      },
+      "resource": {"data": {"supplierUid": "A"}}
+    },
+    {
+      "expectation": "ALLOW",
+      "request": {
+        "auth": {"uid": "B"},
+        "path": "/databases/(default)/documents/reference/r1",
+        "method": "get"
+      },
+      "resource": {"data": {"motionId": "r1", "name": "킵업", "supplierUid": "A", "registrationStatus": "active", "isActive": true}}
+    },
+    {
+      "expectation": "ALLOW",
+      "request": {
+        "auth": {"uid": "B"},
+        "path": "/databases/(default)/documents/reference/r1/versions/v1",
+        "method": "get"
+      },
+      "resource": {"data": {"anglesFrames": 10}}
+    },
+    {
+      "expectation": "DENY",
+      "request": {
+        "auth": {"uid": "B"},
+        "path": "/databases/(default)/documents/reference/r1",
+        "method": "update",
+        "resource": {"data": {"motionId": "r1", "name": "킵업", "supplierUid": "B", "registrationStatus": "active", "isActive": true}}
+      },
+      "resource": {"data": {"motionId": "r1", "name": "킵업", "supplierUid": "A", "registrationStatus": "active", "isActive": true}}
+    },
+    {
+      "expectation": "DENY",
+      "request": {
+        "auth": {"uid": "A"},
+        "path": "/databases/(default)/documents/users/A/analyses/x",
+        "method": "create",
+        "resource": {"data": {"analysisId": "x", "mode": "mode1", "status": "uploading", "selfCheckForReference": "r1"}}
+      }
+    },
+    {
+      "expectation": "ALLOW",
+      "request": {
+        "auth": {"uid": "A"},
+        "path": "/databases/(default)/documents/users/A/analyses/x",
+        "method": "create",
+        "resource": {"data": {"analysisId": "x", "mode": "mode1", "status": "uploading", "fileName": "a.mp4", "learningOptIn": false}}
+      }
+    },
+    {
+      "expectation": "ALLOW",
+      "request": {
+        "auth": {"uid": "A"},
+        "path": "/databases/(default)/documents/users/A/analyses/x",
+        "method": "update",
+        "resource": {"data": {"analysisId": "x", "mode": "mode1", "status": "done", "selfCheckForReference": "r1", "selfCheckJobId": "J1", "coachReview": {"comment": "좋아요", "reviewedBy": "강사", "updatedAt": 1700000000000}}}
+      },
+      "resource": {"data": {"analysisId": "x", "mode": "mode1", "status": "done", "selfCheckForReference": "r1", "selfCheckJobId": "J1"}}
+    },
+    {
+      "expectation": "DENY",
+      "request": {
+        "auth": {"uid": "A"},
+        "path": "/databases/(default)/documents/users/A/analyses/x",
+        "method": "update",
+        "resource": {"data": {"analysisId": "x", "mode": "mode1", "status": "done", "selfCheckForReference": "r2", "selfCheckJobId": "J1"}}
+      },
+      "resource": {"data": {"analysisId": "x", "mode": "mode1", "status": "done", "selfCheckForReference": "r1", "selfCheckJobId": "J1"}}
+    },
+    {
+      "expectation": "DENY",
+      "request": {
+        "auth": {"uid": "B"},
+        "path": "/databases/(default)/documents/users/A/analyses/x",
+        "method": "get"
+      },
+      "resource": {"data": {"analysisId": "x", "mode": "mode1", "status": "done"}}
+    },
+    {
+      "expectation": "ALLOW",
+      "request": {
+        "auth": {"uid": "A"},
+        "path": "/databases/(default)/documents/users/A/analyses/x",
+        "method": "delete"
+      },
+      "resource": {"data": {"analysisId": "x", "mode": "mode1", "status": "done"}}
+    }
+  ]
+}

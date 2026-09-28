@@ -487,7 +487,7 @@ export default function AnalysisLoading() {
       : isLowQualityNotPole
         ? '화질이 낮으면 자세를 정확히 읽기 어려워요. 원본 화질로 다시 올리거나 앱에서 직접 촬영하면 훨씬 잘 분석돼요.'
         : isPlainNotPole
-          ? '촬영 구도나 거리가 기준 영상과 많이 다르면 이렇게 나올 수 있어요. 몸 전체가 화면에 들어오는 거리에서 정면으로 다시 찍어보면 좋아요.'
+          ? '촬영 구도나 거리가 기준 영상과 많이 다르면 이렇게 나올 수 있어요. 기준 영상처럼 찍으세요(폴 전체와 전신이 들어오는 거리, 세로, 고정).'
           : '분석 중 잠깐 문제가 있었어요. 잠시 후 다시 시도하면 대부분 잘 돼요.';
     return (
       <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
@@ -516,9 +516,13 @@ export default function AnalysisLoading() {
                 <Ionicons name="alert-circle" size={16} color={ERROR_RED} />
                 <Text style={styles.tipHead}>촬영 TIP!</Text>
               </View>
-              <Text style={styles.tipItem}>· 측면 45°, 2~3m 거리</Text>
-              <Text style={styles.tipItem}>· 밝은 환경, 폴 전체로 보이게</Text>
-              <Text style={styles.tipItem}>· 3초 이상, 동작 전체 포함</Text>
+              {/* Phase 38 D-15/D-16 — 촬영 기준 = 정은지 기준 영상 조건(고정 각도 없음).
+                  줄 3 은 D-14 길이 3~90초와 정합. 문자열 정본 = 38-UI-SPEC §C 표. */}
+              <Text style={styles.tipItem}>
+                · 기준 영상처럼 찍으세요(폴 전체와 전신이 들어오는 거리, 세로, 고정)
+              </Text>
+              <Text style={styles.tipItem}>· 밝은 실내, 역광 없이, 한 사람만</Text>
+              <Text style={styles.tipItem}>· 3초 이상 90초 이내, 동작 전체 포함</Text>
             </View>
           )}
           {isNotPole && (
@@ -542,8 +546,10 @@ export default function AnalysisLoading() {
                 // 카피만.
                 <>
                   <Text style={styles.tipItem}>· 폴스포츠 연습 영상이 맞는지</Text>
+                  {/* Phase 38 D-15 — 체크리스트 "~했는지" 문법에 맞춘 의도된 변형(UI-SPEC
+                      §Decisions ui-checker flags 5행). 뜻은 D-15 문장과 같다. */}
                   <Text style={styles.tipItem}>
-                    · 몸 전체가 화면에 들어오는 거리(약 2~3m)에서 정면으로 촬영했는지
+                    · 기준 영상처럼 찍었는지(폴 전체와 전신이 들어오는 거리, 세로, 고정)
                   </Text>
                   <Text style={styles.tipItem}>· 선택한 기준 동작이 영상과 같은지</Text>
                   <Text style={styles.tipItem}>· 전신이 다 보이는지</Text>

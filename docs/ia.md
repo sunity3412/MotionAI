@@ -186,9 +186,9 @@ flowchart TD
 
 | ID | Guide | Condition | Message | CTA |
 |---|---|---|---|---|
-| AC-VID-002-1 | Pole sports angle guide | 전신 / 폴 전체 / 측면 45° | 완벽해요! 분석을 시작합니다. | AI 분석으로 이동 |
+| AC-VID-002-1 | Pole sports angle guide | 기준 영상처럼(폴 전체+전신이 들어오는 거리, 세로, 고정) | 완벽해요! 분석을 시작합니다. | AI 분석으로 이동 |
 | AC-VID-002-1E | Bad angle detected | 폴 전체가 안 보임 | 폴 전체가 화면에 보이지 않아요. 카메라를 조정해주세요. | 재촬영 |
-| AC-VID-002-2 | Lighting / distance guide | 밝은 환경 / 2~3m 거리 | 환경이 좋아요. 분석 정확도가 높아집니다. | 촬영 계속 |
+| AC-VID-002-2 | Lighting / distance guide | 밝은 실내 / 폴 전체와 전신이 들어오는 거리(약 4~5m) | 환경이 좋아요. 분석 정확도가 높아집니다. | 촬영 계속 |
 
 ## 3-3. Video Validation
 
@@ -198,6 +198,7 @@ flowchart TD
 | AC-VID-003-1E | Person detection | Fail | 영상에 사람 없음 | 영상에서 사람을 찾지 못했어요. 다시 촬영해주세요. | 재촬영 / 재업로드 |
 | AC-VID-003-1B | Blur check | Fail | 화질 분석 불가 | 영상이 너무 흔들렸어요. 더 안정적으로 촬영해주세요. | 재촬영 |
 | AC-VID-003-1L | Duration check | Fail | 3초 미만 | 영상이 너무 짧아요. 동작 전체가 담긴 영상이 필요해요. | 재업로드 |
+| AC-VID-003-1X | Duration check | Fail | 90초 초과 | 영상이 너무 길어요. 동작이 담긴 부분만 잘라서 다시 선택해주세요. | 재업로드 |
 
 ---
 

@@ -10,6 +10,7 @@ Parameter Store(FIREBASE_SA_PARAM)에서 로드 — 코드/.env 하드코딩 금
 
 from __future__ import annotations
 
+import logging
 import math
 import time
 
@@ -4450,3 +4451,665 @@ def update_analysis_visual(
         update["result.correctedPoseJoint"] = joint
     # top-level updatedAt 미갱신 (D-03 경계).
     _doc(models.analysis_doc_path(uid, analysis_id)).update(update)
+
+
+# ── Phase 38 (D-04·D-05·D-08·D-10·D-19 + 리뷰 R2·R3·R4·R8·R13) — 공급자 링크 등록 writer ──
+#
+# 공급자 링크(38-06 T1)가 만드는 기준 doc 의 생명주기 writer 13 + 순수 가드 1. 이 블록의
+# `set_reference_angles` 는 :2252-2261 "angles 절대 금지" 규칙의 **유일한 예외**이며 legacy
+# `ref-*` id 를 거부한다 — 손 등록 11개(D-19, Success ④)는 구조적으로 못 건드린다(선작성은
+# `create()` 라 존재하면 실패, `reference/{refId}` 를 쓰는 9함수는 `_require_registration_ref_id`
+# 가드가 첫 줄).
+#
+# 핵심 불변식 3개(visual job 어법 :2898-2907 미러):
+#   1. 상태 전이는 트랜잭션 안에서 현재 상태·jobId 를 검증한 뒤에만 쓴다.
+#   2. 외부 side-effect(위임·복사)는 `claim_registration` 이 True 를 준 뒤에만.
+#   3. 자기 재현성 완료/실패 기록은 `self_check_authorized` 를 지난 것만.
+#
+# 공개/비공개 분배(리뷰 R13, contract.md §3): 공개 `reference/{refId}` = picker·상태·점수·작업
+# 필드, 비공개 `reference/{refId}/private/registration` = 동의·선언·techniqueRefId·clipRange·
+# registrationError. 읽기 3함수(get_reference_registration · get_reference_registration_private
+# · list_reference_registrations_by_status)는 가드 **없음** — 38-09 T1 step 0(a) baseline 과
+# 38-14 T2/T4 재diff 가 legacy `ref-*` 11개를 raw 로 읽는 경로다(plan-checker 차단 2,
+# 2026-09-28). `create_analysis_doc`(users/ 경로)·`self_check_authorized`(순수)도 가드 밖.
+#
+# 상태 전이 표는 models.py REGISTRATION_STATUSES 블록 주석이 정본:
+#   registering → queued | processing | expired · queued → processing
+#   processing  → active | failed | processing(lease 만료 재claim)
+
+_REGISTRATION_SOURCE = "supplier-link"
+_REGISTRATION_TERMINAL = (
+    models.REGISTRATION_STATUS_ACTIVE,
+    models.REGISTRATION_STATUS_FAILED,
+    models.REGISTRATION_STATUS_EXPIRED,
+)
+_reg_log = logging.getLogger(__name__)
+
+
+def _require_registration_ref_id(ref_id) -> None:
+    """`reference/{refId}` 를 **쓰는** 9함수의 첫 줄 가드(D-19, Success ④).
+
+    빈 값 또는 legacy `ref-*`(손 등록 11개) 면 ValueError — 어떤 Firestore 호출보다 먼저.
+    읽기 함수에는 두지 않는다(38-09 baseline · 38-14 재diff 가 legacy 를 raw 로 읽는다).
+    """
+    if not isinstance(ref_id, str) or not ref_id or ref_id.startswith("ref-"):
+        raise ValueError("ref_id invalid or legacy (ref-*)")
+
+
+def _registration_ref(ref_id: str):
+    return _doc(models.reference_motion_path(ref_id))
+
+
+def create_reference_registration(
+    ref_id: str,
+    *,
+    supplier_uid: str,
+    form,
+    upload_key: str,
+    upload_expires_at_ms: int,
+    consent_at_ms: int,
+    supplier_code: str | None = None,
+) -> None:
+    """공개 `reference/{refId}` + 비공개 `reference/{refId}/private/registration` 을 **한 batch 로
+    create** — 등록 선작성(D-04·D-08, 리뷰 R4·R13).
+
+    원자적 두 문서 create — 하나라도 존재하면 `AlreadyExists` 전파(batch 전체 실패),
+    `snap.exists` 분기(:2402-2404)와 달리 경합 없음, 리포 첫 `create()` 사용. 호출측
+    (reference-upload-url Lambda)은 presign 성공 **뒤** 이 함수를 부르고 예외면 URL 을
+    응답에 싣지 않는다(고아 객체 없음, R4).
+
+    공개 doc 에 두지 않는 것: `videoS3Key`(활성화 때 v1 키만, R5) · 동의 · 선언 · techniqueRefId
+    · clipRange(비공개 doc). 동의는 서버 시각·문안 버전·uid 와 함께 남는다(D-08 부인 방지).
+
+    Args:
+      form: validation.ReferenceUploadRequest(속성 접근). clip_range 튜플은 비공개 doc 의
+        {execStartS, execEndS} 로, None 이면 키 없음.
+      upload_expires_at_ms: presign 만료(epoch ms) — Lambda 의 ExpiresIn 과 한 상수(R4).
+      consent_at_ms: 서버 시각(epoch ms) — consent.at.
+    """
+    _require_registration_ref_id(ref_id)
+    if not supplier_uid:
+        raise ValueError("supplier_uid required")
+    if not upload_key:
+        raise ValueError("upload_key required")
+
+    now_ms = _now_ms()
+    public_payload: dict = {
+        "motionId": ref_id,
+        "supplierUid": supplier_uid,
+        "supplierCode": supplier_code,
+        "source": _REGISTRATION_SOURCE,
+        "name": form.name,
+        "athleteName": form.athlete_name,
+        "level": form.level,
+        "uploadKey": upload_key,
+        "uploadExpiresAt": int(upload_expires_at_ms),
+        "isActive": False,
+        "registrationStatus": models.REGISTRATION_STATUS_REGISTERING,
+        "jobId": None,
+        "leaseUntil": None,
+        "registrationUpdatedAt": now_ms,
+        "createdAt": now_ms,
+        "updatedAt": now_ms,
+    }
+    private_payload: dict = {
+        "supplierUid": supplier_uid,
+        "consent": {
+            "portrait": True,
+            "usage": True,
+            "silent": True,
+            "training": bool(form.consent_training),
+            "version": models.CONSENT_VERSION,
+            "at": int(consent_at_ms),
+            "uid": supplier_uid,
+        },
+        "techniqueRefId": form.technique_ref_id,
+        "isCombo": bool(form.is_combo),
+        "isSplit": bool(form.is_split),
+        "hasHold": bool(form.has_hold),
+        "standingStart": bool(form.standing_start),
+        "updatedAt": now_ms,
+    }
+    if form.clip_range is not None:
+        start, end = form.clip_range
+        private_payload["clipRange"] = {"execStartS": float(start), "execEndS": float(end)}
+
+    _validate_flat_dict_no_nested_array(public_payload, path="reference")
+    _validate_flat_dict_no_nested_array(private_payload, path="reference.private.registration")
+
+    batch = _db().batch()
+    batch.create(_registration_ref(ref_id), public_payload)
+    batch.create(_doc(models.reference_private_path(ref_id)), private_payload)
+    batch.commit()
+    _reg_log.info(
+        "create_reference_registration ok ref_id=%s supplier_uid=%s level=%s combo=%s",
+        ref_id,
+        supplier_uid,
+        form.level,
+        bool(form.is_combo),
+    )
+
+
+def get_reference_registration(ref_id: str) -> dict | None:
+    """공개 doc top-level 원본(버전 포인터 해석 **없음** — `get_reference_motion` 과 다르다).
+
+    38-09 baseline·38-14 재diff 의 읽기 경로 — 가드 금지(legacy `ref-*` 포함 어떤 id 든 raw).
+    """
+    data = _snap_dict(_registration_ref(ref_id).get())
+    if data is None:
+        return None
+    data.setdefault("motionId", ref_id)
+    return data
+
+
+def get_reference_registration_private(ref_id: str) -> dict | None:
+    """비공개 `reference/{refId}/private/registration` 원본. 가드 없음(읽기)."""
+    return _snap_dict(_doc(models.reference_private_path(ref_id)).get())
+
+
+def claim_registration(
+    ref_id: str,
+    job_id: str,
+    *,
+    lease_sec: int = models.REGISTRATION_LEASE_SEC,
+    now_ms: int | None = None,
+) -> bool:
+    """등록 작업 소유권 획득(리뷰 R3) — True 를 받은 호출자만 Pod 위임·복사 같은 side-effect 를 낸다.
+
+    R3: S3 이벤트 중복·순서 변경, requeue 재실행, Pod 죽음(lease 만료) 을 한 함수가 가른다.
+      · registering | queued → 성공: processing · jobId · leaseUntil = now + lease
+      · processing 이고 lease 가 남았으면 → False (다른 전달자가 실행 중 — 두 번 실행 없음)
+      · processing 이고 lease 만료 → 성공(재claim, 옛 jobId 를 warning 으로)
+      · active · failed · expired · doc 없음 → False
+    만료 비교는 호출측이 넘긴 now_ms 하나만 쓴다(phase31 H10-03 — 테스트 결정론). 트랜잭션
+    CAS 라 같은 pre-state 를 읽은 두 호출 중 하나만 commit 되고 다른 하나는 재시도 뒤 False.
+    """
+    _require_registration_ref_id(ref_id)
+    if not job_id:
+        raise ValueError("job_id required")
+    lease_ms = int(lease_sec) * 1000
+    if lease_ms <= 0:
+        raise ValueError("lease_sec must be > 0")
+    now = int(now_ms) if now_ms is not None else _now_ms()
+    ref = _registration_ref(ref_id)
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None:
+            return False
+        status = data.get("registrationStatus")
+        if status == models.REGISTRATION_STATUS_PROCESSING:
+            lease_until = int(data.get("leaseUntil") or 0)
+            if now < lease_until:
+                return False
+            _reg_log.warning(
+                "claim_registration lease expired — reclaim ref_id=%s old_job_id=%s "
+                "new_job_id=%s lease_until=%s now=%s",
+                ref_id,
+                data.get("jobId"),
+                job_id,
+                lease_until,
+                now,
+            )
+        elif status not in (
+            models.REGISTRATION_STATUS_REGISTERING,
+            models.REGISTRATION_STATUS_QUEUED,
+        ):
+            return False
+        transaction.update(
+            ref,
+            {
+                "registrationStatus": models.REGISTRATION_STATUS_PROCESSING,
+                "jobId": job_id,
+                "leaseUntil": now + lease_ms,
+                "registrationUpdatedAt": now,
+                "updatedAt": now,
+            },
+        )
+        return True
+
+    claimed = _run_in_transaction(_tx)
+    if claimed:
+        _reg_log.info("claim_registration ok ref_id=%s job_id=%s lease_ms=%s", ref_id, job_id, lease_ms)
+    return claimed
+
+
+def set_registration_queued(ref_id: str, *, queued_reason: str) -> bool:
+    """registering → queued(Pod 부재 등, 리뷰 R4). registering 에서만 True — 그 외 no-op + warning.
+
+    R4: 영속 queued 기록에 성공한 경우에만 호출측이 Pod 부재 메시지를 정상 소비한다.
+    """
+    _require_registration_ref_id(ref_id)
+    if not queued_reason:
+        raise ValueError("queued_reason required")
+    ref = _registration_ref(ref_id)
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        status = data.get("registrationStatus") if data else None
+        if status != models.REGISTRATION_STATUS_REGISTERING:
+            _reg_log.warning(
+                "set_registration_queued skipped ref_id=%s status=%s reason=%s",
+                ref_id,
+                status,
+                queued_reason,
+            )
+            return False
+        now = _now_ms()
+        transaction.update(
+            ref,
+            {
+                "registrationStatus": models.REGISTRATION_STATUS_QUEUED,
+                "queuedReason": queued_reason,
+                "registrationUpdatedAt": now,
+                "updatedAt": now,
+            },
+        )
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+def set_registration_expired(ref_id: str) -> bool:
+    """registering → expired(리뷰 R4 — presign 만료 뒤에도 객체가 없는 등록을 스윕이 닫는다).
+
+    registering 에서만 True. queued/processing 은 이미 객체가 있었던 것이라 만료 대상이 아니다.
+    """
+    _require_registration_ref_id(ref_id)
+    ref = _registration_ref(ref_id)
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        status = data.get("registrationStatus") if data else None
+        if status != models.REGISTRATION_STATUS_REGISTERING:
+            _reg_log.info("set_registration_expired skipped ref_id=%s status=%s", ref_id, status)
+            return False
+        now = _now_ms()
+        transaction.update(
+            ref,
+            {
+                "registrationStatus": models.REGISTRATION_STATUS_EXPIRED,
+                "registrationUpdatedAt": now,
+                "updatedAt": now,
+            },
+        )
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+def _guarded_update(ref_id: str, job_id: str, mutate):
+    """job 가드 트랜잭션 본문을 만든다 — 호출측이 `_run_in_transaction(_tx)` 로 실행한다(R3).
+
+    트랜잭션 안에서 doc 을 읽어 `doc.jobId != job_id` 면 warning + False(stale 작업 = no-op).
+    통과하면 `mutate(transaction, ref, data) -> bool` 이 상태 검증과 쓰기를 한다. 트랜잭션을
+    여는 쪽은 호출측 하나 — nested @transactional 금지(:3070 규율).
+    """
+    if not job_id:
+        raise ValueError("job_id required")
+    ref = _registration_ref(ref_id)
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        current = data.get("jobId") if data else None
+        if data is None or current != job_id:
+            _reg_log.warning("stale job ref_id=%s job_id=%s current=%s", ref_id, job_id, current)
+            return False
+        return mutate(transaction, ref, data)
+
+    return _tx
+
+
+def set_registration_active(
+    ref_id: str,
+    job_id: str,
+    *,
+    video_s3_key: str,
+    video_etag: str,
+) -> bool:
+    """processing ∧ doc.jobId == job_id 일 때만 active(리뷰 R3·R5).
+
+    `videoS3Key` 는 서버가 copy_object 한 확정 키(`v1.{ext}`)만, `videoETag` 는 그 객체의
+    ETag — 등록 산출물과 영상을 묶는다(R5). lease 는 지운다(종결).
+    """
+    _require_registration_ref_id(ref_id)
+    if not video_s3_key:
+        raise ValueError("video_s3_key required")
+    if not video_etag:
+        raise ValueError("video_etag required")
+
+    def _mutate(transaction, ref, data) -> bool:
+        status = data.get("registrationStatus")
+        if status != models.REGISTRATION_STATUS_PROCESSING:
+            _reg_log.warning(
+                "set_registration_active skipped ref_id=%s job_id=%s status=%s",
+                ref_id,
+                job_id,
+                status,
+            )
+            return False
+        now = _now_ms()
+        transaction.update(
+            ref,
+            {
+                "registrationStatus": models.REGISTRATION_STATUS_ACTIVE,
+                "isActive": True,
+                "videoS3Key": video_s3_key,
+                "videoETag": video_etag,
+                "leaseUntil": None,
+                "registrationUpdatedAt": now,
+                "updatedAt": now,
+            },
+        )
+        return True
+
+    _tx = _guarded_update(ref_id, job_id, _mutate)
+    done = _run_in_transaction(_tx)
+    if done:
+        _reg_log.info("set_registration_active ok ref_id=%s job_id=%s key=%s", ref_id, job_id, video_s3_key)
+    return done
+
+
+def set_registration_failed(ref_id: str, job_id: str, *, error: dict) -> bool:
+    """processing ∧ doc.jobId == job_id 일 때만 failed(리뷰 R3) — 실패 상세는 **비공개** doc 에.
+
+    같은 트랜잭션에서 공개 `{registrationStatus:'failed', leaseUntil:None}` + 비공개
+    `{registrationError:{code,message,joints?}}`(merge) 를 쓴다(R13 — 실패 상세는 공급자 본인만).
+    stale 작업(다른 jobId)이나 이미 active 인 doc 은 무변경(늦은 실패가 활성 doc 을 못 뒤집는다).
+    `error.code`/`error.message` 는 필수(ValueError), `joints` 는 list[str] 선택.
+    """
+    _require_registration_ref_id(ref_id)
+    if not isinstance(error, dict) or not error.get("code") or not error.get("message"):
+        raise ValueError("error.code and error.message required")
+    registration_error: dict = {"code": str(error["code"]), "message": str(error["message"])}
+    joints = error.get("joints")
+    if joints is not None:
+        if not isinstance(joints, list) or any(not isinstance(j, str) for j in joints):
+            raise ValueError("error.joints must be list[str]")
+        registration_error["joints"] = list(joints)
+    _validate_flat_dict_no_nested_array(registration_error, path="registrationError")
+    private_ref = _doc(models.reference_private_path(ref_id))
+
+    def _mutate(transaction, ref, data) -> bool:
+        status = data.get("registrationStatus")
+        if status != models.REGISTRATION_STATUS_PROCESSING:
+            _reg_log.warning(
+                "set_registration_failed skipped ref_id=%s job_id=%s status=%s code=%s",
+                ref_id,
+                job_id,
+                status,
+                registration_error["code"],
+            )
+            return False
+        now = _now_ms()
+        transaction.update(
+            ref,
+            {
+                "registrationStatus": models.REGISTRATION_STATUS_FAILED,
+                "leaseUntil": None,
+                "registrationUpdatedAt": now,
+                "updatedAt": now,
+            },
+        )
+        transaction.set(
+            private_ref,
+            {"registrationError": registration_error, "updatedAt": now},
+            merge=True,
+        )
+        return True
+
+    _tx = _guarded_update(ref_id, job_id, _mutate)
+    done = _run_in_transaction(_tx)
+    if done:
+        _reg_log.info(
+            "set_registration_failed ok ref_id=%s job_id=%s code=%s",
+            ref_id,
+            job_id,
+            registration_error["code"],
+        )
+    return done
+
+
+def set_reference_angles(
+    ref_id: str,
+    *,
+    job_id: str,
+    angles_flat,
+    joint_keys,
+    frames: int,
+    real_fps: float,
+    keypoint_report: dict,
+    split_angle: float | None = None,
+) -> bool:
+    """angles 를 쓰는 **유일한** writer(D-05) — :2252-2261 'angles 절대 금지' 의 유일한 예외.
+
+    legacy `ref-*` 는 가드가 거부하고(Success ④ — 정은지 11개 무접촉), doc.jobId == job_id
+    일 때만 쓴다(R3). 길이 `len(angles_flat) == frames × len(joint_keys)` 를 강제하고
+    (`update_reference_body_data` :2218-2223 미러), payload 는 nested-array 검증을 지난다.
+    `anglesRealFps` 는 필수 — 각도 인덱스를 영상 프레임에 꽂을 때 fps 를 알아야 한다
+    (메모리 fps-label-vs-actual-decimation-rate). merge 라 상태 필드는 무접촉.
+    """
+    _require_registration_ref_id(ref_id)
+    if not isinstance(joint_keys, (list, tuple)) or not joint_keys:
+        raise ValueError("joint_keys required")
+    frames = int(frames)
+    if frames <= 0:
+        raise ValueError("frames must be > 0")
+    expected_len = frames * len(joint_keys)
+    if len(angles_flat) != expected_len:
+        raise ValueError(
+            f"angles_flat length must be frames × len(joint_keys) = {expected_len}, "
+            f"got {len(angles_flat)}"
+        )
+    if (
+        real_fps is None
+        or isinstance(real_fps, bool)
+        or not isinstance(real_fps, (int, float))
+        or not math.isfinite(real_fps)
+        or real_fps <= 0
+    ):
+        raise ValueError("real_fps must be a positive finite number")
+    if not isinstance(keypoint_report, dict):
+        raise TypeError("keypoint_report must be a dict (camelCase, flat)")
+
+    payload: dict = {
+        "angles": [float(a) for a in angles_flat],
+        "anglesJointKeys": [str(k) for k in joint_keys],
+        "anglesFrames": frames,
+        "anglesUpdatedAt": 0,  # 트랜잭션 안에서 채운다
+        "anglesRealFps": float(real_fps),
+        "referenceKeypointReport": keypoint_report,
+    }
+    if split_angle is not None:
+        if isinstance(split_angle, bool) or not isinstance(split_angle, (int, float)) or not math.isfinite(split_angle):
+            raise ValueError("split_angle must be a finite number or None")
+        payload["referenceSplitAngle"] = float(split_angle)
+    _validate_flat_dict_no_nested_array(payload, path="reference.angles")  # TypeError 전파
+
+    def _mutate(transaction, ref, _data) -> bool:
+        payload["anglesUpdatedAt"] = _now_ms()
+        transaction.set(ref, payload, merge=True)
+        return True
+
+    _tx = _guarded_update(ref_id, job_id, _mutate)
+    done = _run_in_transaction(_tx)
+    if done:
+        _reg_log.info(
+            "set_reference_angles ok ref_id=%s job_id=%s frames=%s joints=%s real_fps=%s",
+            ref_id,
+            job_id,
+            frames,
+            len(joint_keys),
+            float(real_fps),
+        )
+    return done
+
+
+def begin_self_check(ref_id: str, *, job_id: str, analysis_id: str) -> bool:
+    """자기 재현성 표식 **선기록**(리뷰 R8) — active ∧ doc.jobId == job_id 일 때만.
+
+    분석 doc 을 만들고 S3 복사로 이벤트를 내기 **전에** `selfCheckAnalysisId·selfCheckStatus=
+    pending·selfCheckJobId` 를 먼저 영속한다. 완료/실패 훅은 `self_check_authorized` 로 이
+    표식과 대조하므로, 훅이 먼저 와도 표식이 없으면 스킵되고 늦은 pending 이 done 을 덮지 않는다.
+    """
+    _require_registration_ref_id(ref_id)
+    if not analysis_id:
+        raise ValueError("analysis_id required")
+
+    def _mutate(transaction, ref, data) -> bool:
+        status = data.get("registrationStatus")
+        if status != models.REGISTRATION_STATUS_ACTIVE:
+            _reg_log.warning(
+                "begin_self_check skipped ref_id=%s job_id=%s status=%s", ref_id, job_id, status
+            )
+            return False
+        transaction.update(
+            ref,
+            {
+                "selfCheckAnalysisId": analysis_id,
+                "selfCheckStatus": models.SELF_CHECK_STATUS_PENDING,
+                "selfCheckJobId": job_id,
+                "updatedAt": _now_ms(),
+            },
+        )
+        return True
+
+    _tx = _guarded_update(ref_id, job_id, _mutate)
+    return _run_in_transaction(_tx)
+
+
+def self_check_authorized(ref_doc, *, uid, analysis_id, job_id) -> bool:
+    """순수(I/O 0) — 자기 재현성 훅의 권위 검사(리뷰 R2·R8). 38-08 이 성공/실패 훅 둘 다 이걸로.
+
+    기준 doc 이 권위다: `supplierUid == uid ∧ selfCheckAnalysisId == analysis_id ∧
+    selfCheckJobId == job_id` 전부 참일 때만 True. 분석 doc 의 표식(`selfCheckForReference`)은
+    클라이언트가 위조할 수 있으므로 믿지 않는다 — 정상 사용자 u9 가 남의 refId 를 표식으로
+    넣어도 `supplierUid != u9` 라 False. 빈 uid/analysis_id/job_id 는 doc 의 None 과 우연히
+    맞을 수 없게 먼저 False.
+    """
+    if not isinstance(ref_doc, dict) or not ref_doc:
+        return False
+    if not (uid and analysis_id and job_id):
+        return False
+    return (
+        ref_doc.get("supplierUid") == uid
+        and ref_doc.get("selfCheckAnalysisId") == analysis_id
+        and ref_doc.get("selfCheckJobId") == job_id
+    )
+
+
+def set_reference_self_check(
+    ref_id: str,
+    *,
+    status: str,
+    uid: str,
+    analysis_id: str,
+    job_id: str,
+    score: float | None = None,
+) -> bool:
+    """자기 재현성 상태/점수 기록(D-10) — 트랜잭션 안에서 doc 을 읽어 `self_check_authorized`
+    를 지난 것만 쓴다(R2·R8). 가드 실패 = False + warning, doc 무변경.
+
+    status ∈ models.SELF_CHECK_STATUSES(그 외 ValueError). `done` 은 유한 score 필수
+    (`selfScore`·`selfScoreUpdatedAt`), 다른 status 는 selfScore 키를 쓰지 않는다.
+    """
+    _require_registration_ref_id(ref_id)
+    if status not in models.SELF_CHECK_STATUSES:
+        raise ValueError(f"status must be one of {list(models.SELF_CHECK_STATUSES)}")
+    self_score: float | None = None
+    if status == models.SELF_CHECK_STATUS_DONE:
+        if (
+            score is None
+            or isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not math.isfinite(score)
+        ):
+            raise ValueError("score must be a finite number when status='done'")
+        self_score = float(score)
+    ref = _registration_ref(ref_id)
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        if not self_check_authorized(data, uid=uid, analysis_id=analysis_id, job_id=job_id):
+            d = data or {}
+            _reg_log.warning(
+                "set_reference_self_check unauthorized ref_id=%s status=%s uid=%s analysis_id=%s "
+                "job_id=%s doc_supplier=%s doc_analysis=%s doc_job=%s",
+                ref_id,
+                status,
+                uid,
+                analysis_id,
+                job_id,
+                d.get("supplierUid"),
+                d.get("selfCheckAnalysisId"),
+                d.get("selfCheckJobId"),
+            )
+            return False
+        now = _now_ms()
+        update: dict = {"selfCheckStatus": status, "updatedAt": now}
+        if status == models.SELF_CHECK_STATUS_DONE:
+            update["selfScore"] = self_score
+            update["selfScoreUpdatedAt"] = now
+        transaction.update(ref, update)
+        return True
+
+    done = _run_in_transaction(_tx)
+    if done:
+        _reg_log.info(
+            "set_reference_self_check ok ref_id=%s status=%s analysis_id=%s score=%s",
+            ref_id,
+            status,
+            analysis_id,
+            self_score,
+        )
+    return done
+
+
+def create_analysis_doc(uid: str, analysis_id: str, payload: dict) -> None:
+    """자기 재현성 분석 doc 을 서버가 대신 만든다 — 앱 loading.tsx :159-178 형상(D-10).
+
+    `users/{uid}/analyses/{analysisId}` 에 `create()` 1회(존재하면 AlreadyExists 전파).
+    필수 키 `analysisId`·`mode`·`status`, `analysisId` 는 경로와 같아야 한다. 표식
+    (`ANALYSIS_FIELD_SELF_CHECK_*`)은 호출측(38-07)이 payload 에 넣는다 — 규칙이 클라이언트
+    create 를 막으므로 이 함수(Admin)만이 그 키를 만들 수 있다(R2). ref_id 인자가 없어
+    legacy 가드 대상이 아니다.
+    """
+    if not uid or not analysis_id:
+        raise ValueError("uid and analysis_id required")
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be a dict")
+    missing = [k for k in ("analysisId", "mode", "status") if k not in payload]
+    if missing:
+        raise ValueError(f"payload missing required keys: {missing}")
+    if payload["analysisId"] != analysis_id:
+        raise ValueError("payload.analysisId must equal analysis_id")
+    _validate_flat_dict_no_nested_array(payload, path="analysis")
+    _doc(models.analysis_doc_path(uid, analysis_id)).create(payload)
+    _reg_log.info(
+        "create_analysis_doc ok uid=%s analysis_id=%s mode=%s status=%s",
+        uid,
+        analysis_id,
+        payload.get("mode"),
+        payload.get("status"),
+    )
+
+
+def list_reference_registrations_by_status(status: str) -> list[dict]:
+    """`reference` 컬렉션에서 `registrationStatus == status` 단일 등가 쿼리(전수 스캔 없음).
+
+    읽기 수 = 건수 — Firestore Spark 무료 플랜은 읽기 5만/일 하드 캡(메모리 firestore-spark-
+    50k-read-cap). requeue 스윕(38-08)·페이지 운영 조회가 쓴다. ref_id 인자가 없으므로 legacy
+    가드 대상이 아니다; status 는 REGISTRATION_STATUSES 밖이면 ValueError(오타가 빈 목록으로
+    조용히 지나가지 않게).
+    """
+    if status not in models.REGISTRATION_STATUSES:
+        raise ValueError(f"status must be one of {list(models.REGISTRATION_STATUSES)}")
+    query = _collection(models.REFERENCE_MOTIONS_COLLECTION).where(
+        filter=_field_filter("registrationStatus", "==", status)
+    )
+    out: list[dict] = []
+    for snap in query.stream():
+        data = snap.to_dict() or {}
+        data.setdefault("motionId", snap.id)
+        out.append(data)
+    return out

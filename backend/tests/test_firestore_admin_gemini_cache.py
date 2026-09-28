@@ -310,18 +310,37 @@ def test_lazy_import_no_firebase_at_module_load() -> None:
     실제로는 기존 firestore_admin 이 함수 내부에서 import — Plan 5-02 helper
     추가 후에도 그 박제 패턴이 유지되어야 함.
     """
-    # firestore_admin 강제 reload
-    for mod in list(sys.modules):
-        if (
-            mod.startswith("firebase_admin")
-            or mod == "sunity_shared.firestore_admin"
-        ):
-            del sys.modules[mod]
-    import sunity_shared.firestore_admin  # noqa: F401
+    import sunity_shared
 
-    assert "firebase_admin" not in sys.modules, (
-        "D-16 위반 — firestore_admin 모듈 로드 시 firebase_admin import 됨"
-    )
+    def _targets() -> list[str]:
+        return [
+            mod
+            for mod in list(sys.modules)
+            if mod.startswith("firebase_admin") or mod == "sunity_shared.firestore_admin"
+        ]
+
+    # 원래 모듈 객체를 보관했다가 끝에 되돌린다 — 새 객체를 남기면 뒤 테스트가 수집 시점에
+    # 묶어 둔 firestore_admin 과 픽스처가 실행 시점에 패치하는 firestore_admin 이 갈라진다
+    # (Phase 38 웨이브 2 게이트: test_firestore_reference_writers 43건이 전체 실행에서만 실패).
+    saved_modules = {mod: sys.modules[mod] for mod in _targets()}
+    saved_attr = getattr(sunity_shared, "firestore_admin", None)
+    try:
+        # firestore_admin 강제 reload
+        for mod in _targets():
+            del sys.modules[mod]
+        import sunity_shared.firestore_admin  # noqa: F401
+
+        assert "firebase_admin" not in sys.modules, (
+            "D-16 위반 — firestore_admin 모듈 로드 시 firebase_admin import 됨"
+        )
+    finally:
+        for mod in _targets():
+            del sys.modules[mod]
+        sys.modules.update(saved_modules)
+        if saved_attr is not None:
+            sunity_shared.firestore_admin = saved_attr
+        elif hasattr(sunity_shared, "firestore_admin"):
+            del sunity_shared.firestore_admin
 
 
 def test_gemini_cache_collection_constant_exposed() -> None:

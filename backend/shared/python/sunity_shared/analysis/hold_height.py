@@ -148,6 +148,40 @@ def _thirds(v) -> list[float]:
     return [_nanmedian(v[n * k // 3: n * (k + 1) // 3]) for k in range(3)]
 
 
+def _floor_reference_ok(low_foot) -> bool:
+    """창 안 낮은발 높이 시계열 → 바닥 기준이 살아 있으면 True (quick-260925-nnt 바닥 규칙 — 통계·문턱 한 벌).
+
+    창 안 낮은발이 바닥 **아래**로 내려가면 "창 이전 = 서 있음" 가정이 깨진 것이다(발이 바닥 밑에 있을 수 없다).
+    power-spin 실측: 두 영상 다 0초부터 봉에 매달려 있어 바닥이 공중 발목(0.59~0.63, 진짜 바닥 0.81)으로 잡혔고
+    기준 낮은발이 −0.19 까지 내려갔다. 그 값으로 만든 "낮은 위치" 문장은 정의를 어긴 숫자였다(belle "뭔가 이상해"
+    전에 내가 찾은 것). 판정 통계 = 창의 10% 분위(한 프레임 튐은 무시). 양쪽 실측(09-24 저장 10편): 깨진 바닥 =
+    power-spin 기준 −0.72 · 정타 −0.20 · peter-pan −0.34 / 멀쩡한 바닥 = kip-up ≥ −0.03 · climb ≥ −0.06.
+    문턱 = 잡음 폭 2배(−0.10) — 그 사이. 유한값이 하나도 없으면 False(fail-closed).
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        v = np.asarray(low_foot, dtype=float)
+        v = v[np.isfinite(v)]
+        return not (v.size == 0 or float(np.percentile(v, 10)) < -FLOOR_VIOLATION_BODY_LENGTH)
+
+
+def floor_reference_valid(report: Mapping | None, window) -> bool | None:
+    """한 영상의 "창 이전 = 서 있음" 가정이 창 안에서 유지되나 → True / False(바닥 위반) / None(못 잼).
+
+    quick-260925-nnt 바닥 규칙의 두 소비처(카드 문장 `hold_window_heights` · Phase 38 등록 판정
+    `registration_checks.standing_start_ok`)가 이 하나를 쓴다 — 상수·통계 복제 0 (`_floor_reference_ok`).
+
+    **서 있음의 PROXY** — 어깨~발목 세로 길이 양수 + 창에서 발이 바닥 아래로 안 내려가면 통과하므로 웅크린
+    형상도 통과한다(2026-09-26 리뷰 R6 합성 재현 — test_registration_checks.test_floor_rule_is_a_proxy_crouch_passes);
+    자세 분류기가 아니다. None 은 `_frame_series` 의 fail-closed 그대로(형상 이상 · 창 이전 프레임 부족 · 창이 짧음 ·
+    몸길이 ≤ 0 · 재료 신뢰도 미달). 비Mapping 도 None 이다 — fail-loud(TypeError) 는 registration_checks 몫.
+    """
+    s = _series(report, window)
+    if s is None:
+        return None
+    return _floor_reference_ok(s["lowFoot"])
+
+
 def hold_window_heights(
     student_report: Mapping | None,
     reference_report: Mapping | None,
@@ -164,19 +198,11 @@ def hold_window_heights(
     r = _series(reference_report, r_win)
     if s is None or r is None:
         return None
-    # quick-260925-nnt — 바닥 기준 검증(fail-closed). 창 안 낮은발이 바닥 **아래**로 내려가면 "창 이전 = 서 있음" 가정이
-    # 깨진 것이다(발이 바닥 밑에 있을 수 없다). power-spin 실측: 두 영상 다 0초부터 봉에 매달려 있어 바닥이 공중 발목
-    # (0.59~0.63, 진짜 바닥 0.81)으로 잡혔고 기준 낮은발이 −0.19 까지 내려갔다. 그 값으로 만든 "낮은 위치" 문장은 정의를
-    # 어긴 숫자였다(belle "뭔가 이상해" 전에 내가 찾은 것). 어느 한쪽이라도 어기면 None — 호출측은 문장을 만들지 않는다.
-    # 판정 통계 = 창의 10% 분위(한 프레임 튐은 무시). 양쪽 실측(09-24 저장 10편): 깨진 바닥 = power-spin 기준 −0.72 ·
-    # 정타 −0.20 · peter-pan −0.34 / 멀쩡한 바닥 = kip-up ≥ −0.03 · climb ≥ −0.06. 문턱 = 잡음 폭 2배(−0.10) — 그 사이.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        for side in (s, r):
-            v = np.asarray(side["lowFoot"], dtype=float)
-            v = v[np.isfinite(v)]
-            if v.size == 0 or float(np.percentile(v, 10)) < -FLOOR_VIOLATION_BODY_LENGTH:
-                return None
+    # quick-260925-nnt — 바닥 기준 검증(fail-closed). 통계·문턱·실측 근거는 `_floor_reference_ok` 한 벌
+    # (공개 = `floor_reference_valid`, Phase 38 등록 판정과 공유). 어느 한쪽이라도 어기면 None — 호출측은 문장을 만들지 않는다.
+    for side in (s, r):
+        if not _floor_reference_ok(side["lowFoot"]):
+            return None
     out: dict = {}
     for axis in ("hip", "lowFoot", "grip", "hipBelowHand", "lowFootBelowHand"):
         sm, rm = _nanmedian(s[axis]), _nanmedian(r[axis])

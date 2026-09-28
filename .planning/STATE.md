@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-28 — Phase 38 실행 중 (`/gsd-execute-phase 38` 순차 · executor fable, belle 09-28). 완료분 = `.planning/phases/38-supplier-link/*-SUMMARY.md` 가 있는 플랜, 재개는 같은 명령. 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — 결정 체크포인트 38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`, W2 는 38-04 가 단일 HTML 을 고르면 38-12 전 반영). 정은지 영상 오면 시험 영상 2차 먼저. 별건 — 플라이휠이 TRAINING-DUE.md 를 옛 템플릿으로 덮음(미커밋, `backend/scripts/flywheel_cycle.sh` 102행)."
+stopped_at: "2026-09-29 새벽 — Phase 38 실행 일시정지(belle '낼 이어서'). 완료 6/14 = 38-01·02·03·05·06·07 (전체 pytest 5499 passed · typecheck 0). 재개 = `/gsd-execute-phase 38` → 다음 38-04 (호스팅 측정 → belle 실측 체크포인트 → 결정 체크포인트). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — push 방식 belle 결정 대기 18커밋 · 38-09 규칙 배포 403 · 배포 순서 주의). 정은지 영상 오면 시험 영상 2차 먼저."
 last_updated: "2026-09-28T16:13:07.968Z"
 last_activity: 2026-09-28
 progress:
@@ -1091,7 +1091,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-09-28T13:08:26.391Z
 
-Stopped at: 2026-09-28 — Phase 38 실행 중 (`/gsd-execute-phase 38` 순차 · executor fable, belle 09-28). 완료분 = `.planning/phases/38-supplier-link/*-SUMMARY.md` 가 있는 플랜, 재개는 같은 명령. 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — 결정 체크포인트 38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`, W2 는 38-04 가 단일 HTML 을 고르면 38-12 전 반영). 정은지 영상 오면 시험 영상 2차 먼저. 별건 — 플라이휠이 TRAINING-DUE.md 를 옛 템플릿으로 덮음(미커밋, `backend/scripts/flywheel_cycle.sh` 102행).
+Stopped at: 2026-09-29 새벽 — Phase 38 실행 일시정지(belle '낼 이어서'). 완료 6/14 = 38-01·02·03·05·06·07 (전체 pytest 5499 passed · typecheck 0). 재개 = `/gsd-execute-phase 38` → 다음 38-04 (호스팅 측정 → belle 실측 체크포인트 → 결정 체크포인트). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — push 방식 belle 결정 대기 18커밋 · 38-09 규칙 배포 403 · 배포 순서 주의). 정은지 영상 오면 시험 영상 2차 먼저.
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

@@ -281,3 +281,97 @@ def test_config_invalid_pose_engine_raises():
         assert "INVALID_ENGINE" in str(exc_info.value) or "POSE_ENGINE" in str(exc_info.value)
     finally:
         del os.environ["POSE_ENGINE"]
+
+
+# ── Phase 38 (38-05 Task 2): estimate_with_person_counts — 프레임별 사람 수를 반환값으로 (D-09 여러 명) ──────
+# RESEARCH Q5(b): _infer_raw 가 kps_batch[0] 로 N 을 버렸다. 새 API 는 같은 1차 추론에서 N 을 local-return tuple 로
+# 돌려준다(HIGH-1 v4 — 인스턴스 사이드카 금지, Pod BackgroundTasks 동시 분석). estimate() 는 좌표 byte-동일.
+
+
+def _engine(inferencer, manifest_path):
+    from sunity_shared.analysis.pose_engines.rtmw.rtmw_engine import RTMWPoseEngine
+    return RTMWPoseEngine.create_with_inferencer(inferencer=inferencer, manifest_path=manifest_path)
+
+
+def _persons(n: int):
+    """rtmlib Wholebody 반환 형식으로 N 명 — (N,133,2) 좌표 + (N,133) 점수 0.9."""
+    return (np.zeros((n, 133, 2), dtype=np.float32), np.full((n, 133), 0.9, dtype=np.float32))
+
+
+def test_estimate_with_person_counts_returns_per_frame_counts(real_manifest_path, default_pole_axis):
+    """매 프레임 2명 → counts == [2]*5, PoseFrame 5개, 추론 호출 5회(2차 추론 없음)."""
+    two = MagicMock(return_value=_persons(2))
+    engine = _engine(two, real_manifest_path)
+    frames = np.zeros((5, 480, 640, 3), dtype=np.uint8)
+    pose_frames, counts = engine.estimate_with_person_counts(frames, default_pole_axis)
+    assert counts == [2, 2, 2, 2, 2]
+    assert len(pose_frames) == 5
+    assert two.call_count == 5
+
+
+def test_estimate_with_person_counts_no_human_raises_same_error(real_manifest_path, mock_frames, default_pole_axis):
+    """N=0 전 프레임 → estimate 와 같은 NoHumanError (호출측 38-07 이 no_human 으로 매핑)."""
+    from sunity_shared.analysis.interfaces import NoHumanError
+
+    engine = _engine(MagicMock(return_value=_persons(0)), real_manifest_path)
+    with pytest.raises(NoHumanError):
+        engine.estimate_with_person_counts(mock_frames, default_pole_axis)
+
+
+def test_estimate_with_person_counts_mixed_none_and_one(real_manifest_path, default_pole_axis):
+    """프레임별 None / 1명 / 1명 → counts [0, 1, 1] (None 프레임은 PoseFrame.empty, 0명)."""
+    mixed = MagicMock(side_effect=[(None, None), _persons(1), _persons(1)])
+    engine = _engine(mixed, real_manifest_path)
+    frames = np.zeros((3, 480, 640, 3), dtype=np.uint8)
+    pose_frames, counts = engine.estimate_with_person_counts(frames, default_pole_axis)
+    assert counts == [0, 1, 1]
+    assert len(pose_frames) == 3
+    assert pose_frames[0].frame_index == 0 and pose_frames[2].frame_index == 2
+
+
+def test_estimate_and_estimate_with_person_counts_give_identical_coordinates(
+    real_manifest_path, default_pole_axis, monkeypatch
+):
+    """N=1 에서 estimate() 와 estimate_with_person_counts()[0] 의 keypoints_2d · confidence 가 프레임마다 동일.
+
+    프레임 (t,0,0,0) 에 t 를 심어 inferencer 가 프레임별 고정 출력을 돌려주게 한다 — 두 호출이 같은 입력을 본다.
+    """
+    monkeypatch.delenv("PR_INVERSION_ENABLED", raising=False)
+    monkeypatch.delenv("ROT180_INVERSION_ENABLED", raising=False)
+    rng = np.random.default_rng(38)
+    T = 4
+    frames = np.zeros((T, 64, 48, 3), dtype=np.uint8)
+    outputs = []
+    for t in range(T):
+        frames[t, 0, 0, 0] = t
+        outputs.append((
+            rng.uniform(0, 40, size=(1, 133, 2)).astype(np.float32),
+            rng.uniform(0.3, 1.0, size=(1, 133)).astype(np.float32),
+        ))
+    inferencer = MagicMock(side_effect=lambda frame: outputs[int(frame[0, 0, 0])])
+    engine = _engine(inferencer, real_manifest_path)
+
+    plain = engine.estimate(frames, default_pole_axis)
+    with_counts, counts = engine.estimate_with_person_counts(frames, default_pole_axis)
+
+    assert counts == [1] * T
+    assert len(plain) == len(with_counts) == T
+    for pa, pb in zip(plain, with_counts):
+        assert pa == pb   # frozen dataclass 전체 동등(keypoints_3d · raw_keypoints_133 · reliability 포함)
+        assert pa.keypoints_2d is not None and pa.keypoints_2d.keys() == pb.keypoints_2d.keys()
+        for k in pa.keypoints_2d:
+            a, b = pa.keypoints_2d[k], pb.keypoints_2d[k]
+            assert np.array_equal([a.x, a.y, a.visibility], [b.x, b.y, b.visibility])
+        assert np.array_equal(
+            [pa.keypoints_3d[k].confidence for k in pa.keypoints_3d],
+            [pb.keypoints_3d[k].confidence for k in pb.keypoints_3d],
+        )
+
+
+def test_estimate_with_person_counts_empty_input(real_manifest_path, mock_inferencer, default_pole_axis):
+    """T == 0 → ([], []) (estimate 는 [] — 둘 다 예외 아님, 기존 동작 유지)."""
+    engine = _engine(mock_inferencer, real_manifest_path)
+    empty = np.zeros((0, 480, 640, 3), dtype=np.uint8)
+    assert engine.estimate_with_person_counts(empty, default_pole_axis) == ([], [])
+    assert engine.estimate(empty, default_pole_axis) == []
+    assert mock_inferencer.call_count == 0

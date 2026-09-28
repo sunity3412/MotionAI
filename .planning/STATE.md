@@ -4,13 +4,13 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: "2026-09-28 — Phase 38 실행 중 (`/gsd-execute-phase 38` 순차 · executor fable, belle 09-28). 완료분 = `.planning/phases/38-supplier-link/*-SUMMARY.md` 가 있는 플랜, 재개는 같은 명령. 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — 결정 체크포인트 38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`, W2 는 38-04 가 단일 HTML 을 고르면 38-12 전 반영). 정은지 영상 오면 시험 영상 2차 먼저. 별건 — 플라이휠이 TRAINING-DUE.md 를 옛 템플릿으로 덮음(미커밋, `backend/scripts/flywheel_cycle.sh` 102행)."
-last_updated: "2026-09-28T15:34:06.409Z"
+last_updated: "2026-09-28T16:13:07.968Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 116
+  completed_plans: 117
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 6 of 14
+Plan: 7 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -918,6 +918,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 38 P03 | 23min | 3 tasks | 8 files |
 | Phase 38 P05 | 10min | 2 tasks | 5 files |
 | Phase 38 P06 | 25min | 3 tasks | 9 files |
+| Phase 38 P07 | 19min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -1050,6 +1051,10 @@ Recent decisions affecting current work:
 - [Phase 38]: 38-06: SSM 화이트리스트 조회 실패는 캐시하지 않는다(다음 요청이 곧바로 복구) · get_parameter WithDecryption=True
 - [Phase 38]: 38-06: firestore.rules users/** create 는 keys().hasAny, update 는 diff().affectedKeys() — 서버가 표식을 쓴 doc 에도 coachReview merge-set 유지
 - [Phase 38]: 38-06: Rules REST 쓰기 호출은 http_post(method=) 한 seam(POST/PATCH) — 호출 순서를 한 목록으로 잠근다 · 라이브 projects:test 는 SA IAM 403(firebaserules.rulesets.test) → 38-09 T3 F 로 이월
+- [Phase 38]: 38-07: copy_object 의 ClientError 는 PreconditionFailed 뿐 아니라 AccessDenied 등 전부 failed(server_error) 로 doc 에 남긴다 — Pod 자격증명 reference/* PutObject 거부가 processing 에 멈춰 있지 않게(범위는 [미확인 — 38-09 T3 (E)/38-14 T2 3-b])
+- [Phase 38]: 38-07: n_stand 는 폼 clipRange.execStartS × fps 가 유한·양수일 때만, 아니면 registration_checks.default_stand_frames(real_fps) — 같은 식을 다시 쓰지 않는다
+- [Phase 38]: 38-07: 자기 재현성 분석 doc 의 uid = 공급자 uid, fileName = self-check-{refId}.{ext}, learningOptIn = 비공개 consent.training — 표식 2개는 models.ANALYSIS_FIELD_SELF_CHECK_* 상수만(리터럴 0)
+- [Phase 38]: 38-07: v1 ETag 가 upload ETag 와 다르면 등록하지 않는다(server_error) — 단일 PUT 객체는 ETag=MD5 라 같아야 하고, 다르면 fail-closed · 배포 순서는 Pod 라우트(38-08) → Lambda → 알림 접두사(역순이면 404 → failed)
 
 ### Pending Todos
 

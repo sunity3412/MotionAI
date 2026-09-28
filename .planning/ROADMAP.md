@@ -1541,7 +1541,7 @@ Plans:
 
 **Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 5/14 plans executed
+**Plans:** 6/14 plans executed
 Plans:
 **Wave 1**
 
@@ -1556,7 +1556,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion — 38-04 의 belle 체크포인트가 여기서 처음 나온다)*
 
-- [ ] 38-07-PLAN.md — 파이프라인 reference/ 분기(Pod 부재 = queued, 쓰기 실패 = 재전달, claim 뒤 위임 — 리뷰 R3/R4) + _register_reference(head_object 크기 · copy→v1 ETag 고정 · probe 길이 · 같은 함수 순서 angles · max_split 튜플 · 실패 7코드 · 자기 재현성 선기록→doc→복사 — 리뷰 R1/R5/R6/R8/R9)(D-05·D-10) [W3]
+- [x] 38-07-PLAN.md — 파이프라인 reference/ 분기(Pod 부재 = queued, 쓰기 실패 = 재전달, claim 뒤 위임 — 리뷰 R3/R4) + _register_reference(head_object 크기 · copy→v1 ETag 고정 · probe 길이 · 같은 함수 순서 angles · max_split 튜플 · 실패 7코드 · 자기 재현성 선기록→doc→복사 — 리뷰 R1/R5/R6/R8/R9)(D-05·D-10) [W3]
 - [ ] 38-04-PLAN.md — 호스팅 측정(react-native-web 설치 → expo export + 후보 (2) probe 한 장 → 시뮬 Safari 같은 4가지 × 2 후보, 테스트 계정·uid 대조 — 리뷰 R14/R15d) → belle 결정 체크포인트(Claude's Discretion) → 미선택 트랙 스킵을 파일로(SUMMARY skipped-by-decision · PLAN skipped · 38-13 depends_on 확정) [W3, 체크포인트 — 리뷰 실행전략 #3 로 W1→W3]
 
 **Wave 4** *(blocked on Wave 3 completion)*

@@ -8,8 +8,9 @@
 // 문구 출처 — Figma node 1:499 `Group 53` 확정본:
 //   · 용량 초과 / 형식 미지원 2종은 **디자인 확정 문구라 한 글자도 바꾸지 않는다.**
 //     'mp4, mov형식의' 의 붙임(공백 없음)도 원문 그대로다.
-//   · 나머지(권한 거부·picker 실패·처리 실패)는 Figma 에 없어 같은 양식으로 확장했다
-//     (원인 1줄 + 행동 1줄, '~요' 종결).
+//   · 나머지(권한 거부·picker 실패·처리 실패·길이 3~90초)는 Figma 에 없어 같은 양식으로
+//     확장했다 (원인 1줄 + 행동 1줄, '~요' 종결). 길이 2건의 문자열 정본은
+//     Phase 38 UI-SPEC §C "C 길이 검사 문구" 표.
 //
 // 기술 용어 노출 금지 — iCloud 오프로드 / representation mode 같은 내부 개념은
 // "사진 앱에서 영상을 열어 다운로드한 뒤 다시 선택해주세요" 같은 행동 지시로 번역한다.
@@ -24,7 +25,9 @@ export type PickFailureKind =
   | 'tooLarge'
   | 'libraryOpen'
   | 'cameraOpen'
-  | 'processFailed';
+  | 'processFailed'
+  | 'tooShort'
+  | 'tooLong';
 
 // 오른쪽(주) 버튼의 동작. 왼쪽은 항상 [닫기] 로 고정이라 별도 표현하지 않는다.
 //   openSettings — 설정 앱 열기 (권한 거부)
@@ -118,6 +121,28 @@ function copyFor(kind: PickFailureKind): PickFailureCopy {
         lines: [
           '영상은 선택했지만 읽는 중에 문제가 생겼어요.',
           '다른 영상으로 다시 시도해주세요.',
+        ],
+        primaryLabel: REPICK_LABEL,
+        primaryAction: 'repick',
+      };
+    // ── Phase 38 D-14 길이 검사 (양식 = 1:499 다이얼로그: 제목 + 2줄 + 다른 파일 선택) ──
+    // 판정은 lib/videoDuration.ts classifyDurationMs (3초 미만 / 90초 초과, 값 없음은 통과).
+    case 'tooShort':
+      return {
+        title: '영상이 너무 짧아요',
+        lines: [
+          '동작 전체가 담긴 영상이 필요해요.',
+          '3초 이상인 영상을 다시 선택해주세요.',
+        ],
+        primaryLabel: REPICK_LABEL,
+        primaryAction: 'repick',
+      };
+    case 'tooLong':
+      return {
+        title: '영상이 너무 길어요',
+        lines: [
+          '90초 이내 영상만 분석할 수 있어요.',
+          '동작이 담긴 부분만 잘라서 다시 선택해주세요.',
         ],
         primaryLabel: REPICK_LABEL,
         primaryAction: 'repick',

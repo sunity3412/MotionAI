@@ -24,6 +24,7 @@ import type {
   PickFailureAction,
   PickFailureKind,
 } from '../../lib/pickerFailure';
+import { classifyDurationMs } from '../../lib/videoDuration';
 import type { AnalysisMode } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
@@ -210,6 +211,9 @@ export default function Analyze() {
     const ext = source.split('.').pop()?.toLowerCase() ?? '';
     if (!ALLOWED.includes(ext)) return 'format';
     if (asset.fileSize != null && asset.fileSize > MAX_BYTES) return 'tooLarge';
+    // Phase 38 D-14 — 길이 3~90초. 상수·fail-open 근거(보장 범위)는 videoDuration.ts 헤더.
+    const durationKind = classifyDurationMs(asset.duration);
+    if (durationKind) return durationKind;
     return null;
   };
 
@@ -470,6 +474,9 @@ export default function Analyze() {
       const shot = await ImagePicker.launchCameraAsync({
         mediaTypes: ['videos'],
         videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
+        // Phase 38 D-14 — 즉석 촬영은 상한에서 자동 정지(초 단위, videoDuration.ts
+        // MAX_DURATION_MS 90초와 같은 값). 촬영 뒤 validate() 가 같은 상한을 한 번 더 본다.
+        videoMaxDuration: 90,
       });
       try {
         handleResult(shot);

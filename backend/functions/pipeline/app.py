@@ -116,6 +116,7 @@ from sunity_shared.s3keys import (
     build_coach_audio_key,
     build_fault_zoom_key,
     build_rendered_compare_key,
+    parse_reference_key,  # Phase 38 (38-07) — reference/ 접두사 분기
     parse_upload_key,
 )
 
@@ -207,16 +208,25 @@ def _student_frame_cache_enabled() -> bool:
     return os.environ.get("STUDENT_FRAME_CACHE", "1") != "0"
 
 
-def _delegate_to_runpod(bucket: str, key: str) -> None:
+def _delegate_to_runpod(
+    bucket: str,
+    key: str,
+    *,
+    url: str | None = None,
+    extra: dict | None = None,
+) -> None:
     """RunPod /analyze 로 위임. 202/200 외 응답은 예외 → Lambda 가 fail_analysis 매핑.
     urllib 표준 라이브러리만 사용(requests 의존성 X — Layer 추가 부담 없음).
 
     RunPod proxy(*.proxy.runpod.net) 는 Cloudflare 뒤에 있다. urllib 의 기본
     User-Agent("Python-urllib/3.x") 가 Cloudflare 의 봇 차단(에러 1010) 에 걸려
-    403 이 떨어진다. 일반적인 UA 와 Accept 헤더를 박아 통과시킨다."""
-    payload = json.dumps({"bucket": bucket, "key": key}).encode("utf-8")
+    403 이 떨어진다. 일반적인 UA 와 Accept 헤더를 박아 통과시킨다.
+
+    Phase 38 (38-07 T1, 리뷰 R3): `url`/`extra` 는 등록 위임(`/register-reference`,
+    payload 에 `jobId`)용 — 기본값이면 학생 경로와 byte-동일(기존 호출부 무변경)."""
+    payload = json.dumps({"bucket": bucket, "key": key, **(extra or {})}).encode("utf-8")
     req = urllib.request.Request(
-        _RUNPOD_URL,
+        url or _RUNPOD_URL,
         method="POST",
         data=payload,
         headers={
@@ -234,6 +244,139 @@ def _delegate_to_runpod(bucket: str, key: str) -> None:
     except urllib.error.HTTPError as e:
         body = e.read()[:512] if hasattr(e, "read") else b""
         raise RuntimeError(f"runpod HTTPError {e.code}: {body!r}") from e
+
+
+# ── Phase 38 (38-07 T1) — 공급자 링크 등록 입구: Pod 부재 판정 + reference/ 이벤트 디스패치 ──
+#
+# 등록 이벤트(`reference/{uid}/{refId}/upload.{ext}`)는 학생 경로(`uploads/`)와 달리 Pod 부재를
+# `server_error` 로 위장하지 않는다(D-20, RESEARCH Pitfall 4, 메모리 pod-link). Pod 이 없으면 doc 을
+# `queued` 로 두고 정상 반환, Pod 이 기동하면 requeue 스크립트(38-08)가 다시 보낸다.
+#
+# SSM 파라미터 이름은 **쓰기 측**(`start_server.sh:95` = up · `pod_teardown.py:125` = down)이 갱신하는
+# `/sunity/motion/runpod-pod-expected` 다 — `podwatch.yaml` 기본값 `/sunity/motion/pod-expected` 는 읽기
+# 측의 다른 이름이라 값이 죽어 있을 수 있다(38-PATTERNS 관측 1). Lambda 의 `ssm:GetParameter` 정책에 이
+# ARN 을 더하는 것은 38-09(template) 몫 — 정책이 없으면 조회가 AccessDenied 로 None 이 되고 health 로 넘어간다.
+_POD_EXPECTED_PARAM = os.environ.get("POD_EXPECTED_PARAM", "/sunity/motion/runpod-pod-expected").strip()
+_HEALTH_TIMEOUT_S = 12  # podwatch probe 와 같은 값 — 모델이 올라온 Pod 은 /health 가 즉시 답한다
+
+
+def _ssm_get_parameter(name: str) -> str | None:
+    """SSM String 파라미터 값(strip). 없음·AccessDenied·네트워크 전부 None + warning(이름만, 값 로그 금지)."""
+    try:
+        value = boto3.client("ssm").get_parameter(Name=name)["Parameter"]["Value"]
+    except Exception:  # noqa: BLE001 - 미등록/권한 없음/장애 전부 "모름" — health 가 최종 판정
+        log.warning("ssm get_parameter 실패 name=%s (health 로 판정)", name)
+        return None
+    return str(value).strip()
+
+
+def _runpod_route(suffix: str) -> str:
+    """`_RUNPOD_URL`(…/analyze 또는 base) → 같은 Pod 의 다른 라우트. podwatch `health_url` 원문 어법."""
+    u = _RUNPOD_URL.strip()
+    if u.endswith("/analyze"):
+        return u[: -len("/analyze")] + suffix
+    return u.rstrip("/") + suffix
+
+
+def _health_url() -> str:
+    """.../analyze -> .../health (podwatch.yaml `health_url` 과 같은 규칙)."""
+    return _runpod_route("/health")
+
+
+def _register_url() -> str:
+    """.../analyze -> .../register-reference (38-08 Pod 라우트)."""
+    return _runpod_route("/register-reference")
+
+
+def _pod_available() -> tuple[bool, str]:
+    """Pod 이 등록을 받을 수 있나 → (가능, 이유). 순서 = env → SSM `pod-expected` → `/health`(12초).
+
+    이유 토큰: `runpod_env_unset` · `pod_expected_down` · `health_failed` · `healthy`. SSM 조회 실패는
+    "모름" 이라 health 로 넘어간다(podwatch `pod_expected_up` 과 같은 fail-loud). 200 만으로는 부족하다 —
+    `status == "ok" and pipeline_loaded` 여야 모델이 올라온 것(podwatch `probe` 원문).
+    """
+    if not _runpod_enabled():
+        return False, "runpod_env_unset"
+    expected = _ssm_get_parameter(_POD_EXPECTED_PARAM)
+    if expected is not None and expected.lower() == "down":
+        return False, "pod_expected_down"
+    url = _health_url()
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "sunity-motion-pilot/1.0 (+aws-lambda)"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_HEALTH_TIMEOUT_S) as resp:
+            status = resp.status
+            body = resp.read(4096)
+        if status != 200:
+            log.info("pod health 실패 url=%s http=%s", url, status)
+            return False, "health_failed"
+        data = json.loads(body.decode("utf-8", "replace"))
+    except Exception as e:  # noqa: BLE001 - URLError/timeout/HTTPError/JSON 전부 "부재"
+        log.info("pod health 실패 url=%s err=%s", url, type(e).__name__)
+        return False, "health_failed"
+    if isinstance(data, dict) and data.get("status") == "ok" and bool(data.get("pipeline_loaded")):
+        return True, "healthy"
+    log.info("pod health 미준비 url=%s body=%s", url, str(data)[:120])
+    return False, "health_failed"
+
+
+def _handle_reference_upload(bucket: str, key: str, ref) -> str:
+    """`reference/` 이벤트 1건 → 'skipped' | 'queued' | 'delegated' | 'failed' (REQ-38-1 · D-20 · R3 · R4 · R5).
+
+    raise 하는 경우는 **정확히 하나 — 상태 쓰기(queued / claim) 실패**(리뷰 R4): 그때는 메시지를 소비하지
+    않아야 SQS 가 재전달한다. `AnalysisQueue` 는 BatchSize 1 · maxReceiveCount 3 → `AnalysisDLQ` 가
+    재전달·격리를 담당한다(D-20, template.yaml). 그 밖(위임 실패)은 doc 에 `failed(server_error)` 를 남기고
+    정상 종료 — Pod 가 안 받은 작업은 lease 만료 뒤 requeue `--reclaim-stale` 가 다시 claim 한다.
+
+    순서:
+      (0) upload 키가 아니면(v1 확정 복사 이벤트) 로그만 — 서버 copy_object 가 낸 이벤트(R5).
+      (i) doc 이 `registering` 이고 `supplierUid == 키 uid` 일 때만 진행 — 손 업로드·재전송·활성화 뒤 재PUT 방어(R5).
+      (ii) Pod 부재 → `set_registration_queued(pod_down)`(예외 전파) → 'queued'.
+      (iii) `claim_registration(ref_id, job_id)` True 일 때만(중복 이벤트 2건 = 위임 1회, R3).
+      (iv) `_delegate_to_runpod(url=/register-reference, extra={jobId})` — Pod 는 jobId 로 모든 쓰기를 가드한다.
+    """
+    if not ref.is_upload:
+        log.info("확정 키 이벤트 무시 key=%s", key)
+        return "skipped"
+    doc = firestore_admin.get_reference_registration(ref.ref_id)
+    status = doc.get("registrationStatus") if doc else None
+    if (
+        doc is None
+        or status != models.REGISTRATION_STATUS_REGISTERING
+        or doc.get("supplierUid") != ref.uid
+    ):
+        log.warning("스킵: 등록 대기 doc 아님 key=%s status=%s", key, status)
+        return "skipped"
+    ok, why = _pod_available()
+    if not ok:
+        # 쓰기 실패를 삼키면 registering 이 영구히 남는다(R4) — 예외는 그대로 전파해 재전달.
+        firestore_admin.set_registration_queued(ref.ref_id, queued_reason="pod_down")
+        log.info("등록 대기 queued ref_id=%s why=%s", ref.ref_id, why)
+        return "queued"
+    job_id = uuid.uuid4().hex
+    claimed = firestore_admin.claim_registration(ref.ref_id, job_id)  # 예외 전파(R4)
+    if not claimed:
+        log.warning("중복 이벤트 스킵 ref_id=%s job_id=%s", ref.ref_id, job_id)
+        return "skipped"
+    try:
+        _delegate_to_runpod(bucket, key, url=_register_url(), extra={"jobId": job_id})
+    except Exception:  # noqa: BLE001 - 위임 실패는 doc 에 남기고 소비(재전달 아님)
+        log.exception("등록 위임 실패 ref_id=%s job_id=%s", ref.ref_id, job_id)
+        try:
+            firestore_admin.set_registration_failed(
+                ref.ref_id,
+                job_id,
+                error={
+                    "code": models.REG_ERR_SERVER_ERROR,
+                    "message": models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_SERVER_ERROR],
+                },
+            )
+        except Exception:  # noqa: BLE001 - lease 만료 뒤 requeue --reclaim-stale 가 줍는다
+            log.exception("등록 실패 기록 실패 ref_id=%s job_id=%s", ref.ref_id, job_id)
+        return "failed"
+    log.info("등록 위임 ok ref_id=%s job_id=%s", ref.ref_id, job_id)
+    return "delegated"
 
 
 # ML 어댑터 (폴백 경로 전용). RunPod 위임 사용 시 이 어댑터는 호출되지 않으므로
@@ -10306,6 +10449,13 @@ def lambda_handler(event: dict, _context) -> dict:
     if delegated:
         log.info("RunPod 위임 모드 ON url=%s", _RUNPOD_URL)
     for bucket, key in iter_s3_keys_from_sqs(event):
+        ref = parse_reference_key(key)
+        if ref is not None:
+            # Phase 38 (38-07 T1, REQ-38-1 · D-20) — reference/ 접두사는 등록 분기. 학생 경로의
+            # 삼킴 정책과 달리 상태 쓰기 실패만 전파한다(R4). 아래 uploads/ 코드는 무접촉.
+            outcome = _handle_reference_upload(bucket, key, ref)
+            processed += 1 if outcome == "delegated" else 0
+            continue
         parsed = parse_upload_key(key)
         if parsed is None:
             log.warning("스킵: 인식 불가 S3 키 %s", key)

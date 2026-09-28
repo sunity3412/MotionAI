@@ -176,6 +176,14 @@ test('normalizePrivate — 실패 상세·선언 3·techniqueRefId 는 비공개
   assert.equal(ok.techniqueRefId, 'ref-kip-up');
   assert.equal(ok.hasHold, true);
 
+  const tooLarge = normalizePrivate(supplierFixtures.privateDocs.failedTooLarge);
+  assert.equal(tooLarge?.registrationError?.code, 'too_large');
+  assert.equal(tooLarge?.registrationError?.joints, undefined);
+  assert.deepEqual(failCopy(tooLarge!.registrationError!.code), {
+    title: supplierCopy.row.fail.too_large.title,
+    body: supplierCopy.row.fail.too_large.body,
+  });
+
   const unknown = normalizePrivate(supplierFixtures.privateDocs.unknownCode);
   assert.equal(unknown?.registrationError?.code, 'server_error');
   assert.equal(unknown?.registrationError?.message, '등록 중 문제가 생겼어요.');

@@ -205,6 +205,21 @@ export const supplierFixtures = {
       clipRange: { execStartS: 1.5, execEndS: 7 },
       updatedAt: T0 + 4_100,
     },
+    // 리뷰 R9 — 실제 객체 크기(head_object)가 100MB 초과: 클라이언트 메타는 통과했던 건
+    failedTooLarge: {
+      supplierUid: UID,
+      consent: { ...CONSENT_REQUIRED, version: '2026-09-26', at: T0 + 500, uid: UID },
+      registrationError: {
+        code: 'too_large',
+        message: '용량이 너무 커요. 100MB 이하 영상으로 다시 올려주세요.',
+      },
+      techniqueRefId: null,
+      isCombo: false,
+      isSplit: false,
+      hasHold: false,
+      standingStart: true,
+      updatedAt: T0 + 600,
+    },
     // 서버가 새 코드를 먼저 붙인 경우 — 페이지는 server_error 문구로 받는다(미지 코드 규칙)
     unknownCode: {
       supplierUid: UID,

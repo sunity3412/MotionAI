@@ -1,0 +1,296 @@
+// 공급자 페이지 순수 규칙 — 행 상태 · 자기 점수 분기 · 실패 문구 · presign 오류 매핑 ·
+// 업로드 결과 전이 (Phase 38 리뷰 R14, UI-SPEC A-3 · A-3b · A-3c · A-5 · A-7).
+//
+// 두 호스팅 후보(38-10/38-11 Expo 라우트 · 38-12 단일 HTML)가 이 함수들을 import 만 한다 —
+// 화면 파일에 규칙을 다시 쓰지 않는다. 그래서 순수: firebase / react / expo import 0,
+// node --test 로 fixture 한 벌(supplierFixtures.ts)에 대해 검증된다.
+// 값 import 는 supplierCopy 하나, 타입은 전부 `import type` — 38-12 의 type-strip → ESM 변환이
+// 값 import 만 남기고 specifier 를 './copy.js' 로 바꾸는 전제(플랜 38-03 T3).
+//
+// 문자열은 전부 supplierCopy 참조 + String.replace(`{score}` `{joints}`) — HTML/JSX 로 해석하지
+// 않는다(위협 T-38-03-2). 소비처(38-10/38-12)는 textContent / <Text> 로만 그린다.
+
+import type {
+  ReferenceRegistrationError,
+  ReferenceRegistrationErrorCode,
+  ReferenceRegistrationStatus,
+  SelfCheckStatus,
+  SkillLevel,
+} from '../types/analysis.ts';
+import { supplierCopy } from '../constants/supplierCopy.ts';
+
+// 자기 재현성 문구 분기점(D-10). [ASSUMED RESEARCH A9 · 38-04 결정 절 selfScoreMin 이 바꾼다]
+// 문구 분기점일 뿐, 목표 숫자 금지(메모리 chasing-the-number) — pass/fail 판정에 쓰지 않는다.
+// 다른 파일에 이 숫자 리터럴을 두지 않는다. belle 이 다른 값을 주면 이 한 줄만 바뀐다.
+export const SELF_SCORE_OK_MIN = 90;
+
+// 레벨 라벨 — 앱 picker 탭(reference.tsx TABS)과 같은 문자열, 출처는 supplierCopy 하나.
+export const LEVEL_LABEL_KO: Record<SkillLevel, string> =
+  supplierCopy.form.sec2.level.options;
+
+const REGISTRATION_STATUSES: readonly ReferenceRegistrationStatus[] = [
+  'registering',
+  'queued',
+  'processing',
+  'failed',
+  'active',
+  'expired',
+];
+const SELF_CHECK_STATUSES: readonly SelfCheckStatus[] = ['pending', 'queued', 'done', 'failed'];
+const FAIL_CODES = Object.keys(supplierCopy.row.fail) as ReferenceRegistrationErrorCode[];
+
+// 공개 doc `reference/{refId}` 에서 페이지 목록·상세가 쓰는 필드만(공개 doc 은 인증자 전체가
+// 읽는다 — 동의·실패 상세·선언은 SupplierMotionPrivate, 리뷰 R13).
+export interface SupplierMotion {
+  motionId: string;
+  name: string;
+  athleteName: string;
+  level: SkillLevel;
+  isActive: boolean;
+  registrationStatus: ReferenceRegistrationStatus;
+  queuedReason: string | null;
+  selfScore: number | null;
+  selfCheckStatus: SelfCheckStatus | null;
+  createdAt: number; // epoch ms, 없으면 0(목록 맨 뒤)
+  videoS3Key: string | null;
+  uploadExpiresAt: number | null;
+}
+
+// 비공개 doc `reference/{refId}/private/registration` — 상세 패널·다시 올리기 프리필 전용.
+export interface SupplierMotionPrivate {
+  registrationError: ReferenceRegistrationError | null;
+  techniqueRefId: string | null;
+  isCombo: boolean;
+  isSplit: boolean;
+  hasHold: boolean;
+  standingStart: boolean;
+}
+
+export type PresignFailureKind = 'sessionExpired' | 'forbidden' | 'offline' | 'presignFail';
+export type UploadOutcome = 'ok' | 'aborted' | 'failed';
+export type UploadNext = 'home' | 'step2' | 'failPanel';
+
+function str(v: unknown): string | null {
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+function num(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+function isLevel(v: unknown): v is SkillLevel {
+  return typeof v === 'string' && v in LEVEL_LABEL_KO;
+}
+
+function isRegistrationStatus(v: unknown): v is ReferenceRegistrationStatus {
+  return typeof v === 'string' && (REGISTRATION_STATUSES as readonly string[]).includes(v);
+}
+
+function isSelfCheckStatus(v: unknown): v is SelfCheckStatus {
+  return typeof v === 'string' && (SELF_CHECK_STATUSES as readonly string[]).includes(v);
+}
+
+export function isRegistrationErrorCode(v: unknown): v is ReferenceRegistrationErrorCode {
+  return typeof v === 'string' && (FAIL_CODES as readonly string[]).includes(v);
+}
+
+// Firestore 공개 doc → SupplierMotion. referenceMotions.normalize 와 같은 방어 어법 —
+// 필수 4(supplierUid·name·athleteName·level)가 없으면 null(손 등록 seed 11개는 supplierUid 가
+// 없어 여기서 걸러진다). 상태가 없거나 미지 값이면 'registering'(선작성 직후 모양).
+export function normalizeRegistration(
+  motionId: string,
+  raw: Record<string, unknown>,
+): SupplierMotion | null {
+  const supplierUid = str(raw.supplierUid);
+  const name = str(raw.name);
+  const athleteName = str(raw.athleteName);
+  if (!supplierUid || !name || !athleteName || !isLevel(raw.level)) return null;
+  return {
+    motionId,
+    name,
+    athleteName,
+    level: raw.level,
+    // 등록 doc 은 38-06 이 false 로 선작성하고 active 전이 때 true — 명시된 true 만 참.
+    isActive: raw.isActive === true,
+    registrationStatus: isRegistrationStatus(raw.registrationStatus)
+      ? raw.registrationStatus
+      : 'registering',
+    queuedReason: str(raw.queuedReason),
+    selfScore: num(raw.selfScore),
+    selfCheckStatus: isSelfCheckStatus(raw.selfCheckStatus) ? raw.selfCheckStatus : null,
+    createdAt: num(raw.createdAt) ?? 0,
+    videoS3Key: str(raw.videoS3Key),
+    uploadExpiresAt: num(raw.uploadExpiresAt),
+  };
+}
+
+// 비공개 doc → SupplierMotionPrivate. 서버가 이 phase 뒤에 새 실패 코드를 붙이면 페이지는
+// 아직 모르는 코드라 server_error 문구로 받는다(message 는 서버 원문 그대로 보존).
+export function normalizePrivate(raw: unknown): SupplierMotionPrivate | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  let registrationError: ReferenceRegistrationError | null = null;
+  const e = r.registrationError;
+  if (e && typeof e === 'object') {
+    const er = e as Record<string, unknown>;
+    const joints = Array.isArray(er.joints)
+      ? er.joints.filter((j): j is string => typeof j === 'string')
+      : null;
+    registrationError = {
+      code: isRegistrationErrorCode(er.code) ? er.code : 'server_error',
+      message: str(er.message) ?? '',
+      ...(joints ? { joints } : {}),
+    };
+  }
+  return {
+    registrationError,
+    techniqueRefId: str(r.techniqueRefId),
+    isCombo: r.isCombo === true,
+    isSplit: r.isSplit === true,
+    hasHold: r.hasHold === true,
+    standingStart: r.standingStart === true,
+  };
+}
+
+// 자기 재현성 표시값 — selfCheck 가 끝났고(done, 또는 상태 없이 점수만 있는 옛 doc) 점수가
+// 있을 때 반올림한 정수. 문턱 비교도 이 값으로 한다 — 화면에 90 이라 쓰고 '낮아요' 라고
+// 하지 않게(표시와 분기가 같은 숫자).
+function doneScore(m: SupplierMotion): number | null {
+  if (m.selfScore == null) return null;
+  if (m.selfCheckStatus !== 'done' && m.selfCheckStatus !== null) return null;
+  return Math.round(m.selfScore);
+}
+
+function withScore(template: string, score: number): string {
+  return template.replace('{score}', String(score));
+}
+
+function assertNever(x: never): never {
+  throw new Error(`unreachable: ${String(x)}`);
+}
+
+// A-3 행 부제의 상태어(UI-SPEC A-3 상태 표 8행). active 는 자기 점수로 3분기 —
+// 점수 없음(pending/queued/failed selfCheck)은 Figma `새로 추가됨`; selfCheck failed 의 사연은
+// 상세 패널의 selfCheckLine 이 말한다.
+export function rowStatusWord(m: SupplierMotion): string {
+  const s = supplierCopy.row.status;
+  switch (m.registrationStatus) {
+    case 'registering':
+      return s.registering;
+    case 'queued':
+      return s.queued;
+    case 'processing':
+      return s.processing;
+    case 'failed':
+      return s.failed;
+    case 'expired':
+      return s.expired;
+    case 'active': {
+      const score = doneScore(m);
+      if (score == null) return s.newlyAdded;
+      return withScore(score >= SELF_SCORE_OK_MIN ? s.self : s.selfLow, score);
+    }
+    default:
+      return assertNever(m.registrationStatus);
+  }
+}
+
+// 행 부제 = `{레벨} {상태어}` (Figma 1:717 "고급 새로 추가됨" 어법, 색 없이 말로).
+export function rowSubtitle(m: SupplierMotion): string {
+  return `${LEVEL_LABEL_KO[m.level]} ${rowStatusWord(m)}`;
+}
+
+// A-3c 완료 패널 재현성 줄. ok 는 리뷰 R11 판(일관성 진단) — 바로 아래 selfCheckNote() 가
+// 항상 붙는다(D-11). done 인데 점수가 없으면 데이터 이상 → failed 문구(운영팀에 알려주세요).
+export function selfCheckLine(m: SupplierMotion): string {
+  const c = supplierCopy.row.self;
+  const score = doneScore(m);
+  if (score != null) return withScore(score >= SELF_SCORE_OK_MIN ? c.ok : c.low, score);
+  if (m.selfCheckStatus === 'queued') return c.queued;
+  if (m.selfCheckStatus === 'failed' || m.selfCheckStatus === 'done') return c.failed;
+  return c.pending;
+}
+
+export function selfCheckNote(): string {
+  return supplierCopy.row.self.note;
+}
+
+// 실패 패널 문구(D-09 + R9). 미지 코드 → server_error. low_confidence 의 {joints} 는 부위명을
+// ' · ' 로 잇는다(UI-SPEC §Copywriting) — 38-05 가 registrationError.joints 를 채운다.
+export function failCopy(
+  code: string,
+  joints?: readonly string[],
+): { title: string; body: string } {
+  const key = isRegistrationErrorCode(code) ? code : 'server_error';
+  const c = supplierCopy.row.fail[key];
+  const joined = joints && joints.length > 0 ? joints.join(' · ') : '';
+  return {
+    title: c.title.replace('{joints}', joined),
+    body: c.body.replace('{joints}', joined),
+  };
+}
+
+// 만료 패널(리뷰 R4) — 코드 칩·TIP 없이 제목·본문 + 다시 올리기(같은 프리필).
+export function expiredCopy(): { title: string; body: string } {
+  return { title: supplierCopy.row.expired.title, body: supplierCopy.row.expired.body };
+}
+
+// chevron → 상세 패널이 있는 상태(A-3 표): active(A-3c) · failed(A-3b) · expired(만료 패널).
+export function hasDetail(m: SupplierMotion): boolean {
+  return (
+    m.registrationStatus === 'active' ||
+    m.registrationStatus === 'failed' ||
+    m.registrationStatus === 'expired'
+  );
+}
+
+// 목록 정렬 — 최신 등록 먼저(createdAt desc). 입력은 건드리지 않는다.
+export function sortNewestFirst(list: readonly SupplierMotion[]): SupplierMotion[] {
+  return [...list].sort((a, b) => b.createdAt - a.createdAt);
+}
+
+// POST /reference/upload-url 실패 → 화면 분기(UI-SPEC A-4 STEP 02 · A-7). 입력은 api.ts
+// ApiError 의 {status, code}. status 0 = fetch 자체 실패(네트워크) — 단 api.ts 가 currentUser
+// 없음을 status 0 + 'unauthenticated' 로 던지므로 그것만 세션 만료로 본다.
+export function mapPresignFailure(failure: {
+  status: number;
+  code?: string | null;
+}): PresignFailureKind {
+  if (failure.status === 401) return 'sessionExpired';
+  if (failure.status === 403) return 'forbidden';
+  if (failure.status === 0) {
+    return failure.code === 'unauthenticated' ? 'sessionExpired' : 'offline';
+  }
+  return 'presignFail';
+}
+
+// 분기별 문구(단일점). forbidden 은 문구가 아니라 A-2 화면 전환이라 null.
+export function presignFailureMessage(kind: PresignFailureKind): string | null {
+  switch (kind) {
+    case 'sessionExpired':
+      return supplierCopy.form.sessionExpired;
+    case 'offline':
+      return supplierCopy.common.offline;
+    case 'presignFail':
+      return supplierCopy.form.presignFail;
+    case 'forbidden':
+      return null;
+    default:
+      return assertNever(kind);
+  }
+}
+
+// S3 PUT 결과 → 다음 화면(A-5). aborted(올리기 취소) = STEP 02 로 복귀·입력 유지,
+// ok = A-3 + 토스트, failed = 실패 패널(다시 올리기 = 새 presign 부터). 두 트랙이 같은 표.
+export function uploadOutcomeNext(outcome: UploadOutcome): UploadNext {
+  switch (outcome) {
+    case 'ok':
+      return 'home';
+    case 'aborted':
+      return 'step2';
+    case 'failed':
+      return 'failPanel';
+    default:
+      return assertNever(outcome);
+  }
+}

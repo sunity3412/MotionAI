@@ -4,13 +4,13 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: "2026-09-28 — Phase 38 실행 중 (`/gsd-execute-phase 38` 순차 · executor fable, belle 09-28). 완료분 = `.planning/phases/38-supplier-link/*-SUMMARY.md` 가 있는 플랜, 재개는 같은 명령. 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — 결정 체크포인트 38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`, W2 는 38-04 가 단일 HTML 을 고르면 38-12 전 반영). 정은지 영상 오면 시험 영상 2차 먼저. 별건 — 플라이휠이 TRAINING-DUE.md 를 옛 템플릿으로 덮음(미커밋, `backend/scripts/flywheel_cycle.sh` 102행)."
-last_updated: "2026-09-28T14:05:38.624Z"
+last_updated: "2026-09-28T14:35:46.451Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 113
+  completed_plans: 114
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 3 of 14
+Plan: 4 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -648,7 +648,7 @@ Last activity: 2026-07-20 - Completed quick task 260720-hn8: 영상 선택 실�
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [████████░░] 84%
+Progress: [█████████░] 85%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -915,6 +915,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 33 P15 | 20분 | 2 tasks | 7 files |
 | Phase 38 P01 | 15min | 3 tasks | 9 files |
 | Phase 38 P02 | 19min | 3 tasks | 13 files |
+| Phase 38 P03 | 23min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -1035,6 +1036,9 @@ Recent decisions affecting current work:
 - [Phase 38]: 38-01: ReferenceMotion TS 에 isActive? 추가 — referenceMotions.normalize() 가 raw.isActive===false 를 거르고 38-06 이 isActive:false 를 쓰는데 타입에 없었다
 - [Phase 38]: 38-02: 길이 검사 보장 범위 = 클라이언트 fail-open 하나 — duration 부재 픽 통과, 수요자 uploads/ 서버 측 길이 상한 없음(범위 밖, 리뷰 R15c)
 - [Phase 38]: 38-02: 시뮬레이터 확인 = iOS 18.6 sim 08-31 dev client + Metro (09-10 빌드는 번들 내장이라 Metro 무시). 실기기 미반영 — OTA/EAS 는 belle 결정 대기
+- [Phase 38]: 38-03: 공급자 문구 단일점 supplierCopy — guide.* 는 docs/supplier-guide.md 와 글자 단위, row.fail 7코드 title+'. '+body = analysis.ts REGISTRATION_ERROR_MESSAGE(no_human 은 D-09 예외) — supplierCopy.test.ts 가 md·analysis.ts 를 텍스트로 읽어 대조 — 문구 출처 셋(models.py·analysis.ts·row.fail)이 기계로 묶인다
+- [Phase 38]: 38-03: 호스팅 무관 순수 규칙 supplierRules/supplierForm + 공용 fixture 1벌(리뷰 R14) — SELF_SCORE_OK_MIN=90 은 [ASSUMED A9] 한 줄, 표시값·분기값 모두 반올림 정수(89.6 → '90점' 이면서 ok) — 화면 플랜 38-10/11/12 는 import 만 — 화면 숫자와 분기가 어긋나지 않게(숫자는 소비처까지)
+- [Phase 38]: 38-03: 순수 규칙 파일의 상대 import 는 .ts 확장자 명시(node --test ESM 필수); mapPresignFailure 는 status 0 + code unauthenticated 를 sessionExpired 로(offline 아님) — Metro 0.83 resolveSourceFile 이 정확한 경로를 먼저 찾고 resultSummary.ts 선례 있음 [확인 소스, 번들 미실행]; api.ts 가 currentUser 없음을 status 0 으로 던진다
 
 ### Pending Todos
 

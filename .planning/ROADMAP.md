@@ -1541,7 +1541,7 @@ Plans:
 
 **Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 2/14 plans executed
+**Plans:** 3/14 plans executed
 Plans:
 **Wave 1**
 
@@ -1550,7 +1550,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 38-03-PLAN.md — docs/supplier-guide.md 7항목(D-18) + supplierCopy.ts 문구 단일점(UI-SPEC 리뷰판 글자 단위 · 실패 문구 7개 = analysis.ts 조인 규칙 대조 · R7/R11 정직 문구) + **호스팅 무관 순수 규칙**(supplierRules·supplierForm + 공용 fixture, 리뷰 R14) [W2, 38-01 뒤]
+- [x] 38-03-PLAN.md — docs/supplier-guide.md 7항목(D-18) + supplierCopy.ts 문구 단일점(UI-SPEC 리뷰판 글자 단위 · 실패 문구 7개 = analysis.ts 조인 규칙 대조 · R7/R11 정직 문구) + **호스팅 무관 순수 규칙**(supplierRules·supplierForm + 공용 fixture, 리뷰 R14) [W2, 38-01 뒤]
 - [ ] 38-05-PLAN.md — 실패 4형 순수 판정 registration_checks(순서: 측정 불가 low_confidence → 여러 명 → 서 있는 시작, 바닥 규칙 = PROXY 명시 — 리뷰 R6/R15b) + hold_height.floor_reference_valid + 엔진 estimate_with_person_counts(D-09, Success ②) [W2]
 - [ ] 38-06-PLAN.md — Firestore 등록 writer 13종(공개/비공개 batch create · 트랜잭션 claim/lease · job 가드 · 자기 재현성 권위 가드 — 리뷰 R2/R3/R4/R8/R13) + reference-upload-url Lambda(화이트리스트 SSM 런타임 ∪ BELLE_UID · probe · upload 키 서명 → create) + firestore.rules(비공개 서브문서·표식 쓰기 거부) + Rules REST 스크립트(D-03·D-04·D-08) [W2]
 

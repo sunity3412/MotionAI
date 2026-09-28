@@ -1,7 +1,10 @@
 """S3 객체 키 규칙. upload-url 이 발급하고 pipeline 이 역파싱한다.
 
-원본 영상은 uploads/ 프리픽스 → 수명주기 정책으로 30일 후 자동 삭제
-(backend_CLAUDE.md 비용 관리). 분석 결과/기준 모션은 별도 프리픽스.
+원본 영상은 uploads/ 프리픽스에 **영구 보관**(2026-09-26 belle 결정, Phase 38 D-17 —
+버킷 수명주기 규칙 해제). 분석 결과/기준 모션은 별도 프리픽스.
+기준 모션 키는 세 모양: 기존 11개 평면 `reference/{motionId}.mp4`(손 등록, 무접촉) ·
+공급자 링크 업로드 `reference/{uid}/{refId}/upload.{ext}`(presign 전용, 덮어쓰기 가능) ·
+공급자 링크 확정 `reference/{uid}/{refId}/v1.{ext}`(서버 복사, 불변 — Phase 38 R5).
 """
 
 from __future__ import annotations
@@ -40,6 +43,89 @@ def parse_upload_key(key: str) -> ParsedUploadKey | None:
     return ParsedUploadKey(
         uid=m.group("uid"),
         analysis_id=m.group("analysis_id"),
+        ext=m.group("ext"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# 공급자 링크 기준 모션 키 (Phase 38 D-04 + 리뷰 R5)
+#
+# 두 모양의 문자열은 여기 한 곳에서만 정한다.
+#   upload.{ext} — presigned PUT 목적지. presigned URL 은 만료(900초) 전까지 같은
+#                  키를 몇 번이든 덮어쓸 수 있으므로(R5) **presign 은 이 키에만**.
+#   v1.{ext}     — 등록 파이프라인이 처리한 바이트를 서버 `copy_object` 로 옮긴
+#                  불변 확정 키. 소비(mode1 `videoS3Key` · 재생 · 자기 재현성)는
+#                  **이 키만**(38-07).
+REFERENCE_KEY_KIND_UPLOAD = "upload"
+REFERENCE_KEY_KIND_FINAL = "v1"
+
+# reference/{uid}/{refId}/{upload|v1}.{ext}
+#
+# uid·refId 세그먼트를 영숫자로 제한하는 이유(D-19): 기존 평면 `reference/ref-*.mp4`
+# 11개(하이픈)와 `reference/_archive/...`(밑줄)이 매치되지 않아 기존 객체·손 업로드가
+# 새 등록 경로에 절대 들어오지 않는다. `..` 같은 경로 조작도 같은 이유로 불가.
+# kind 를 upload/v1 두 값으로 닫는 이유(R5): `v2.mp4`·`original.mp4` 같은 임의
+# 파일명이 파이프라인을 깨우지 못한다. 옛 모양 `reference/{uid}/{refId}.{ext}` 도
+# 세그먼트 수가 달라 None — 리뷰 이전 설계의 키가 남아 있어도 무시된다.
+_REFERENCE_KEY_RE = re.compile(
+    r"^reference/(?P<uid>[A-Za-z0-9]+)/(?P<ref_id>[A-Za-z0-9]+)/"
+    r"(?P<kind>upload|v1)\.(?P<ext>mp4|mov)$"
+)
+
+
+def build_reference_upload_key(uid: str, ref_id: str, ext: str) -> str:
+    """공급자 링크 기준 영상의 **업로드** 키 `reference/{uid}/{refId}/upload.{ext}`
+    (Phase 38 D-04 + 리뷰 R5).
+
+    **단일 출처** — 발급(`reference-upload-url` Lambda, upload 키만 presign) ·
+    역파싱(`pipeline.lambda_handler` · `runpod_inference/server.py /register-reference`,
+    upload 키만 디스패치) · 확정(`pipeline._register_reference` 의 copy_object
+    목적지 = `build_reference_final_key`) · 재개(`requeue_reference_registrations.py`,
+    doc `uploadKey`)가 이 두 함수를 공유해 drift 를 차단한다(build_coach_audio_key
+    선례). 이 키는 덮어쓰기 가능하므로 `videoS3Key` 에 적지 않는다.
+    """
+    return f"{REFERENCE_PREFIX}/{uid}/{ref_id}/{REFERENCE_KEY_KIND_UPLOAD}.{ext}"
+
+
+def build_reference_final_key(uid: str, ref_id: str, ext: str) -> str:
+    """공급자 링크 기준 영상의 **확정** 키 `reference/{uid}/{refId}/v1.{ext}`
+    (Phase 38 D-04 + 리뷰 R5).
+
+    **단일 출처** — `pipeline._register_reference` 가 처리한 바이트를 서버
+    `copy_object` 로 이 키에 복사하고 `videoS3Key`·`videoETag` 에는 이 키/그 ETag 만
+    적는다(38-07). presign 은 이 키에 절대 발급하지 않는다 — 등록 뒤 기준 영상이
+    바뀌지 않는다는 보장이 이 분리 하나에 걸려 있다.
+    """
+    return f"{REFERENCE_PREFIX}/{uid}/{ref_id}/{REFERENCE_KEY_KIND_FINAL}.{ext}"
+
+
+@dataclass(frozen=True)
+class ParsedReferenceKey:
+    uid: str
+    ref_id: str
+    kind: str
+    ext: str
+
+    @property
+    def is_upload(self) -> bool:
+        """upload 키면 True — 호출측이 v1 이벤트를 걸러 로그만 남기는 분기 재료."""
+        return self.kind == REFERENCE_KEY_KIND_UPLOAD
+
+
+def parse_reference_key(key: str) -> ParsedReferenceKey | None:
+    """S3 이벤트 키에서 uid/refId/kind 복원. 형식 불일치면 None(예외 금지).
+
+    upload·v1 두 모양 다 파싱한다 — 서버 copy_object 가 만드는 v1 객체도 같은
+    ObjectCreated 이벤트로 큐에 오므로, 호출측이 `is_upload` 로 걸러 v1 은 로그만
+    남기고 끝낸다. 평면 legacy · `_archive` · 옛 모양 · uploads/ · results/ 는 None.
+    """
+    m = _REFERENCE_KEY_RE.match(key)
+    if not m:
+        return None
+    return ParsedReferenceKey(
+        uid=m.group("uid"),
+        ref_id=m.group("ref_id"),
+        kind=m.group("kind"),
         ext=m.group("ext"),
     )
 

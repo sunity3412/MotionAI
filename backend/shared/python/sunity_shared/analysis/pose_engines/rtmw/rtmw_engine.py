@@ -222,13 +222,49 @@ class RTMWPoseEngine:
 
         Raises:
             NoHumanError: 전 프레임에서 사람을 감지하지 못한 경우.
+
+        38-05: 본문은 _estimate_impl(with_counts=False) — estimate_with_person_counts 와 같은 경로(회귀 0).
         """
+        return self._estimate_impl(frames, pole_axis, with_counts=False)
+
+    def estimate_with_person_counts(
+        self,
+        frames: np.ndarray,
+        pole_axis: PoleAxis,
+    ) -> tuple[list[PoseFrame], list[int]]:
+        """프레임 시퀀스 → (list[PoseFrame], 프레임별 사람 수) — Phase 38 D-09 "여러 명" 판정의 재료 (38-05 Task 2).
+
+        estimate() 와 **같은 경로**(_estimate_impl: 같은 1차 추론 · 같은 NoHumanError 조건/문구 · 같은 2-pass
+        디스패처 · 같은 _build_pose_frames) — 좌표가 estimate() 와 같아야 등록된 기준과 학생 분석의 원질이 같다
+        (mode1 양쪽). 사람 수 = 1차 추론에서 inferencer 가 돌려준 N(kps_batch 길이; None/빈 배열 = 0). 2차(회전·워프)
+        추론의 N 은 세지 않는다 — 같은 사람을 다시 검출한 것이고 "여러 명" 은 1차 프레임에 대한 사실이다.
+        판정(비율 문턱)은 registration_checks.is_multiple_people — 여기서는 세기만 한다.
+
+        HIGH-1 v4 — local-return tuple. 인스턴스/모듈 사이드카(사람 수를 인스턴스 속성이나 모듈 전역에 저장) 금지:
+        Pod 는 BackgroundTasks 로 동시 분석을 돌려 인스턴스 상태가 요청 사이에 섞인다(RESEARCH Q5(b)).
+
+        Returns:
+            (pose_frames, counts) — len 둘 다 T. T == 0 이면 ([], []).
+
+        Raises:
+            NoHumanError: 전 프레임 미감지 (estimate 와 동일).
+        """
+        return self._estimate_impl(frames, pole_axis, with_counts=True)
+
+    def _estimate_impl(
+        self,
+        frames: np.ndarray,
+        pole_axis: PoleAxis,
+        *,
+        with_counts: bool,
+    ) -> list[PoseFrame] | tuple[list[PoseFrame], list[int]]:
+        """estimate / estimate_with_person_counts 공통 본문 (38-05) — 갈리는 것은 반환 모양뿐, 추론·예외·2-pass 는 하나."""
         T = len(frames)
         if T == 0:
-            return []
+            return ([], []) if with_counts else []
 
         _, H, W, _ = frames.shape
-        raw_first = self._infer_raw(frames)
+        raw_first, counts = self._infer_raw_with_counts(frames)
         pose_frames, detected_count = self._build_pose_frames(raw_first, W, H, pole_axis)
 
         if detected_count == 0:
@@ -243,13 +279,15 @@ class RTMWPoseEngine:
         if _env_on(_ROT180_INVERSION_ENV):
             if _env_on(_PR_INVERSION_ENV):
                 log.warning("rot180_inversion both_flags_on pr_warp_skipped=true")
-            return self._maybe_second_pass_rot180(
+            result = self._maybe_second_pass_rot180(
                 frames, raw_first, pose_frames, pole_axis, W, H
             )
-        # 32-15 PR 인버전 2-pass 조건부 훅 (종전 경로 그대로).
-        return self._maybe_second_pass_inversion(
-            frames, raw_first, pose_frames, pole_axis, W, H
-        )
+        else:
+            # 32-15 PR 인버전 2-pass 조건부 훅 (종전 경로 그대로).
+            result = self._maybe_second_pass_inversion(
+                frames, raw_first, pose_frames, pole_axis, W, H
+            )
+        return (result, counts) if with_counts else result
 
     def _infer_raw(
         self, frames: np.ndarray
@@ -258,14 +296,26 @@ class RTMWPoseEngine:
 
         기존 estimate 루프에서 추론부만 분리 (32-15) — 호출 순서·인원 선택·
         z 패딩 전부 동일 (byte-equivalent). 2-pass 가 워프 프레임에 재사용한다.
+        38-05: 본문은 _infer_raw_with_counts — 사람 수만 버린다(회귀 0).
+        """
+        return self._infer_raw_with_counts(frames)[0]
+
+    def _infer_raw_with_counts(
+        self, frames: np.ndarray
+    ) -> tuple[list[tuple[np.ndarray, np.ndarray] | None], list[int]]:
+        """_infer_raw + 프레임별 사람 수 N (38-05, RESEARCH Q5(b) — kps_batch[0] 가 버리던 N 을 돌려준다).
+
+        counts[t] = 0 if kps_batch is None else len(kps_batch). 나머지(첫 사람 선택 · z 패딩)는 원문 그대로.
         """
         out: list[tuple[np.ndarray, np.ndarray] | None] = []
+        counts: list[int] = []
         for t in range(len(frames)):
             # rtmlib inferencer 호출 — (keypoints, scores) 반환.
             # rtmlib Wholebody 0.0.15 는 단일 (H,W,3) frame 만 받음 — batch 미지원.
             # output = ((N,133,2or3), (N,133)) — N 명 사람.
             result = self._inferencer(frames[t])
             kps_batch, scores_batch = result  # (N, 133, 2/3), (N, 133)
+            counts.append(0 if kps_batch is None else int(len(kps_batch)))
 
             if kps_batch is None or len(kps_batch) == 0:
                 out.append(None)  # 미감지 → PoseFrame.empty (build 단계)
@@ -282,7 +332,7 @@ class RTMWPoseEngine:
             else:
                 kps_3d = kps.astype(np.float32)
             out.append((kps_3d, scores))
-        return out
+        return out, counts
 
     def _build_pose_frames(
         self,

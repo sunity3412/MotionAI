@@ -4,13 +4,13 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: "2026-09-28 — Phase 38 실행 중 (`/gsd-execute-phase 38` 순차 · executor fable, belle 09-28). 완료분 = `.planning/phases/38-supplier-link/*-SUMMARY.md` 가 있는 플랜, 재개는 같은 명령. 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — 결정 체크포인트 38-04 호스팅 · 38-09 인프라+규칙 배포 · 38-14 Pod `pod:go`, W2 는 38-04 가 단일 HTML 을 고르면 38-12 전 반영). 정은지 영상 오면 시험 영상 2차 먼저. 별건 — 플라이휠이 TRAINING-DUE.md 를 옛 템플릿으로 덮음(미커밋, `backend/scripts/flywheel_cycle.sh` 102행)."
-last_updated: "2026-09-28T14:59:32.067Z"
+last_updated: "2026-09-28T15:34:06.409Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 115
+  completed_plans: 116
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 5 of 14
+Plan: 6 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -648,7 +648,7 @@ Last activity: 2026-07-20 - Completed quick task 260720-hn8: 영상 선택 실�
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 87%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -917,6 +917,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 38 P02 | 19min | 3 tasks | 13 files |
 | Phase 38 P03 | 23min | 3 tasks | 8 files |
 | Phase 38 P05 | 10min | 2 tasks | 5 files |
+| Phase 38 P06 | 25min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -1044,6 +1045,11 @@ Recent decisions affecting current work:
 - [Phase 38]: 38-05: low_confidence 는 항상 joints >= 1 — 형상 불량 dict 는 no_standing_start/no_floor_reference — 38-03 failCopy 의 '잘 안 보인 부위: .' 빈 목록 경로를 계약으로 닫는다(7형상×2목록 테스트)
 - [Phase 38]: 38-05: 판정 순서 low_confidence(측정 불가) → multiple_people → no_standing_start(측정 결과 위반); 비Mapping report 는 TypeError — 리뷰 R6: MIN_CONF 미만 발목은 바닥을 못 세워 옛 순서로는 no_standing_start 로 오분류. 차단 1: hold_height._arrays 가 조용히 None 을 내는 자리 앞에서 fail-loud
 - [Phase 38]: 38-05: 엔진 사람 수는 1차 추론 N 만, estimate_with_person_counts 는 local-return tuple(사이드카 0), estimate() 와 같은 _estimate_impl — Pod BackgroundTasks 동시 분석에 인스턴스 상태가 섞인다; 2차(rot180/PR) 추론은 같은 사람 재검출
+- [Phase 38]: 38-06: _guarded_update 는 트랜잭션 본문(_tx)만 만들고 실행은 각 writer 가 한다 — 가드 한 곳, _run_in_transaction(_tx) 호출은 writer 별
+- [Phase 38]: 38-06: set_registration_active/failed 는 jobId 일치 + processing, set_reference_angles 는 jobId 만, begin_self_check 는 jobId + active
+- [Phase 38]: 38-06: SSM 화이트리스트 조회 실패는 캐시하지 않는다(다음 요청이 곧바로 복구) · get_parameter WithDecryption=True
+- [Phase 38]: 38-06: firestore.rules users/** create 는 keys().hasAny, update 는 diff().affectedKeys() — 서버가 표식을 쓴 doc 에도 coachReview merge-set 유지
+- [Phase 38]: 38-06: Rules REST 쓰기 호출은 http_post(method=) 한 seam(POST/PATCH) — 호출 순서를 한 목록으로 잠근다 · 라이브 projects:test 는 SA IAM 403(firebaserules.rulesets.test) → 38-09 T3 F 로 이월
 
 ### Pending Todos
 

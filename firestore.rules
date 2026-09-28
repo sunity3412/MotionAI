@@ -2,17 +2,44 @@ rules_version = '2';
 
 // Sunity AI Coach — Firestore 보안 규칙 (파일럿).
 // 기본 차단(deny-by-default). 인증된 사용자(익명 포함)만, 자기 데이터만.
+//
+// Phase 38 (38-06 T3, 리뷰 R2·R13):
+//   · users/**  — 서버 전용 표식(selfCheckForReference·selfCheckJobId)은 클라이언트가
+//     만들지도(create) 바꾸지도(update) 못한다. 나머지 필드는 종전처럼 본인 자유.
+//   · reference — 재귀 와일드카드를 좁혀 top-level·versions 만 인증자 읽기,
+//     private 서브문서는 supplierUid 본인만 읽기. 쓰기는 전부 백엔드(Admin SDK)/콘솔.
+// 검증·배포는 backend/scripts/deploy_firestore_rules.py (--test 로 검증, --release 는 38-09 승인 뒤).
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 사용자별 데이터: 본인 uid 하위만 읽기/쓰기 (게스트=익명 인증 포함)
+    // 사용자별 데이터: 본인 uid 하위만 (게스트=익명 인증 포함)
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      // 리뷰 R2 — 표식은 서버(38-07 create_analysis_doc)만 만든다. 클라이언트가 자기 분석
+      // doc 에 남의 refId 를 표식으로 넣으면 38-08 훅이 그 기준의 selfScore 를 건드릴 수 있다.
+      allow create: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.keys().hasAny(['selfCheckForReference', 'selfCheckJobId']);
+      // affectedKeys() 인 이유: 서버가 표식을 써 둔 doc 에도 앱이 coachReview 를 merge-set 으로
+      // 계속 써야 한다(app/src/lib/coachReview.ts). 표식이 바뀌는 update 만 막는다.
+      allow update: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['selfCheckForReference', 'selfCheckJobId']);
     }
 
-    // 공용 기준 데이터(정은지 기준 모션 등): 인증 시 읽기만, 쓰기는 백엔드/콘솔 전용
-    match /reference/{document=**} {
+    // 공용 기준 데이터(정은지 기준 모션 + 공급자 링크 등록): 인증 시 읽기만, 쓰기는 백엔드/콘솔 전용.
+    // 재귀 와일드카드(reference/{document=**})는 서브문서까지 인증자 전체 읽기를 주므로(규칙은
+    // OR 결합) private 블록을 더하기만 해서는 무효 — top-level 과 versions 로 좁힌다.
+    // 앱은 top-level doc 만 읽는다(app/src/lib/referenceMotions.ts); versions 는 백엔드 그림자 평가용.
+    match /reference/{refId} {
       allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /reference/{refId}/versions/{version} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    // 리뷰 R13 — 동의·선언·techniqueRefId·clipRange·registrationError 는 공급자 본인만 읽는다.
+    match /reference/{refId}/private/{doc} {
+      allow read: if request.auth != null && resource.data.supplierUid == request.auth.uid;
       allow write: if false;
     }
 

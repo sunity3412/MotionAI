@@ -1541,7 +1541,7 @@ Plans:
 
 **Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 8/14 plans executed (실행 7 + 38-12 skipped-by-decision — 38-04 belle option-1)
+**Plans:** 9/14 plans executed (실행 8 + 38-12 skipped-by-decision — 38-04 belle option-1)
 Plans:
 **Wave 1**
 
@@ -1561,7 +1561,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 38-08-PLAN.md — selfScore 훅(기준 doc 권위 가드) + Pod POST /register-reference(jobId/claim) + requeue 스크립트(claim 경유 · --reclaim-stale · --sweep-expired, 기동 절차 7단계 — 리뷰 R2/R3/R4/R8)(D-10·D-20) [W4]
+- [x] 38-08-PLAN.md — selfScore 훅(기준 doc 권위 가드) + Pod POST /register-reference(jobId/claim) + requeue 스크립트(claim 경유 · --reclaim-stale · --sweep-expired, 기동 절차 7단계 — 리뷰 R2/R3/R4/R8)(D-10·D-20) [W4]
 - [ ] 38-10-PLAN.md — (후보 1) 페이지 핵심 Expo 라우트: 데이터 층 · A-1 로그인 · A-2 권한 없음 · A-3 홈 두 카드 · 실패/완료 상세(D-01·D-02·D-22) + **38-04 실측 이월**(웹 영상 길이 초→ms 수리 Task 0 · 시뮬 재측정 belle 체크포인트 Task 4) [W4, option-1 확정 (38-04 belle "option-1 앱을 웹으로"), 체크포인트]
 - [x] 38-12-PLAN.md — ⏭ skipped-by-decision (38-04 option-1, 코드 0 · 커밋 0) — (후보 2, 조건부 대안) 정적 단일 페이지 HTML/CSS/JS — 같은 supplierCopy·상태기계 + 38-03 규칙을 type-strip ESM(rules.js)으로 공유 + 생성물 행동 테스트(리뷰 R14) [W4, option-2 전용 — 미선택]
 

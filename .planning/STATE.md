@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 2026-09-30 00시 — Phase 38 7/14 실행 완료(38-01·02·03·04·05·06·07) + 38-12 skipped-by-decision. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 = 38-08 + 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 25커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 중급콤보 영상 도착(09-29) — belle 09-30 '공급자 앱 개발을 먼저 끝내자', 시험 영상 2차(콤보 = 짚지 않은 시험지)는 Phase 38 뒤.
-last_updated: "2026-09-29T15:19:04.675Z"
+stopped_at: 2026-09-30 00시 — Phase 38 8/14 실행 완료(38-01·02·03·04·05·06·07·08) + 38-12 skipped-by-decision. 38-08 = selfScore 훅(기준 doc 권위 가드) · Pod /register-reference · requeue 스크립트, 전체 pytest 5566 passed / 20 skipped. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 남은 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 31커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 중급콤보 영상 도착(09-29) — belle 09-30 '공급자 앱 개발을 먼저 끝내자', 시험 영상 2차(콤보 = 짚지 않은 시험지)는 Phase 38 뒤.
+last_updated: "2026-09-29T15:33:32.264Z"
 last_activity: 2026-09-29
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 119
+  completed_plans: 120
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 8 of 14
+Plan: 9 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -648,7 +648,7 @@ Last activity: 2026-07-20 - Completed quick task 260720-hn8: 영상 선택 실�
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 90%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -920,6 +920,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 38 P06 | 25min | 3 tasks | 9 files |
 | Phase 38 P07 | 19min | 2 tasks | 5 files |
 | Phase 38 P04 | 41min | 3 tasks | 12 files |
+| Phase 38 P08 | 12min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1059,6 +1060,8 @@ Recent decisions affecting current work:
 - [Phase 38]: 38-04 호스팅 = option-1 (belle 원문 "option-1 앱을 웹으로") — 38-10·38-11 실행, 38-12 skipped-by-decision — belle 선택 (결정표 실측 뒤). 이유 한 줄 없음
 - [Phase 38]: 38-04 selfScoreMin = 90 유지 (belle 원문 "90 유지") — SELF_SCORE_OK_MIN 무접촉 — 문구 분기점일 뿐 통과 목표 아님
 - [Phase 38]: 38-04 웹 영상 길이 초/ms 결함 → 38-10 Task 0 이월, 후보 (1) PUT·onSnapshot·.mov·D-3 재측정 → 38-10 Task 4 시뮬 체크포인트 (38-10 autonomous false) — 38-10·38-11 에 기존 사람 체크포인트 없음; 38-13 에 접으면 수리 런타임 확인이 wave 6 까지 밀림
+- [Phase 38]: 38-08: selfScore 훅은 firestore_admin.self_check_authorized 하나로 가드 — 기록 값은 result.overallScore(화면 점수), dimensionScores 아님
+- [Phase 38]: 38-08: Pod /register-reference 는 jobId 가 오면 그대로, 없으면 Pod 가 claim(False 409) — requeue 도 claim 경유라 두 번 돌려도 실행 1회
 
 ### Pending Todos
 
@@ -1093,9 +1096,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-29T15:18:43.667Z
+Last session: 2026-09-29T15:33:24.836Z
 
-Stopped at: 2026-09-30 00시 — Phase 38 7/14 실행 완료(38-01·02·03·04·05·06·07) + 38-12 skipped-by-decision. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 = 38-08 + 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 25커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 중급콤보 영상 도착(09-29) — belle 09-30 '공급자 앱 개발을 먼저 끝내자', 시험 영상 2차(콤보 = 짚지 않은 시험지)는 Phase 38 뒤.
+Stopped at: 2026-09-30 00시 — Phase 38 8/14 실행 완료(38-01·02·03·04·05·06·07·08) + 38-12 skipped-by-decision. 38-08 = selfScore 훅(기준 doc 권위 가드) · Pod /register-reference · requeue 스크립트, 전체 pytest 5566 passed / 20 skipped. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 남은 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 31커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 중급콤보 영상 도착(09-29) — belle 09-30 '공급자 앱 개발을 먼저 끝내자', 시험 영상 2차(콤보 = 짚지 않은 시험지)는 Phase 38 뒤.
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

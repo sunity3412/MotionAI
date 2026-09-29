@@ -56,26 +56,49 @@ belle 지시: *"재계획은 하지 않고, 차단 3건만 플래너 1회와 검
 - 38-04 T3 · VALIDATION 범례의 `⏭` → ASCII `[skipped-by-decision]`(CLAUDE.md §7 이모지 금지). `★` 는 그대로.
 - 그 밖(rtk 접두 없음 · PATTERNS 행 누락 · low_confidence 가 multiple_people 보다 먼저) 변경 없음.
 
-## 다음 (2026-09-30 00시 갱신 — 38-04 결정 option-1, 다음 웨이브 4)
+## 다음 (2026-09-30 새벽 갱신 — belle 세션 일시정지, 웨이브 4 끝)
 
-**진행 7/14 실행 완료 + 38-12 skipped-by-decision** — 38-01 · 38-02 · 38-03 · 38-04 · 38-05 · 38-06 · 38-07 (각 `38-NN-SUMMARY.md`). 38-04 결정 = belle "option-1 앱을 웹으로"(38-10·38-11 실행, 38-12 는 `38-12-SUMMARY.md` skipped-by-decision) · `selfScoreMin: 90 유지` [확인 belle 2026-09-30]. 38-04 끝 앱 typecheck 0 [확인]. 아래 6/14 시점 스위트 수치는 그때 값. 전체 pytest 5499 passed · 20 skipped · 앱 typecheck 0 [확인 2026-09-29, HEAD cfe369e6]. 착수 기준선 5184 passed.
+belle: *"일단 정리하고 인계서작성해줘 시간이 늦었다"* — 38-09·38-11 은 시작하지 않았다.
 
-**재개 = `/gsd-execute-phase 38`** — SUMMARY 있는 플랜은 건너뛴다(use_worktrees=false → 순차, executor fable).
-1. ~~**38-04**~~ 완료(`38-04-SUMMARY.md`) — Task 1 측정(react-native-web 설치 · `expo export --platform web` · 후보 (2) probe · 시뮬레이터 Mobile Safari 서빙) → **Task 2 belle 실측 체크포인트**(8줄 ○×) → **Task 3 결정**(option-1 Expo web → 38-10·38-11 / option-2 단일 HTML → 38-12, 미선택은 SUMMARY `skipped-by-decision`). option-2 면 38-12 실행 전에 W2(rules.js 자기 import) 먼저.
-2. **다음 = 웨이브 4 = 38-08 + 38-10.** 38-10 은 38-04 실측 이월로 맨 앞 Task 0(웹 영상 길이 초→ms 수리, TDD) · 맨 끝 Task 4(시뮬레이터 belle 재측정 체크포인트 — 후보 (1) PUT·onSnapshot·`.mov` + 공급자 probe CORS·reference 구독)가 붙어 `autonomous: false`. 그 뒤 → 웨이브 5 = **38-09 결정**(인프라 + 규칙 배포) + 38-11 → 웨이브 6 = 38-13(belle) → 웨이브 7 = 38-14(Pod `pod:go`).
-3. 웨이브마다 끝나면 전체 스위트(`cd backend && .venv/bin/python -m pytest tests -q` + `cd app && npm run typecheck` + node 테스트) — 실행기는 플랜 범위만 돌려 격리 누수를 못 본다(웨이브 2 에서 43건).
+### 진행 [확인]
 
-**belle 결정 대기**
-- **push 방식** — 로컬 25커밋 미push(origin/main = ca739390, 38-04 끝 기준). 38-05 실행기의 `git push` 가 auto mode 분류기에 막혀(Out-of-Place Publication) 대신 push 하지 않았다(하위 에이전트 거부 동작 대행 금지). 38-14 Pod 전까지만 필요. 선택지: `.claude/settings.local.json` 에 `Bash(git push origin main)` 좁은 규칙 → Claude 가 push / belle 이 `! git push origin main`.
+- **9/14 실행 완료 + 38-12 skipped-by-decision** — 38-01~08 · 38-10 (각 `38-NN-SUMMARY.md`). 웨이브 1~4 끝.
+- 38-10 (`3254d11e` 까지) = 웹 영상 길이 초→ms 수리(TDD `55f8eae6` → `0c902e29`) + `/supplier` 라우트(로그인 · 권한 없음 · 홈 두 카드 · 실패/만료/등록됨 상세). belle 시뮬 재측정 원문 *"1번 오케이, 2번은.. 한 8% 가다가 이렇게 문제가 있어요 실패. 3번도 마찬가지."* → 1·2·3 ○(Pod 끈 측정이라 실패 화면 도달 = 정상). 표 = `38-04-MEASUREMENT.md` "## 38-10 재측정".
+- 게이트 (2026-09-30 01시, HEAD `3254d11e` 기준 재실행): backend 전체 `pytest tests -q` **5566 passed, 20 skipped** · app `npm run typecheck` exit 0 · node 테스트 6파일 **65 pass / 0 fail**. 착수 기준선 5184 passed.
 
-**다음 플랜이 알아야 할 관측**
-- 38-09: 라이브 규칙 `--test` 가 HTTP 403 `firebaserules.rulesets.test`(Admin SA 권한 부족) [확인 38-06] → `--release` 도 막힐 가능성 [미확인]. IAM 부여 또는 belle 콘솔 배포가 38-09 결정에 들어간다.
-- 배포 순서: 38-07 Lambda 코드가 Pod `/register-reference`(38-08)보다 먼저 살면 위임 404 → `failed(server_error)` [38-07 SUMMARY]. 38-09 는 38-08 뒤라 순서는 맞지만 배포 때 재확인.
-- Pod 자격증명의 `reference/*`·`uploads/*` PutObject 범위 [미확인 — 38-09 T3 (E) / 38-14 T2 3-b].
-- 38-02 Figma 노드 1:754 대조 [미확인 — 실행기에 Figma 도구 없음]. 시뮬레이터 실물 2장은 확인함.
-- REQUIREMENTS.md 에 REQ-38-* 행이 없어 실행기의 추적표 갱신이 매번 not_found(로드맵·플랜에만 정의).
-- 웨이브 2 게이트 43건 실패 = 기존 테스트 `sys.modules` 누수(`test_firestore_admin_gemini_cache`) → b10415ef 로 원천 수리.
-- STATE.md frontmatter `stopped_at` 은 본문 `Session Continuity` 의 `Stopped at:` 줄에서 복사된다(3ee2c58b) — 착수점을 바꿀 때 둘 다, `: ` 없이.
+### 재개
+
+`/gsd-execute-phase 38` — SUMMARY 있는 플랜은 건너뛴다(use_worktrees=false → 순차, executor = opus).
+1. **웨이브 5 = 38-09**(인프라 + rules 배포 — belle 체크포인트) **+ 38-11**(올리기 폼 · 가이드).
+2. 웨이브 6 = 38-13(HTTPS 배포 + Authorized domain + 실기기 belle 검증).
+3. 웨이브 7 = 38-14(Pod `pod:go` E2E).
+4. 웨이브마다 끝나면 전체 스위트(backend pytest + app typecheck + node 테스트).
+
+### belle 결정 대기
+
+- **push 방식** — 로컬 39커밋 미push(origin/main = `ca739390`, 이 인계 커밋 포함). 38-14 Pod 전까지만 필요. 선택지: `.claude/settings.local.json` 에 `Bash(git push origin main)` 좁은 규칙 → Claude 가 push / belle 이 `! git push origin main`.
+
+### 다음 플랜이 알아야 할 관측 (진단은 따로 표시)
+
+- **38-09**
+  - rules `--test` 가 HTTP 403 `firebaserules.rulesets.test`(Admin SA) [확인 38-06]. `--release` 도 막힐 것 [추정]. IAM 부여 또는 belle 콘솔 배포 중 하나.
+  - 배포 순서 = Pod 코드(38-08 `/register-reference`) → Lambda(38-07) → 버킷 알림 `reference/` 접두사 [38-08 SUMMARY]. 라우트 존재 확인 = Pod `POST /register-reference` 무토큰 401(토큰 미설정 503, 옛 코드 404).
+  - `POST /reference/upload-url` = 404, CORS 헤더 없음 [확인 38-10 curl]. 그래서 지금 `/supplier` 는 `연결이 안 돼요` 로 뜬다 [확인 시뮬 스크린샷]. 배포 뒤 A-2/A-3 로 바뀔 것 [추정]. 38-09 라이브 검증에 Origin 헤더 curl 한 줄 추가됨(`a4ba62d2`).
+  - Pod 자격증명의 `reference/*`·`uploads/*` PutObject 범위 [미확인 — 38-09 T3 (E) / 38-14].
+- **38-11**: 다시 올리기 → `/supplier/upload` 파라미터 계약 = `name · athleteName · level · isSplit · hasHold · standingStart`(38-10 `8593792f`). 38-11 도 Figma D-22 를 요구한다 — 38-10 실행기는 Figma MCP 를 못 열었다.
+- **38-13**
+  - Figma D-22 실측 이월: `≈` 네 칸(outline 48 · google 48 · STEP 라벨 13.8 · noticePill 15) — 38-13-PLAN Task 3 에 문단 추가(`3254d11e`).
+  - D-3 이월: 공급자 probe 브라우저 CORS · `reference` `where supplierUid` 구독 = Task 3 단계 1·4.
+  - `.mp4` 형식 경로 [미확인]: 38-10 의 S3 객체 둘이 모두 `.mov` 시험 클립과 같은 8,108,834 bytes — 같은 파일을 두 번 골랐을 수 있다.
+  - Authorized domain 은 belle 콘솔(Task 2, CLI 없음).
+- **38-14**: Pod 기동 뒤 `AWS_PROFILE=sunity-motion backend/.venv/bin/python backend/scripts/requeue_reference_registrations.py --dry-run` → 대기 건 있으면 인자 없이 1회. Pod 이 중간에 죽었던 날은 `--reclaim-stale`, 오래된 `registering` 은 `--sweep-expired` [38-08 SUMMARY].
+- 진단(재검증 대상): 38-10 측정의 "~8% 뒤 실패" = Pod 부재로 Pipeline Lambda 가 `failed/server_error` 기록 [추정 — CloudWatch 미열람; Firestore `server_error` 2건은 확인].
+- 공통: REQUIREMENTS.md 에 REQ-38-* 행이 없어 `requirements.mark-complete` 가 매번 not_found. STATE frontmatter `stopped_at` 과 본문 `Stopped at:` 은 둘 다 고친다(`: ` 없이).
+
+### 새 정보 — 정은지 중급콤보 영상 (09-29 도착)
+
+- 메모리 `jeongeunji-combo-videos-20260929` 참조(파일·동작 목록은 거기에). 콤보 = 한 영상에 동작 3~5개, 학생 시계열 아님(Mode 1 재료).
+- belle 09-30: *"일단 공급자 앱 개발을 먼저 끝내자"* → Phase 38 끝날 때까지 콤보 분석·시험 영상 2차 착수 금지. 콤보 = 아무도 짚지 않은 시험지 — 착수 때 상수·규칙을 먼저 맞추지 말고 현재 절차 그대로 돌려 박제한다. 절단 여부는 그때 belle 과 함께 정한다.
 
 ## 다음 세션 (2026-09-26 기록 — 이행 완료)
 

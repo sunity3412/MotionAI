@@ -5,6 +5,9 @@
 
 import { auth } from './firebase';
 import type {
+  ReferenceUploadUrlRequest,
+  ReferenceUploadUrlResponse,
+  SupplierProbeResponse,
   UploadUrlRequest,
   UploadUrlResponse,
   VideoFormat,
@@ -340,4 +343,69 @@ export async function uploadToS3(
     const text = await res.text().catch(() => '');
     throw new Error(`s3 PUT ${res.status}: ${text.slice(0, 200)}`);
   }
+}
+
+// ── Phase 38 공급자 경로 (38-10) ─────────────────────────────────────────────
+//
+// POST /reference/upload-url `{probe:true}` — 화이트리스트 확인만(페이지 진입 게이트, D-12).
+// 403 forbidden = 화이트리스트 밖(A-2), 401 = 세션 만료. 분기는 ApiError.status/code 로.
+export function probeSupplier(): Promise<SupplierProbeResponse> {
+  return authedJson<SupplierProbeResponse>('/reference/upload-url', {
+    method: 'POST',
+    body: { probe: true },
+  });
+}
+
+// POST /reference/upload-url — 기준 영상 presigned PUT 발급. uid/refId 는 요청에 없다
+// (서버가 토큰 uid + 서버 생성 refId 로 키를 만든다, T-38-01-2).
+export function requestReferenceUploadUrl(
+  req: ReferenceUploadUrlRequest,
+): Promise<ReferenceUploadUrlResponse> {
+  return authedJson<ReferenceUploadUrlResponse>('/reference/upload-url', {
+    method: 'POST',
+    body: req,
+  });
+}
+
+// 진행률이 필요한 S3 PUT(공급자 A-5). fetch 는 업로드 진행률을 안 주므로 XMLHttpRequest.
+// Content-Type 은 uploadToS3 와 같은 이유로 반드시 싣는다(CONTENT_TYPE_BY_FORMAT 재사용).
+// signal.abort → xhr.abort() + Error('aborted') — 호출부가 uploadOutcomeNext('aborted') 로 분기.
+export function uploadToS3WithProgress(
+  uploadUrl: string,
+  body: Blob,
+  format: VideoFormat,
+  opts: { onProgress?: (pct: number) => void; signal?: AbortSignal } = {},
+): Promise<void> {
+  const { onProgress, signal } = opts;
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('aborted'));
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+    const cleanup = () => signal?.removeEventListener('abort', onAbort);
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', CONTENT_TYPE_BY_FORMAT[format]);
+    xhr.upload.onprogress = (e) => {
+      if (onProgress && e.lengthComputable && e.total > 0) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      cleanup();
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`s3 PUT ${xhr.status}`));
+    };
+    xhr.onerror = () => {
+      cleanup();
+      reject(new Error(`s3 PUT ${xhr.status}`));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      reject(new Error('aborted'));
+    };
+    signal?.addEventListener('abort', onAbort);
+    xhr.send(body);
+  });
 }

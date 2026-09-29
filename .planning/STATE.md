@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 2026-09-30 00시 — Phase 38 7/14 실행 완료(38-01·02·03·04·05·06·07) + 38-12 skipped-by-decision. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 = 38-08 + 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 25커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 영상 오면 시험 영상 2차 먼저.
+stopped_at: 2026-09-30 00시 — Phase 38 7/14 실행 완료(38-01·02·03·04·05·06·07) + 38-12 skipped-by-decision. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 = 38-08 + 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 25커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 중급콤보 영상 도착(09-29) — belle 09-30 '공급자 앱 개발을 먼저 끝내자', 시험 영상 2차(콤보 = 짚지 않은 시험지)는 Phase 38 뒤.
 last_updated: "2026-09-29T15:19:04.675Z"
 last_activity: 2026-09-29
 progress:
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 38 공급자 링크(실증 최소, belle 09-26 "공급자쪽") 실행 중 + 실증(2026-10 중순) 전 분석 정확도(시험 영상 2차 우선). 기획 정본 = quick-260925-pln 기획안
+**Current focus:** Phase 38 공급자 링크(실증 최소, belle 09-26 "공급자쪽") 실행 중 + 실증(2026-10 중순) 전 분석 정확도(시험 영상 2차는 Phase 38 뒤 — belle 09-30). 기획 정본 = quick-260925-pln 기획안
 
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 
@@ -1095,7 +1095,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-09-29T15:18:43.667Z
 
-Stopped at: 2026-09-30 00시 — Phase 38 7/14 실행 완료(38-01·02·03·04·05·06·07) + 38-12 skipped-by-decision. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 = 38-08 + 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 25커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 영상 오면 시험 영상 2차 먼저.
+Stopped at: 2026-09-30 00시 — Phase 38 7/14 실행 완료(38-01·02·03·04·05·06·07) + 38-12 skipped-by-decision. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 = 38-08 + 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 25커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 중급콤보 영상 도착(09-29) — belle 09-30 '공급자 앱 개발을 먼저 끝내자', 시험 영상 2차(콤보 = 짚지 않은 시험지)는 Phase 38 뒤.
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

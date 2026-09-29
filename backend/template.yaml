@@ -132,7 +132,7 @@ Resources:
   # 향후 운영 단에서 SAM 으로 흡수하려면 backend/README.md "CFN import" 절차.
   #
   # 버킷 자체에 필요한 설정(라이프사이클·CORS·Notification)은 README 참조:
-  #   1) aws s3api put-bucket-lifecycle-configuration ... (uploads/ 30일 만료)
+  #   1) (해제됨 2026-09-26, Phase 38 D-17 — uploads/ 영구 보관: 수명주기 규칙 없음)
   #   2) aws s3api put-bucket-cors ...                    (앱 PUT 허용)
   #   3) aws s3api put-bucket-notification-configuration  (s3:ObjectCreated → SQS)
 
@@ -208,6 +208,45 @@ Resources:
             ApiId: !Ref MotionHttpApi
             Method: POST
             Path: /upload-url
+
+  # ── POST reference/upload-url (경로 정의는 아래 Events 한 곳) : 공급자 링크 presigned PUT + reference/{refId} doc 선작성 — Phase 38 D-03/D-04 ──
+  # 공급자(정은지 등)가 기준 영상을 올리는 입구. 권한 = BELLE_UID 또는 SSM supplier-uids 명단.
+  # SUPPLIER_UIDS_PARAM 은 **런타임 읽기**다(동적 참조 `{{resolve:ssm:…}}` 를 쓰지 않는다) —
+  # 정은지 uid 추가가 배포 없이 SSM put 한 번으로 끝나야 하기 때문이다(동적 참조는 배포 시점 값에 고정된다).
+  ReferenceUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-reference-upload-url
+      CodeUri: functions/reference-upload-url/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Environment:
+        Variables:
+          # auto-register 와 같은 어법 — belle uid 는 배포 시점 값이면 충분하다(바뀌지 않는다).
+          BELLE_UID: "{{resolve:ssm:/sunity/motion/belle-uid}}"
+          SUPPLIER_UIDS_PARAM: /sunity/motion/supplier-uids
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub arn:aws:s3:::${VideoBucketName}/reference/*
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성. ARN 은 `parameter${name}` 형식이라
+            # FirebaseSaParam(`/sunity/motion/firebase-sa`) 의 leading slash 가 그대로 ARN 의 `/` 와 합쳐진다.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource:
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/sunity/motion/supplier-uids
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: POST
+            Path: /reference/upload-url
 
   # ── POST /playback-url : 영상 재생용 GET signed URL 재발급 ───────────
   # 박제 (2026-06-06 belle): myVideoUrl 7일 TTL 만료 → mode3 second+ 영상 안 뜸.
@@ -341,6 +380,10 @@ Resources:
           # 박힘 박힘 박힘 belle 박힘 박힘 박힘 박힘 (Pod 재생성 시 SSM put-parameter).
           RUNPOD_ANALYZE_URL: "{{resolve:ssm:/sunity/motion/runpod-analyze-url}}"
           RUNPOD_AUTH_TOKEN: "{{resolve:ssm:/sunity/motion/runpod-auth-token}}"
+          # Phase 38 D-20 — 공급자 등록 경로의 Pod 부재 판정. 값은 start_server.sh 가 `up`,
+          # pod_teardown.py 가 `down` 을 쓰는 쪽의 이름(PATTERNS 관측 1 — podwatch 의
+          # /sunity/motion/pod-expected 와 다른 파라미터다). 런타임 읽기.
+          POD_EXPECTED_PARAM: /sunity/motion/runpod-pod-expected
           # Phase 31 (H2-02/B6-02/B6-03) — producer 훅. flag 기본 OFF 라
           # 켜기 전까지 이 함수의 동작은 바뀌지 않는다.
           VISUAL_QUEUE_URL: !Ref VisualQueue
@@ -386,6 +429,11 @@ Resources:
             - Effect: Allow
               Action: ssm:GetParameter
               Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+        - Statement:
+            # Phase 38 D-20 — POD_EXPECTED_PARAM 런타임 읽기(위 FirebaseSaParam Statement 와 별개로 유지).
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/sunity/motion/runpod-pod-expected
       Events:
         Queue:
           Type: SQS
@@ -748,6 +796,11 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-pipeline
+      RetentionInDays: 30
+  ReferenceUploadUrlLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-reference-upload-url
       RetentionInDays: 30
   VisualRequestLogGroup:
     Type: AWS::Logs::LogGroup

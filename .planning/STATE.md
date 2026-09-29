@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-29 새벽 — Phase 38 실행 일시정지(belle '낼 이어서'). 완료 6/14 = 38-01·02·03·05·06·07 (전체 pytest 5499 passed · typecheck 0). 재개 = `/gsd-execute-phase 38` → 다음 38-04 (호스팅 측정 → belle 실측 체크포인트 → 결정 체크포인트). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — push 방식 belle 결정 대기 18커밋 · 38-09 규칙 배포 403 · 배포 순서 주의). 정은지 영상 오면 시험 영상 2차 먼저."
-last_updated: "2026-09-28T16:13:07.968Z"
-last_activity: 2026-09-28
+stopped_at: 2026-09-30 00시 — Phase 38 7/14 실행 완료(38-01·02·03·04·05·06·07) + 38-12 skipped-by-decision. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 = 38-08 + 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 25커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 영상 오면 시험 영상 2차 먼저.
+last_updated: "2026-09-29T15:19:04.675Z"
+last_activity: 2026-09-29
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 117
+  completed_plans: 119
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 7 of 14
+Plan: 8 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -167,7 +167,7 @@ Status: Ready to execute
 
 > ⚠ Phase 38 Decision-Coverage Gate override (2026-09-28): 21/22 CONTEXT 결정이 plan 에 인용. 미커버 D-06(clipRange 승격은 **선택** — 손 입력 유지 가능, Gemini A 는 붙이거나 미룬다)은 38-01·38-12 `read_first` 에만 인용(리뷰 전 debb86bf 도 같은 줄 — 09-28 차단 수정과 무관). 현 플랜은 D-06 의 허용 갈래: 요청 계약 `clipRange?` 선택 필드(38-01:162) · 공급자 폼은 clipRange 를 보내지 않음(38-03:162) → 없으면 런타임 DTW 폴백, Gemini A 승격은 미룸. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 09-28).
 
-Last activity: 2026-09-28
+Last activity: 2026-09-29
 
 이전: 2026-08-31 - **코드리뷰 후속 수리 2건 (belle "고고")** — 리뷰(c2976102..HEAD, high)가 크레딧 소진으로 중단됐으나 확보된 후보를 실측 처분: ①vision tol 우회 소음 감점 위험 = **기각**(정타 6편 전부 vision 결함 보고 0건, N=1→N=6. 대조: kip-up fault 는 20도 보고 — 변별 유지) ②기준 doc joints3d 부재 = **기각**(11/11 보유) ③**신규 발견·수리**: 기준 4/11(foxtop·foxtop-split·invert·sideway-spin)이 y축 회전잔여(1e-13)뿐인 x-z 평면 저장 → 상체각이 상수 90도 = 지어낸 코칭. up축 소실 가드(좌표스케일x eps) 도입, 못 재면 NaN→라인 생략 ④**자세 축 양방향화**: 종전 한 방향 발화는 서 있는 동작(11개 중 3개)에서만 참 — 수평·뒤집힘 8개의 "덜 눕힘" 결함이 영영 안 나왔다. |delta| 판정+문구가 방향 구분, 절대 자세 지시 제거. ★수리 과정 교훈: 최초 가드("정확히 0")가 합성 픽스처만 통과하고 실데이터에서 무력 — 실데이터 검증에서 발각(VERIFY.md 에 FAIL 박제, 픽스처를 실데이터 형태로 교체). 4544 passed/0 failed. 점수 경로 무접촉. 커밋 1aac5b8f. ★미처리: stability 창 자 불일치(점수 이동 있어 belle 예고 후) · 리뷰 미완 각도(앱 result.tsx)
 
@@ -648,7 +648,7 @@ Last activity: 2026-07-20 - Completed quick task 260720-hn8: 영상 선택 실�
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 89%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -919,6 +919,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 38 P05 | 10min | 2 tasks | 5 files |
 | Phase 38 P06 | 25min | 3 tasks | 9 files |
 | Phase 38 P07 | 19min | 2 tasks | 5 files |
+| Phase 38 P04 | 41min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -1055,6 +1056,9 @@ Recent decisions affecting current work:
 - [Phase 38]: 38-07: n_stand 는 폼 clipRange.execStartS × fps 가 유한·양수일 때만, 아니면 registration_checks.default_stand_frames(real_fps) — 같은 식을 다시 쓰지 않는다
 - [Phase 38]: 38-07: 자기 재현성 분석 doc 의 uid = 공급자 uid, fileName = self-check-{refId}.{ext}, learningOptIn = 비공개 consent.training — 표식 2개는 models.ANALYSIS_FIELD_SELF_CHECK_* 상수만(리터럴 0)
 - [Phase 38]: 38-07: v1 ETag 가 upload ETag 와 다르면 등록하지 않는다(server_error) — 단일 PUT 객체는 ETag=MD5 라 같아야 하고, 다르면 fail-closed · 배포 순서는 Pod 라우트(38-08) → Lambda → 알림 접두사(역순이면 404 → failed)
+- [Phase 38]: 38-04 호스팅 = option-1 (belle 원문 "option-1 앱을 웹으로") — 38-10·38-11 실행, 38-12 skipped-by-decision — belle 선택 (결정표 실측 뒤). 이유 한 줄 없음
+- [Phase 38]: 38-04 selfScoreMin = 90 유지 (belle 원문 "90 유지") — SELF_SCORE_OK_MIN 무접촉 — 문구 분기점일 뿐 통과 목표 아님
+- [Phase 38]: 38-04 웹 영상 길이 초/ms 결함 → 38-10 Task 0 이월, 후보 (1) PUT·onSnapshot·.mov·D-3 재측정 → 38-10 Task 4 시뮬 체크포인트 (38-10 autonomous false) — 38-10·38-11 에 기존 사람 체크포인트 없음; 38-13 에 접으면 수리 런타임 확인이 wave 6 까지 밀림
 
 ### Pending Todos
 
@@ -1089,9 +1093,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T13:08:26.391Z
+Last session: 2026-09-29T15:18:43.667Z
 
-Stopped at: 2026-09-29 새벽 — Phase 38 실행 일시정지(belle '낼 이어서'). 완료 6/14 = 38-01·02·03·05·06·07 (전체 pytest 5499 passed · typecheck 0). 재개 = `/gsd-execute-phase 38` → 다음 38-04 (호스팅 측정 → belle 실측 체크포인트 → 결정 체크포인트). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절 — push 방식 belle 결정 대기 18커밋 · 38-09 규칙 배포 403 · 배포 순서 주의). 정은지 영상 오면 시험 영상 2차 먼저.
+Stopped at: 2026-09-30 00시 — Phase 38 7/14 실행 완료(38-01·02·03·04·05·06·07) + 38-12 skipped-by-decision. 38-04 결정 = belle 'option-1 앱을 웹으로'(38-10·38-11 실행) · selfScoreMin 90 유지. 다음 = `/gsd-execute-phase 38` 웨이브 4 = 38-08 + 38-10(맨 앞 Task 0 웹 영상 길이 초→ms 수리 · 맨 끝 Task 4 시뮬 재측정 belle 체크포인트). push 방식 belle 결정 대기(로컬 25커밋 미push). 착수점 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` ('다음' 절). 정은지 영상 오면 시험 영상 2차 먼저.
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

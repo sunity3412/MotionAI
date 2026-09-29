@@ -56,17 +56,17 @@ belle 지시: *"재계획은 하지 않고, 차단 3건만 플래너 1회와 검
 - 38-04 T3 · VALIDATION 범례의 `⏭` → ASCII `[skipped-by-decision]`(CLAUDE.md §7 이모지 금지). `★` 는 그대로.
 - 그 밖(rtk 접두 없음 · PATTERNS 행 누락 · low_confidence 가 multiple_people 보다 먼저) 변경 없음.
 
-## 다음 (2026-09-29 새벽 갱신 — 실행 일시정지, belle "낼 이어서")
+## 다음 (2026-09-30 00시 갱신 — 38-04 결정 option-1, 다음 웨이브 4)
 
-**진행 6/14 완료** — 38-01 · 38-02 · 38-03 · 38-05 · 38-06 · 38-07 (각 `38-NN-SUMMARY.md`). 전체 pytest 5499 passed · 20 skipped · 앱 typecheck 0 [확인 2026-09-29, HEAD cfe369e6]. 착수 기준선 5184 passed.
+**진행 7/14 실행 완료 + 38-12 skipped-by-decision** — 38-01 · 38-02 · 38-03 · 38-04 · 38-05 · 38-06 · 38-07 (각 `38-NN-SUMMARY.md`). 38-04 결정 = belle "option-1 앱을 웹으로"(38-10·38-11 실행, 38-12 는 `38-12-SUMMARY.md` skipped-by-decision) · `selfScoreMin: 90 유지` [확인 belle 2026-09-30]. 38-04 끝 앱 typecheck 0 [확인]. 아래 6/14 시점 스위트 수치는 그때 값. 전체 pytest 5499 passed · 20 skipped · 앱 typecheck 0 [확인 2026-09-29, HEAD cfe369e6]. 착수 기준선 5184 passed.
 
 **재개 = `/gsd-execute-phase 38`** — SUMMARY 있는 플랜은 건너뛴다(use_worktrees=false → 순차, executor fable).
-1. **38-04**(웨이브 3 남은 1개) — Task 1 측정(react-native-web 설치 · `expo export --platform web` · 후보 (2) probe · 시뮬레이터 Mobile Safari 서빙) → **Task 2 belle 실측 체크포인트**(8줄 ○×) → **Task 3 결정**(option-1 Expo web → 38-10·38-11 / option-2 단일 HTML → 38-12, 미선택은 SUMMARY `skipped-by-decision`). option-2 면 38-12 실행 전에 W2(rules.js 자기 import) 먼저.
-2. 웨이브 4 = 38-08 + (38-10 또는 38-12) → 웨이브 5 = **38-09 결정**(인프라 + 규칙 배포) + 38-11 → 웨이브 6 = 38-13(belle) → 웨이브 7 = 38-14(Pod `pod:go`).
+1. ~~**38-04**~~ 완료(`38-04-SUMMARY.md`) — Task 1 측정(react-native-web 설치 · `expo export --platform web` · 후보 (2) probe · 시뮬레이터 Mobile Safari 서빙) → **Task 2 belle 실측 체크포인트**(8줄 ○×) → **Task 3 결정**(option-1 Expo web → 38-10·38-11 / option-2 단일 HTML → 38-12, 미선택은 SUMMARY `skipped-by-decision`). option-2 면 38-12 실행 전에 W2(rules.js 자기 import) 먼저.
+2. **다음 = 웨이브 4 = 38-08 + 38-10.** 38-10 은 38-04 실측 이월로 맨 앞 Task 0(웹 영상 길이 초→ms 수리, TDD) · 맨 끝 Task 4(시뮬레이터 belle 재측정 체크포인트 — 후보 (1) PUT·onSnapshot·`.mov` + 공급자 probe CORS·reference 구독)가 붙어 `autonomous: false`. 그 뒤 → 웨이브 5 = **38-09 결정**(인프라 + 규칙 배포) + 38-11 → 웨이브 6 = 38-13(belle) → 웨이브 7 = 38-14(Pod `pod:go`).
 3. 웨이브마다 끝나면 전체 스위트(`cd backend && .venv/bin/python -m pytest tests -q` + `cd app && npm run typecheck` + node 테스트) — 실행기는 플랜 범위만 돌려 격리 누수를 못 본다(웨이브 2 에서 43건).
 
 **belle 결정 대기**
-- **push 방식** — 로컬 18커밋 미push(origin/main = ca739390). 38-05 실행기의 `git push` 가 auto mode 분류기에 막혀(Out-of-Place Publication) 대신 push 하지 않았다(하위 에이전트 거부 동작 대행 금지). 38-14 Pod 전까지만 필요. 선택지: `.claude/settings.local.json` 에 `Bash(git push origin main)` 좁은 규칙 → Claude 가 push / belle 이 `! git push origin main`.
+- **push 방식** — 로컬 25커밋 미push(origin/main = ca739390, 38-04 끝 기준). 38-05 실행기의 `git push` 가 auto mode 분류기에 막혀(Out-of-Place Publication) 대신 push 하지 않았다(하위 에이전트 거부 동작 대행 금지). 38-14 Pod 전까지만 필요. 선택지: `.claude/settings.local.json` 에 `Bash(git push origin main)` 좁은 규칙 → Claude 가 push / belle 이 `! git push origin main`.
 
 **다음 플랜이 알아야 할 관측**
 - 38-09: 라이브 규칙 `--test` 가 HTTP 403 `firebaserules.rulesets.test`(Admin SA 권한 부족) [확인 38-06] → `--release` 도 막힐 가능성 [미확인]. IAM 부여 또는 belle 콘솔 배포가 38-09 결정에 들어간다.

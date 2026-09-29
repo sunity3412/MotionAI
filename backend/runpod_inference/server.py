@@ -14,6 +14,10 @@
   - 인증: shared secret 헤더(RUNPOD_AUTH_TOKEN). 토큰 미설정이면 503 (외부 공개 방지).
   - POST /pose-image (Phase 31 / 31-06): 생성 교정 이미지 1장의 keypoint 를 같은
     estimator 로 재측정하는 동기 엔드포인트. display 게이트 전용 — 채점 무접촉.
+  - POST /register-reference (Phase 38 / 38-08): 공급자 링크 기준 영상 등록
+    {bucket, key(upload 키만), jobId?} → 202 + BackgroundTasks 로 pipeline._register_reference.
+    jobId 없으면 Pod 가 claim_registration 을 직접 지나고 실패면 409(리뷰 R3). /health 응답
+    형상은 바꾸지 않는다(podwatch probe 계약) — 라우트 존재는 무토큰 POST 가 401/503 인지로 본다.
 
 환경변수:
   RUNPOD_AUTH_TOKEN          # Lambda 와 공유. 필수 (미설정 시 모든 요청 503).
@@ -35,6 +39,7 @@ import logging
 import os
 import sys
 import threading
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +53,7 @@ sys.path.insert(0, str(_BACKEND / "shared" / "python"))
 
 from sunity_shared import firestore_admin, models, provenance  # noqa: E402
 from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # noqa: E402
-from sunity_shared.s3keys import parse_upload_key  # noqa: E402
+from sunity_shared.s3keys import parse_reference_key, parse_upload_key  # noqa: E402
 
 log = logging.getLogger("runpod_inference")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -170,6 +175,24 @@ class AnalyzeResponse(BaseModel):
     analysisId: str
 
 
+class RegisterReferenceRequest(BaseModel):
+    """Phase 38 (38-08) — 공급자 링크 등록 위임. upload 키만 받는다(확정 v1 · legacy · uploads/ 는 400)."""
+
+    bucket: str = Field(..., description="S3 버킷명")
+    key: str = Field(..., description="S3 업로드 키 (reference/{uid}/{refId}/upload.{ext}) — upload 키만")
+    jobId: str | None = Field(
+        default=None,
+        description="전달자(Lambda · requeue)가 claim_registration 으로 잡은 작업 id. 없으면 Pod 가 직접 claim(R3)",
+    )
+
+
+class RegisterReferenceResponse(BaseModel):
+    status: str
+    uid: str
+    refId: str
+    jobId: str
+
+
 def _verify_token(x_runpod_token: str = Header(default="", alias="X-RunPod-Token")) -> None:
     """shared secret 검증. 토큰 미설정 환경은 외부 공개 위험이라 503."""
     if not _AUTH_TOKEN:
@@ -197,6 +220,10 @@ def _process_in_background(bucket: str, key: str, uid: str, analysis_id: str) ->
             models.ERR_NO_HUMAN,
             models.ERROR_MESSAGE[models.ERR_NO_HUMAN],
         )
+        try:
+            _load_pipeline_module()._mark_self_check_failed_if_needed(uid, analysis_id)
+        except Exception:  # noqa: BLE001 - 모듈 로드 실패 등 — 분석 실패는 이미 기록됨
+            log.exception("selfCheck failed 훅 실패 uid=%s analysisId=%s", uid, analysis_id)
     except NotPoleMotionError:
         log.info("비폴 영상 차단 uid=%s analysisId=%s", uid, analysis_id)
         firestore_admin.fail_analysis(
@@ -205,6 +232,10 @@ def _process_in_background(bucket: str, key: str, uid: str, analysis_id: str) ->
             models.ERR_NOT_POLE_MOTION,
             models.ERROR_MESSAGE[models.ERR_NOT_POLE_MOTION],
         )
+        try:
+            _load_pipeline_module()._mark_self_check_failed_if_needed(uid, analysis_id)
+        except Exception:  # noqa: BLE001 - 모듈 로드 실패 등 — 분석 실패는 이미 기록됨
+            log.exception("selfCheck failed 훅 실패 uid=%s analysisId=%s", uid, analysis_id)
     except Exception:  # noqa: BLE001
         log.exception("분석 실패 uid=%s analysisId=%s", uid, analysis_id)
         firestore_admin.fail_analysis(
@@ -213,6 +244,34 @@ def _process_in_background(bucket: str, key: str, uid: str, analysis_id: str) ->
             models.ERR_SERVER_ERROR,
             models.ERROR_MESSAGE[models.ERR_SERVER_ERROR],
         )
+        try:
+            _load_pipeline_module()._mark_self_check_failed_if_needed(uid, analysis_id)
+        except Exception:  # noqa: BLE001 - 모듈 로드 실패 등 — 분석 실패는 이미 기록됨
+            log.exception("selfCheck failed 훅 실패 uid=%s analysisId=%s", uid, analysis_id)
+
+
+def _register_in_background(bucket: str, key: str, uid: str, ref_id: str, job_id: str) -> None:
+    """Phase 38 (38-08, D-05 · R3) — 등록 서비스 `pipeline._register_reference` 를 GPU 에서 돌린다.
+
+    판정 실패(no_human · low_confidence · …)는 `_register_reference` 안에서 코드로 기록되고 정상 반환한다.
+    stale 작업은 쓰기 없이 return. 여기 오는 예외(등록 doc 없음 · 키 형 불일치 · 예상 밖 오류)만
+    `server_error` 로 남긴다 — writer 가 job 가드라 늦은 실패가 이미 active 인 doc 을 못 뒤집는다(38-06).
+    """
+    try:
+        pipeline_app = _load_pipeline_module()
+        pipeline_app._register_reference(bucket, key, uid, ref_id, job_id)
+        log.info("/register-reference 완료 uid=%s refId=%s jobId=%s", uid, ref_id, job_id)
+    except Exception:  # noqa: BLE001
+        log.exception("/register-reference 실패 uid=%s refId=%s jobId=%s", uid, ref_id, job_id)
+        code = models.REG_ERR_SERVER_ERROR
+        try:
+            firestore_admin.set_registration_failed(
+                ref_id,
+                job_id,
+                error={"code": code, "message": models.REGISTRATION_ERROR_MESSAGE[code]},
+            )
+        except Exception:  # noqa: BLE001 - 실패 기록 실패는 로그만(lease 만료 뒤 requeue --reclaim-stale 가 줍는다)
+            log.exception("/register-reference failed 기록 실패 refId=%s jobId=%s", ref_id, job_id)
 
 
 @app.on_event("startup")
@@ -454,3 +513,36 @@ def analyze(
     return AnalyzeResponse(
         status="accepted", uid=parsed.uid, analysisId=parsed.analysis_id
     )
+
+
+@app.post("/register-reference", status_code=202, response_model=RegisterReferenceResponse)
+def register_reference(
+    req: RegisterReferenceRequest,
+    background: BackgroundTasks,
+    _: None = Depends(_verify_token),
+) -> RegisterReferenceResponse:
+    """Phase 38 (38-08) — 공급자 링크 등록. `/analyze` 와 같은 토큰 검증 · 202 · BackgroundTasks.
+
+    리뷰 R3: 어느 입구든 같은 `claim_registration` 을 지난다. `jobId` 가 오면 전달자(Lambda 위임 ·
+    requeue 스크립트)가 이미 claim 한 것이라 그대로 쓰고, 없으면(손 curl 등) Pod 가 새 id 로 직접 claim —
+    False(이미 처리 중 · 종결 · doc 없음)면 409 + 실행 0.
+    """
+    ref = parse_reference_key(req.key)
+    if ref is None or not ref.is_upload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"invalid reference key: {req.key}",
+        )
+    job_id = req.jobId or uuid.uuid4().hex
+    if req.jobId is None and not firestore_admin.claim_registration(ref.ref_id, job_id):
+        log.info("/register-reference claim 실패 refId=%s — 다른 실행이 잡았거나 종결", ref.ref_id)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="registration not claimable")
+    log.info(
+        "/register-reference accepted bucket=%s uid=%s refId=%s jobId=%s",
+        req.bucket,
+        ref.uid,
+        ref.ref_id,
+        job_id,
+    )
+    background.add_task(_register_in_background, req.bucket, req.key, ref.uid, ref.ref_id, job_id)
+    return RegisterReferenceResponse(status="accepted", uid=ref.uid, refId=ref.ref_id, jobId=job_id)

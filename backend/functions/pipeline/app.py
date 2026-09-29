@@ -10280,6 +10280,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 space=space_str,
             )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
+        _record_self_score_if_needed(meta, result, uid, analysis_id)  # Phase 38 (38-08) D-10 — 자기 재현성이면 selfScore, 실패 삼킴
 
         # Phase 31 D-05 — correctedPose 자동 생성 enqueue. **fault-zoom 조건부 밖**
         # (H-01): 줌 카드 유무와 무관하게 판단되어야 하고, 여기서 실패해도 분석은
@@ -10758,6 +10759,96 @@ def _trigger_self_check(
     log.info("self-check 트리거 ok ref_id=%s analysis_id=%s key=%s", ref_id, new_id, dest_key)
 
 
+# ── Phase 38 (38-08 T1) — 자기 재현성 훅: 분석 complete/fail → 기준 doc selfScore/selfCheckStatus ──
+#
+# D-10 · 리뷰 R2 · R8. 기준 doc 이 권위다 — 분석 doc 의 표식 2개(`models.ANALYSIS_FIELD_SELF_CHECK_*`)는
+# 어느 기준을 볼지 알려 주는 힌트일 뿐이고(사용자가 자기 분석 doc 에 위조해 넣을 수 있다, R2), 쓰기 여부는
+# `firestore_admin.self_check_authorized`(공급자 uid · 예정 자기 분석 id · 작업 id 3중 일치) 하나로 가린다.
+# writer(`set_reference_self_check`)도 트랜잭션 안에서 같은 가드를 다시 지난다 — 훅의 사전 검사는 불필요한
+# 쓰기 시도·로그를 줄이는 몫이다. 채점 코드 무접촉. 기록 실패는 분석을 막지 않는다(분석은 이미 complete/failed).
+
+
+def _self_check_target(meta, uid: str, analysis_id: str) -> tuple[str, str] | None:
+    """분석 meta → (ref_id, job_id) — 표식 2개가 있고 기준 doc 권위 가드를 지난 경우만. 아니면 None."""
+    ref_id = (meta or {}).get(models.ANALYSIS_FIELD_SELF_CHECK_FOR_REFERENCE)
+    job_id = (meta or {}).get(models.ANALYSIS_FIELD_SELF_CHECK_JOB_ID)
+    if not ref_id or not job_id:
+        return None
+    ref_doc = firestore_admin.get_reference_registration(ref_id)
+    if not firestore_admin.self_check_authorized(
+        ref_doc, uid=uid, analysis_id=analysis_id, job_id=job_id
+    ):
+        log.warning(
+            "자기 재현성 표식 불일치 uid=%s analysis_id=%s ref=%s job=%s — 기준 doc 이 권위, 기록 스킵",
+            uid,
+            analysis_id,
+            ref_id,
+            job_id,
+        )
+        return None
+    return ref_id, job_id
+
+
+def _record_self_score_if_needed(meta, result, uid: str, analysis_id: str) -> None:
+    """자기 재현성 분석이 complete 되면 기준 doc 에 selfScore 한 줄(D-10). 그 외 분석은 표식이 없어 즉시 반환.
+
+    기록 값 = `result["overallScore"]` — 화면 점수(= deductionBreakdown.final)와 같은 필드다. dimensionScores
+    (차원 점수)가 아니다(CLAUDE.md §7 ★ 소비처 추적 — 공급자 행의 selfScore 와 selfScoreMin 90 비교가 이 값을 쓴다).
+    """
+    try:
+        target = _self_check_target(meta, uid, analysis_id)
+        if target is None:
+            return
+        ref_id, job_id = target
+        score = (result or {}).get("overallScore")
+        if (
+            score is None
+            or isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not np.isfinite(float(score))
+        ):
+            log.warning(
+                "selfScore 스킵 — overallScore 비수치 ref=%s analysis_id=%s value=%r", ref_id, analysis_id, score
+            )
+            return
+        firestore_admin.set_reference_self_check(
+            ref_id,
+            status=models.SELF_CHECK_STATUS_DONE,
+            uid=uid,
+            analysis_id=analysis_id,
+            job_id=job_id,
+            score=float(score),
+        )
+    except Exception:  # noqa: BLE001 - 기록 실패는 분석을 막지 않는다(분석은 이미 complete)
+        log.exception(
+            "selfScore 기록 실패 ref=%s analysis_id=%s",
+            (meta or {}).get(models.ANALYSIS_FIELD_SELF_CHECK_FOR_REFERENCE),
+            analysis_id,
+        )
+
+
+def _mark_self_check_failed_if_needed(uid: str, analysis_id: str) -> None:
+    """자기 재현성 분석이 실패하면 기준 doc 에 selfCheckStatus='failed'(같은 권위 가드 뒤). 모든 예외 삼킴.
+
+    `fail_analysis` 다음에 부른다 — meta 는 분석 doc 을 다시 읽는다(실패 지점에선 `_process` 의 meta 스코프가 없다).
+    """
+    try:
+        meta = firestore_admin.get_analysis(uid, analysis_id)
+        target = _self_check_target(meta, uid, analysis_id)
+        if target is None:
+            return
+        ref_id, job_id = target
+        firestore_admin.set_reference_self_check(
+            ref_id,
+            status=models.SELF_CHECK_STATUS_FAILED,
+            uid=uid,
+            analysis_id=analysis_id,
+            job_id=job_id,
+        )
+    except Exception:  # noqa: BLE001 - 실패 표시 기록 실패는 로그만(분석 실패는 이미 기록됨)
+        log.exception("selfCheck failed 기록 실패 uid=%s analysis_id=%s", uid, analysis_id)
+
+
 def lambda_handler(event: dict, _context) -> dict:
     """SQS 이벤트 → 메시지마다 RunPod 위임 또는 직접 처리.
 
@@ -10800,6 +10891,7 @@ def lambda_handler(event: dict, _context) -> dict:
                 models.ERR_NO_HUMAN,
                 models.ERROR_MESSAGE[models.ERR_NO_HUMAN],
             )
+            _mark_self_check_failed_if_needed(uid, analysis_id)
         except NotPoleMotionError:
             log.info("비폴 영상 차단 uid=%s analysis_id=%s", uid, analysis_id)
             firestore_admin.fail_analysis(
@@ -10808,6 +10900,7 @@ def lambda_handler(event: dict, _context) -> dict:
                 models.ERR_NOT_POLE_MOTION,
                 models.ERROR_MESSAGE[models.ERR_NOT_POLE_MOTION],
             )
+            _mark_self_check_failed_if_needed(uid, analysis_id)
         except Exception:  # noqa: BLE001
             log.exception("분석 실패 analysis_id=%s", analysis_id)
             firestore_admin.fail_analysis(
@@ -10816,4 +10909,5 @@ def lambda_handler(event: dict, _context) -> dict:
                 models.ERR_SERVER_ERROR,
                 models.ERROR_MESSAGE[models.ERR_SERVER_ERROR],
             )
+            _mark_self_check_failed_if_needed(uid, analysis_id)
     return {"processed": processed}

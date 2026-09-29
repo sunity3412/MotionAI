@@ -210,3 +210,32 @@ Task 2 뒤에도 남은 미측정 (Task 1 때 적은 4 × 2 표는 위 Task 2 �
 
 - D-1 웹 영상 길이 단위(초 → ms) 수리 — 웹 경로만, 수리 전 실패하는 테스트 포함 → 38-10 Task 0.
 - 후보 (1) PUT(uid 대조) · onSnapshot · `.mov` 선택 재측정 + D-3(`/reference/upload-url` probe CORS · `reference` 구독) → 38-10 Task 4 (시뮬레이터, belle 체크포인트).
+
+## 38-10 재측정
+
+38-10 Task 4 (2026-09-30). 위 절들은 38-04 때의 관측 기록이라 고치지 않는다 — 이 절이 그 뒤를 잇는다.
+계정 = 위 `test_account`(시뮬레이터 Safari 에 38-04 로그인 세션이 남아 있었다 [확인 스크린샷]).
+
+### 준비 (실행자 자동, belle 측정 전)
+
+- 번들: Task 0~3 커밋 뒤 `CI=1 npx expo export --platform web --output-dir <scratchpad>/web-export-10` → exit 0, 10초(Metro 캐시), 18M, JS `entry-faa8….js` 2,912,517 bytes [확인]. 38-04 첫 회 16초 / 캐시 7초와 비교.
+- 번들 안 수리 확인: `pickerDurationMs(e.duration,"web")` 호출 + `null!=n&&n>0&&'web'===t?1e3*n:n` [확인 grep] — 웹 번들에서 `Platform.OS` 가 `"web"` 으로 인라인됐다.
+- 서빙: 38-04 방식(`<scratchpad>/web-serve-10/package.json` shim + 사본, 사본에만 `auth/login.html`·`supplier.html` = `index.html`). `curl` `/`·`/supplier`·`/auth/login` = 200, `/analyze` = 404(딥링크 폴백 없음, 앱 안 이동은 무관) [확인].
+- 시험 영상(사람 없음, `xcrun simctl addmedia`, 2026-09-29T15:46Z UTC 전후): `38-10-test-clip-8s-color.mov`(38-04 8초 mov 복사본, 알록달록 움직이는 화면, 8.1 MB) → `38-10-test-clip-8s-bars.mp4`(색 막대 + 노이즈, 720x1280, 8.0초, 8.4 MB ≈ 8.4 Mbps) [확인 ffprobe].
+- `/reference/upload-url` 라이브 여부 [확인 curl]: 무인증 `POST` = **404** `{"message":"Not Found"}`, 응답에 `access-control-allow-origin` **없음**. 비교: `POST /upload-url` = 401 + `access-control-allow-origin: *`. `OPTIONS /reference/upload-url` 는 204 지만 HTTP API 가 경로와 무관하게 preflight 를 받는 것이라 라우트 존재의 증거가 아니다 [추정].
+- 시뮬 `/supplier` 스크린샷(`<scratchpad>/38-10-web-supplier-a1.png`, 휘발): 로그인 세션이 남아 있어 A-1 이 아니라 확인 단계로 갔고, `공급자 페이지` + identity 줄 + `연결이 안 돼요. 인터넷을 확인한 뒤 다시 시도해주세요.` + `다시 시도` + `다른 계정으로 로그인` 이 그려졌다 [확인 스크린샷].
+
+### 결과 표 (belle 측정 뒤 채운다)
+
+| # | 항목 | 결과 | 본 문구 / 근거 |
+|---|---|---|---|
+| 1 | 앱 흐름 Mode 3 · 8초 `.mov` 선택 → 길이 창 없이 진행 | 대기 (belle) | |
+| 2 | 업로드 → 로딩 화면 상태 전이(onSnapshot) | 대기 (belle) | S3 uid 접두 · Firestore doc 대조는 측정 뒤 |
+| 3 | 같은 흐름 8초 `.mp4` | 대기 (belle) | |
+| 4 | 공급자 `/supplier` probe 브라우저 CORS | [미측정 — 38-09 배포 전] | 라우트 404(위 준비 절). 38-13 Task 3 단계 1 로 이월 |
+| 5 | `reference` `where supplierUid` 구독 | [미측정 — 38-09 배포 전] | 4 가 막혀 A-3 에 도달 불가. 38-13 Task 3 단계 1·4 로 이월 |
+| 6 | 기타 | 대기 (belle) | |
+
+### 진단 (관측 아님 — 승계 전 재검증)
+
+- 준비 절의 `/supplier` 화면이 `연결이 안 돼요` 로 뜬 이유: 미배포 라우트의 404 응답에 CORS 헤더가 없어 브라우저가 응답을 막고 → `fetch` 가 TypeError → `mapPresignFailure({status:0})` = `offline` 로 읽혔다고 **추정**한다 [미확인 — 브라우저 콘솔 미열람]. 38-09 배포 뒤에는 이 문구가 아니라 A-2 또는 A-3 이어야 한다.

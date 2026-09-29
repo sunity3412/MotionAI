@@ -193,4 +193,20 @@ Task 2 뒤에도 남은 미측정 (Task 1 때 적은 4 × 2 표는 위 Task 2 �
 
 ## 결정
 
-[belle 결정 대기 — 2026-09-30 결정 체크포인트] (belle 선택 원문 인용 · `selfScoreMin:` 은 결정 뒤 여기에)
+- 결정 시각: 2026-09-30T00:14+09:00 (오케스트레이터 AskUserQuestion 으로 belle 이 고름) [확인 belle]
+- 호스팅 — belle 원문: **"option-1 앱을 웹으로"** → **option-1 확정** (후보 (1) Expo Router web export → S3+CloudFront; 38-10 + 38-11 실행, 38-12 건너뜀). 이유 한 줄은 주지 않았다.
+- 재현성 문구 분기 — belle 원문: **"90 유지"** →
+  `selfScoreMin: 90 유지` (`app/src/lib/supplierRules.ts` `SELF_SCORE_OK_MIN` 무접촉. 문구 분기점일 뿐 통과 목표가 아니다.)
+
+결정 뒤 기계적 스킵 (Task 3 (a)~(e), 한 커밋 `docs(38-04): hosting decision option-1 — skip 38-12 by decision`):
+
+- (a) `38-12-SUMMARY.md` — `status: skipped-by-decision`, `skipped_by: "38-04 Task 3"`, `decision: option-1`.
+- (b) `38-12-PLAN.md` frontmatter `skipped: true` (`autonomous:` 아래 한 줄).
+- (c) `38-13-PLAN.md` `depends_on: ["38-09", "38-11"]` — 이미 그 값이라 확인만, 수정 0 [확인 grep].
+- (d) `38-VALIDATION.md` 38-12-01~03 → `⏭ skipped-by-decision`.
+- (e) 이 절 + ROADMAP Phase 38 플랜 목록(38-10·38-11 "option-1 확정", 38-12 "skipped-by-decision").
+
+실측 이월 (후보 (1) 이 선택됐으므로 위 진단 D-1 · 미측정 행 · D-3 을 38-10 이 받는다 — `38-10-PLAN.md` "38-04 실측 이월" 표식):
+
+- D-1 웹 영상 길이 단위(초 → ms) 수리 — 웹 경로만, 수리 전 실패하는 테스트 포함 → 38-10 Task 0.
+- 후보 (1) PUT(uid 대조) · onSnapshot · `.mov` 선택 재측정 + D-3(`/reference/upload-url` probe CORS · `reference` 구독) → 38-10 Task 4 (시뮬레이터, belle 체크포인트).

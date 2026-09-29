@@ -1562,13 +1562,13 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [ ] 38-08-PLAN.md — selfScore 훅(기준 doc 권위 가드) + Pod POST /register-reference(jobId/claim) + requeue 스크립트(claim 경유 · --reclaim-stale · --sweep-expired, 기동 절차 7단계 — 리뷰 R2/R3/R4/R8)(D-10·D-20) [W4]
-- [ ] 38-10-PLAN.md — (후보 1) 페이지 핵심 Expo 라우트: 데이터 층 · A-1 로그인 · A-2 권한 없음 · A-3 홈 두 카드 · 실패/완료 상세(D-01·D-02·D-22) [W4, option-1 전용]
-- [ ] 38-12-PLAN.md — (후보 2, 조건부 대안) 정적 단일 페이지 HTML/CSS/JS — 같은 supplierCopy·상태기계 + 38-03 규칙을 type-strip ESM(rules.js)으로 공유 + 생성물 행동 테스트(리뷰 R14) [W4, option-2 전용]
+- [ ] 38-10-PLAN.md — (후보 1) 페이지 핵심 Expo 라우트: 데이터 층 · A-1 로그인 · A-2 권한 없음 · A-3 홈 두 카드 · 실패/완료 상세(D-01·D-02·D-22) + **38-04 실측 이월**(웹 영상 길이 초→ms 수리 Task 0 · 시뮬 재측정 belle 체크포인트 Task 4) [W4, option-1 확정 (38-04 belle "option-1 앱을 웹으로"), 체크포인트]
+- [x] 38-12-PLAN.md — ⏭ skipped-by-decision (38-04 option-1, 코드 0 · 커밋 0) — (후보 2, 조건부 대안) 정적 단일 페이지 HTML/CSS/JS — 같은 supplierCopy·상태기계 + 38-03 규칙을 type-strip ESM(rules.js)으로 공유 + 생성물 행동 테스트(리뷰 R14) [W4, option-2 전용 — 미선택]
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [ ] 38-09-PLAN.md — 인프라: (배포 전) legacy baseline + 5함수 설정/코드 보존 + 규칙 원본(리뷰 R10/R12) → template(새 함수·정책·env) → SSM supplier-uids → sam build/changeset → belle 검토 → 배포 · 설정 diff · 기존 API 회귀 · baseline 재diff · 버킷 알림 2항목 · lifecycle 해제(D-17) · 규칙 테스트/배포/probe(R2/R13) — 원본 저장·함수 단위 롤백 [W5, 체크포인트]
-- [ ] 38-11-PLAN.md — (후보 1) 올리기 폼 STEP 01/02 · 업로드 진행/취소 · 가이드 화면 A-6(D-07·D-08·D-14·D-18) [W5, option-1 전용]
+- [ ] 38-11-PLAN.md — (후보 1) 올리기 폼 STEP 01/02 · 업로드 진행/취소 · 가이드 화면 A-6(D-07·D-08·D-14·D-18) [W5, option-1 확정]
 
 **Wave 6** *(blocked on Wave 5 completion)*
 

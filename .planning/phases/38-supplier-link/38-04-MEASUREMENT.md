@@ -225,17 +225,24 @@ Task 2 뒤에도 남은 미측정 (Task 1 때 적은 4 × 2 표는 위 Task 2 �
 - `/reference/upload-url` 라이브 여부 [확인 curl]: 무인증 `POST` = **404** `{"message":"Not Found"}`, 응답에 `access-control-allow-origin` **없음**. 비교: `POST /upload-url` = 401 + `access-control-allow-origin: *`. `OPTIONS /reference/upload-url` 는 204 지만 HTTP API 가 경로와 무관하게 preflight 를 받는 것이라 라우트 존재의 증거가 아니다 [추정].
 - 시뮬 `/supplier` 스크린샷(`<scratchpad>/38-10-web-supplier-a1.png`, 휘발): 로그인 세션이 남아 있어 A-1 이 아니라 확인 단계로 갔고, `공급자 페이지` + identity 줄 + `연결이 안 돼요. 인터넷을 확인한 뒤 다시 시도해주세요.` + `다시 시도` + `다른 계정으로 로그인` 이 그려졌다 [확인 스크린샷].
 
-### 결과 표 (belle 측정 뒤 채운다)
+### 결과 표 (belle 측정 2026-09-30 새벽)
+
+belle 원문 [확인 belle]: *"1번 오케이, 2번은.. 한 8% 가다가 이렇게 문제가 있어요 실패. 3번도 마찬가지."*
+함께 준 스크린샷 [확인 belle 스크린샷]: 앱 실패 화면 — 제목 `잠깐 문제가 있었어요` · 본문 `분석 중 잠깐 문제가 있었어요. 잠시 후 다시 시도하면 대부분 잘 돼요.` · 버튼 `다시 분석하기` · 오른쪽 위 `문의하기`.
+체크리스트 기준: Pod 을 일부러 끈 측정이라 2·3 은 **실패 화면에 도달하면 ○**(위 plan 항목 2 "Pod 꺼짐이면 실패 화면이 정상").
 
 | # | 항목 | 결과 | 본 문구 / 근거 |
 |---|---|---|---|
-| 1 | 앱 흐름 Mode 3 · 8초 `.mov` 선택 → 길이 창 없이 진행 | 대기 (belle) | |
-| 2 | 업로드 → 로딩 화면 상태 전이(onSnapshot) | 대기 (belle) | S3 uid 접두 · Firestore doc 대조는 측정 뒤 |
-| 3 | 같은 흐름 8초 `.mp4` | 대기 (belle) | |
+| 1 | 앱 흐름 Mode 3 · 8초 `.mov` 선택 → 길이 창 없이 진행 | ○ [확인 belle] | "1번 오케이" — `영상이 너무 짧아요` 창 없이 진행. Task 0 (D-1) 수리의 사람 손 확인 |
+| 2 | 업로드 → 로딩 화면 상태 전이(onSnapshot) | ○ [확인 belle · S3 · Firestore] | "한 8% 가다가 … 실패" + 위 실패 화면. S3 `uploads/` LastModified ≥ 2026-09-29T15:46Z = 객체 **2개**, 둘 다 `uploads/UmH3…/`(로그인 테스트 계정 uid 앞 4자 일치), 둘 다 `.mov`, 둘 다 8,108,834 bytes, 16:21:48Z · 16:23:08Z [확인 S3]. Firestore `users/UmH3…/analyses` 같은 시간대 doc 2건 = mode3 · `status failed` · `error.code server_error` · `learningOptIn true` [확인 Firestore]. → presigned PUT(uid 일치) · onSnapshot(failed 가 화면에 닿음) 둘 다 잰 값 |
+| 3 | 같은 흐름 8초 `.mp4` | ○ [확인 belle] — 단 `.mp4` 형식 차이는 [미확인] | "3번도 마찬가지". 그러나 S3 두 객체가 모두 `.mov` 이고 크기가 **둘 다** 8,108,834 bytes = 준비 절 `38-10-test-clip-8s-color.mov` 크기와 바이트 단위로 같다; `38-10-test-clip-8s-bars.mp4` 는 8,402,632 bytes [확인 로컬 stat]. 같은 `.mov` 를 두 번 골랐을 수 있다 [미확인 — belle 에게 묻지 않음]. `.mp4` 경로는 38-13 Task 3 실기기 단계에서 다시 잰다 |
 | 4 | 공급자 `/supplier` probe 브라우저 CORS | [미측정 — 38-09 배포 전] | 라우트 404(위 준비 절). 38-13 Task 3 단계 1 로 이월 |
 | 5 | `reference` `where supplierUid` 구독 | [미측정 — 38-09 배포 전] | 4 가 막혀 A-3 에 도달 불가. 38-13 Task 3 단계 1·4 로 이월 |
-| 6 | 기타 | 대기 (belle) | |
+| 6 | 기타 | 없음 [확인 belle] | belle 이 1~3 외 따로 짚은 것 없음 |
+
+측정 뒤 정리: 8082 웹 서버(`expo serve`) 종료 [확인 `lsof -i :8082` 빈 결과]. 시뮬레이터는 그대로 둔다.
 
 ### 진단 (관측 아님 — 승계 전 재검증)
 
 - 준비 절의 `/supplier` 화면이 `연결이 안 돼요` 로 뜬 이유: 미배포 라우트의 404 응답에 CORS 헤더가 없어 브라우저가 응답을 막고 → `fetch` 가 TypeError → `mapPresignFailure({status:0})` = `offline` 로 읽혔다고 **추정**한다 [미확인 — 브라우저 콘솔 미열람]. 38-09 배포 뒤에는 이 문구가 아니라 A-2 또는 A-3 이어야 한다.
+- 항목 2·3 의 "~8% 뒤 실패": Pod 이 꺼져 있어 Pipeline Lambda 가 RunPod 위임에 실패하고 `failed/server_error` 를 썼다고 **추정**한다 [미확인 — CloudWatch 로그 미열람]. Firestore `error.code server_error` 는 관측이고, 그 원인이 Pod 부재라는 연결이 진단이다.

@@ -62,6 +62,7 @@ belle: *"일단 정리하고 인계서작성해줘 시간이 늦었다"* — 38-
 
 ### 진행 [확인]
 
+- **2026-09-30 아침 38-11 완료** (`685f02ce` · `b51e9fbc` · `4d66855d`) — `/supplier/upload`(STEP 01/02 · 제출 · 진행/취소 · 실패 패널) + `/supplier/guide`. typecheck 0 · node 65/65 · web export 15초(SPA, 세 라우트 번들 포함). 폼 화면은 로그인+화이트리스트가 필요해 아직 한 번도 그려 보지 않음 [미확인] → 38-13. Figma D-22 실측 또 미실행(MCP 없음) — 표는 `38-11-SUMMARY.md` 'Figma 실측'. 홈 index.tsx 에 justUploaded 토스트 · `?expired=1` 문구 추가. 남은 웨이브 5 = 38-09 Task 2 belle 체크포인트(changeset 생성만, 미실행).
 - **9/14 실행 완료 + 38-12 skipped-by-decision** — 38-01~08 · 38-10 (각 `38-NN-SUMMARY.md`). 웨이브 1~4 끝.
 - 38-10 (`3254d11e` 까지) = 웹 영상 길이 초→ms 수리(TDD `55f8eae6` → `0c902e29`) + `/supplier` 라우트(로그인 · 권한 없음 · 홈 두 카드 · 실패/만료/등록됨 상세). belle 시뮬 재측정 원문 *"1번 오케이, 2번은.. 한 8% 가다가 이렇게 문제가 있어요 실패. 3번도 마찬가지."* → 1·2·3 ○(Pod 끈 측정이라 실패 화면 도달 = 정상). 표 = `38-04-MEASUREMENT.md` "## 38-10 재측정".
 - 게이트 (2026-09-30 01시, HEAD `3254d11e` 기준 재실행): backend 전체 `pytest tests -q` **5566 passed, 20 skipped** · app `npm run typecheck` exit 0 · node 테스트 6파일 **65 pass / 0 fail**. 착수 기준선 5184 passed.

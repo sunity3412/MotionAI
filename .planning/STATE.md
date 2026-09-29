@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 2026-09-30 새벽 belle 세션 일시정지 — Phase 38 9/14 실행 완료(38-01~08 · 38-10) + 38-12 skipped-by-decision, 웨이브 4 끝. 38-10 = 웹 영상 길이 초→ms 수리(belle 시뮬 '1번 오케이') + /supplier 라우트, 전체 pytest 5566 passed / 20 skipped. 다음 = `/gsd-execute-phase 38` 웨이브 5 = 38-09(인프라 + rules 배포 — belle 체크포인트, rules 배포는 38-06 때 --test 에서 HTTP 403) + 38-11. push 방식 belle 결정 대기(로컬 39커밋 미push). 정은지 중급콤보 영상 도착(09-29) — belle '공급자 앱 개발을 먼저 끝내자', 콤보 = 짚지 않은 시험지, 시험 영상 2차는 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절.
-last_updated: "2026-09-29T16:28:17.860Z"
-last_activity: 2026-09-30
+stopped_at: 2026-09-30 아침 — Phase 38 10/14 실행 완료(38-01~08 · 38-10 · 38-11) + 38-12 skipped-by-decision. 38-11 = /supplier/upload(STEP 01/02 · presign · XHR 진행/취소 · 실패 패널) + /supplier/guide(7섹션) 완료, typecheck 0 · node 65/65 · web export 15초. Figma D-22 실측은 38-10 에 이어 미실행(MCP 없음) → 38-13 Task 3 이월. 38-09 는 Task 2 belle 체크포인트 대기(Task 1 커밋 61a255e2 · d50cf39f, changeset 생성만 · 미실행). 다음 = 38-09 체크포인트 → 웨이브 6 38-13(배포 + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-11-SUMMARY.md.
+last_updated: "2026-09-29T23:26:45.659Z"
+last_activity: 2026-09-29
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 121
+  completed_plans: 122
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 10 of 14
+Plan: 11 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -648,7 +648,7 @@ Last activity: 2026-07-20 - Completed quick task 260720-hn8: 영상 선택 실�
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 91%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -922,6 +922,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 38 P04 | 41min | 3 tasks | 12 files |
 | Phase 38 P08 | 12min | 2 tasks | 6 files |
 | Phase 38 P10 | 51min | 5 tasks | 14 files |
+| Phase 38 P11 | 12min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1101,7 +1102,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-09-29T16:28:11.952Z
 
-Stopped at: 2026-09-30 새벽 belle 세션 일시정지 — Phase 38 9/14 실행 완료(38-01~08 · 38-10) + 38-12 skipped-by-decision, 웨이브 4 끝. 38-10 = 웹 영상 길이 초→ms 수리(belle 시뮬 '1번 오케이') + /supplier 라우트, 전체 pytest 5566 passed / 20 skipped. 다음 = `/gsd-execute-phase 38` 웨이브 5 = 38-09(인프라 + rules 배포 — belle 체크포인트, rules 배포는 38-06 때 --test 에서 HTTP 403) + 38-11. push 방식 belle 결정 대기(로컬 39커밋 미push). 정은지 중급콤보 영상 도착(09-29) — belle '공급자 앱 개발을 먼저 끝내자', 콤보 = 짚지 않은 시험지, 시험 영상 2차는 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절.
+Stopped at: 2026-09-30 아침 — Phase 38 10/14 실행 완료(38-01~08 · 38-10 · 38-11) + 38-12 skipped-by-decision. 38-11 = /supplier/upload(STEP 01/02 · presign · XHR 진행/취소 · 실패 패널) + /supplier/guide(7섹션) 완료, typecheck 0 · node 65/65 · web export 15초. Figma D-22 실측은 38-10 에 이어 미실행(MCP 없음) → 38-13 Task 3 이월. 38-09 는 Task 2 belle 체크포인트 대기(Task 1 커밋 61a255e2 · d50cf39f, changeset 생성만 · 미실행). 다음 = 38-09 체크포인트 → 웨이브 6 38-13(배포 + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-11-SUMMARY.md.
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

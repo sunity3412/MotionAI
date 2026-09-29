@@ -1541,7 +1541,7 @@ Plans:
 
 **Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 10/14 plans executed (실행 9 + 38-12 skipped-by-decision — 38-04 belle option-1)
+**Plans:** 11/14 plans executed (실행 10 + 38-12 skipped-by-decision — 38-04 belle option-1; 38-09 Task 2 belle 체크포인트 대기)
 Plans:
 **Wave 1**
 
@@ -1568,7 +1568,7 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [ ] 38-09-PLAN.md — 인프라: (배포 전) legacy baseline + 5함수 설정/코드 보존 + 규칙 원본(리뷰 R10/R12) → template(새 함수·정책·env) → SSM supplier-uids → sam build/changeset → belle 검토 → 배포 · 설정 diff · 기존 API 회귀 · baseline 재diff · 버킷 알림 2항목 · lifecycle 해제(D-17) · 규칙 테스트/배포/probe(R2/R13) — 원본 저장·함수 단위 롤백 [W5, 체크포인트]
-- [ ] 38-11-PLAN.md — (후보 1) 올리기 폼 STEP 01/02 · 업로드 진행/취소 · 가이드 화면 A-6(D-07·D-08·D-14·D-18) [W5, option-1 확정]
+- [x] 38-11-PLAN.md — (후보 1) 올리기 폼 STEP 01/02 · 업로드 진행/취소 · 가이드 화면 A-6(D-07·D-08·D-14·D-18) [W5, option-1 확정]
 
 **Wave 6** *(blocked on Wave 5 completion)*
 

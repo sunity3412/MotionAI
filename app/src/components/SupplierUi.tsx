@@ -13,13 +13,15 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ReactNode } from 'react';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useState, type ReactNode } from 'react';
 import {
   Image,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type StyleProp,
   type ViewStyle,
@@ -278,19 +280,23 @@ export function PillCta({ label, onPress }: { label: string; onPress: () => void
 }
 
 // 1:960 CTA — 54 / 반경 13 / 채움 brand · 비활성 brandButtonDisabled(글자 흰색 유지).
+// onDisabledPress(38-11): 비활성인데 눌렀을 때 — 폼이 빈 칸의 인라인 오류를 드러낸다(UI-SPEC A-4
+// "표시마다 답"). 주면 Pressable 을 막지 않고 aria-disabled 만 둔다. 안 주면 38-10 동작 그대로.
 export function PrimaryCta({
   label,
   onPress,
   disabled,
+  onDisabledPress,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  onDisabledPress?: () => void;
 }) {
   return (
     <Pressable
-      onPress={onPress}
-      disabled={disabled}
+      onPress={disabled ? onDisabledPress : onPress}
+      disabled={disabled && !onDisabledPress}
       style={({ pressed }) => [
         s.primary,
         disabled && s.primaryDisabled,
@@ -882,4 +888,479 @@ const s = StyleSheet.create({
     paddingVertical: space.row,
   },
   infoValue: { flexShrink: 1, textAlign: 'right' },
+});
+
+// ── 올리기 폼 프리미티브 (Phase 38-11 · UI-SPEC A-4 · A-5 · Component Inventory) ──────────
+//
+// Figma D-22 실측(`1:960` 입력/STEP/CTA · `1:1064` 동의 행 · `1:407` 파일 카드 · `1:499`
+// 다이얼로그)은 이 실행에서도 Figma MCP 가 열리지 않아 못 했다 — 값은 UI-SPEC Component
+// Inventory 그대로이고 38-11 SUMMARY "Figma 실측" 표에 [미확인] 으로 남겨 38-13 Task 3 로 넘긴다.
+// 파일 카드 아이콘-텍스트 간격만 ui-checker flag 11행 적용값 16.
+
+const F = {
+  input: layout.inputHeight, // 54 (design.md §5-3-1)
+  segment: 44, // 탭 44 (UI-SPEC 탭/세그먼트)
+  checkRow: 48, // 체크 행 최소 48
+  box: 22, // 체크박스 22
+  boxRadius: 8, // radius.listItem 8.58 → 웹 8
+  check: 14, // 흰 체크 14
+  fileIcon: 32, // 1:407 images-outline 32
+  chevron: 20,
+  track: 8, // 진행 막대 높이 8 / 반경 4
+  previewMaxH: 360, // Video preview 최대 높이
+} as const;
+
+// `STEP 01 / 02` — brand 소문 라벨(1:960) → 4 → Display 제목.
+export function StepHeader({ step, title }: { step: string; title: string }) {
+  return (
+    <View>
+      <Text style={text.step}>{step}</Text>
+      <Text style={[text.display, s.mt4]} accessibilityRole="header">
+        {title}
+      </Text>
+    </View>
+  );
+}
+
+// 인라인 오류 — Label 17 infoTeal, 위 8, aria-live polite(UI-SPEC Input 규격).
+export function FieldError({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <Text style={[text.label, f.error]} accessibilityLiveRegion="polite">
+      {message}
+    </Text>
+  );
+}
+
+// 도움말 — Label 17 textMid, 위 8.
+export function Helper({ children }: { children: string }) {
+  return <Text style={[text.label, text.mid, f.helper]}>{children}</Text>;
+}
+
+// 입력 54 / 반경 13 · 테두리 inputBorder → 포커스 brand → 오류 inputError · 라벨 위 8 · 오류 아래 8.
+export function TextInput54({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  maxLength,
+  error,
+}: {
+  label?: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder?: string;
+  maxLength?: number;
+  error?: string | null;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View>
+      {label ? <Text style={[text.label, f.fieldLabel]}>{label}</Text> : null}
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.resultTextSub}
+        maxLength={maxLength}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        accessibilityLabel={label ?? placeholder}
+        style={[
+          text.label,
+          f.input,
+          focused && f.inputFocus,
+          !!error && !focused && f.inputError,
+        ]}
+      />
+      <FieldError message={error ?? null} />
+    </View>
+  );
+}
+
+export type SelectOption = { value: string; label: string };
+
+// Select — 웹은 네이티브 `<select>` 를 Input 규격으로(오른쪽 chevron 20 textMid). 이 라우트는
+// 웹 전용(38-04 option-1)이라 네이티브는 옵션 목록 버튼으로만 둔다(Picker 패키지 설치 0).
+export function SelectField({
+  label,
+  placeholder,
+  options,
+  value,
+  onChange,
+  error,
+}: {
+  label: string;
+  placeholder: string;
+  options: readonly SelectOption[];
+  value: string | null;
+  onChange: (value: string) => void;
+  error?: string | null;
+}) {
+  if (Platform.OS === 'web') {
+    const border = error ? colors.inputError : colors.inputBorder;
+    return (
+      <View>
+        <Text style={[text.label, f.fieldLabel]}>{label}</Text>
+        <View style={f.selectWrap}>
+          <select
+            aria-label={label}
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            style={{
+              width: '100%',
+              height: F.input,
+              borderRadius: radius.button,
+              border: `1px solid ${border}`,
+              backgroundColor: colors.bg,
+              color: value ? colors.textPrimary : colors.resultTextSub,
+              fontFamily: fontFamily.regular,
+              fontSize: typography.buttonSecondary.fontSize,
+              paddingLeft: space.md,
+              paddingRight: space.md + F.chevron + space.sm,
+              appearance: 'none',
+              WebkitAppearance: 'none',
+            }}
+          >
+            <option value="" disabled>
+              {placeholder}
+            </option>
+            {options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <View style={f.selectChevron} pointerEvents="none">
+            <Ionicons name="chevron-down" size={F.chevron} color={colors.textMid} />
+          </View>
+        </View>
+        <FieldError message={error ?? null} />
+      </View>
+    );
+  }
+  return (
+    <View>
+      <Text style={[text.label, f.fieldLabel]}>{label}</Text>
+      <View style={f.optionList} accessibilityRole="radiogroup">
+        {options.map((o) => {
+          const on = o.value === value;
+          return (
+            <Pressable
+              key={o.value}
+              onPress={() => onChange(o.value)}
+              style={({ pressed }) => [f.option, on && f.optionOn, pressed && s.pressed]}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: on }}
+            >
+              <Text style={[text.label, on && s.onBrand]}>{o.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <FieldError message={error ?? null} />
+    </View>
+  );
+}
+
+// 탭/세그먼트 — 균등 가로, 44 / 13, 미선택 흰 + 테두리 divider + Label 700 textMid,
+// 선택 = brand 채움 + 흰 글자(reference.tsx 탭 문법). role radiogroup / radio.
+export function Segment<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  value: T | null;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View style={f.segment} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            onPress={() => onChange(o.value)}
+            style={({ pressed }) => [f.segItem, on && f.segItemOn, pressed && s.pressed]}
+            accessibilityRole="radio"
+            accessibilityLabel={o.label}
+            accessibilityState={{ checked: on }}
+          >
+            <Text style={[text.labelBold, on ? s.onBrand : text.mid]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function CheckBox({ checked }: { checked: boolean }) {
+  return (
+    <View style={[f.box, checked && f.boxOn]}>
+      {checked ? <Ionicons name="checkmark" size={F.check} color={colors.textWhite} /> : null}
+    </View>
+  );
+}
+
+// 1:1064 체크 행 — 행 전체 탭, 최소 48, 박스 22/8, 태그 `[필수]` brand 700 / `[선택]`
+// resultTextSub 700 → 4 → 라벨 → chevron(상세가 있을 때, 따로 누른다) · 부연 12 caption 아래 4.
+export function CheckboxRow({
+  label,
+  checked,
+  onToggle,
+  tag,
+  note,
+  onChevron,
+  chevronLabel,
+}: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+  tag?: { text: string; required: boolean };
+  note?: string;
+  onChevron?: () => void;
+  chevronLabel?: string;
+}) {
+  return (
+    <View style={f.checkRow}>
+      <Pressable
+        onPress={onToggle}
+        style={({ pressed }) => [f.checkMain, pressed && s.pressed]}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked }}
+        accessibilityLabel={tag ? `${tag.text} ${label}` : label}
+      >
+        <CheckBox checked={checked} />
+        <View style={s.flex}>
+          <Text style={text.label}>
+            {tag ? (
+              <Text style={[text.labelBold, tag.required ? f.tagRequired : text.sub]}>
+                {tag.text}{' '}
+              </Text>
+            ) : null}
+            {label}
+          </Text>
+          {note ? <Text style={[text.caption, s.mt4]}>{note}</Text> : null}
+        </View>
+      </Pressable>
+      {onChevron ? (
+        <Pressable
+          onPress={onChevron}
+          style={({ pressed }) => [f.chevronBtn, pressed && s.pressed]}
+          accessibilityRole="link"
+          accessibilityLabel={chevronLabel}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-forward" size={F.chevron} color={colors.inputBorder} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+// 1:1064 전체 동의 박스 — 54 / 13, 테두리 divider, 패딩 0 16: 체크박스 22 + 12 + Label 700.
+export function AllAgreeBox({
+  label,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      style={({ pressed }) => [f.allAgree, pressed && s.pressed]}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={label}
+    >
+      <CheckBox checked={checked} />
+      <Text style={text.labelBold}>{label}</Text>
+    </Pressable>
+  );
+}
+
+// 1:407 선택 카드(파일) — Card 규격 + images-outline 32 brand → 16(ui-checker flag 11행) →
+// Title + Label 부제(4 아래) → chevron 20. 눌림 opacity 0.4(cardDimmed 선례).
+export function FileCard({
+  title,
+  sub,
+  onPress,
+  disabled,
+}: {
+  title: string;
+  sub: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [s.card, f.fileCard, (pressed || disabled) && s.cardPressed]}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: !!disabled, busy: !!disabled }}
+    >
+      <Ionicons name="images-outline" size={F.fileIcon} color={colors.brand} />
+      <View style={s.flex}>
+        <Text style={text.title}>{title}</Text>
+        <Text style={[text.label, text.mid, s.mt4]}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={F.chevron} color={colors.inputBorder} />
+    </Pressable>
+  );
+}
+
+// Video preview — 9:16, 최대 높이 360, 반경 15, 무음 · 컨트롤 · 자동 재생 없음(프레임 자가 확인용).
+export function VideoPreview({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.muted = true;
+  });
+  return (
+    <View style={f.previewWrap}>
+      <VideoView player={player} style={f.preview} nativeControls contentFit="contain" />
+    </View>
+  );
+}
+
+// 진행 막대 — 트랙 8/4 trackBg · 채움 brand · role progressbar(스피너 금지, design.md §0).
+export function ProgressBar({ pct, label }: { pct: number; label: string }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  return (
+    <View>
+      <Text style={text.label} accessibilityLiveRegion="polite">
+        {label}
+      </Text>
+      <View
+        style={[f.track, s.mt8]}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 100, now: clamped }}
+      >
+        <View style={[f.fill, { width: `${clamped}%` }]} />
+      </View>
+    </View>
+  );
+}
+
+// 하단 고정 바 — 흰 배경 · 위 1px divider · 패딩 16 20 · 위 Label(남은 필수 개수 등, aria-live).
+export function BottomBar({ hint, children }: { hint: string | null; children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[f.bottomBar, { paddingBottom: space.md + insets.bottom }]}>
+      {hint ? (
+        <Text style={[text.label, text.mid, f.bottomHint]} accessibilityLiveRegion="polite">
+          {hint}
+        </Text>
+      ) : null}
+      {children}
+    </View>
+  );
+}
+
+const f = StyleSheet.create({
+  fieldLabel: { marginBottom: space.sm },
+  error: { color: colors.infoTeal, marginTop: space.sm },
+  helper: { marginTop: space.sm },
+  input: {
+    height: F.input,
+    borderRadius: R.button,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.bg,
+    paddingHorizontal: space.md,
+  },
+  inputFocus: { borderColor: colors.brand },
+  inputError: { borderColor: colors.inputError },
+  selectWrap: { justifyContent: 'center' },
+  selectChevron: { position: 'absolute', right: space.md },
+  optionList: { gap: space.sm },
+  option: {
+    minHeight: F.segment,
+    borderRadius: R.button,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    justifyContent: 'center',
+    paddingHorizontal: space.md,
+  },
+  optionOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  segment: { flexDirection: 'row', gap: space.sm },
+  segItem: {
+    flex: 1,
+    height: F.segment,
+    borderRadius: R.button,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segItemOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  checkRow: { minHeight: F.checkRow, flexDirection: 'row', alignItems: 'center' },
+  checkMain: {
+    flex: 1,
+    minHeight: F.checkRow,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.row,
+    paddingVertical: space.sm,
+  },
+  chevronBtn: {
+    width: H.touch,
+    height: H.touch,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -space.sm,
+  },
+  box: {
+    width: F.box,
+    height: F.box,
+    borderRadius: F.boxRadius,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  tagRequired: { color: colors.brand },
+  allAgree: {
+    height: F.input,
+    borderRadius: R.button,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    paddingHorizontal: space.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.row,
+  },
+  fileCard: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  previewWrap: { alignItems: 'center' },
+  preview: {
+    height: F.previewMaxH,
+    aspectRatio: 9 / 16,
+    borderRadius: R.card,
+    overflow: 'hidden',
+    backgroundColor: colors.softBg,
+  },
+  track: {
+    height: F.track,
+    borderRadius: F.track / 2,
+    backgroundColor: colors.trackBg,
+    overflow: 'hidden',
+  },
+  fill: { height: F.track, backgroundColor: colors.brand },
+  bottomBar: {
+    backgroundColor: colors.bg,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    paddingTop: space.md,
+    paddingHorizontal: space.screen,
+  },
+  bottomHint: { marginBottom: space.sm, textAlign: 'center' },
 });

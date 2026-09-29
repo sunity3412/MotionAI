@@ -1,0 +1,129 @@
+{
+  "capturedAt": "2026-09-30",
+  "functions": {
+    "sunity-motion-pilot-pipeline": {
+      "CodeSha256": "8Ew9qbrRYttNibsi6By9ikMW51i9vXXIzdM+Ig2EWGo=",
+      "CodeSize": 32939473,
+      "EnvKeys": [
+        "FIREBASE_SA_PARAM",
+        "RUNPOD_ANALYZE_URL",
+        "RUNPOD_AUTH_TOKEN",
+        "VIDEO_BUCKET"
+      ],
+      "Handler": "app.lambda_handler",
+      "LastModified": "2026-09-25T12:08:48.000+0000",
+      "Layers": [
+        "arn:aws:lambda:ap-northeast-2:976369350031:layer:sunity-motion-pilot-shared:16"
+      ],
+      "MemorySize": 1024,
+      "Role": "arn:aws:iam::976369350031:role/sunity-motion-pilot-PipelineFunctionRole-asl1Z8Er9mo8",
+      "Runtime": "python3.12",
+      "Timeout": 900,
+      "Version": "$LATEST",
+      "zipPath": "/Users/Shared/sunity-motion-rollback/38-09/sunity-motion-pilot-pipeline.zip",
+      "zipSha256": "f04c3da9bad162db4d89bb22e81cbd8a4316e758bdbd75c8cdd33e220d84586a"
+    },
+    "sunity-motion-pilot-playback-url": {
+      "CodeSha256": "whIHZBkjC2rkw5vahkJg4gFTi62QuuEx7c+Qlo23JOk=",
+      "CodeSize": 32699522,
+      "EnvKeys": [
+        "FIREBASE_SA_PARAM",
+        "VIDEO_BUCKET"
+      ],
+      "Handler": "app.lambda_handler",
+      "LastModified": "2026-09-09T14:09:50.000+0000",
+      "Layers": [
+        "arn:aws:lambda:ap-northeast-2:976369350031:layer:sunity-motion-pilot-shared:20"
+      ],
+      "MemorySize": 512,
+      "Role": "arn:aws:iam::976369350031:role/sunity-motion-pilot-PlaybackUrlFunctionRole-KsTrW1wUsnW5",
+      "Runtime": "python3.12",
+      "Timeout": 30,
+      "Version": "$LATEST",
+      "zipPath": "/Users/Shared/sunity-motion-rollback/38-09/sunity-motion-pilot-playback-url.zip",
+      "zipSha256": "c212076419230b6ae4c39bda864260e201538bad90bae131edcf90968db724e9"
+    },
+    "sunity-motion-pilot-reference": {
+      "CodeSha256": "YcoJ3Im2NceoTVx4q3Mdmj2UikSqeZQ6n5c1iZvkXuE=",
+      "CodeSize": 31820615,
+      "EnvKeys": [
+        "FIREBASE_SA_PARAM",
+        "VIDEO_BUCKET"
+      ],
+      "Handler": "app.lambda_handler",
+      "LastModified": "2026-07-21T16:15:05.000+0000",
+      "Layers": [
+        "arn:aws:lambda:ap-northeast-2:976369350031:layer:sunity-motion-pilot-shared:16"
+      ],
+      "MemorySize": 256,
+      "Role": "arn:aws:iam::976369350031:role/sunity-motion-pilot-ReferenceApiFunctionRole-i9MccfHqFOZZ",
+      "Runtime": "python3.12",
+      "Timeout": 10,
+      "Version": "$LATEST",
+      "zipPath": "/Users/Shared/sunity-motion-rollback/38-09/sunity-motion-pilot-reference.zip",
+      "zipSha256": "61ca09dc89b635c7a84d5c78ab731d9a3d948a44aa79943a9f9735899be45ee1"
+    },
+    "sunity-motion-pilot-reference-auto-register": {
+      "CodeSha256": "LgCTx++M39p16cFzVQmoNC26WaHoNZqauHL0M/pCpPk=",
+      "CodeSize": 35253543,
+      "EnvKeys": [
+        "BELLE_UID",
+        "FIREBASE_SA_PARAM",
+        "GEMINI_API_KEY",
+        "GEMINI_A_MODEL",
+        "VIDEO_BUCKET"
+      ],
+      "Handler": "app.lambda_handler",
+      "LastModified": "2026-07-21T16:15:06.000+0000",
+      "Layers": [
+        "arn:aws:lambda:ap-northeast-2:976369350031:layer:sunity-motion-pilot-shared:16"
+      ],
+      "MemorySize": 512,
+      "Role": "arn:aws:iam::976369350031:role/sunity-motion-pilot-ReferenceAutoRegisterFunctionRo-OoM2T2AnrPKI",
+      "Runtime": "python3.12",
+      "Timeout": 240,
+      "Version": "$LATEST",
+      "zipPath": "/Users/Shared/sunity-motion-rollback/38-09/sunity-motion-pilot-reference-auto-register.zip",
+      "zipSha256": "2e0093c7ef8cdfda75e9c1735509a8342dba59a1e8359a9ab872f433fa42a4f9"
+    },
+    "sunity-motion-pilot-upload-url": {
+      "CodeSha256": "USY2eaYeJgAhoCL4oEPObhajS24z4COod4QytlwPNnk=",
+      "CodeSize": 31821362,
+      "EnvKeys": [
+        "FIREBASE_SA_PARAM",
+        "VIDEO_BUCKET"
+      ],
+      "Handler": "app.lambda_handler",
+      "LastModified": "2026-07-21T16:15:05.000+0000",
+      "Layers": [
+        "arn:aws:lambda:ap-northeast-2:976369350031:layer:sunity-motion-pilot-shared:16"
+      ],
+      "MemorySize": 256,
+      "Role": "arn:aws:iam::976369350031:role/sunity-motion-pilot-UploadUrlFunctionRole-BVhkacT8sWio",
+      "Runtime": "python3.12",
+      "Timeout": 10,
+      "Version": "$LATEST",
+      "zipPath": "/Users/Shared/sunity-motion-rollback/38-09/sunity-motion-pilot-upload-url.zip",
+      "zipSha256": "51263679a61e260021a022f8a043ce6e16a34b6e33e023a8778432b65c0f3679"
+    }
+  },
+  "layerZips": {
+    "16": {
+      "CodeSha256": "vqtxo8IFcgo18dYCH+Z540MRAYBstWHjKoUva+1YhDk=",
+      "cfnManaged": true,
+      "zipPath": "/Users/Shared/sunity-motion-rollback/38-09/layer-sunity-motion-pilot-shared-16.zip",
+      "zipSha256": "beab71a3c205720a35f1d6021fe679e3431101806cb561e32a852f6bed588439"
+    },
+    "20": {
+      "CodeSha256": "mNnAXAalR6ZfUoA9qvUr5o8X5BJMbP4iLZGBwJ2te+k=",
+      "cfnManaged": false,
+      "zipPath": "/Users/Shared/sunity-motion-rollback/38-09/layer-sunity-motion-pilot-shared-20.zip",
+      "zipSha256": "98d9c05c06a547a65f52803daaf52be68f17e4124c6cfe222d9181c09dad7be9"
+    }
+  },
+  "note": "env 는 키 이름만(값 금지). layer :16 은 CFN SharedLayer4941b5eae7(RetentionPolicy Delete) — 새 layer 배포 시 CFN 정리 단계에서 삭제될 수 있어 zip 을 보존했다. 롤백은 publish-layer-version 으로 재발행 후 새 번호를 붙인다.",
+  "sharedLayerBefore": [
+    "arn:aws:lambda:ap-northeast-2:976369350031:layer:sunity-motion-pilot-shared:16",
+    "arn:aws:lambda:ap-northeast-2:976369350031:layer:sunity-motion-pilot-shared:20"
+  ]
+}

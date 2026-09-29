@@ -18,6 +18,7 @@ import {
   classifyDurationMs,
   MAX_DURATION_MS,
   MIN_DURATION_MS,
+  pickerDurationMs,
 } from './videoDuration.ts';
 
 test('duration 부재(undefined/null)는 판정하지 않는다 — fail-open', () => {
@@ -48,4 +49,35 @@ test('90초 초과는 tooLong', () => {
 test('상수는 3초·90초 (ms) — analyze.tsx 는 이 이름만 쓴다', () => {
   assert.equal(MIN_DURATION_MS, 3000);
   assert.equal(MAX_DURATION_MS, 90000);
+});
+
+// 38-04 실측 이월 · 진단 D-1 (38-10 Task 0) — 웹 picker duration 은 초다.
+// expo-image-picker 웹 구현(ExponentImagePicker.web.js getVideoMetadata)은
+// HTMLVideoElement.duration(초)을 그대로 준다. 네이티브는 ms. 앱은 ms 로 읽으므로
+// 웹 8초 클립이 8 < 3000 으로 tooShort 가 되던 것(38-04 belle 항목 3)을 잠근다.
+
+test('웹 8초 클립(duration 8 = 초)은 길이 검사를 통과한다 — 38-04 D-1', () => {
+  assert.equal(pickerDurationMs(8, 'web'), 8000);
+  assert.equal(classifyDurationMs(pickerDurationMs(8, 'web')), null);
+});
+
+test('웹 경계 — 2초는 tooShort, 91초는 tooLong (초 입력에서도 경계가 맞다)', () => {
+  assert.equal(classifyDurationMs(pickerDurationMs(2, 'web')), 'tooShort');
+  assert.equal(classifyDurationMs(pickerDurationMs(91, 'web')), 'tooLong');
+});
+
+test('네이티브(ios/android)는 ms 를 그대로 둔다 — 값·분기 불변', () => {
+  assert.equal(pickerDurationMs(8000, 'ios'), 8000);
+  assert.equal(pickerDurationMs(8000, 'android'), 8000);
+  assert.equal(classifyDurationMs(pickerDurationMs(2000, 'ios')), 'tooShort');
+});
+
+test('값 없음/0/NaN/음수는 판정 불가로 흐른다 — fail-open 유지(웹·네이티브)', () => {
+  for (const os of ['web', 'ios']) {
+    assert.equal(classifyDurationMs(pickerDurationMs(undefined, os)), null);
+    assert.equal(classifyDurationMs(pickerDurationMs(null, os)), null);
+    assert.equal(classifyDurationMs(pickerDurationMs(0, os)), null);
+    assert.equal(classifyDurationMs(pickerDurationMs(Number.NaN, os)), null);
+    assert.equal(classifyDurationMs(pickerDurationMs(-5, os)), null);
+  }
 });

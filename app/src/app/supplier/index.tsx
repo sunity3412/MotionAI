@@ -133,14 +133,17 @@ function errorStatus(e: unknown): { status: number; code: string | null } {
 
 export default function SupplierHome() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ detail?: string; justUploaded?: string }>();
+  const params = useLocalSearchParams<{ detail?: string; justUploaded?: string; expired?: string }>();
   const { user, isGuest, ready } = useAuthUser();
   const signedIn = !!user && !isGuest;
   const uid = signedIn ? user.uid : null;
 
   // ── A-1 로그인 ──
   const [loginBusy, setLoginBusy] = useState(false);
-  const [loginNotice, setLoginNotice] = useState<string | null>(null);
+  // 38-11: 올리기 폼 제출이 401 이면 폼이 `?expired=1` 로 여기 보낸다 → A-1 에 세션 만료 문구(UI-SPEC A-7).
+  const [loginNotice, setLoginNotice] = useState<string | null>(() =>
+    params.expired === '1' ? supplierCopy.form.sessionExpired : null,
+  );
 
   // 팝업은 클릭 직후 동기적으로 열려야 차단되지 않는다 — signInWithGoogle 앞에 await 없음.
   const onGoogle = () => {
@@ -265,17 +268,21 @@ export default function SupplierHome() {
     if (privError === 'permission-denied') router.replace('/supplier');
   }, [privError, router]);
 
-  // 방금 올린 행(?justUploaded=refId) — 테두리 brand 3초 + 스크롤(UI-SPEC A-3).
+  // 방금 올린 행(?justUploaded=refId) — 토스트 form.uploaded.toast + 테두리 brand 3초 + 스크롤
+  // (UI-SPEC A-3 · A-5). 38-11: 홈이 보인 뒤(probe ok)에 띄운다 — 확인 중 화면에는 Toast 가 없어
+  // 3초 타이머가 먼저 끝나면 아무것도 안 보였다.
   const justUploaded = typeof params.justUploaded === 'string' ? params.justUploaded : null;
+  const homeReady = probe.kind === 'ok';
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const offsets = useRef({ sheet: 0, card: 0, list: 0 });
   useEffect(() => {
-    if (!justUploaded) return;
+    if (!justUploaded || !homeReady) return;
+    setToast(supplierCopy.form.uploaded.toast);
     setHighlightId(justUploaded);
     const t = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
     return () => clearTimeout(t);
-  }, [justUploaded]);
+  }, [justUploaded, homeReady]);
   const onRowLayout = (motionId: string, y: number) => {
     if (motionId !== highlightId) return;
     const o = offsets.current;

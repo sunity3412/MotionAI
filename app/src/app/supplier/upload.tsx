@@ -10,15 +10,18 @@
 // 뒤로 가도, 가이드를 보고 와도, 새로고침 전까지(세션 안) 입력이 남는다(UI-SPEC Decisions 11).
 
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { signOut } from 'firebase/auth';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PickErrorDialog } from '../../components/PickErrorDialog';
 import {
+  AllAgreeBox,
   BottomBar,
   Card,
   CheckboxRow,
+  FailurePanel,
   FileCard,
   FieldError,
   Helper,
@@ -26,6 +29,7 @@ import {
   OutlineButton,
   PageFrame,
   PrimaryCta,
+  ProgressBar,
   Segment,
   SelectField,
   space,
@@ -39,15 +43,16 @@ import {
   type SelectOption,
 } from '../../components/SupplierUi';
 import { supplierCopy } from '../../constants/supplierCopy';
-import { ApiError, probeSupplier } from '../../lib/api';
+import { ApiError, probeSupplier, requestReferenceUploadUrl, uploadToS3WithProgress } from '../../lib/api';
 import { displayNameOf, useAuthUser } from '../../lib/authUser';
+import { auth } from '../../lib/firebase';
 import type { PickFailure, PickFailureKind } from '../../lib/pickerFailure';
 import { useReferenceMotions } from '../../lib/referenceMotions';
-import { emptyStep1, formatOf, parsePrefill, REFERENCE_NAME_MAX_LEN, remainingRequired, validateFile, type ConsentState, type FileFailureKind, type Step1State, type YesNo } from '../../lib/supplierForm';
-import { mapPresignFailure } from '../../lib/supplierRules';
+import { buildRequest, consentAllRequired, emptyStep1, formatOf, parsePrefill, REFERENCE_NAME_MAX_LEN, remainingRequired, validateFile, type ConsentState, type FileFailureKind, type Step1State, type YesNo } from '../../lib/supplierForm';
+import { mapPresignFailure, uploadOutcomeNext, type UploadOutcome } from '../../lib/supplierRules';
 import { readVideoDurationSec } from '../../lib/videoMeta';
 import { colors } from '../../theme';
-import type { SkillLevel } from '../../types/analysis';
+import type { ReferenceUploadUrlResponse, SkillLevel } from '../../types/analysis';
 
 // 사전 선택의 마지막 옵션 = 새 이름 직접 입력(motionId 와 겹치지 않는 값).
 const NEW_NAME_VALUE = '__new__';
@@ -103,6 +108,14 @@ function dialogFailure(kind: DialogKind): PickFailure {
   };
 }
 
+// STEP 02 제출 뒤 화면. form = 동의 화면 그대로(presigning 은 CTA 만 막는다),
+// uploading = A-5 진행 패널, failed = 실패 패널(presign 5xx 또는 PUT 실패 — 본문만 다르다).
+type SubmitPhase =
+  | { kind: 'form' }
+  | { kind: 'presigning' }
+  | { kind: 'uploading'; pct: number }
+  | { kind: 'failed'; body: string };
+
 export default function SupplierUpload() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -126,6 +139,24 @@ export default function SupplierUpload() {
       return next;
     });
   };
+
+  const [consent, setConsent] = useState<ConsentState>(() => sessionDraft?.consent ?? emptyConsent());
+  const updateConsent = (patch: Partial<ConsentState>) => {
+    setConsent((prev) => {
+      const next = { ...prev, ...patch };
+      sessionDraft = { step1: sessionDraft?.step1 ?? step1, consent: next };
+      return next;
+    });
+  };
+
+  // 다른 인스턴스(STEP 02 · 가이드 다녀옴 · 올리기 성공 뒤 초기화)가 바꾼 초안을 포커스 때 다시 읽는다.
+  useFocusEffect(
+    useCallback(() => {
+      if (!sessionDraft) return;
+      setStep1(sessionDraft.step1);
+      setConsent(sessionDraft.consent);
+    }, []),
+  );
 
   // ── 인증 가드: 로그인 전 · 게스트면 /supplier(A-1). 화이트리스트 밖(403) · 세션 만료(401)도
   //    /supplier 가 A-2 / A-1 을 보여준다. 네트워크 실패는 폼을 막지 않는다 — 제출 때 서버가
@@ -243,13 +274,136 @@ export default function SupplierUpload() {
   const err = (missing: boolean, message: string) => (showErrors && missing ? message : null);
   const nameMissing = !step1.nameChoice || step1.nameChoice.name.trim().length === 0;
 
+  // 뒤로 = STEP 02 → STEP 01(입력 유지), STEP 01 → 홈. 기록이 없으면(직접 URL) 같은 곳으로 replace.
   const goBack = () => {
     if (router.canGoBack()) router.back();
-    else router.replace('/supplier');
+    else router.replace(paramOf(params.step) === '2' ? '/supplier/upload' : '/supplier');
   };
 
   const onNext = () => {
     router.push({ pathname: '/supplier/upload', params: { step: '2' } });
+  };
+
+  // ── STEP 02 · 제출 · 업로드 (A-4 STEP 02 · A-5 · A-7) ──
+  const wantsStep2 = paramOf(params.step) === '2';
+  // 직접 URL 로 step=2 에 왔는데 STEP 01 이 비었으면 STEP 01 을 보여준다(buildRequest 가 null 인 상태).
+  const step = wantsStep2 && count === 0 && !blocked ? 2 : 1;
+  const [submitPhase, setSubmitPhase] = useState<SubmitPhase>({ kind: 'form' });
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const uploadingRef = useRef(false);
+  const uploading = submitPhase.kind === 'uploading';
+
+  // 업로드 중 화면 전환 차단 — 앱 안 뒤로(beforeRemove) + 웹 탭 닫기·새로고침(beforeunload).
+  const navigation = useNavigation();
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', (e) => {
+        if (uploadingRef.current) e.preventDefault();
+      }),
+    [navigation],
+  );
+  useEffect(() => {
+    if (!uploading || Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [uploading]);
+
+  // 이 페이지는 Firestore 에 쓰지 않는다 — 앱 분석 경로(loading.tsx)는 presign 뒤 앱이
+  // users/{uid}/analyses doc 을 만들지만, 공급자 경로는 upload-url Lambda 가 reference/{refId}
+  // 를 registering 으로 선작성한다(규칙 write false, T-38-11-5).
+  const submit = async () => {
+    const f = step1.file;
+    if (!f) return;
+    const req = buildRequest(step1, consent, f);
+    if (!req) return;
+    setInlineError(null);
+    setSubmitPhase({ kind: 'presigning' });
+
+    let res: ReferenceUploadUrlResponse;
+    try {
+      res = await requestReferenceUploadUrl(req);
+    } catch (e) {
+      const kind = mapPresignFailure(errorStatus(e));
+      if (kind === 'sessionExpired') {
+        // 401 → A-1 + form.sessionExpired 문구(홈이 expired param 으로 띄운다). replace 먼저 —
+        // signOut 이 먼저면 인증 가드가 param 없이 /supplier 로 보낸다.
+        router.replace({ pathname: '/supplier', params: { expired: '1' } });
+        void signOut(auth);
+        return;
+      }
+      if (kind === 'forbidden') {
+        router.replace('/supplier'); // 403 → A-2 는 홈의 probe 가 보여준다.
+        return;
+      }
+      if (kind === 'offline') {
+        setSubmitPhase({ kind: 'form' });
+        setInlineError(supplierCopy.common.offline);
+        return;
+      }
+      setSubmitPhase({ kind: 'failed', body: supplierCopy.form.presignFail });
+      return;
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    uploadingRef.current = true;
+    setSubmitPhase({ kind: 'uploading', pct: 0 });
+    let outcome: UploadOutcome;
+    try {
+      const body = f.blob instanceof Blob ? f.blob : await (await fetch(f.uri ?? '')).blob();
+      await uploadToS3WithProgress(res.uploadUrl, body, f.format, {
+        onProgress: (pct) => setSubmitPhase({ kind: 'uploading', pct }),
+        signal: controller.signal,
+      });
+      outcome = 'ok';
+    } catch {
+      outcome = controller.signal.aborted ? 'aborted' : 'failed';
+    } finally {
+      uploadingRef.current = false;
+      abortRef.current = null;
+    }
+
+    switch (uploadOutcomeNext(outcome)) {
+      case 'home':
+        // 다음 동작을 바로 올릴 수 있게 초안은 비우되 촬영 전 체크 확인은 세션 안에서 유지(Decisions 11).
+        sessionDraft = {
+          step1: { ...emptyStep1(), checkConfirmed: step1.checkConfirmed },
+          consent: emptyConsent(),
+        };
+        // 토스트 form.uploaded.toast 와 새 행 강조는 홈이 justUploaded 로 띄운다.
+        router.replace({ pathname: '/supplier', params: { justUploaded: res.refId } });
+        return;
+      case 'step2':
+        // 올리기 취소 → 동의 화면 그대로(입력 유지). 선작성된 registering doc 은
+        // uploadExpiresAt 뒤 requeue --sweep-expired 가 expired 로 닫고 홈이 만료 행으로 보여 준다(R4).
+        setSubmitPhase({ kind: 'form' });
+        return;
+      case 'failPanel':
+        setSubmitPhase({ kind: 'failed', body: supplierCopy.form.uploadFail.body });
+        return;
+    }
+  };
+
+  // 다시 올리기 = 새 presign 부터(= 새 refId). 옛 registering doc 은 900초 뒤 requeue 스윕이
+  // expired 로 닫는다 — 같은 refId 로 다시 PUT 하지 않는다(리뷰 R4, T-38-11-6).
+  const retrySubmit = () => {
+    setSubmitPhase({ kind: 'form' });
+    void submit();
+  };
+
+  const cancelUpload = () => {
+    abortRef.current?.abort();
+  };
+
+  const toggleAllRequired = () => {
+    // 전체 동의 = 필수 3 만(D-08 학습 사용은 별도·기본 꺼짐, UI-SPEC Decisions 14).
+    const on = !consentAllRequired(consent);
+    updateConsent({ portrait: on, usage: on, silent: on });
   };
 
   const yesNo: { value: YesNo; label: string }[] = [
@@ -268,6 +422,100 @@ export default function SupplierUpload() {
 
   if (!ready || !signedIn) {
     return <SafeAreaView style={styles.page} />;
+  }
+
+  if (step === 2 && submitPhase.kind === 'uploading') {
+    return (
+      <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
+        <PageFrame>
+          <View style={styles.pad}>
+            <TopBar />
+            <Text style={[text.title, styles.mt32]} accessibilityRole="header">
+              {supplierCopy.form.uploading.title}
+            </Text>
+            <View style={styles.mt16}>
+              <ProgressBar
+                pct={submitPhase.pct}
+                label={supplierCopy.form.uploading.progress.replace('{pct}', String(submitPhase.pct))}
+              />
+            </View>
+            <Text style={[text.label, text.mid, styles.mt8]}>{supplierCopy.form.uploading.keepOpen}</Text>
+            <View style={styles.mt24}>
+              <TextLink label={supplierCopy.common.cancel} onPress={cancelUpload} tone="cancel" />
+            </View>
+          </View>
+        </PageFrame>
+      </SafeAreaView>
+    );
+  }
+
+  if (step === 2 && submitPhase.kind === 'failed') {
+    return (
+      <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
+        <PageFrame>
+          <ScrollView contentContainerStyle={styles.pad}>
+            <TopBar onBack={() => setSubmitPhase({ kind: 'form' })} backLabel={supplierCopy.common.back} />
+            {/* 1:428 구조, TIP 카드 없음(UI-SPEC A-5). presign 5xx 는 form.presignFail 본문. */}
+            <FailurePanel
+              title={supplierCopy.form.uploadFail.title}
+              body={submitPhase.body}
+              reuploadLabel={supplierCopy.form.uploadFail.retry}
+              onReupload={retrySubmit}
+              backLabel={supplierCopy.form.uploadFail.home}
+              onBack={() => router.replace('/supplier')}
+            />
+          </ScrollView>
+        </PageFrame>
+      </SafeAreaView>
+    );
+  }
+
+  if (step === 2) {
+    const missingConsents = [consent.portrait, consent.usage, consent.silent].filter((v) => !v).length;
+    const allRequired = consentAllRequired(consent);
+    const presigning = submitPhase.kind === 'presigning';
+    const required = { text: supplierCopy.form.sec5.tagRequired, required: true };
+    return (
+      <SafeAreaView style={styles.page} edges={['top']}>
+        <PageFrame>
+          <ScrollView contentContainerStyle={styles.pad}>
+            <TopBar onBack={goBack} backLabel={supplierCopy.common.back} />
+            <View style={styles.mt8}>
+              <StepHeader step={supplierCopy.form.step2.label} title={supplierCopy.form.step2.title} />
+            </View>
+            <View style={styles.section}>
+              <AllAgreeBox label={supplierCopy.form.sec5.all} checked={allRequired} onToggle={toggleAllRequired} />
+              <View style={styles.mt12}>
+                <CheckboxRow label={supplierCopy.form.sec5.portrait} tag={required} checked={consent.portrait} onToggle={() => updateConsent({ portrait: !consent.portrait })} />
+                <CheckboxRow label={supplierCopy.form.sec5.usage} tag={required} checked={consent.usage} onToggle={() => updateConsent({ usage: !consent.usage })} />
+                <CheckboxRow label={supplierCopy.form.sec5.silent} tag={required} checked={consent.silent} onToggle={() => updateConsent({ silent: !consent.silent })} />
+                <CheckboxRow label={supplierCopy.form.sec5.training} note={supplierCopy.form.sec5.trainingNote} tag={{ text: supplierCopy.form.sec5.tagOptional, required: false }} checked={consent.training} onToggle={() => updateConsent({ training: !consent.training })} onChevron={() => router.push({ pathname: '/supplier/guide', params: { section: 's5' } })} chevronLabel={supplierCopy.common.guideLink} />
+              </View>
+              <FieldError message={showErrors && !allRequired ? supplierCopy.form.sec5.error : null} />
+              <Text style={[text.label, text.mid, styles.mt16]}>{supplierCopy.form.sec5.withdraw}</Text>
+            </View>
+            {inlineError ? (
+              <View style={styles.section}>
+                <FieldError message={inlineError} />
+                <View style={styles.mt8}>
+                  <OutlineButton label={supplierCopy.common.retry} onPress={() => void submit()} />
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
+          <BottomBar
+            hint={missingConsents > 0 ? supplierCopy.form.remaining.replace('{n}', String(missingConsents)) : null}
+          >
+            <PrimaryCta
+              label={supplierCopy.form.submit}
+              onPress={() => void submit()}
+              disabled={!allRequired || presigning}
+              onDisabledPress={presigning ? undefined : () => setShowErrors(true)}
+            />
+          </BottomBar>
+        </PageFrame>
+      </SafeAreaView>
+    );
   }
 
   const file = step1.file;
@@ -446,6 +694,8 @@ const styles = StyleSheet.create({
   mt8: { marginTop: space.sm },
   mt12: { marginTop: space.row },
   mt16: { marginTop: space.md },
+  mt24: { marginTop: space.lg },
+  mt32: { marginTop: space.xl },
   mb8: { marginBottom: space.sm },
   gap8: { gap: space.sm },
 });

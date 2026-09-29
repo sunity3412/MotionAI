@@ -532,6 +532,142 @@ export function CodeCard({
   );
 }
 
+// ── 상세 패널 (A-3b · 만료 · A-3c) ─────────────────────────────────────────
+//
+// 1:428 / 1:479 / 1:482 / 1:483 / 1:486 / 1:458 (실패) · 1:498 (완료) 의 **구조**만 가져온다 —
+// 원형은 AI분석 계열 다크 화면이라 색은 라이트 토큰으로 옮긴다(UI-SPEC Figma 참조 표 서두).
+// 원형 X = 링 brand · 원형 체크 = 링 progressGreen. 문구는 전부 호출부가 supplierCopy/supplierRules 로.
+
+function RingIcon({ name, color }: { name: 'close' | 'checkmark'; color: string }) {
+  return (
+    <View style={[s.ring, { borderColor: color }]}>
+      <Ionicons name={name} size={36} color={color} />
+    </View>
+  );
+}
+
+// A-3b 실패 패널 + 만료 패널(리뷰 R4: code·tip 없이). 코드 칩 패딩 4 8(ui-checker flag 10행).
+export function FailurePanel({
+  title,
+  body,
+  code,
+  tip,
+  reuploadLabel,
+  onReupload,
+  backLabel,
+  onBack,
+}: {
+  title: string;
+  body: string;
+  code?: string | null;
+  tip?: { head: string; lines: readonly string[] } | null;
+  reuploadLabel: string;
+  onReupload: () => void;
+  backLabel: string;
+  onBack: () => void;
+}) {
+  return (
+    <View style={s.panel}>
+      <RingIcon name="close" color={colors.brand} />
+      <Text style={[text.title, text.center, s.mt24]} accessibilityRole="header">
+        {title}
+      </Text>
+      <Text style={[text.label, text.mid, text.center, s.mt8]}>{body}</Text>
+      {code ? (
+        <View style={[s.chip, s.mt8]}>
+          <Text style={text.caption}>{code}</Text>
+        </View>
+      ) : null}
+      {tip ? (
+        <View style={[s.panelBlock, s.mt24]}>
+          <TipCard head={tip.head} lines={tip.lines} />
+        </View>
+      ) : null}
+      <View style={[s.panelBlock, s.mt24]}>
+        <PrimaryCta label={reuploadLabel} onPress={onReupload} />
+      </View>
+      <View style={s.mt8}>
+        <TextLink label={backLabel} onPress={onBack} tone="cancel" />
+      </View>
+    </View>
+  );
+}
+
+export type InfoRow = { label: string; value: string };
+
+// A-3c 완료 패널 — 재현성 줄(점수 숫자만 Heading 20/700 brand, UI-SPEC Color accent 5) + 바로 아래
+// 고지(row.self.note, 리뷰 R11 · D-11 — 항상) + 정보 표 + 낮으면 TIP·다시 올리기.
+export function DonePanel({
+  title,
+  selfLine,
+  score,
+  note,
+  info,
+  low,
+  tip,
+  reuploadLabel,
+  onReupload,
+  backLabel,
+  onBack,
+}: {
+  title: string;
+  selfLine: string;
+  score: number | null;
+  note: string;
+  info: readonly InfoRow[];
+  low: boolean;
+  tip: { head: string; lines: readonly string[] };
+  reuploadLabel: string;
+  onReupload: () => void;
+  backLabel: string;
+  onBack: () => void;
+}) {
+  // 숫자 강조는 표시만 — 문구·분기는 supplierRules.selfCheckLine 이 이미 정했다.
+  const scoreText = score != null ? String(score) : null;
+  const at = scoreText ? selfLine.indexOf(scoreText) : -1;
+  return (
+    <View style={s.panel}>
+      <RingIcon name="checkmark" color={colors.progressGreen} />
+      <Text style={[text.title, text.center, s.mt24]} accessibilityRole="header">
+        {title}
+      </Text>
+      <Text style={[text.label, text.mid, text.center, s.mt8]}>
+        {at >= 0 && scoreText ? (
+          <>
+            {selfLine.slice(0, at)}
+            <Text style={[text.heading, s.scoreNum]}>{scoreText}</Text>
+            {selfLine.slice(at + scoreText.length)}
+          </>
+        ) : (
+          selfLine
+        )}
+      </Text>
+      <Text style={[text.label, text.mid, text.center, s.mt4]}>{note}</Text>
+      <View style={[s.card, s.panelBlock, s.mt24]}>
+        {info.map((r, i) => (
+          <View key={r.label} style={[s.infoRow, i < info.length - 1 && s.rowDivider]}>
+            <Text style={[text.label, text.mid]}>{r.label}</Text>
+            <Text style={[text.labelBold, s.infoValue]}>{r.value}</Text>
+          </View>
+        ))}
+      </View>
+      {low ? (
+        <>
+          <View style={[s.panelBlock, s.mt24]}>
+            <TipCard head={tip.head} lines={tip.lines} />
+          </View>
+          <View style={[s.panelBlock, s.mt24]}>
+            <PrimaryCta label={reuploadLabel} onPress={onReupload} />
+          </View>
+        </>
+      ) : null}
+      <View style={s.mt8}>
+        <TextLink label={backLabel} onPress={onBack} tone="cancel" />
+      </View>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   flex: { flex: 1 },
   frame: { flex: 1, width: '100%', maxWidth: 430, alignSelf: 'center', backgroundColor: colors.bg },
@@ -719,4 +855,31 @@ const s = StyleSheet.create({
     gap: space.xs,
   },
   codeBody: { padding: spacing.cardPadding },
+
+  mt24: { marginTop: space.lg },
+  panel: { alignItems: 'center', paddingTop: space.xl },
+  panelBlock: { alignSelf: 'stretch' },
+  ring: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chip: {
+    backgroundColor: colors.softBg,
+    borderRadius: R.chip,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.sm,
+  },
+  scoreNum: { color: colors.brand },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: space.row,
+    paddingVertical: space.row,
+  },
+  infoValue: { flexShrink: 1, textAlign: 'right' },
 });

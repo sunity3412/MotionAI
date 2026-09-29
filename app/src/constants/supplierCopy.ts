@@ -98,6 +98,17 @@ export const supplierCopy = {
     },
     done: {
       title: '등록됐어요',
+      // A-3c 정보 표 라벨(UI-SPEC A-3c "동작 이름 · 선수 · 레벨 · 등록일 · 스플릿/유지/서 있는 시작").
+      // UI-SPEC 이 표의 항목만 정하고 문구 키를 두지 않아 38-10 이 추가 — 값은 `form.sec3.yes/no`.
+      info: {
+        name: '동작 이름',
+        athlete: '선수',
+        level: '레벨',
+        registeredAt: '등록일',
+        split: '스플릿',
+        hold: '유지 구간',
+        stand: '서 있는 시작',
+      },
     },
     // 자기 재현성 줄(D-10). ok 는 리뷰 R11 판 — 높은 점수는 정확도 증명이 아니라
     // 추출·저장·재분석이 일관됐다는 진단이고, note 가 그 아래 항상 붙는다(D-11).

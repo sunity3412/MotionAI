@@ -15,12 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Card,
   CodeCard,
+  DonePanel,
+  FailurePanel,
   GoogleButton,
   GradientHeader,
   GrayCard,
@@ -44,13 +46,21 @@ import { ApiError, probeSupplier } from '../../lib/api';
 import { displayNameOf, useAuthUser } from '../../lib/authUser';
 import { auth } from '../../lib/firebase';
 import { signInWithGoogle } from '../../lib/socialAuth';
-import { useSupplierMotions } from '../../lib/supplierMotions';
+import { useSupplierMotions, useSupplierRegistrationPrivate } from '../../lib/supplierMotions';
 import {
+  expiredCopy,
+  failCopy,
   hasDetail,
+  LEVEL_LABEL_KO,
   mapPresignFailure,
   presignFailureMessage,
   rowSubtitle,
+  SELF_SCORE_OK_MIN,
+  selfCheckLine,
+  selfCheckNote,
   sortNewestFirst,
+  type SupplierMotion,
+  type SupplierMotionPrivate,
 } from '../../lib/supplierRules';
 import { colors } from '../../theme';
 
@@ -87,6 +97,32 @@ async function copyText(value: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// 등록일 `YYYY.MM.DD`(UI-SPEC A-3c). createdAt 0 = 모름 → 대시.
+function formatDate(epochMs: number): string {
+  if (!(epochMs > 0)) return EMPTY_VALUE;
+  const d = new Date(epochMs);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}.${mm}.${dd}`;
+}
+
+// 비공개 doc 로딩 중·값 없음 표시.
+const EMPTY_VALUE = '–';
+
+// 화면에 보이는 재현성 점수(반올림) — selfCheckLine 이 그리는 숫자와 같게: done(또는 상태 없는 옛 doc)
+// 이고 점수가 있을 때만. 낮음 분기(TIP + 다시 올리기)도 이 숫자로 가른다 — 표시와 분기가 같은 숫자.
+function shownSelfScore(m: SupplierMotion): number | null {
+  if (m.selfScore == null) return null;
+  if (m.selfCheckStatus !== 'done' && m.selfCheckStatus !== null) return null;
+  return Math.round(m.selfScore);
+}
+
+// 38-11 올리기 폼이 읽는 프리필 파라미터 계약 — 이름 그대로(name · athleteName · level ·
+// isSplit · hasHold · standingStart). 선언 3 은 비공개 doc 에서(R13) — 아직 못 읽었으면 뺀다.
+function yesNoParam(v: boolean | undefined): '1' | '0' | undefined {
+  return v == null ? undefined : v ? '1' : '0';
 }
 
 function errorStatus(e: unknown): { status: number; code: string | null } {
@@ -215,6 +251,20 @@ export default function SupplierHome() {
   const visible = showAll ? sorted : sorted.slice(0, ROWS_BEFORE_SEE_ALL);
   const anyQueued = sorted.some((m) => m.registrationStatus === 'queued');
 
+  // ── 상세(A-3b · 만료 · A-3c) — URL param `?detail=refId` 로 표현(브라우저 뒤로 = 목록) ──
+  const detailId = typeof params.detail === 'string' && params.detail ? params.detail : null;
+  const detailMotion =
+    probe.kind === 'ok' && detailId ? sorted.find((m) => m.motionId === detailId) ?? null : null;
+  const detailOpen = detailMotion != null && hasDetail(detailMotion);
+  // 비공개 doc 은 상세가 열렸을 때만 1건 구독(R13) — 목록에서는 읽지 않는다.
+  const { priv, loading: privLoading, error: privError } = useSupplierRegistrationPrivate(
+    detailOpen ? detailMotion.motionId : null,
+  );
+  // 남의 doc(permission-denied)이면 목록으로 — 실패 문구로 강등하지 않는다.
+  useEffect(() => {
+    if (privError === 'permission-denied') router.replace('/supplier');
+  }, [privError, router]);
+
   // 방금 올린 행(?justUploaded=refId) — 테두리 brand 3초 + 스크롤(UI-SPEC A-3).
   const justUploaded = typeof params.justUploaded === 'string' ? params.justUploaded : null;
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -234,6 +284,25 @@ export default function SupplierHome() {
 
   const openDetail = (motionId: string) => {
     router.push({ pathname: '/supplier', params: { detail: motionId } });
+  };
+
+  const closeDetail = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/supplier');
+  };
+
+  const reupload = (m: SupplierMotion, p: SupplierMotionPrivate | null) => {
+    router.push({
+      pathname: '/supplier/upload',
+      params: {
+        name: m.name,
+        athleteName: m.athleteName,
+        level: m.level,
+        isSplit: yesNoParam(p?.isSplit),
+        hasHold: yesNoParam(p?.hasHold),
+        standingStart: yesNoParam(p?.standingStart),
+      },
+    });
   };
 
   // ── 화면 결정 ──
@@ -363,6 +432,84 @@ export default function SupplierHome() {
             <View style={styles.mt24}>
               <TextLink label={supplierCopy.common.signOut} onPress={onSignOut} tone="signOut" />
             </View>
+          </ScrollView>
+        </PageFrame>
+      </SafeAreaView>
+    );
+  }
+
+  // ── A-3b · 만료 · A-3c 상세 ──
+  if (detailOpen) {
+    const m = detailMotion;
+    const tip = { head: supplierCopy.row.tipHead, lines: supplierCopy.row.tip };
+    let panel: React.ReactNode;
+    if (m.registrationStatus === 'failed') {
+      if (privLoading) {
+        panel = <View style={styles.skeleton} accessibilityLabel={supplierCopy.noAccess.checking} />;
+      } else {
+        const err = priv?.registrationError;
+        const copy = failCopy(err?.code ?? 'server_error', err?.joints);
+        panel = (
+          <FailurePanel
+            title={copy.title}
+            body={copy.body}
+            code={err?.code ?? 'server_error'}
+            tip={tip}
+            reuploadLabel={supplierCopy.row.reupload}
+            onReupload={() => reupload(m, priv)}
+            backLabel={supplierCopy.common.toList}
+            onBack={closeDetail}
+          />
+        );
+      }
+    } else if (m.registrationStatus === 'expired') {
+      // 리뷰 R4 — 코드 칩·TIP 없이 제목·본문 + 다시 올리기(같은 프리필).
+      const copy = expiredCopy();
+      panel = (
+        <FailurePanel
+          title={copy.title}
+          body={copy.body}
+          reuploadLabel={supplierCopy.row.reupload}
+          onReupload={() => reupload(m, priv)}
+          backLabel={supplierCopy.common.toList}
+          onBack={closeDetail}
+        />
+      );
+    } else {
+      const score = shownSelfScore(m);
+      const info = supplierCopy.row.done.info;
+      const yn = (v: boolean | undefined) =>
+        privLoading || v == null ? EMPTY_VALUE : v ? supplierCopy.form.sec3.yes : supplierCopy.form.sec3.no;
+      panel = (
+        <DonePanel
+          title={supplierCopy.row.done.title}
+          selfLine={selfCheckLine(m)}
+          score={score}
+          note={selfCheckNote()}
+          info={[
+            { label: info.name, value: m.name },
+            { label: info.athlete, value: m.athleteName },
+            { label: info.level, value: LEVEL_LABEL_KO[m.level] },
+            { label: info.registeredAt, value: formatDate(m.createdAt) },
+            { label: info.split, value: yn(priv?.isSplit) },
+            { label: info.hold, value: yn(priv?.hasHold) },
+            { label: info.stand, value: yn(priv?.standingStart) },
+          ]}
+          low={score != null && score < SELF_SCORE_OK_MIN}
+          tip={tip}
+          reuploadLabel={supplierCopy.row.reupload}
+          onReupload={() => reupload(m, priv)}
+          backLabel={supplierCopy.common.toList}
+          onBack={closeDetail}
+        />
+      );
+    }
+    return (
+      <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
+        <PageFrame>
+          <ScrollView contentContainerStyle={styles.pad}>
+            <TopBar onBack={closeDetail} backLabel={supplierCopy.common.back} />
+            {panel}
           </ScrollView>
         </PageFrame>
       </SafeAreaView>
@@ -505,4 +652,11 @@ const styles = StyleSheet.create({
   teal: { color: colors.infoTeal },
   iconCenter: { alignItems: 'center' },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  skeleton: {
+    alignSelf: 'stretch',
+    height: space.lg,
+    borderRadius: space.sm,
+    backgroundColor: colors.softBg,
+    marginTop: space.xl,
+  },
 });

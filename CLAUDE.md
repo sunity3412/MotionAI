@@ -107,13 +107,44 @@ ML 파이프라인 작업   → /ml/ml_CLAUDE.md
   CLAUDE.md → design.md → 착수점(STATE.md stopped_at 이 가리키는 인계서) 읽기 → "현재 상태 요약해줘" 확인
 ```
 
-**모델 선택**
+**모델·난이도(effort) 선택** (2026-09-29 개정. 근거 = platform.claude.com 문서 `effort` · `비용과 지능 최적화` · `모델 개요`, artificialanalysis.ai Opus 5.5 · Fable 5.1 페이지, news.hada.io 34142)
 
 ```
-일반 구현    : claude-sonnet-4-6
-복잡한 설계  : claude-opus-4-6 (필요할 때만)
+기본         : Opus 5.5 + effort high — 메인 세션과 GSD 에이전트 모두
+               (.planning/config.json model_overrides = opus, ~/.claude/settings.json effortLevel = high)
+사다리       : high → max(질문 하나) → Fable 5.1 한 번(같은 질문) → 멈춤. xhigh 는 쓰지 않는다
 UI 빠른 생성 : Codex Sub-Agents
 ```
+
+- **근거 1 — 일반 지능 지수** (Artificial Analysis, 지수 / 과제당 비용):
+  Opus 5.5 medium 51 $1.34 · **high 54 $1.82** · xhigh 56 $3.46 · max 58 $5.98.
+  Fable 5.1 max 53 $7.63 → Opus 5.5 high 가 Fable 최고 설정보다 높고 4배 싸다.
+  그래도 Fable 을 사다리 끝에 두는 이유: 그 칸에서 필요한 건 점수가 아니라 다른 모델의 눈이다
+  (공식 문서도 "높은 effort 의 Opus 5.5 로도 부족할 때 Fable").
+- **근거 2 — 긴 코딩** (Anthropic 문서, SWE-bench Pro, medium 대비):
+  high 비용 1.4배 +2.5점 / xhigh 2.5배 +1.4점 → 코딩에선 xhigh 가 high 보다 낮다.
+  문서 권고: "xhigh 와 max 는 품질 향상을 측정으로 확인한 작업에만".
+- **max 주의**: 한 턴 추론이 출력 한도 128k 를 다 써서 중간에 실패한 사용자 보고가 있다
+  → max 로 올릴 땐 질문 하나로 좁힌다.
+- **Claude Code 의 Opus 5.5 기본값은 medium** (사용자 보고) → settings.json 에 high 를 명시해 둔 이유.
+- **Claude 는 effort·모델을 스스로 못 바꾼다 → 필요하면 belle 에게 요청한다. 요청엔 세 줄을 반드시 붙인다.**
+  belle 는 감으로 판단하지 않고 이 세 줄만 확인한다.
+  ```
+  [난이도 요청] max 한 번 (또는 Fable 한 번) — 범위: 질문 하나
+   1. 정답과 출처: 내가 틀린 말 → 맞는 답, 그 답을 어디서 확인했나 (테스트 / 재측정 / belle 판독)
+   2. 정보: 그 답에 필요한 파일·데이터가 처음부터 내 손에 있었나 (경로)
+   3. 절차: 규칙상 밟을 단계를 다 밟았나 (예: 소비처 추적 했음)
+  ```
+  - 1번이 비었다(정답지 없음) → 부족한지 아무도 모른다. 올리지 않는다.
+  - 2번 "아니오" = 정보 부족 → belle 판정·새 측정. 3번 "아니오" = 절차 실수 → 규칙을 고친다.
+  - 셋 다 통과 = 생각 깊이 부족 → max. max 에서도 같은 질문을 같은 이유로 틀리고 세 줄이 다시 통과
+    = "effort 로도 부족" → Fable 한 번. 그래도 틀리면 멈춘다.
+  - **되돌려 달라**: 올린 작업이 끝나면 Opus 5.5 high 로.
+  - 정답지 없는 중요한 판단(설계 선택 등)은 새 세션·다른 모델에 두 번째 의견을 받아, 갈리는 지점을 확인 대상으로 삼는다.
+  - 올린 뒤엔 도움이 됐는지 메모리 [[effort-request-rule]] 에 한 줄 기록. 3건 쌓이면 이 규칙 재검토.
+- **effort 로 안 풀리는 것**: 같은 축 세 번째 실수(→ 멈추고 belle 판정), belle 눈 판정, Pod 장애.
+- **바꾸는 시점은 작업 단위 경계.** 대화 도중 effort 변경은 프롬프트 캐시를 무효화한다
+  (API 문서. Claude Code `/model` 에 그대로 적용되는지 [미확인]).
 
 ---
 

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,7 +25,7 @@ import type {
   PickFailureAction,
   PickFailureKind,
 } from '../../lib/pickerFailure';
-import { classifyDurationMs } from '../../lib/videoDuration';
+import { classifyDurationMs, pickerDurationMs } from '../../lib/videoDuration';
 import type { AnalysisMode } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
@@ -58,6 +59,13 @@ const MIN_QUALITY_BITRATE_BPS = 6 * 1000 * 1000; // ~6 Mbps 미만 = 과압축 �
 // 56%(15건)가 카톡 압축본 — 파일럿 실패의 최대 단일 원인. pick 시점에 경고로 예방
 // 한다 (하드 차단 아님 — D-06, 파일명은 사용자 제어 advisory 신호).
 const KAKAO_COMPRESSED_MARKER = '_talkv_';
+
+// 38-04 실측 이월 · D-1 — picker duration 단위(웹 = 초, 네이티브 = ms)를 한 번만 ms 로
+// 맞춘다. 길이 검사(validate)와 비트레이트(checkLowQuality)가 같은 값을 쓴다 — 두 곳에서
+// 단위가 갈리지 않게. 근거는 videoDuration.ts pickerDurationMs 주석.
+function assetDurationMs(asset: ImagePicker.ImagePickerAsset): number | null | undefined {
+  return pickerDurationMs(asset.duration, Platform.OS);
+}
 
 // Phase 26-06 (belle 실기기 확인 수정 2) — 카톡 경고 [다른 영상 선택] 후 앨범 재오픈
 // 지연. RN Modal(fade) 닫힘 애니메이션이 끝난 뒤 picker VC 를 띄워야 iOS presentation
@@ -212,7 +220,7 @@ export default function Analyze() {
     if (!ALLOWED.includes(ext)) return 'format';
     if (asset.fileSize != null && asset.fileSize > MAX_BYTES) return 'tooLarge';
     // Phase 38 D-14 — 길이 3~90초. 상수·fail-open 근거(보장 범위)는 videoDuration.ts 헤더.
-    const durationKind = classifyDurationMs(asset.duration);
+    const durationKind = classifyDurationMs(assetDurationMs(asset));
     if (durationKind) return durationKind;
     return null;
   };
@@ -228,8 +236,8 @@ export default function Analyze() {
     if (shortSide > 0 && shortSide < MIN_QUALITY_SHORT_SIDE) {
       return { low: true, reason: `해상도 ${shortSide}p` };
     }
-    const durationSec =
-      asset.duration != null && asset.duration > 0 ? asset.duration / 1000 : 0;
+    const durationMs = assetDurationMs(asset);
+    const durationSec = durationMs != null && durationMs > 0 ? durationMs / 1000 : 0;
     if (asset.fileSize != null && asset.fileSize > 0 && durationSec > 0) {
       const bitrate = (asset.fileSize * 8) / durationSec;
       if (bitrate < MIN_QUALITY_BITRATE_BPS) {

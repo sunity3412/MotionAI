@@ -29,3 +29,21 @@ export function classifyDurationMs(
   if (durationMs > MAX_DURATION_MS) return 'tooLong';
   return null;
 }
+
+// picker duration → ms 단일 변환점 (38-04 실측 이월 · 진단 D-1, 38-10 Task 0).
+//
+// expo-image-picker 의 ImagePickerAsset.duration 단위가 플랫폼마다 다르다:
+//   - iOS/Android: 밀리초.
+//   - 웹: 초 — node_modules/expo-image-picker/build/ExponentImagePicker.web.js
+//     getVideoMetadata() 가 HTMLVideoElement.duration(초)을 그대로 준다(:137).
+// 앱은 ms 로 읽으므로(classifyDurationMs · analyze.tsx 비트레이트) 웹에서는 8초 클립이
+// 8ms 로 읽혀 tooShort 가 됐다(38-04 belle 항목 3 "영상이 너무 짧아요").
+// Platform 은 import 하지 않고 os 를 인자로 받는다 — 이 파일의 node --test 성질 유지.
+// 값 없음/0/NaN/음수는 그대로 흘려 classifyDurationMs 의 fail-open 에 맡긴다.
+export function pickerDurationMs(
+  duration: number | null | undefined,
+  os: string,
+): number | null | undefined {
+  if (duration == null || !(duration > 0)) return duration;
+  return os === 'web' ? duration * 1000 : duration;
+}

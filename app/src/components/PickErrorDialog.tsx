@@ -25,9 +25,9 @@ interface Props {
 }
 
 // 빨간 원 + 흰 느낌표 (Figma 30.33 × 30.33). viewBox 24 기준으로 그리고 크기는
-// 토큰(layout.dialogIconSize)이 정한다.
-function AlertIcon() {
-  const size = layout.dialogIconSize;
+// 토큰(layout.dialogIconSize)이 정한다. Phase 38-10 — 공급자 페이지 안내 알약(Figma 1:399,
+// 24)이 같은 아이콘을 쓰도록 export + size 인자(기본값 = 기존 크기, 이 파일 동작 불변).
+export function AlertIcon({ size = layout.dialogIconSize }: { size?: number } = {}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Circle cx={12} cy={12} r={12} fill={colors.brand} />

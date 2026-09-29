@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!--
+  38-04 후보 (2) 측정 probe — 페이지 구현이 아니다(README.md).
+  같은 4가지(Google 팝업 로그인 · .mov 선택 · presigned PUT · onSnapshot)를
+  후보 (1) web export 와 같은 조건(시뮬레이터 Mobile Safari)에서 재기 위한 최소 화면.
+  디자인 0 — 버튼과 로그뿐.
+-->
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>38-04 probe</title>
+    <style>
+      body { font-family: -apple-system, system-ui, sans-serif; margin: 16px; }
+      button, input { display: block; margin: 12px 0; font-size: 17px; }
+      button { padding: 10px 14px; }
+      pre { white-space: pre-wrap; word-break: break-all; font-size: 13px;
+            background: #f4f4f4; padding: 8px; min-height: 120px; }
+    </style>
+  </head>
+  <body>
+    <h3>38-04 probe (측정 전용)</h3>
+    <button id="login" type="button">1. Google 로그인</button>
+    <label for="file">2. 영상 선택</label>
+    <input id="file" type="file" accept="video/mp4,video/quicktime,.mp4,.mov" />
+    <button id="upload" type="button">3. 업로드</button>
+    <p>4. 업로드 뒤 상태 구독은 자동 — 아래 로그에 status 가 찍힌다.</p>
+    <pre id="log"></pre>
+    <script type="module" src="./probe.js"></script>
+  </body>
+</html>

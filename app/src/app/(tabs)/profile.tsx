@@ -182,11 +182,11 @@ export default function Profile() {
         <View
           style={styles.infoList}
           accessible
-          accessibilityLabel={profileCopy.instructorCode.a11y}
+          accessibilityLabel={profileCopy.instructorCode.a11yEmpty}
         >
           <InfoRow
             label={profileCopy.instructorCode.label}
-            value={profileCopy.instructorCode.value}
+            value={profileCopy.instructorCode.action}
             isLast
           />
         </View>

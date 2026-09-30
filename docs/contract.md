@@ -239,9 +239,16 @@ analysisId  string   본인 소유 분석 건
 `reference/{refId}` doc 선작성. 학생 `POST /upload-url` 과 **별도 함수**(`reference-upload-url`,
 `reference/*` PutObject + Firestore 쓰기 권한이 추가로 필요, 얇은 핸들러 규율).
 
-인증: Firebase ID 토큰 + **공급자 uid 화이트리스트** — SSM `/sunity/motion/supplier-uids`
-(`models.SUPPLIER_UIDS_PARAM_DEFAULT`, 항목 `uid` 또는 `uid:CODE`, `models.parse_supplier_uids`)
-∪ `BELLE_UID`. env 미설정 = 403 (Shared Pattern 2 — 화이트리스트 부재는 거부).
+인증: Firebase ID 토큰(uid · email · email_verified — `auth.verify_request_claims`) + **공급자 명단 판정**
+(quick-260930-lfw, 38-DESIGN-v2 §W1 — probe 와 업로드가 같은 판정을 쓴다):
+1. `suppliers/{uid}` doc 이 **있으면 그 `active` 가 결정**한다(SSM·BELLE_UID 보다 우선 — 회수된 uid 는
+   SSM 에 남아 있어도 막힌다).
+2. doc 이 없으면 SSM `/sunity/motion/supplier-uids`(`models.SUPPLIER_UIDS_PARAM_DEFAULT`, 항목 `uid` 또는
+   `uid:CODE`, `models.parse_supplier_uids`) ∪ `BELLE_UID` — 하위 호환. env 미설정 = 통과 재료 아님.
+3. 그래도 밖이고 토큰 `email_verified == true` 이고 메일이 있으면 `supplierInvites/{email}` 초대 수락을
+   시도한다(pending · 만료 전 → 한 트랜잭션에서 `suppliers/{uid}` · `supplierCodes/{code}` 생성 + 초대
+   accepted). 명단 캐시(60초)가 음성이어도 수락은 매번 시도하고, 수락되면 그 uid 캐시를 바로 갱신한다.
+4. 그래도 밖이면 403 `not_invited`. 명단/수락 Firestore 실패는 500 `server_error`(403 으로 강등하지 않는다).
 
 요청 `ReferenceUploadUrlRequest` (서버 2차 검증 = `validation.validate_reference_upload_request`,
 D-07/D-08/D-14 — 본문에 uid/refId 필드는 없다, 키는 서버가 토큰 uid + 서버 생성 refId 로만 구성)
@@ -261,12 +268,14 @@ fileSizeBytes    number                 > 0, ≤ 100MB (서버 재검증). 실�
 durationSec?     number | null          웹이 metadata 를 못 읽으면 null (fail-open). 있으면 5~30초, 콤보 60초
 ```
 
-`{"probe": true}` 변형 — 화이트리스트 확인만(페이지 진입 게이트, D-12), 부작용 0.
-응답 `SupplierProbeResponse`
+`{"probe": true}` 변형 — 명단 확인만(페이지 진입 게이트, D-12). 초대 수락 말고 부작용 0.
+응답 `SupplierProbeResponse` (quick-260930-lfw: 옛 모양을 넓혔다 — 옛 웹 번들이 supplierCode 를 읽는다)
 ```
 probe          true
 uid            string
-supplierCode   string | null   SUPPLIER_UIDS 의 `uid:CODE`, 없거나 형식 오류면 null
+supplierCode   string | null   suppliers/{uid}.code 또는 SUPPLIER_UIDS 의 `uid:CODE`. 없으면 null
+displayName    string | null   suppliers/{uid}.displayName(초대의 선수 이름). SSM·BELLE_UID 경로는 null
+                               — 옛 서버 응답엔 필드가 없을 수 있어 소비처가 `?? null`
 ```
 
 응답 `ReferenceUploadUrlResponse`
@@ -280,7 +289,8 @@ expiresInSec   number   = models.REFERENCE_UPLOAD_EXPIRES_SEC (900) — doc uplo
 오류
 ```
 401  unauthorized         토큰 없음/무효
-403  forbidden            화이트리스트 밖 (env 미설정 포함)
+403  not_invited          명단 밖·초대 없음/만료/취소/메일 미인증·회수됨 — error.email = 토큰 메일(없으면 null).
+                          옛 `forbidden` 을 대체한다. 원인을 나누지 않는다(화면 하나 — 38-DESIGN-v2 A-2)
 400  bad_request          폼 메타·선언·동의·clipRange 규칙 위반 (message 는 한국어 안내)
 400  unsupported_format   format ∉ mp4/mov (ERROR_MESSAGE 재사용)
 400  size_exceeded        fileSizeBytes > 100MB (ERROR_MESSAGE 재사용)
@@ -461,6 +471,50 @@ firestore.rules 는 38-06 T3 가 기존 `reference/{document=**}` 재귀 와일�
 비공개 reference/{refId}/private/registration  supplierUid · consent · registrationError · techniqueRefId ·
                                             isCombo · isSplit · hasHold · standingStart · clipRange · updatedAt
 ```
+
+### 공급자 명단 · 강사 코드 · 메일 초대 (quick-260930-lfw, 38-DESIGN-v2 §W1)
+
+세 컬렉션 모두 **서버(Admin SDK)만 읽고 쓴다.** 시각은 epoch ms 정수. 상수 = models.py
+`SUPPLIERS_COLLECTION` · `SUPPLIER_CODES_COLLECTION` · `SUPPLIER_INVITES_COLLECTION` ·
+`INVITE_STATUS_*` · `SUPPLIER_INVITE_CODE_RE`. 운영 = `backend/scripts/supplier_invite.py`.
+
+`suppliers/{uid}` — 공급자 명단 정본 (analysis.ts `SupplierDoc`)
+```
+email          string | null     정규화 메일(소문자). SSM 이관 uid 는 Auth 레코드 메일, 없으면 null
+code           string | null     강사 코드. 없으면 null(화면에 코드 줄 없음)
+displayName    string | null     선수 이름(초대의 displayName 또는 Auth 표시 이름)
+active         boolean           false = 회수됨 — SSM·BELLE_UID 에 있어도 막힌다
+since          number (epoch ms) 수락·이관 시각. SSM uid 를 회수만 한 doc 은 {active:false} 만 있다
+```
+
+`supplierCodes/{CODE}` — 코드로 공급자 찾기 (analysis.ts `SupplierCodeDoc`, W2 수강생 코드 입력이 읽는다)
+```
+supplierUid    string
+displayName    string | null
+active         boolean           suppliers/{uid}.active 와 같이 움직인다
+```
+
+`supplierInvites/{email}` — 메일 초대 (doc id = 정규화 메일. 클라이언트가 못 읽으므로 TS 타입 없음)
+```
+email          string
+code           string            새 규칙 A-Z·2-9 4~8자, O·0·I·1·L 금지(SUPPLIER_INVITE_CODE_RE)
+displayName    string            선수 이름
+createdAt      number (epoch ms)
+expiresAt      number (epoch ms) 기본 +14일(SUPPLIER_INVITE_DEFAULT_DAYS), 최대 60일. expiresAt <= now = 만료
+status         'pending' | 'accepted' | 'revoked'
+acceptedUid    string | null     수락한 uid — 회수 뒤에도 이력으로 남는다
+acceptedAt     number | null
+revokedAt?     number            취소(수락 전) 또는 회수(수락 후) 시각
+```
+
+회수·되살리기: `deactivate --uid` 는 한 트랜잭션에서 `suppliers/{uid}.active=false` ·
+`supplierCodes/{code}.active=false` · 그 uid 가 수락한 초대(`acceptedUid == uid`, accepted) → revoked 를
+같이 쓴다. 수락 트랜잭션의 멱등 분기(초대 accepted · acceptedUid 같음)는 `suppliers/{uid}.active == true`
+일 때만 통과하고, active false uid 는 어떤 초대도 수락하지 않는다. 한 번 수락된 메일에는 새 초대를 만들 수
+없다. 되살리기는 `reactivate --uid`(suppliers·supplierCodes active true, 초대는 revoked 그대로)로만 한다.
+
+클라이언트 접근: 지금은 전부 거부(firestore.rules 맨 끝 기본 차단 — 규칙 무변경). `suppliers` 본인 읽기 ·
+`supplierCodes` 로그인 읽기는 W2 규칙에서 연다.
 
 > Phase 14 (Plan 14-01) — techniqueProfile / forceDirectionPattern / captureViews
 > 신설. meanAngles / bodyNormalizationProfile 도 §3 에 명시 (Open-Q3 contract gap

@@ -1388,12 +1388,41 @@ export interface ReferenceUploadUrlResponse {
   expiresInSec: number; // = models.py REFERENCE_UPLOAD_EXPIRES_SEC (doc uploadExpiresAt 과 같은 값)
 }
 
-// `{"probe": true}` 변형 응답 — 화이트리스트 확인만(페이지 진입 게이트, D-12).
+// `{"probe": true}` 변형 응답 — 명단 확인만(페이지 진입 게이트, D-12). quick-260930-lfw:
+// 옛 모양을 넓혔다(contract.md §2). 명단 판정 = suppliers/{uid} 우선 → SSM ∪ BELLE_UID → 초대 수락.
 export interface SupplierProbeResponse {
   probe: true;
   uid: string;
-  supplierCode: string | null; // SUPPLIER_UIDS 의 `uid:CODE` — 코드 없으면 null
+  supplierCode: string | null; // suppliers/{uid}.code 또는 SUPPLIER_UIDS 의 `uid:CODE` — 없으면 null
+  // suppliers/{uid}.displayName. 옛 서버 응답엔 없을 수 있어 소비처가 `?? null`.
+  displayName: string | null;
 }
+
+// 403 not_invited 의 error 객체(contract.md §2) — 명단 밖·초대 없음/만료/취소/메일 미인증·회수됨을
+// 나누지 않는다. email = 토큰 메일(없으면 null). 옛 `forbidden` 을 대체한다.
+export interface SupplierNotInvitedError {
+  code: 'not_invited';
+  message: string;
+  email: string | null;
+}
+
+// `suppliers/{uid}` — 공급자 명단 정본(contract.md §3). W2 규칙에서 본인 읽기를 연다(소비 예정).
+export interface SupplierDoc {
+  email: string | null;
+  code: string | null;
+  displayName: string | null;
+  active: boolean;
+  since?: number; // epoch ms. SSM uid 를 회수만 한 doc 은 {active:false} 만 있다
+}
+
+// `supplierCodes/{code}` — 코드로 공급자 찾기. W2 수강생 강사 코드 입력이 읽는다(소비 예정).
+export interface SupplierCodeDoc {
+  supplierUid: string;
+  displayName: string | null;
+  active: boolean;
+}
+
+// `supplierInvites/{email}` — 초대 doc 은 클라이언트가 읽지 못한다(서버 Admin 전용) → TS 타입을 두지 않는다.
 
 export interface ReferenceMotion {
   motionId: string;

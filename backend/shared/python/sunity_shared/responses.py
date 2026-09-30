@@ -25,9 +25,16 @@ def ok(payload: Any, status: int = 200) -> dict:
     return _resp(status, payload)
 
 
-def error(code: str, message: str, status: int = 400) -> dict:
-    """contract 형태와 동일: { error: { code, message } }."""
-    return _resp(status, {"error": {"code": code, "message": message}})
+def error(code: str, message: str, status: int = 400, extra: dict | None = None) -> dict:
+    """contract 형태와 동일: { error: { code, message, ...extra } }.
+
+    extra 의 키는 error 객체에 합친다 — code·message 는 덮지 못한다(quick-260930-lfw
+    not_invited 의 error.email).
+    """
+    err: dict[str, Any] = {"code": code, "message": message}
+    for key, value in (extra or {}).items():
+        err.setdefault(key, value)
+    return _resp(status, {"error": err})
 
 
 def parse_json_body(event: dict) -> dict:

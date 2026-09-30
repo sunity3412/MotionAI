@@ -88,8 +88,13 @@ def _ensure_firebase():
         _initialized = True
 
 
-def verify_request(event: dict) -> str:
-    """요청에서 Firebase ID 토큰을 검증하고 uid 반환. 실패 시 AuthError."""
+def verify_request_claims(event: dict) -> dict:
+    """ID 토큰 검증 → {"uid", "email", "email_verified"}. 실패 시 AuthError.
+
+    quick-260930-lfw — 공급자 메일 초대가 토큰의 email·email_verified 를 읽는 유일한 입구.
+    email_verified 는 클레임이 정확히 True 일 때만 True(문자열 "true" 등은 False).
+    email 은 문자열이 아니거나 비면 None.
+    """
     token = _bearer_token(event)
     _ensure_firebase()
     from firebase_admin import auth as fb_auth
@@ -101,4 +106,18 @@ def verify_request(event: dict) -> str:
     uid = decoded.get("uid")
     if not uid:
         raise AuthError()
-    return uid
+    email = decoded.get("email")
+    return {
+        "uid": uid,
+        "email": email if isinstance(email, str) and email else None,
+        "email_verified": decoded.get("email_verified") is True,
+    }
+
+
+def verify_request(event: dict) -> str:
+    """요청에서 Firebase ID 토큰을 검증하고 uid 반환. 실패 시 AuthError.
+
+    upload-url · playback-url · reference-api · reference-auto-register · visual-request 가
+    쓴다 — 동작은 그대로(verify_request_claims 의 uid 만 돌려준다).
+    """
+    return verify_request_claims(event)["uid"]

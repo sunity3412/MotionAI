@@ -5113,3 +5113,362 @@ def list_reference_registrations_by_status(status: str) -> list[dict]:
         data.setdefault("motionId", snap.id)
         out.append(data)
     return out
+
+
+# ── quick-260930-lfw (38-DESIGN-v2 §W1) — 공급자 메일 초대 · 명단 · 회수 ──
+#
+# 세 컬렉션(suppliers · supplierCodes · supplierInvites)은 서버(Admin SDK)만 읽고 쓴다 —
+# firestore.rules 맨 끝 기본 차단이 클라이언트를 막는다(플래너 결정 (e)). 시각은 epoch ms
+# 정수(결정 (d)). 모든 입력 메일은 normalize_invite_email 을 거치고, 로그에는 mask_email 만.
+# 트랜잭션은 **모든 read 를 write 보다 먼저** 한다(Firestore 규율 — FakeFirestore 가
+# read_after_write 로 잡는다). 트랜잭션에 create 가 없으므로 존재 여부를 읽은 뒤 set 한다.
+
+_sup_log = logging.getLogger(__name__)
+_DAY_MS = 86_400_000
+
+
+def _check_invite_days(days) -> int:
+    if isinstance(days, bool) or not isinstance(days, int):
+        raise ValueError("days 는 정수여야 해요.")
+    if days < 1 or days > models.SUPPLIER_INVITE_MAX_DAYS:
+        raise ValueError(f"days 는 1~{models.SUPPLIER_INVITE_MAX_DAYS} 사이여야 해요.")
+    return days
+
+
+def get_supplier(uid: str) -> dict | None:
+    """`suppliers/{uid}` doc 또는 None. 핸들러 명단 판정의 첫 재료(결정 (b))."""
+    if not uid:
+        return None
+    return _snap_dict(_doc(models.supplier_path(uid)).get())
+
+
+def accept_supplier_invite(uid: str, email: str, now_ms: int):
+    """토큰 메일의 초대를 수락한다 — 한 트랜잭션. 반환 SupplierEntry | None.
+
+    판정 순서(결정 (h)):
+      ① suppliers/{uid} 가 active False 로 있으면 None — 회수된 uid 는 어떤 초대도 수락하지
+         않는다(되살리기는 reactivate 로만).
+      ② suppliers/{uid} 가 active True 로 이미 있으면 그 entry(쓰기 0 — 기존 공급자를 덮지 않는다).
+      ③ 초대가 accepted 면 acceptedUid == uid 이고 ②에 해당할 때만 멱등 entry. 그 밖은 None.
+         (②에 걸리지 않은 accepted 초대 = suppliers doc 없음 → None.)
+      ④ invite_acceptable 이 아니면 None(없음·만료·취소).
+      ⑤ supplierCodes/{code} 가 다른 uid 것이면 SupplierCodeConflict(쓰기 0).
+      ⑥ suppliers/{uid} · supplierCodes/{code} set + 초대 accepted update.
+    메일이 메일 모양이 아니면 None(초대 doc 이름이 될 수 없다).
+    """
+    from .supplier_invites import (
+        SupplierCodeConflict,
+        SupplierEntry,
+        invite_acceptable,
+        mask_email,
+        normalize_invite_email,
+    )
+
+    if not uid:
+        return None
+    try:
+        email_n = normalize_invite_email(email)
+    except ValueError:
+        return None
+    now = int(now_ms)
+    inv_ref = _doc(models.supplier_invite_path(email_n))
+    sup_ref = _doc(models.supplier_path(uid))
+
+    def _tx(transaction):
+        inv = _snap_dict(inv_ref.get(transaction=transaction))
+        sup = _snap_dict(sup_ref.get(transaction=transaction))
+        code = inv.get("code") if isinstance(inv, dict) else None
+        code_ok = isinstance(code, str) and bool(models.SUPPLIER_INVITE_CODE_RE.match(code))
+        code_ref = _doc(models.supplier_code_path(code)) if code_ok else None
+        code_doc = _snap_dict(code_ref.get(transaction=transaction)) if code_ref is not None else None
+
+        if sup is not None:
+            if sup.get("active") is not True:
+                return None  # ①
+            return SupplierEntry(  # ② (③ 멱등 수락도 여기서 끝난다)
+                code=sup.get("code") if isinstance(sup.get("code"), str) else None,
+                display_name=sup.get(models.SUPPLIER_FIELD_DISPLAY_NAME)
+                if isinstance(sup.get(models.SUPPLIER_FIELD_DISPLAY_NAME), str)
+                else None,
+            )
+        if inv is None or not invite_acceptable(inv, now):
+            return None  # ③ accepted 인데 suppliers doc 없음 · ④
+        if code_doc is not None and code_doc.get("supplierUid") != uid:
+            raise SupplierCodeConflict(code)  # ⑤
+        name = inv.get(models.SUPPLIER_FIELD_DISPLAY_NAME)
+        name = name if isinstance(name, str) and name else None
+        transaction.set(
+            sup_ref,
+            {
+                "email": email_n,
+                "code": code,
+                models.SUPPLIER_FIELD_DISPLAY_NAME: name,
+                "active": True,
+                "since": now,
+            },
+        )
+        transaction.set(
+            code_ref,
+            {"supplierUid": uid, models.SUPPLIER_FIELD_DISPLAY_NAME: name, "active": True},
+        )
+        transaction.update(
+            inv_ref,
+            {
+                "status": models.INVITE_STATUS_ACCEPTED,
+                "acceptedUid": uid,
+                "acceptedAt": now,
+            },
+        )
+        return SupplierEntry(code=code, display_name=name)
+
+    entry = _run_in_transaction(_tx)
+    if entry is not None:
+        _sup_log.info(
+            "accept_supplier_invite ok uid=%s email=%s code=%s",
+            uid,
+            mask_email(email_n),
+            entry.code,
+        )
+    return entry
+
+
+def create_supplier_invite(
+    email: str,
+    code: str,
+    display_name: str,
+    days: int = models.SUPPLIER_INVITE_DEFAULT_DAYS,
+    now_ms: int | None = None,
+) -> dict:
+    """`supplierInvites/{email}` pending 초대를 만든다. 반환 = 쓴 doc.
+
+    거부(ValueError, 쓰기 0): 코드·메일 규칙 위반 · supplierCodes/{code} 이미 있음 · 다른 메일의
+    pending 초대가 같은 코드 · 같은 메일 pending(extend 를 쓴다) · 같은 메일에 acceptedUid 가
+    있음(accepted 든 회수로 revoked 든 — 결정 (h): 재초대 길 없음, 되살리기는 reactivate).
+    수락 전에 취소된 초대(acceptedUid 없음)는 새 pending 으로 덮어쓴다.
+
+    검사는 트랜잭션 밖 사전 조회다 — 초대를 만드는 사람은 운영자 1명(터미널 스크립트)이라
+    동시 create 경합은 무시한다. 수락 쪽 코드 충돌은 accept 트랜잭션이 다시 막는다(⑤).
+    """
+    from .supplier_invites import mask_email, normalize_invite_email, validate_invite_code
+
+    email_n = normalize_invite_email(email)
+    code_n = validate_invite_code(code)
+    name = display_name.strip() if isinstance(display_name, str) else ""
+    if not name or len(name) > models.REFERENCE_NAME_MAX_LEN:
+        raise ValueError(f"이름은 1~{models.REFERENCE_NAME_MAX_LEN}자여야 해요.")
+    days_n = _check_invite_days(days)
+    now = int(now_ms if now_ms is not None else _now_ms())
+
+    if _snap_dict(_doc(models.supplier_code_path(code_n)).get()) is not None:
+        raise ValueError(f"코드 {code_n} 는 이미 쓰이고 있어요.")
+    same_code = _collection(models.SUPPLIER_INVITES_COLLECTION).where(
+        filter=_field_filter("code", "==", code_n)
+    )
+    for snap in same_code.stream():
+        other = snap.to_dict() or {}
+        if snap.id != email_n and other.get("status") == models.INVITE_STATUS_PENDING:
+            raise ValueError(f"코드 {code_n} 는 다른 메일의 대기 중 초대가 쓰고 있어요.")
+    existing = _snap_dict(_doc(models.supplier_invite_path(email_n)).get())
+    if existing is not None:
+        if existing.get("acceptedUid"):
+            raise ValueError(
+                "이미 수락된 메일이에요 — 새 초대를 만들 수 없어요. "
+                "권한을 되살리려면 reactivate --uid 를 쓰세요."
+            )
+        if existing.get("status") == models.INVITE_STATUS_PENDING:
+            raise ValueError("이 메일에는 대기 중인 초대가 있어요 — extend 를 쓰세요.")
+
+    doc = {
+        "email": email_n,
+        "code": code_n,
+        models.SUPPLIER_FIELD_DISPLAY_NAME: name,
+        "createdAt": now,
+        "expiresAt": now + days_n * _DAY_MS,
+        "status": models.INVITE_STATUS_PENDING,
+        "acceptedUid": None,
+        "acceptedAt": None,
+    }
+    _doc(models.supplier_invite_path(email_n)).set(doc)
+    _sup_log.info(
+        "create_supplier_invite ok email=%s code=%s days=%s", mask_email(email_n), code_n, days_n
+    )
+    return doc
+
+
+def extend_supplier_invite(email: str, days: int, now_ms: int | None = None) -> dict:
+    """pending 초대의 만료를 now + days 로 옮긴다. 다른 상태·없음은 ValueError(쓰기 0)."""
+    from .supplier_invites import normalize_invite_email
+
+    email_n = normalize_invite_email(email)
+    days_n = _check_invite_days(days)
+    now = int(now_ms if now_ms is not None else _now_ms())
+    ref = _doc(models.supplier_invite_path(email_n))
+    inv = _snap_dict(ref.get())
+    if inv is None:
+        raise ValueError("초대가 없어요.")
+    if inv.get("status") != models.INVITE_STATUS_PENDING:
+        raise ValueError(f"대기 중인 초대만 연장할 수 있어요(지금 {inv.get('status')}).")
+    expires = now + days_n * _DAY_MS
+    ref.update({"expiresAt": expires})
+    inv["expiresAt"] = expires
+    return inv
+
+
+def revoke_supplier_invite(email: str, now_ms: int | None = None) -> dict:
+    """pending 초대를 revoked 로. 수락된 초대는 ValueError('권한 회수는 deactivate')."""
+    from .supplier_invites import normalize_invite_email
+
+    email_n = normalize_invite_email(email)
+    ref = _doc(models.supplier_invite_path(email_n))
+    inv = _snap_dict(ref.get())
+    if inv is None:
+        raise ValueError("초대가 없어요.")
+    status = inv.get("status")
+    if status == models.INVITE_STATUS_ACCEPTED:
+        raise ValueError("이미 수락된 초대예요 — 권한 회수는 deactivate --uid 를 쓰세요.")
+    if status != models.INVITE_STATUS_PENDING:
+        raise ValueError(f"대기 중인 초대만 취소할 수 있어요(지금 {status}).")
+    now = int(now_ms if now_ms is not None else _now_ms())
+    ref.update({"status": models.INVITE_STATUS_REVOKED, "revokedAt": now})
+    inv.update({"status": models.INVITE_STATUS_REVOKED, "revokedAt": now})
+    return inv
+
+
+def _list_collection(name: str, id_field: str) -> list[dict]:
+    out: list[dict] = []
+    for snap in _collection(name).order_by("__name__").stream():
+        data = snap.to_dict() or {}
+        data.setdefault(id_field, snap.id)
+        out.append(data)
+    return out
+
+
+def list_supplier_invites() -> list[dict]:
+    """초대 전체(운영 스크립트 list 전용 — 건수 = 읽기 수)."""
+    return _list_collection(models.SUPPLIER_INVITES_COLLECTION, "email")
+
+
+def list_suppliers() -> list[dict]:
+    """공급자 명단 전체(운영 스크립트 list 전용). 각 dict 에 uid 를 붙인다."""
+    return _list_collection(models.SUPPLIERS_COLLECTION, "uid")
+
+
+def upsert_supplier(
+    uid: str,
+    *,
+    email: str | None,
+    code: str | None,
+    display_name: str | None,
+    active: bool,
+    since_ms: int,
+) -> bool:
+    """`suppliers/{uid}` 와(코드가 있으면) `supplierCodes/{code}` 를 만든다 — 이관(migrate-ssm) 전용.
+
+    이미 있으면 **한 글자도 바꾸지 않고** False(재실행 안전). 코드는 옛 규칙
+    SUPPLIER_CODE_RE(결정 (c) — SSM 의 BELLE 에 L 이 있다). 코드 doc 이 다른 uid 것이면
+    SupplierCodeConflict.
+    """
+    from .supplier_invites import SupplierCodeConflict, normalize_invite_email
+
+    if not uid:
+        raise ValueError("uid 가 필요해요.")
+    if code is not None and not models.SUPPLIER_CODE_RE.match(code):
+        raise ValueError("코드 형식이 아니에요.")
+    email_n = normalize_invite_email(email) if email else None
+    name = display_name if isinstance(display_name, str) and display_name else None
+    sup_ref = _doc(models.supplier_path(uid))
+    code_ref = _doc(models.supplier_code_path(code)) if code else None
+
+    def _tx(transaction):
+        sup = _snap_dict(sup_ref.get(transaction=transaction))
+        code_doc = _snap_dict(code_ref.get(transaction=transaction)) if code_ref is not None else None
+        if sup is not None:
+            return False
+        if code_doc is not None and code_doc.get("supplierUid") != uid:
+            raise SupplierCodeConflict(code)
+        transaction.set(
+            sup_ref,
+            {
+                "email": email_n,
+                "code": code,
+                models.SUPPLIER_FIELD_DISPLAY_NAME: name,
+                "active": bool(active),
+                "since": int(since_ms),
+            },
+        )
+        if code_ref is not None and code_doc is None:
+            transaction.set(
+                code_ref,
+                {"supplierUid": uid, models.SUPPLIER_FIELD_DISPLAY_NAME: name, "active": bool(active)},
+            )
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+def set_supplier_active(uid: str, active: bool, now_ms: int | None = None) -> dict:
+    """공급자 권한 회수(False) · 되살리기(True) — 한 트랜잭션. 반환 {code, revokedInvite}.
+
+    False(deactivate, S9): suppliers/{uid} 가 없으면 {active: False} 로 만든다(SSM 에만 있는
+    uid 를 막기 위해 — doc 이 SSM 보다 우선, 결정 (b)). 있으면 active False. code 가 있으면
+    supplierCodes/{code}.active False. doc 의 email 로 찾은 초대가 accepted 이고 acceptedUid ==
+    uid 면 {status: revoked, revokedAt} — acceptedUid·acceptedAt 은 이력으로 남긴다(결정 (h)).
+    True(reactivate): suppliers/{uid} 가 없으면 ValueError. active True, 코드 doc active True.
+    초대 doc 은 건드리지 않는다(revoked 로 남는다 — 되살리기의 유일한 길).
+    """
+    from .supplier_invites import mask_email, normalize_invite_email
+
+    if not uid:
+        raise ValueError("uid 가 필요해요.")
+    now = int(now_ms if now_ms is not None else _now_ms())
+    sup_ref = _doc(models.supplier_path(uid))
+
+    def _tx(transaction):
+        sup = _snap_dict(sup_ref.get(transaction=transaction))
+        code = sup.get("code") if isinstance(sup, dict) and isinstance(sup.get("code"), str) else None
+        code_ref = _doc(models.supplier_code_path(code)) if code else None
+        code_doc = _snap_dict(code_ref.get(transaction=transaction)) if code_ref is not None else None
+        inv_ref = None
+        inv = None
+        if not active and isinstance(sup, dict) and sup.get("email"):
+            try:
+                inv_ref = _doc(models.supplier_invite_path(normalize_invite_email(sup["email"])))
+            except ValueError:
+                inv_ref = None
+            inv = _snap_dict(inv_ref.get(transaction=transaction)) if inv_ref is not None else None
+
+        if active:
+            if sup is None:
+                raise ValueError("되살릴 공급자가 없어요(suppliers doc 없음).")
+            transaction.update(sup_ref, {"active": True})
+            if code_doc is not None:
+                transaction.update(code_ref, {"active": True})
+            return {"code": code, "revokedInvite": None}
+
+        if sup is None:
+            transaction.set(sup_ref, {"active": False})
+        else:
+            transaction.update(sup_ref, {"active": False})
+        if code_doc is not None:
+            transaction.update(code_ref, {"active": False})
+        revoked = None
+        if (
+            inv is not None
+            and inv.get("status") == models.INVITE_STATUS_ACCEPTED
+            and inv.get("acceptedUid") == uid
+        ):
+            transaction.update(
+                inv_ref, {"status": models.INVITE_STATUS_REVOKED, "revokedAt": now}
+            )
+            revoked = mask_email(inv.get("email") or sup.get("email"))
+        return {"code": code, "revokedInvite": revoked}
+
+    out = _run_in_transaction(_tx)
+    _sup_log.info(
+        "set_supplier_active uid=%s active=%s code=%s revoked_invite=%s",
+        uid,
+        bool(active),
+        out.get("code"),
+        out.get("revokedInvite"),
+    )
+    return out

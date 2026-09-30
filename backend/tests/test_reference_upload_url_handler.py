@@ -7,8 +7,13 @@
     URL 이 응답에 실리지 않는다(고아 객체 없음, R4). uploadExpiresAt = 서명 만료와 같은 상수.
   · 본문의 uid/refId 는 절대 읽지 않는다(V4) — 키·doc 은 토큰 uid + 서버 uuid4 hex 만.
   · 서명은 upload 키(`reference/{uid}/{refId}/upload.{ext}`)에만(R5).
-외부 호출 0 — verify_request / _load_supplier_map / _s3 / create_reference_registration /
-boto3.client("ssm") 전부 monkeypatch(test_reference_auto_register_handler.py 어법).
+외부 호출 0 — verify_request_claims / _load_supplier_map / _s3 / create_reference_registration /
+get_supplier / accept_supplier_invite / boto3.client("ssm") 전부 monkeypatch
+(test_reference_auto_register_handler.py 어법). 픽스처가 FIREBASE_SA_* env 를 지우고
+firestore_admin._db 를 막아 둔다 — 셸에 SA 경로가 있어도 실 Firestore 에 닿지 않는다.
+
+quick-260930-lfw(38-DESIGN-v2 §W1): 403 은 `not_invited`(error.email = 토큰 메일) 하나.
+명단 판정 = suppliers/{uid} doc 우선 → SSM ∪ BELLE_UID → 검증 메일이면 초대 수락.
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ import pytest
 from sunity_shared import models
 from sunity_shared.s3keys import build_reference_upload_key
 from sunity_shared.validation import ReferenceUploadRequest, validate_analysis_id_format
+from tests.phase31.conftest import fake_firestore  # noqa: F401 — 픽스처 재등록(디렉터리 밖)
 
 _HANDLER_DIR = Path(__file__).resolve().parents[1] / "functions" / "reference-upload-url"
 _UPLOAD_URL_DIR = Path(__file__).resolve().parents[1] / "functions" / "upload-url"
@@ -53,10 +59,17 @@ def handler_module(monkeypatch):
     monkeypatch.setenv("BELLE_UID", "belle-uid-001")
     monkeypatch.setenv("SUPPLIER_UIDS_PARAM", "/sunity/motion/supplier-uids-test")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "ap-northeast-2")
+    for var in ("FIREBASE_SA_PATH", "FIREBASE_SA_JSON", "FIREBASE_SA_PARAM"):
+        monkeypatch.delenv(var, raising=False)
     if "app" in sys.modules:
         del sys.modules["app"]
     import app  # noqa: PLC0415 — 동적 import 의도.
 
+    def _no_real_firestore():
+        raise AssertionError("테스트가 실 Firestore 에 닿으려 했다")
+
+    monkeypatch.setattr(app.firestore_admin, "_db", _no_real_firestore)
+    app._roster_cache.clear()
     yield app
     if "app" in sys.modules:
         del sys.modules["app"]
@@ -97,15 +110,44 @@ class _FakeCreate:
             raise self.raise_exc
 
 
+def _claims(uid, email=None, verified=False):
+    return {"uid": uid, "email": email, "email_verified": verified}
+
+
+class _Recorder:
+    """호출 인자를 기록하고 정해 둔 값을 돌려준다(예외면 던진다)."""
+
+    def __init__(self, result=None) -> None:
+        self.result = result
+        self.calls: list[tuple] = []
+
+    def __call__(self, *args, **kwargs):
+        self.calls.append(args)
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
 def _wire(app, monkeypatch, *, uid="u1", supplier_map=None, belle_uid=None,
-          presign_fail=False, create_exc=None):
-    """인증·화이트리스트·S3·Firestore 를 한 번에 붙인다. 반환 (events, s3, create)."""
+          presign_fail=False, create_exc=None, email=None, verified=False,
+          supplier_doc=None, accept_result=None):
+    """인증·명단·S3·Firestore 를 한 번에 붙인다. 반환 (events, s3, create).
+
+    get_supplier(기본 None)·accept_supplier_invite(기본 None) 는 `app._get_supplier_stub`·
+    `app._accept_stub` 로 꺼내 호출을 셀 수 있다.
+    """
     if supplier_map is None:
         supplier_map = {"u1": "EUNJI", "u2": None}
     if belle_uid is not None:
         monkeypatch.setattr(app, "_BELLE_UID", belle_uid)
-    monkeypatch.setattr(app, "verify_request", lambda evt: uid)
+    monkeypatch.setattr(app, "verify_request_claims", lambda evt: _claims(uid, email, verified))
     monkeypatch.setattr(app, "_load_supplier_map", lambda: dict(supplier_map))
+    get_stub = _Recorder(supplier_doc)
+    accept_stub = _Recorder(accept_result)
+    monkeypatch.setattr(app.firestore_admin, "get_supplier", get_stub)
+    monkeypatch.setattr(app.firestore_admin, "accept_supplier_invite", accept_stub)
+    app._get_supplier_stub = get_stub
+    app._accept_stub = accept_stub
     events: list[str] = []
     s3 = _FakeS3(events, raise_exc=presign_fail)
     create = _FakeCreate(events, raise_exc=create_exc)
@@ -123,7 +165,7 @@ def test_auth_error_returns_401(handler_module, monkeypatch):
     def _raise(_evt):
         raise AuthError("인증이 필요합니다.")
 
-    monkeypatch.setattr(handler_module, "verify_request", _raise)
+    monkeypatch.setattr(handler_module, "verify_request_claims", _raise)
     resp = handler_module.lambda_handler({"headers": {}, "body": "{}"}, None)
     assert resp["statusCode"] == 401
     assert json.loads(resp["body"])["error"]["code"] == "unauthorized"
@@ -133,7 +175,7 @@ def test_empty_whitelist_and_no_belle_uid_returns_403(handler_module, monkeypatc
     events, s3, create = _wire(handler_module, monkeypatch, uid="u1", supplier_map={}, belle_uid="")
     resp = handler_module.lambda_handler(_bearer_event({"probe": True}), None)
     assert resp["statusCode"] == 403
-    assert json.loads(resp["body"])["error"]["code"] == "forbidden"
+    assert json.loads(resp["body"])["error"]["code"] == "not_invited"
     assert events == []
 
 
@@ -142,9 +184,9 @@ def test_uid_not_in_whitelist_returns_403(handler_module, monkeypatch, caplog):
     with caplog.at_level(logging.WARNING):
         resp = handler_module.lambda_handler(_bearer_event(OK_BODY), None)
     assert resp["statusCode"] == 403
-    assert json.loads(resp["body"])["error"]["code"] == "forbidden"
+    assert json.loads(resp["body"])["error"]["code"] == "not_invited"
     assert events == []
-    assert any("forbidden" in r.getMessage() and "u9" in r.getMessage() for r in caplog.records)
+    assert any("not_invited" in r.getMessage() and "u9" in r.getMessage() for r in caplog.records)
 
 
 def test_belle_uid_passes_without_map_entry(handler_module, monkeypatch):
@@ -152,17 +194,24 @@ def test_belle_uid_passes_without_map_entry(handler_module, monkeypatch):
     resp = handler_module.lambda_handler(_bearer_event({"probe": True}), None)
     assert resp["statusCode"] == 200
     body = json.loads(resp["body"])
-    assert body == {"probe": True, "uid": "belle-uid-001", "supplierCode": None}
+    assert body == {"probe": True, "uid": "belle-uid-001", "supplierCode": None, "displayName": None}
 
 
-def test_is_supplier_pure_rules(handler_module, monkeypatch):
+def test_roster_rules_via_authorize(handler_module, monkeypatch):
+    """옛 _is_supplier 규칙이 roster_decision 경로에서 그대로 유지된다(doc 없음일 때)."""
+    _wire(handler_module, monkeypatch)
+    auth = handler_module._authorize
     monkeypatch.setattr(handler_module, "_BELLE_UID", "")
-    assert handler_module._is_supplier("u1", {}) is False
-    assert handler_module._is_supplier("u1", {"u1": None}) is True
-    assert handler_module._is_supplier("", {}) is False  # env 미설정 = 빈 uid 도 통과 재료 아님
+    assert auth(_claims("u1"), {}) is None
+    handler_module._roster_cache.clear()
+    assert auth(_claims("u1"), {"u1": None}) is not None
+    handler_module._roster_cache.clear()
+    assert auth(_claims(""), {}) is None  # env 미설정 = 빈 uid 도 통과 재료 아님
     monkeypatch.setattr(handler_module, "_BELLE_UID", "belle-uid-001")
-    assert handler_module._is_supplier("belle-uid-001", {}) is True
-    assert handler_module._is_supplier("u9", {"u1": "EUNJI"}) is False
+    handler_module._roster_cache.clear()
+    assert auth(_claims("belle-uid-001"), {}) is not None
+    handler_module._roster_cache.clear()
+    assert auth(_claims("u9"), {"u1": "EUNJI"}) is None
 
 
 # ─────────────────── probe (D-12) ───────────────────
@@ -172,7 +221,9 @@ def test_probe_returns_whitelist_verdict_and_code_without_side_effects(handler_m
     events, s3, create = _wire(handler_module, monkeypatch, uid="u1")
     resp = handler_module.lambda_handler(_bearer_event({"probe": True}), None)
     assert resp["statusCode"] == 200
-    assert json.loads(resp["body"]) == {"probe": True, "uid": "u1", "supplierCode": "EUNJI"}
+    assert json.loads(resp["body"]) == {
+        "probe": True, "uid": "u1", "supplierCode": "EUNJI", "displayName": None,
+    }
     assert events == []
     assert s3.calls == [] and create.calls == []
 
@@ -374,12 +425,22 @@ def test_load_supplier_map_ssm_failure_returns_empty_and_warns_without_value(
 def test_ssm_failure_end_to_end_denies_all_but_belle(handler_module, monkeypatch):
     ssm = _FakeSSM(exc=RuntimeError("AccessDenied"))
     _wire_ssm(handler_module, monkeypatch, ssm)
-    monkeypatch.setattr(handler_module, "verify_request", lambda evt: "u1")
+    monkeypatch.setattr(handler_module.firestore_admin, "get_supplier", lambda uid: None)
+    accept_calls = []
+    monkeypatch.setattr(
+        handler_module.firestore_admin,
+        "accept_supplier_invite",
+        lambda *a: accept_calls.append(a),
+    )
+    monkeypatch.setattr(handler_module, "verify_request_claims", lambda evt: _claims("u1"))
     resp = handler_module.lambda_handler(_bearer_event({"probe": True}), None)
     assert resp["statusCode"] == 403
-    monkeypatch.setattr(handler_module, "verify_request", lambda evt: "belle-uid-001")
+    monkeypatch.setattr(
+        handler_module, "verify_request_claims", lambda evt: _claims("belle-uid-001")
+    )
     resp = handler_module.lambda_handler(_bearer_event({"probe": True}), None)
     assert resp["statusCode"] == 200
+    assert accept_calls == []  # 메일 미인증 claims — 수락 시도 0
 
 
 # ─────────────────── 모듈 상수 · requirements ───────────────────
@@ -394,3 +455,146 @@ def test_requirements_txt_copies_upload_url(handler_module):
     ours = (_HANDLER_DIR / "requirements.txt").read_text(encoding="utf-8")
     theirs = (_UPLOAD_URL_DIR / "requirements.txt").read_text(encoding="utf-8")
     assert ours == theirs
+
+
+# ─────────────────── quick-260930-lfw — 메일 초대 · not_invited · 회수 ───────────────────
+
+X_MAIL = "x@y.com"
+
+
+def _probe(app):
+    resp = app.lambda_handler(_bearer_event({"probe": True}), None)
+    return resp["statusCode"], json.loads(resp["body"])
+
+
+def test_probe_supplier_doc_active_returns_display_name(handler_module, monkeypatch):
+    _wire(handler_module, monkeypatch, uid="u7", supplier_map={},
+          supplier_doc={"active": True, "code": "MXKR", "displayName": "정은지"})
+    status, body = _probe(handler_module)
+    assert status == 200
+    assert body == {"probe": True, "uid": "u7", "supplierCode": "MXKR", "displayName": "정은지"}
+    assert handler_module._accept_stub.calls == []
+
+
+def test_probe_ssm_only_returns_code_and_null_name(handler_module, monkeypatch):
+    _wire(handler_module, monkeypatch, uid="u8", supplier_map={"u8": "BELLE"})
+    status, body = _probe(handler_module)
+    assert status == 200
+    assert body["supplierCode"] == "BELLE" and body["displayName"] is None
+
+
+def test_inactive_doc_overrides_ssm(handler_module, monkeypatch):
+    _wire(handler_module, monkeypatch, uid="u8", supplier_map={"u8": "BELLE"},
+          supplier_doc={"active": False})
+    status, body = _probe(handler_module)
+    assert status == 403 and body["error"]["code"] == "not_invited"
+
+
+def test_verified_email_accepts_then_cache_serves_second_call(handler_module, monkeypatch):
+    from sunity_shared.supplier_invites import SupplierEntry
+
+    _wire(handler_module, monkeypatch, uid="u9", supplier_map={}, email=X_MAIL, verified=True,
+          accept_result=SupplierEntry("QZTEST", "시험"))
+    status, body = _probe(handler_module)
+    assert status == 200
+    assert body == {"probe": True, "uid": "u9", "supplierCode": "QZTEST", "displayName": "시험"}
+    assert handler_module._accept_stub.calls[0][:2] == ("u9", X_MAIL)
+    status2, _ = _probe(handler_module)
+    assert status2 == 200
+    assert len(handler_module._get_supplier_stub.calls) == 1  # 수락 직후 캐시 갱신
+    assert len(handler_module._accept_stub.calls) == 1
+
+
+def test_negative_cache_does_not_block_new_invite(handler_module, monkeypatch):
+    """W3 — 첫 호출 403(캐시에 None) → 초대가 생김 → TTL 전 두 번째 호출 200."""
+    from sunity_shared.supplier_invites import SupplierEntry
+
+    _wire(handler_module, monkeypatch, uid="u9", supplier_map={}, email=X_MAIL, verified=True)
+    status, _ = _probe(handler_module)
+    assert status == 403
+    handler_module._accept_stub.result = SupplierEntry("QZTEST", "시험")
+    status, body = _probe(handler_module)
+    assert status == 200 and body["supplierCode"] == "QZTEST"
+    assert len(handler_module._get_supplier_stub.calls) == 1
+    assert len(handler_module._accept_stub.calls) == 2
+
+
+def test_unverified_email_never_accepts_and_403_carries_email(handler_module, monkeypatch):
+    _wire(handler_module, monkeypatch, uid="u9", supplier_map={}, email=X_MAIL, verified=False)
+    status, body = _probe(handler_module)
+    assert status == 403
+    assert body == {"error": {"code": "not_invited", "message": models.SUPPLIER_NOT_INVITED_MESSAGE,
+                              "email": X_MAIL}}
+    assert handler_module._accept_stub.calls == []
+
+
+def test_no_email_claim_403_email_null(handler_module, monkeypatch):
+    _wire(handler_module, monkeypatch, uid="u9", supplier_map={}, email=None, verified=True)
+    status, body = _probe(handler_module)
+    assert status == 403 and body["error"]["email"] is None
+    assert handler_module._accept_stub.calls == []
+
+
+def test_get_supplier_failure_is_500_not_403(handler_module, monkeypatch):
+    _wire(handler_module, monkeypatch, uid="u9", supplier_map={},
+          supplier_doc=RuntimeError("firestore down"))
+    status, body = _probe(handler_module)
+    assert status == 500 and body["error"]["code"] == "server_error"
+
+
+def test_accept_code_conflict_is_500(handler_module, monkeypatch):
+    from sunity_shared.supplier_invites import SupplierCodeConflict
+
+    _wire(handler_module, monkeypatch, uid="u9", supplier_map={}, email=X_MAIL, verified=True,
+          accept_result=SupplierCodeConflict("MXKR"))
+    status, body = _probe(handler_module)
+    assert status == 500 and body["error"]["code"] == "server_error"
+
+
+def test_upload_uses_accepted_entry_code(handler_module, monkeypatch):
+    from sunity_shared.supplier_invites import SupplierEntry
+
+    events, s3, create = _wire(handler_module, monkeypatch, uid="u9", supplier_map={},
+                               email=X_MAIL, verified=True,
+                               accept_result=SupplierEntry("QZTEST", "시험"))
+    resp = handler_module.lambda_handler(_bearer_event(OK_BODY), None)
+    assert resp["statusCode"] == 200
+    assert create.calls[0]["supplier_code"] == "QZTEST"
+
+
+def test_not_invited_log_masks_email(handler_module, monkeypatch, caplog):
+    _wire(handler_module, monkeypatch, uid="u9", supplier_map={}, email=X_MAIL, verified=True)
+    with caplog.at_level(logging.INFO):
+        _probe(handler_module)
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "x***@y.com" in text
+    assert X_MAIL not in text
+
+
+def test_deactivate_reactivate_end_to_end_on_fake_firestore(handler_module, monkeypatch, fake_firestore):
+    """BLOCKER 1 — 진짜 firestore_admin 함수로: 수락 → 회수 → 403(초대 revoked) → 되살리기 → 200."""
+    import time as _time
+
+    fa = handler_module.firestore_admin
+    now = [int(_time.time() * 1000)]  # 핸들러가 수락 시각으로 실제 시계를 쓴다
+    monkeypatch.setattr(fa, "_now_ms", lambda: now[0])
+    monkeypatch.setattr(handler_module, "_load_supplier_map", lambda: {})
+    monkeypatch.setattr(
+        handler_module, "verify_request_claims", lambda evt: _claims("u9", X_MAIL, True)
+    )
+    fa.create_supplier_invite(X_MAIL, "QZTEST", "시험", days=14, now_ms=now[0] - 1000)
+
+    status, body = _probe(handler_module)
+    assert status == 200 and body["supplierCode"] == "QZTEST"
+
+    handler_module._roster_cache.clear()
+    fa.set_supplier_active("u9", False)
+    status, body = _probe(handler_module)
+    assert status == 403 and body["error"]["code"] == "not_invited"
+    assert fake_firestore.store[models.supplier_invite_path(X_MAIL)]["status"] == "revoked"
+
+    handler_module._roster_cache.clear()
+    fa.set_supplier_active("u9", True)
+    status, body = _probe(handler_module)
+    assert status == 200 and body["supplierCode"] == "QZTEST"
+    assert fake_firestore.read_after_write_seen is False

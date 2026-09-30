@@ -980,6 +980,40 @@ CONSENT_VERSION = "2026-09-26"
 SUPPLIER_CODE_RE = re.compile(r"^[A-Z0-9]{3,8}$")
 SUPPLIER_UIDS_PARAM_DEFAULT = "/sunity/motion/supplier-uids"
 
+# ── quick-260930-lfw — 공급자 메일 초대 (38-DESIGN-v2 §W1 데이터) ──
+# 새 초대 코드 규칙: 대문자 A-Z·2-9, 4~8자, O·0·I·1·L 금지(Classting 이 오타 원인으로 짚음,
+# 리서치 [확인]). **새로 만드는 초대에만** 건다. SSM 에서 옮기는 옛 코드(예: BELLE — L 포함)는
+# 위 SUPPLIER_CODE_RE 로 그대로 받는다(플래너 결정 (c)).
+SUPPLIER_INVITE_CODE_RE = re.compile(r"^[A-HJKMNP-Z2-9]{4,8}$")
+SUPPLIER_INVITE_DEFAULT_DAYS = 14
+SUPPLIER_INVITE_MAX_DAYS = 60
+INVITE_STATUS_PENDING = "pending"
+INVITE_STATUS_ACCEPTED = "accepted"
+INVITE_STATUS_REVOKED = "revoked"
+INVITE_STATUSES = (INVITE_STATUS_PENDING, INVITE_STATUS_ACCEPTED, INVITE_STATUS_REVOKED)
+# 403 하나 — 명단 밖·초대 없음/만료/취소/메일 미인증·회수됨을 나누지 않는다(리서치 권고).
+# 응답 error.email = 토큰 메일(없으면 null). 옛 `forbidden` 코드를 대체한다.
+SUPPLIER_ERR_NOT_INVITED = "not_invited"
+SUPPLIER_NOT_INVITED_MESSAGE = "초대받은 계정만 쓸 수 있어요."
+# 컬렉션 3 — 서버(Admin SDK)만 읽고 쓴다(firestore.rules 기본 차단, 플래너 결정 (e)).
+SUPPLIERS_COLLECTION = "suppliers"  # suppliers/{uid} — 명단 정본 {email, code, displayName, active, since}
+SUPPLIER_CODES_COLLECTION = "supplierCodes"  # supplierCodes/{CODE} — {supplierUid, displayName, active}
+SUPPLIER_INVITES_COLLECTION = "supplierInvites"  # supplierInvites/{email} — 초대 (클라이언트 읽기 금지)
+SUPPLIER_FIELD_DISPLAY_NAME = "displayName"
+
+
+def supplier_path(uid: str) -> str:
+    return f"{SUPPLIERS_COLLECTION}/{uid}"
+
+
+def supplier_code_path(code: str) -> str:
+    return f"{SUPPLIER_CODES_COLLECTION}/{code}"
+
+
+def supplier_invite_path(email: str) -> str:
+    """`email` 은 supplier_invites.normalize_invite_email 을 거친 값이어야 한다('/' 없음)."""
+    return f"{SUPPLIER_INVITES_COLLECTION}/{email}"
+
 
 def parse_supplier_uids(value: str | None) -> dict[str, str | None]:
     """`SUPPLIER_UIDS` 문자열 → {uid: 강사코드|None} (Phase 38 D-12). 순수 함수.

@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 2026-09-30 아침 — Phase 38 10/14 실행 완료(38-01~08 · 38-10 · 38-11) + 38-12 skipped-by-decision. 38-11 = /supplier/upload(STEP 01/02 · presign · XHR 진행/취소 · 실패 패널) + /supplier/guide(7섹션) 완료, typecheck 0 · node 65/65 · web export 15초. Figma D-22 실측은 38-10 에 이어 미실행(MCP 없음) → 38-13 Task 3 이월. 38-09 는 Task 2 belle 체크포인트 대기(Task 1 커밋 61a255e2 · d50cf39f, changeset 생성만 · 미실행). 다음 = 38-09 체크포인트 → 웨이브 6 38-13(배포 + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-11-SUMMARY.md.
+stopped_at: 2026-09-30 아침 — Phase 38 10/14 실행 완료(38-01~08 · 38-10 · 38-11) + 38-12 skipped-by-decision. 38-11 = /supplier/upload(STEP 01/02 · presign · XHR 진행/취소 · 실패 패널) + /supplier/guide(7섹션) 완료, typecheck 0 · node 65/65 · web export 15초. Figma D-22 실측은 38-10 에 이어 미실행(MCP 없음) → 38-13 Task 3 이월. 38-09 는 Task 3 규칙 콘솔 게시 대기(belle 선택 B) — CFN 배포 완료(스택 UPDATE_COMPLETE, POST /reference/upload-url 401+CORS, layer :21), 버킷 알림 uploads/+reference/, 수명주기 해제, baseline 재diff 0, 커밋 c8f6607f. GET /reference 500 은 배포 전(08-31)부터 10초 타임아웃 · 앱 미사용 · 롤백 안 함. 다음 = belle 콘솔 게시 → 38-09 이어받기(--current 대조 + 라이브 probe + SUMMARY) → 웨이브 6 38-13(배포 + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-11-SUMMARY.md.
 last_updated: "2026-09-29T23:26:45.659Z"
 last_activity: 2026-09-29
 progress:
@@ -1102,7 +1102,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-09-29T16:28:11.952Z
 
-Stopped at: 2026-09-30 아침 — Phase 38 10/14 실행 완료(38-01~08 · 38-10 · 38-11) + 38-12 skipped-by-decision. 38-11 = /supplier/upload(STEP 01/02 · presign · XHR 진행/취소 · 실패 패널) + /supplier/guide(7섹션) 완료, typecheck 0 · node 65/65 · web export 15초. Figma D-22 실측은 38-10 에 이어 미실행(MCP 없음) → 38-13 Task 3 이월. 38-09 는 Task 2 belle 체크포인트 대기(Task 1 커밋 61a255e2 · d50cf39f, changeset 생성만 · 미실행). 다음 = 38-09 체크포인트 → 웨이브 6 38-13(배포 + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-11-SUMMARY.md.
+Stopped at: 2026-09-30 아침 — Phase 38 10/14 실행 완료(38-01~08 · 38-10 · 38-11) + 38-12 skipped-by-decision. 38-11 = /supplier/upload(STEP 01/02 · presign · XHR 진행/취소 · 실패 패널) + /supplier/guide(7섹션) 완료, typecheck 0 · node 65/65 · web export 15초. Figma D-22 실측은 38-10 에 이어 미실행(MCP 없음) → 38-13 Task 3 이월. 38-09 는 Task 3 규칙 콘솔 게시 대기(belle 선택 B) — CFN 배포 완료(스택 UPDATE_COMPLETE, POST /reference/upload-url 401+CORS, layer :21), 버킷 알림 uploads/+reference/, 수명주기 해제, baseline 재diff 0, 커밋 c8f6607f. GET /reference 500 은 배포 전(08-31)부터 10초 타임아웃 · 앱 미사용 · 롤백 안 함. 다음 = belle 콘솔 게시 → 38-09 이어받기(--current 대조 + 라이브 probe + SUMMARY) → 웨이브 6 38-13(배포 + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-11-SUMMARY.md.
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

@@ -4505,6 +4505,7 @@ def create_reference_registration(
     *,
     supplier_uid: str,
     form,
+    athlete_name: str,
     upload_key: str,
     upload_expires_at_ms: int,
     consent_at_ms: int,
@@ -4518,12 +4519,21 @@ def create_reference_registration(
     (reference-upload-url Lambda)은 presign 성공 **뒤** 이 함수를 부르고 예외면 URL 을
     응답에 싣지 않는다(고아 객체 없음, R4).
 
-    공개 doc 에 두지 않는 것: `videoS3Key`(활성화 때 v1 키만, R5) · 동의 · 선언 · techniqueRefId
+    공개 doc 에 두지 않는 것: `videoS3Key`(활성화 때 v1 키만, R5) · 동의 · techniqueRefId
     · clipRange(비공개 doc). 동의는 서버 시각·문안 버전·uid 와 함께 남는다(D-08 부인 방지).
+
+    quick-260930-w9l(belle 2026-09-30):
+      · 공개 athleteName = `athlete_name` 인자(공급자 suppliers doc displayName) — 폼 값이 아니다.
+      · 비공개 consent = {portrait, usage, training: True, trainingBasis: 'supplier_contract',
+        version, at, uid}. 학습 근거는 체크박스가 아니라 공급자 계약이다. silent 는 없다
+        (소리는 Pod 가 지운다).
+      · 선언 4(isCombo·isSplit·hasHold·standingStart)는 새 doc 에 쓰지 않는다 — 소비처 0.
+        2026-09-30 이전 doc 에만 남아 있다(contract.md §3).
 
     Args:
       form: validation.ReferenceUploadRequest(속성 접근). clip_range 튜플은 비공개 doc 의
         {execStartS, execEndS} 로, None 이면 키 없음.
+      athlete_name: 공급자 표시 이름(빈 값이면 ValueError — 호출측이 409 로 먼저 막는다).
       upload_expires_at_ms: presign 만료(epoch ms) — Lambda 의 ExpiresIn 과 한 상수(R4).
       consent_at_ms: 서버 시각(epoch ms) — consent.at.
     """
@@ -4532,6 +4542,8 @@ def create_reference_registration(
         raise ValueError("supplier_uid required")
     if not upload_key:
         raise ValueError("upload_key required")
+    if not isinstance(athlete_name, str) or not athlete_name.strip():
+        raise ValueError("athlete_name required")
 
     now_ms = _now_ms()
     public_payload: dict = {
@@ -4540,7 +4552,7 @@ def create_reference_registration(
         "supplierCode": supplier_code,
         "source": _REGISTRATION_SOURCE,
         "name": form.name,
-        "athleteName": form.athlete_name,
+        "athleteName": athlete_name.strip(),
         "level": form.level,
         "uploadKey": upload_key,
         "uploadExpiresAt": int(upload_expires_at_ms),
@@ -4557,17 +4569,13 @@ def create_reference_registration(
         "consent": {
             "portrait": True,
             "usage": True,
-            "silent": True,
-            "training": bool(form.consent_training),
+            "training": True,
+            "trainingBasis": models.CONSENT_TRAINING_BASIS_CONTRACT,
             "version": models.CONSENT_VERSION,
             "at": int(consent_at_ms),
             "uid": supplier_uid,
         },
         "techniqueRefId": form.technique_ref_id,
-        "isCombo": bool(form.is_combo),
-        "isSplit": bool(form.is_split),
-        "hasHold": bool(form.has_hold),
-        "standingStart": bool(form.standing_start),
         "updatedAt": now_ms,
     }
     if form.clip_range is not None:
@@ -4582,11 +4590,10 @@ def create_reference_registration(
     batch.create(_doc(models.reference_private_path(ref_id)), private_payload)
     batch.commit()
     _reg_log.info(
-        "create_reference_registration ok ref_id=%s supplier_uid=%s level=%s combo=%s",
+        "create_reference_registration ok ref_id=%s supplier_uid=%s level=%s",
         ref_id,
         supplier_uid,
         form.level,
-        bool(form.is_combo),
     )
 
 

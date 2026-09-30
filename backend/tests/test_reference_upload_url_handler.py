@@ -34,20 +34,27 @@ from tests.phase31.conftest import fake_firestore  # noqa: F401 — 픽스처 �
 _HANDLER_DIR = Path(__file__).resolve().parents[1] / "functions" / "reference-upload-url"
 _UPLOAD_URL_DIR = Path(__file__).resolve().parents[1] / "functions" / "upload-url"
 
+# quick-260930-w9l — 새 웹 번들 본문(선수 이름·선언·학습 없음, 동의 2).
 OK_BODY = {
     "name": "킵업",
-    "athleteName": "정은지",
     "level": "intermediate",
     "techniqueRefId": "ref-kip-up",
+    "clipRange": {"execStartS": 1.5, "execEndS": 7},
+    "consent": {"portrait": True, "usage": True},
+    "format": "mp4",
+    "fileSizeBytes": 30 * 1024 * 1024,
+    "durationSec": 12.4,
+}
+
+# 배포된 옛 웹 번들(38-13) 본문 — 새 서버도 200 이어야 한다(옛 필드는 무시).
+OLD_WEB_BODY = {
+    **OK_BODY,
+    "athleteName": "Fake",
     "isCombo": False,
     "isSplit": True,
     "hasHold": False,
     "standingStart": True,
-    "clipRange": {"execStartS": 1.5, "execEndS": 7},
-    "consent": {"portrait": True, "usage": True, "silent": True, "training": True},
-    "format": "mp4",
-    "fileSizeBytes": 30 * 1024 * 1024,
-    "durationSec": 12.4,
+    "consent": {"portrait": True, "usage": True, "silent": True, "training": False},
 }
 
 
@@ -130,14 +137,19 @@ class _Recorder:
 
 def _wire(app, monkeypatch, *, uid="u1", supplier_map=None, belle_uid=None,
           presign_fail=False, create_exc=None, email=None, verified=False,
-          supplier_doc=None, accept_result=None):
+          supplier_doc=None, accept_result=None, named=False):
     """인증·명단·S3·Firestore 를 한 번에 붙인다. 반환 (events, s3, create).
+
+    named=True 면 supplier_doc 이 없을 때 uid 가 맵에 있는 공급자를 displayName '정은지' 인
+    active suppliers doc 으로 세운다(w9l — 이름 없는 공급자는 업로드 409).
 
     get_supplier(기본 None)·accept_supplier_invite(기본 None) 는 `app._get_supplier_stub`·
     `app._accept_stub` 로 꺼내 호출을 셀 수 있다.
     """
     if supplier_map is None:
         supplier_map = {"u1": "EUNJI", "u2": None}
+    if named and supplier_doc is None and uid in supplier_map:
+        supplier_doc = {"active": True, "code": supplier_map[uid], "displayName": "정은지"}
     if belle_uid is not None:
         monkeypatch.setattr(app, "_BELLE_UID", belle_uid)
     monkeypatch.setattr(app, "verify_request_claims", lambda evt: _claims(uid, email, verified))
@@ -248,7 +260,7 @@ def test_probe_must_be_boolean_true(handler_module, monkeypatch):
 
 
 def test_happy_path_presign_then_create_then_200(handler_module, monkeypatch):
-    events, s3, create = _wire(handler_module, monkeypatch, uid="u1")
+    events, s3, create = _wire(handler_module, monkeypatch, uid="u1", named=True)
     resp = handler_module.lambda_handler(_bearer_event(OK_BODY), None)
 
     assert resp["statusCode"] == 200, resp
@@ -284,10 +296,12 @@ def test_happy_path_presign_then_create_then_200(handler_module, monkeypatch):
     assert isinstance(c["upload_expires_at_ms"], int) and isinstance(c["consent_at_ms"], int)
     assert c["upload_expires_at_ms"] - c["consent_at_ms"] == 900 * 1000
     assert c["supplier_code"] == "EUNJI"
+    # 선수 이름 = 공급자 displayName(본문 아님, w9l 항목 10).
+    assert c["athlete_name"] == "정은지"
 
 
 def test_happy_path_mov_format_signs_mov_key(handler_module, monkeypatch):
-    _events, s3, _create = _wire(handler_module, monkeypatch, uid="u2")
+    _events, s3, _create = _wire(handler_module, monkeypatch, uid="u2", named=True)
     resp = handler_module.lambda_handler(_bearer_event({**OK_BODY, "format": "mov"}), None)
     body = json.loads(resp["body"])
     assert body["s3Key"].endswith("/upload.mov")
@@ -296,7 +310,7 @@ def test_happy_path_mov_format_signs_mov_key(handler_module, monkeypatch):
 
 def test_body_uid_and_ref_id_are_ignored(handler_module, monkeypatch):
     """V4 — 본문 uid/refId 는 어떤 호출 인자에도 닿지 않는다."""
-    events, s3, create = _wire(handler_module, monkeypatch, uid="u1")
+    events, s3, create = _wire(handler_module, monkeypatch, uid="u1", named=True)
     # techniqueRefId 는 정당한 폼 필드라 None 으로 비운다 — "ref-kip-up" 이 주입 refId 로만 남게.
     evil = {**OK_BODY, "techniqueRefId": None, "uid": "evil", "refId": "ref-kip-up"}
     resp = handler_module.lambda_handler(_bearer_event(evil), None)
@@ -316,13 +330,75 @@ def test_source_never_reads_body_uid_or_ref_id(handler_module):
         assert pattern not in src, pattern
 
 
+# ─────────────────── quick-260930-w9l — 선수 이름 고정 · 옛 본문 호환 ───────────────────
+
+
+def test_body_athlete_name_is_ignored_supplier_display_name_wins(handler_module, monkeypatch):
+    events, s3, create = _wire(handler_module, monkeypatch, uid="u1", named=True)
+    resp = handler_module.lambda_handler(_bearer_event(OLD_WEB_BODY), None)
+    assert resp["statusCode"] == 200, resp
+    assert create.calls[0]["athlete_name"] == "정은지"
+    assert "Fake" not in repr(create.calls)
+
+
+def test_old_web_body_with_legacy_fields_is_200(handler_module, monkeypatch):
+    """옛 번들이 standingStart false · isCombo 문자열 · silent false 를 보내도 200(검증 없이 무시)."""
+    _wire(handler_module, monkeypatch, uid="u1", named=True)
+    legacy = {
+        **OLD_WEB_BODY,
+        "isCombo": "true",
+        "standingStart": False,
+        "consent": {"portrait": True, "usage": True, "silent": False, "training": "yes"},
+    }
+    resp = handler_module.lambda_handler(_bearer_event(legacy), None)
+    assert resp["statusCode"] == 200, resp
+
+
+@pytest.mark.parametrize("display_name", [None, "", "   "])
+def test_supplier_without_display_name_is_409_before_presign(
+    handler_module, monkeypatch, caplog, display_name
+):
+    doc = {"active": True, "code": "EUNJI"}
+    if display_name is not None:
+        doc["displayName"] = display_name
+    events, s3, create = _wire(handler_module, monkeypatch, uid="u1", supplier_doc=doc)
+    with caplog.at_level(logging.INFO):
+        resp = handler_module.lambda_handler(_bearer_event(OK_BODY), None)
+    assert resp["statusCode"] == 409
+    assert json.loads(resp["body"])["error"] == {
+        "code": models.SUPPLIER_ERR_NAME_MISSING,
+        "message": models.SUPPLIER_NAME_MISSING_MESSAGE,
+    }
+    assert events == [] and s3.calls == [] and create.calls == []
+
+
+def test_ssm_only_supplier_upload_is_409(handler_module, monkeypatch):
+    """SSM·BELLE_UID 경로 SupplierEntry.display_name 은 None — 업로드는 409, probe 는 200."""
+    events, s3, create = _wire(handler_module, monkeypatch, uid="u1")
+    resp = handler_module.lambda_handler(_bearer_event(OK_BODY), None)
+    assert resp["statusCode"] == 409
+    assert events == []
+    probe = handler_module.lambda_handler(_bearer_event({"probe": True}), None)
+    assert probe["statusCode"] == 200
+
+
+def test_validation_runs_before_name_check(handler_module, monkeypatch):
+    """폼 오류가 있으면 이름 없는 공급자에게도 폼 오류를 먼저 답한다(첫 위반 하나만)."""
+    _wire(handler_module, monkeypatch, uid="u1")
+    resp = handler_module.lambda_handler(
+        _bearer_event({**OK_BODY, "consent": {"portrait": True}}), None
+    )
+    assert resp["statusCode"] == 400
+    assert json.loads(resp["body"])["error"]["message"] == "필수 동의 2가지에 체크해주세요."
+
+
 # ─────────────────── 실패 경로 ───────────────────
 
 
 def test_validation_error_maps_code_message_status(handler_module, monkeypatch):
     events, s3, create = _wire(handler_module, monkeypatch, uid="u1")
     resp = handler_module.lambda_handler(
-        _bearer_event({**OK_BODY, "durationSec": 45.0, "isCombo": False}), None
+        _bearer_event({**OK_BODY, "durationSec": 120.5, "isCombo": True}), None
     )
     assert resp["statusCode"] == 400
     err = json.loads(resp["body"])["error"]
@@ -334,7 +410,9 @@ def test_validation_error_maps_code_message_status(handler_module, monkeypatch):
 
 
 def test_presign_failure_500_no_doc_created(handler_module, monkeypatch):
-    events, s3, create = _wire(handler_module, monkeypatch, uid="u1", presign_fail=True)
+    events, s3, create = _wire(
+        handler_module, monkeypatch, uid="u1", presign_fail=True, named=True
+    )
     resp = handler_module.lambda_handler(_bearer_event(OK_BODY), None)
     assert resp["statusCode"] == 500
     assert json.loads(resp["body"])["error"]["code"] == "server_error"
@@ -345,7 +423,8 @@ def test_presign_failure_500_no_doc_created(handler_module, monkeypatch):
 def test_create_failure_500_without_upload_url(handler_module, monkeypatch):
     """create 가 실패(AlreadyExists 포함)하면 URL 을 버린다 — 응답에 uploadUrl 없음(R4 고아 방지)."""
     events, s3, create = _wire(
-        handler_module, monkeypatch, uid="u1", create_exc=RuntimeError("AlreadyExists")
+        handler_module, monkeypatch, uid="u1", create_exc=RuntimeError("AlreadyExists"),
+        named=True,
     )
     resp = handler_module.lambda_handler(_bearer_event(OK_BODY), None)
     assert resp["statusCode"] == 500

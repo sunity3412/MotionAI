@@ -102,6 +102,10 @@ def _cmd_create(args) -> int:
     if not args.name.strip():
         _err("--name 이 비었어요.")
         return 2
+    if len(args.name.strip()) > models.REFERENCE_NAME_MAX_LEN:
+        # 앱 기준 동작 목록·공급자 폼에 그대로 보이는 이름이라 폼의 이름 한도와 같다(w9l).
+        _err(f"--name 은 {models.REFERENCE_NAME_MAX_LEN}자 이하로 적어주세요.")
+        return 2
     _ensure_credentials()
     try:
         doc = firestore_admin.create_supplier_invite(email, code, args.name.strip(), days=args.days)
@@ -222,7 +226,14 @@ def _parser() -> argparse.ArgumentParser:
     c = sub.add_parser("create", help="초대 만들기 (링크 + 안내 두 줄 출력)")
     c.add_argument("--email", required=True)
     c.add_argument("--code", required=True, help="A-Z·2-9 4~8자, O·0·I·1·L 금지")
-    c.add_argument("--name", required=True, help="선수 이름(크게 보기 제목)")
+    c.add_argument(
+        "--name",
+        required=True,
+        help=(
+            "실명(선수증·신분증·통장 사본 등 서류로 확인한 이름). "
+            "앱 기준 동작 목록에 이 이름으로 보인다. 30자 이하"
+        ),
+    )
     c.add_argument("--days", type=int, default=models.SUPPLIER_INVITE_DEFAULT_DAYS)
 
     e = sub.add_parser("extend", help="대기 중 초대 만료 연장")

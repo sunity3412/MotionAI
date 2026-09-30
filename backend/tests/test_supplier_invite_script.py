@@ -67,6 +67,34 @@ def test_create_rule_violation_exit_2_without_firestore(script, monkeypatch, arg
     assert script._init_calls == []
 
 
+def test_create_name_over_30_chars_exit_2_without_firestore(script, monkeypatch, capsys):
+    """w9l 항목 10 — 선수 이름은 앱 기준 동작 목록에 그대로 보인다. 30자 초과는 Firestore 전 거부."""
+    rec = _Rec()
+    monkeypatch.setattr(fa, "create_supplier_invite", rec)
+    long_name = "가" * (models.REFERENCE_NAME_MAX_LEN + 1)
+    argv = ["create", "--email", EMAIL, "--code", "MXKR", "--name", long_name]
+    assert script.main(argv) == 2
+    assert rec.calls == []
+    assert script._init_calls == []
+    assert "30" in capsys.readouterr().err
+
+
+def test_create_name_exactly_30_chars_passes(script, monkeypatch):
+    rec = _Rec({"code": "MXKR", "expiresAt": T0})
+    monkeypatch.setattr(fa, "create_supplier_invite", rec)
+    name = "가" * models.REFERENCE_NAME_MAX_LEN
+    assert script.main(["create", "--email", EMAIL, "--code", "MXKR", "--name", name]) == 0
+    assert rec.calls[0][0][2] == name
+
+
+def test_create_help_says_real_name(script, capsys):
+    with pytest.raises(SystemExit) as ei:
+        script.main(["create", "--help"])
+    assert ei.value.code == 0
+    out = capsys.readouterr().out
+    assert "실명" in out
+
+
 def test_create_prints_link_and_instruction(script, monkeypatch, capsys):
     # 2026-10-14 02:00 KST 만료 — 안내 줄 날짜는 KST 로 찍는다.
     expires = 1_791_910_800_000

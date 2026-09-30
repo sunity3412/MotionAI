@@ -715,6 +715,10 @@ def normalize_body_profile(meta_value) -> dict | None:  # noqa: ANN001
 # ── 영상 형식 (contract.md: mp4/mov, ≤100MB) ───────────────────────────
 VIDEO_FORMATS = ("mp4", "mov")
 MAX_VIDEO_BYTES = 100 * 1024 * 1024  # design.md: 100MB 초과 불가
+# 공급자 기준 등록(POST /reference/upload-url · Pod _register_reference)만 1GB — belle
+# 2026-09-30 폰 확인(quick-260930-w9l 항목 7). 받은 기준 영상이 4K 30fps 32초에 159MB 였다 —
+# 2분이면 100MB 를 넘는다. 수강생 분석 경로(validate_upload_request)는 위 100MB 그대로.
+REFERENCE_MAX_VIDEO_BYTES = 1024 * 1024 * 1024
 
 # ── 분석 상태 머신 (contract.md §3 AnalysisStatus) ─────────────────────
 #   uploading 은 앱이 설정. 그 이후는 백엔드 pipeline 이 Admin SDK 로 갱신.
@@ -928,8 +932,8 @@ REG_ERR_NO_STANDING_START = "no_standing_start"
 REG_ERR_LOW_CONFIDENCE = "low_confidence"
 REG_ERR_TOO_SHORT = "too_short"
 REG_ERR_TOO_LONG = "too_long"
-# 리뷰 R9 — 실제 객체 `ContentLength > MAX_VIDEO_BYTES` 를 다운로드 **전** `head_object`
-# 로 거른 결과. 클라이언트 `fileSizeBytes` 는 메타일 뿐이라 server_error 로 위장하지 않는다.
+# 리뷰 R9 — 실제 객체 `ContentLength > REFERENCE_MAX_VIDEO_BYTES` 를 다운로드 **전**
+# `head_object` 로 거른 결과(w9l 부터 폼 검증도 같은 코드·문구로 답한다). 클라이언트 `fileSizeBytes` 는 메타일 뿐이라 server_error 로 위장하지 않는다.
 REG_ERR_TOO_LARGE = "too_large"
 REG_ERR_SERVER_ERROR = "server_error"
 REGISTRATION_ERROR_CODES = (
@@ -958,8 +962,8 @@ REGISTRATION_ERROR_MESSAGE = {
     REG_ERR_NO_STANDING_START: "서 있는 자세로 시작하지 않았어요. 서 있는 자세에서 시작해 주세요. 폴 옆에 서서 1초쯤 있다가 동작을 시작하면 돼요.",
     REG_ERR_LOW_CONFIDENCE: "일부 관절을 못 읽었어요. 잘 안 보인 부위: {joints}. 밝은 곳에서, 옷과 배경이 구분되게 다시 촬영해 주세요.",
     REG_ERR_TOO_SHORT: "영상이 너무 짧아요. 기준 동작은 5초 이상이어야 해요. 동작 전체가 담기게 다시 올려주세요.",
-    REG_ERR_TOO_LONG: "영상이 너무 길어요. 동작 하나는 30초 이내로 올려주세요. 콤보는 60초까지예요.",
-    REG_ERR_TOO_LARGE: "용량이 너무 커요. 100MB 이하 영상으로 다시 올려주세요.",
+    REG_ERR_TOO_LONG: "영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.",
+    REG_ERR_TOO_LARGE: "용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.",
     REG_ERR_SERVER_ERROR: "등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.",
 }
 
@@ -970,12 +974,20 @@ REFERENCE_LEVELS = ("basic", "intermediate", "advanced")
 # 폼 검증 상수(D-07·D-08·D-14). 길이 규칙은 클라이언트 fail-open(웹이 metadata 를 못
 # 읽으면 durationSec 없이 보낸다, RESEARCH A12) + 서버 2차 방어(validation.py) +
 # 파이프라인 probe(38-07, R9) 세 겹.
+# quick-260930-w9l(belle 2026-09-30): 길이는 5초~2분 하나. 콤보 상한(2026-09-30 삭제) —
+# 콤보 여부는 길이 한도에만 쓰였고, 한도가 하나가 되면서 소비처가 없어졌다.
 REFERENCE_MIN_DURATION_SEC = 5.0
-REFERENCE_MAX_DURATION_SEC = 30.0
-REFERENCE_COMBO_MAX_DURATION_SEC = 60.0
+REFERENCE_MAX_DURATION_SEC = 120.0
 REFERENCE_NAME_MAX_LEN = 30
 # 기획안 §6 동의 문안 판 — 동의 문안이 바뀌면 이 값을 올린다(비공개 doc `consent.version`).
-CONSENT_VERSION = "2026-09-26"
+# 2026-09-30: 필수 동의 2(초상·성명 / 영상 이용) + 학습은 공급자 계약 근거(w9l 항목 5·11).
+CONSENT_VERSION = "2026-09-30"
+# 비공개 doc `consent.trainingBasis` — 학습 사용 근거가 체크박스가 아니라 공급자 계약이다.
+CONSENT_TRAINING_BASIS_CONTRACT = "supplier_contract"
+# 선수 이름 = 초대 때 정한 suppliers/{uid}.displayName. 이름이 없는 공급자(SSM·BELLE_UID 경로
+# 또는 displayName 빈 doc)는 업로드 409(w9l 항목 10) — presign·doc 선작성 전에 막는다.
+SUPPLIER_ERR_NAME_MISSING = "supplier_name_missing"
+SUPPLIER_NAME_MISSING_MESSAGE = "선수 이름이 등록되지 않았어요. 운영팀에 알려주세요."
 # 강사 코드(D-12) — `SUPPLIER_UIDS` 의 `uid:CODE` 항목. 대문자 영숫자 3~8자.
 SUPPLIER_CODE_RE = re.compile(r"^[A-Z0-9]{3,8}$")
 SUPPLIER_UIDS_PARAM_DEFAULT = "/sunity/motion/supplier-uids"

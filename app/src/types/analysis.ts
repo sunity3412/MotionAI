@@ -2419,8 +2419,8 @@ export const REGISTRATION_ERROR_MESSAGE: Record<ReferenceRegistrationErrorCode, 
   low_confidence:
     '일부 관절을 못 읽었어요. 잘 안 보인 부위: {joints}. 밝은 곳에서, 옷과 배경이 구분되게 다시 촬영해 주세요.',
   too_short: '영상이 너무 짧아요. 기준 동작은 5초 이상이어야 해요. 동작 전체가 담기게 다시 올려주세요.',
-  too_long: '영상이 너무 길어요. 동작 하나는 30초 이내로 올려주세요. 콤보는 60초까지예요.',
-  too_large: '용량이 너무 커요. 100MB 이하 영상으로 다시 올려주세요.',
+  too_long: '영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.',
+  too_large: '용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.',
   server_error: '등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.',
 };
 

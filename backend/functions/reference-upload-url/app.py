@@ -4,15 +4,20 @@ contract.md §2 `POST /reference/upload-url` · Phase 38 D-03(화이트리스트
 D-08(동의 서버 기록) / D-12(probe) · 리뷰 R4(서명 → create 순서, uploadExpiresAt) /
 R5(upload 키만 서명).
 
-  요청  ReferenceUploadUrlRequest { name, athleteName, level, techniqueRefId?, isCombo?,
-        isSplit, hasHold, standingStart, clipRange?, consent, format, fileSizeBytes,
-        durationSec? }   또는   { probe: true }
+  요청  ReferenceUploadUrlRequest { name, level, techniqueRefId?, clipRange?,
+        consent: {portrait, usage}, format, fileSizeBytes, durationSec? }
+        또는 { probe: true }. 옛 웹 번들의 athleteName·isCombo·isSplit·hasHold·standingStart·
+        consent.silent·consent.training 은 검증 없이 무시한다(quick-260930-w9l).
   응답  ReferenceUploadUrlResponse { refId, uploadUrl, s3Key, expiresInSec }
         probe → SupplierProbeResponse { probe: true, uid, supplierCode, displayName }
   403   { error: { code: 'not_invited', message, email } } — email = 토큰 메일(없으면 null)
+  409   { error: { code: 'supplier_name_missing', message } } — 공급자 displayName 없음
+        (SSM·BELLE_UID 경로 또는 빈 이름 doc). presign·doc 0. 운영 해결 = revoke 후
+        `supplier_invite.py create --name <실명>` 로 다시 초대.
 
-흐름: 인증(uid·email·email_verified) → 명단 판정 → (probe | 폼 검증 → 서버 refId → presign
-`reference/{uid}/{refId}/upload.{ext}` → 공개 `reference/{refId}` + 비공개
+흐름: 인증(uid·email·email_verified) → 명단 판정 → (probe | 폼 검증 → 선수 이름 확인(409)
+→ 서버 refId → presign `reference/{uid}/{refId}/upload.{ext}` → 공개 `reference/{refId}`
+(athleteName = 공급자 displayName, 본문 값 아님) + 비공개
 `reference/{refId}/private/registration` batch create → 응답). 이후 S3 PUT 은 브라우저가
 직접 하고 ObjectCreated → SQS → pipeline(38-07)이 등록을 잇는다. 영상은 절대 Lambda 를
 거치지 않는다.
@@ -182,6 +187,17 @@ def lambda_handler(event: dict, _context) -> dict:
     except ValidationError as e:
         return responses.error(e.code, e.message, status=e.http_status)
 
+    # 4b. 선수 이름 = 초대 때 정한 공급자 displayName(quick-260930-w9l 항목 10). 본문
+    #     athleteName 은 읽지 않는다(위장 방지, T-w9l-01). 이름이 없으면 presign·doc 전에 409.
+    display_name = (entry.display_name or "").strip()
+    if not display_name:
+        log.warning("reference-upload-url supplier_name_missing uid=%s code=%s", uid, entry.code)
+        return responses.error(
+            models.SUPPLIER_ERR_NAME_MISSING,
+            models.SUPPLIER_NAME_MISSING_MESSAGE,
+            status=409,
+        )
+
     # 5. refId = Firestore doc id = 서버 uuid4 hex. 업로드 키는 토큰 uid + refId 만(V4, R5) —
     #    `upload.{ext}` 에만 서명하고 확정 키 `v1.{ext}` 는 서버 copy_object 전용이다.
     ref_id = uuid.uuid4().hex
@@ -209,6 +225,7 @@ def lambda_handler(event: dict, _context) -> dict:
             ref_id,
             supplier_uid=uid,
             form=req,
+            athlete_name=display_name,
             upload_key=s3_key,
             upload_expires_at_ms=now_ms + _EXPIRES * 1000,
             consent_at_ms=now_ms,
@@ -220,11 +237,10 @@ def lambda_handler(event: dict, _context) -> dict:
 
     # 8. 응답.
     log.info(
-        "reference-upload-url ok uid=%s ref_id=%s level=%s combo=%s",
+        "reference-upload-url ok uid=%s ref_id=%s level=%s",
         uid,
         ref_id,
         req.level,
-        req.is_combo,
     )
     return responses.ok(
         {

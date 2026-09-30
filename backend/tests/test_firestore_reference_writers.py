@@ -98,18 +98,13 @@ def reg_db(fake_firestore, monkeypatch):
 # ─────────────────────── helpers ───────────────────────
 
 
-def _form(clip_range=(1.5, 7.0), training: bool = True) -> ReferenceUploadRequest:
+def _form(clip_range=(1.5, 7.0)) -> ReferenceUploadRequest:
+    # quick-260930-w9l — 요청에 선수 이름·선언 4·학습 동의가 없다(서버가 채운다/무시한다).
     return ReferenceUploadRequest(
         name="킵업",
-        athlete_name="정은지",
         level="intermediate",
         technique_ref_id="ref-kip-up",
-        is_combo=False,
-        is_split=True,
-        has_hold=False,
-        standing_start=True,
         clip_range=clip_range,
-        consent_training=training,
         fmt="mp4",
         file_size_bytes=30 * 1024 * 1024,
         duration_sec=12.4,
@@ -121,6 +116,7 @@ def _create(db, ref_id: str = REF, **kw) -> None:
         ref_id,
         supplier_uid=kw.pop("supplier_uid", "u1"),
         form=kw.pop("form", _form()),
+        athlete_name=kw.pop("athlete_name", "정은지"),
         upload_key=kw.pop("upload_key", UPLOAD_KEY),
         upload_expires_at_ms=kw.pop("upload_expires_at_ms", T0 + 900_000),
         consent_at_ms=kw.pop("consent_at_ms", T0),
@@ -203,18 +199,21 @@ def test_create_reference_registration_batch_creates_public_and_private(reg_db):
         assert forbidden not in public
 
     private = dict(b.creates[1][1])
+    # quick-260930-w9l — 선언 4(isCombo·isSplit·hasHold·standingStart)는 새 doc 에 쓰지 않는다
+    # (소비처 0). 학습은 체크박스가 아니라 공급자 계약 근거(trainingBasis)로 true.
     assert set(private) == {
-        "supplierUid", "consent", "techniqueRefId", "isCombo", "isSplit", "hasHold",
-        "standingStart", "clipRange", "updatedAt",
+        "supplierUid", "consent", "techniqueRefId", "clipRange", "updatedAt",
     }
     assert private["supplierUid"] == "u1"
     assert private["consent"] == {
-        "portrait": True, "usage": True, "silent": True, "training": True,
-        "version": models.CONSENT_VERSION, "at": T0, "uid": "u1",
+        "portrait": True, "usage": True, "training": True,
+        "trainingBasis": "supplier_contract",
+        "version": "2026-09-30", "at": T0, "uid": "u1",
     }
+    assert models.CONSENT_VERSION == "2026-09-30"
+    for gone in ("silent",):
+        assert gone not in private["consent"]
     assert private["techniqueRefId"] == "ref-kip-up"
-    assert private["isCombo"] is False and private["isSplit"] is True
-    assert private["hasHold"] is False and private["standingStart"] is True
     assert private["clipRange"] == {"execStartS": 1.5, "execEndS": 7.0}
     assert private["updatedAt"] == T0
 
@@ -224,12 +223,26 @@ def test_create_reference_registration_batch_creates_public_and_private(reg_db):
 
 
 def test_create_reference_registration_clip_range_key_absent_when_none(reg_db):
-    _create(reg_db, form=_form(clip_range=None, training=False), supplier_code=None)
+    _create(reg_db, form=_form(clip_range=None), supplier_code=None)
     b = reg_db.fake_db.batches[0]
     public, private = b.creates[0][1], b.creates[1][1]
     assert "clipRange" not in private
-    assert private["consent"]["training"] is False
+    assert private["consent"]["training"] is True
     assert public["supplierCode"] is None
+
+
+def test_create_reference_registration_athlete_name_comes_from_argument(reg_db):
+    """공개 athleteName 은 폼이 아니라 호출측이 넘긴 공급자 displayName(w9l 항목 10)."""
+    _create(reg_db, athlete_name="김선수")
+    public = reg_db.fake_db.batches[0].creates[0][1]
+    assert public["athleteName"] == "김선수"
+
+
+@pytest.mark.parametrize("bad", ["", "   ", None])
+def test_create_reference_registration_requires_athlete_name(reg_db, bad):
+    with pytest.raises(ValueError):
+        _create(reg_db, athlete_name=bad)
+    assert reg_db.fake_db.batches == [] or all(b.commits == 0 for b in reg_db.fake_db.batches)
 
 
 def test_create_reference_registration_payloads_have_no_nested_list(reg_db):
@@ -252,7 +265,7 @@ def test_create_reference_registration_existing_doc_propagates_already_exists(re
 
 _WRITERS = {
     "create_reference_registration": lambda rid: fa.create_reference_registration(
-        rid, supplier_uid="u1", form=_form(), upload_key=UPLOAD_KEY,
+        rid, supplier_uid="u1", form=_form(), athlete_name="정은지", upload_key=UPLOAD_KEY,
         upload_expires_at_ms=T0 + 900_000, consent_at_ms=T0,
     ),
     "claim_registration": lambda rid: fa.claim_registration(rid, "A", now_ms=T0),

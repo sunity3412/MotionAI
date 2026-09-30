@@ -115,24 +115,6 @@ def _is_real(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
-def _require_bool(body: dict, key: str) -> bool:
-    """선언 답은 bool 만 — 1/0 같은 int 위장·"true" 문자열 거부(D-14)."""
-    v = body.get(key)
-    if not isinstance(v, bool):
-        raise ValidationError("bad_request", "답을 골라주세요.")
-    return v
-
-
-def _optional_bool(body: dict, key: str) -> bool:
-    """부재 = False(기본 꺼짐), 있으면 bool 만."""
-    v = body.get(key)
-    if v is None:
-        return False
-    if not isinstance(v, bool):
-        raise ValidationError("bad_request", "답을 골라주세요.")
-    return v
-
-
 def _short_text(body: dict, key: str, message: str) -> str:
     v = body.get(key)
     if not isinstance(v, str):
@@ -147,46 +129,57 @@ def _short_text(body: dict, key: str, message: str) -> str:
 class ReferenceUploadRequest:
     """검증·정규화된 공급자 폼(contract.md §2 ReferenceUploadUrlRequest).
 
-    필수 동의 3(portrait·usage·silent)은 필드로 두지 않는다 — 검증 통과 = 전부 True 가
-    불변이라 값을 실어 보낼 이유가 없다. training 만 사람이 고른 값(D-08 기본 False).
+    필수 동의 2(portrait·usage)는 필드로 두지 않는다 — 검증 통과 = 둘 다 True 가 불변이라
+    값을 실어 보낼 이유가 없다. 학습 사용은 체크박스가 아니라 공급자 계약이 근거라 요청에
+    없다(quick-260930-w9l 항목 5·11 — 서버 writer 가 consent.training·trainingBasis 를 적는다).
+    선수 이름도 요청에 없다 — 서버가 공급자 displayName 으로 채운다(항목 10).
     동의 시각·문안 버전·uid 는 서버(38-06 writer)가 붙인다 — 본문의 at/version 은 무시
     (T-38-01-4). clip_range 는 (execStartS, execEndS) 초 단위 튜플 또는 None(D-06 선택).
     """
 
     name: str
-    athlete_name: str
     level: str
     technique_ref_id: str | None
-    is_combo: bool
-    is_split: bool
-    has_hold: bool
-    standing_start: bool
     clip_range: tuple[float, float] | None
-    consent_training: bool
     fmt: str
     file_size_bytes: int
     duration_sec: float | None
 
 
+# 옛 웹 번들(38-13 배포분)이 보내는 필드 — 검증 없이 무시한다(quick-260930-w9l 항목 9).
+# 서 있는 시작은 파이프라인 no_standing_start 가 영상으로 판정한다. 목록은 문서용이며
+# 코드는 이 키들을 읽지 않는다.
+IGNORED_LEGACY_REFERENCE_FIELDS = (
+    "athleteName",
+    "isCombo",
+    "isSplit",
+    "hasHold",
+    "standingStart",
+    "consent.silent",
+    "consent.training",
+)
+
+_CONSENT_MESSAGE = "필수 동의 2가지에 체크해주세요."
+
+
 def validate_reference_upload_request(body: dict) -> ReferenceUploadRequest:
     """contract ReferenceUploadUrlRequest 검증 후 정규화. 실패 시 ValidationError.
 
-    검사 순서·코드는 고정(38-03 클라이언트 검증과 같은 순서 — 첫 위반 하나만 답한다):
-      본문 → name → athleteName → level → techniqueRefId → 선언 4(isCombo·isSplit·hasHold·
-      standingStart, false 거부) → clipRange → consent(필수 3 true) → format → fileSizeBytes
-      → durationSec.
-    - format 불가     → unsupported_format (ERROR_MESSAGE 재사용)
-    - 100MB 초과      → size_exceeded (ERROR_MESSAGE 재사용)
-    - durationSec 있고 5초 미만 → too_short / 30초(콤보 60초) 초과 → too_long
+    검사 순서·코드는 고정(앱 supplierForm 클라이언트 검증과 같은 순서 — 첫 위반 하나만 답한다):
+      본문 → name → level → techniqueRefId → clipRange → consent(portrait·usage true)
+      → format → fileSizeBytes → durationSec.
+    옛 필드(IGNORED_LEGACY_REFERENCE_FIELDS)는 읽지 않는다 — 와도 통과(옛 웹 번들 호환).
+    - format 불가       → unsupported_format (ERROR_MESSAGE 재사용)
+    - 1GB 초과          → too_large (REGISTRATION_ERROR_MESSAGE 재사용 — 수강생 100MB 문구 아님)
+    - durationSec 있고 5초 미만 → too_short / 120초 초과 → too_long
       (REGISTRATION_ERROR_MESSAGE 재사용). None 은 통과 — 웹이 metadata 를 못 읽은 경우
       fail-open(RESEARCH A12), 실제 길이는 파이프라인 probe 가 다시 거른다(38-07, R9).
-    - 그 외 규칙 위반 → bad_request (message 는 페이지가 그대로 보여줄 한국어 안내)
+    - 그 외 규칙 위반   → bad_request (message 는 페이지가 그대로 보여줄 한국어 안내)
     """
     if not isinstance(body, dict):
         raise ValidationError("bad_request", "요청 본문이 올바르지 않습니다.")
 
     name = _short_text(body, "name", "동작 이름을 고르거나 입력해주세요.")
-    athlete_name = _short_text(body, "athleteName", "선수 이름을 입력해주세요.")
 
     level = body.get("level")
     if level not in models.REFERENCE_LEVELS:
@@ -198,17 +191,6 @@ def validate_reference_upload_request(body: dict) -> ReferenceUploadRequest:
             technique_ref_id
         ):
             raise ValidationError("bad_request", "techniqueRefId 가 올바르지 않습니다.")
-
-    is_combo = _optional_bool(body, "isCombo")
-    is_split = _require_bool(body, "isSplit")
-    has_hold = _require_bool(body, "hasHold")
-    standing_start = _require_bool(body, "standingStart")
-    if standing_start is False:
-        # D-09 사전 차단 — 서 있는 시작이 아니면 no_standing_start 판정 자체가 성립하지
-        # 않는다. 업로드 전에 거부해 presign·doc 선작성을 만들지 않는다.
-        raise ValidationError(
-            "bad_request", "서 있는 자세에서 시작한 영상만 등록할 수 있어요."
-        )
 
     clip_range: tuple[float, float] | None = None
     raw_clip = body.get("clipRange")
@@ -223,11 +205,10 @@ def validate_reference_upload_request(body: dict) -> ReferenceUploadRequest:
 
     consent = body.get("consent")
     if not isinstance(consent, dict):
-        raise ValidationError("bad_request", "필수 동의 3가지에 체크해주세요.")
-    for key in ("portrait", "usage", "silent"):
+        raise ValidationError("bad_request", _CONSENT_MESSAGE)
+    for key in ("portrait", "usage"):
         if consent.get(key) is not True:
-            raise ValidationError("bad_request", "필수 동의 3가지에 체크해주세요.")
-    consent_training = _optional_bool(consent, "training")
+            raise ValidationError("bad_request", _CONSENT_MESSAGE)
 
     fmt = body.get("format")
     if fmt not in models.VIDEO_FORMATS:
@@ -239,10 +220,10 @@ def validate_reference_upload_request(body: dict) -> ReferenceUploadRequest:
     size = body.get("fileSizeBytes")
     if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
         raise ValidationError("bad_request", "fileSizeBytes 가 올바르지 않습니다.")
-    if size > models.MAX_VIDEO_BYTES:
+    if size > models.REFERENCE_MAX_VIDEO_BYTES:
         raise ValidationError(
-            models.ERR_SIZE_EXCEEDED,
-            models.ERROR_MESSAGE[models.ERR_SIZE_EXCEEDED],
+            models.REG_ERR_TOO_LARGE,
+            models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_LARGE],
         )
 
     duration_sec: float | None = None
@@ -256,12 +237,7 @@ def validate_reference_upload_request(body: dict) -> ReferenceUploadRequest:
                 models.REG_ERR_TOO_SHORT,
                 models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_SHORT],
             )
-        max_sec = (
-            models.REFERENCE_COMBO_MAX_DURATION_SEC
-            if is_combo
-            else models.REFERENCE_MAX_DURATION_SEC
-        )
-        if duration_sec > max_sec:
+        if duration_sec > models.REFERENCE_MAX_DURATION_SEC:
             raise ValidationError(
                 models.REG_ERR_TOO_LONG,
                 models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_LONG],
@@ -269,15 +245,9 @@ def validate_reference_upload_request(body: dict) -> ReferenceUploadRequest:
 
     return ReferenceUploadRequest(
         name=name,
-        athlete_name=athlete_name,
         level=level,
         technique_ref_id=technique_ref_id,
-        is_combo=is_combo,
-        is_split=is_split,
-        has_hold=has_hold,
-        standing_start=standing_start,
         clip_range=clip_range,
-        consent_training=consent_training,
         fmt=fmt,
         file_size_bytes=size,
         duration_sec=duration_sec,

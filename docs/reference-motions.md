@@ -115,13 +115,13 @@ interface ReferenceMotion {
 // 쓰기 = 서버(Admin SDK). 정본 = analysis.ts `ReferenceRegistrationPrivate`, contract.md §3.
 interface ReferenceRegistrationPrivate {
   supplierUid: string;                    // register
-  consent: ReferenceConsent;              // register — {portrait, usage, silent, training, version, at, uid}
+  consent: ReferenceConsent;              // register — {portrait, usage, training, trainingBasis?, version, at, uid} (w9l 2026-09-30; 이전 doc 은 silent 포함)
   registrationError?: ReferenceRegistrationError | null;  // register — failed 일 때 {code, message, joints?}
   techniqueRefId: string | null;          // register — 등록 정보로만 보관(R7)
-  isCombo: boolean;                       // register
-  isSplit: boolean;                       // register — 선언 4
-  hasHold: boolean;                       // register
-  standingStart: boolean;                 // register — 검증 통과 = 항상 true
+  isCombo?: boolean;                      // register — 2026-09-30 이전 doc 에만 (소비처 0)
+  isSplit?: boolean;                      // register — 2026-09-30 이전 doc 에만
+  hasHold?: boolean;                      // register — 2026-09-30 이전 doc 에만
+  standingStart?: boolean;                // register — 2026-09-30 이전 doc 에만
   clipRange?: { execStartS: number; execEndS: number } | null;  // register — 폼 선택 입력(D-06)
   updatedAt: number;                      // register
 }

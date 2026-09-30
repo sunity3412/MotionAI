@@ -68,6 +68,18 @@ def test_no_human_reuses_analysis_error_message_object():
     assert models.REGISTRATION_ERROR_MESSAGE["no_human"] is models.ERROR_MESSAGE["no_human"]
 
 
+def test_too_long_and_too_large_messages_w9l():
+    # belle 2026-09-30 — 5초~2분 · 1GB. 3벌 대조는 아래 test_ts_mirror / test_contract_md 가 잠근다.
+    assert (
+        models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_LONG]
+        == "영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요."
+    )
+    assert (
+        models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_LARGE]
+        == "용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요."
+    )
+
+
 def test_low_confidence_placeholder_is_replace_style():
     # 파이프라인은 str.replace("{joints}", ...) 로 치환한다 — 중괄호 자리는 정확히 하나.
     msg = models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_LOW_CONFIDENCE]
@@ -182,6 +194,8 @@ def test_ts_mirror_has_codes_statuses_and_messages():
 
 def test_contract_md_has_endpoint_messages_and_private_doc():
     text = _contract_text()
+    assert "supplier_name_missing" in text
+    assert "trainingBasis" in text
     assert text.count("### POST /reference/upload-url") == 1
     assert "REGISTRATION_ERROR_MESSAGE" in text
     assert "reference/{refId}/private/registration" in text
@@ -232,7 +246,19 @@ def test_private_path_and_constants():
     assert models.REGISTRATION_LEASE_SEC == 900
     assert models.REFERENCE_LEVELS == ("basic", "intermediate", "advanced")
     assert models.REFERENCE_MIN_DURATION_SEC == 5.0
-    assert models.REFERENCE_MAX_DURATION_SEC == 30.0
-    assert models.REFERENCE_COMBO_MAX_DURATION_SEC == 60.0
+    # quick-260930-w9l (belle 09-30): 5초~2분 하나, 콤보 상한(2026-09-30 삭제).
+    assert models.REFERENCE_MAX_DURATION_SEC == 120.0
+    assert not hasattr(models, "REFERENCE_COMBO_MAX_DURATION_SEC")
+    # 공급자 기준 등록만 1GB — 수강생 분석 경로는 100MB 그대로.
+    assert models.REFERENCE_MAX_VIDEO_BYTES == 1024 * 1024 * 1024
+    assert models.MAX_VIDEO_BYTES == 100 * 1024 * 1024
     assert models.REFERENCE_NAME_MAX_LEN == 30
+    # 동의 문안이 바뀌어 판을 올렸다(w9l) + 학습 근거 = 공급자 계약.
+    assert models.CONSENT_VERSION == "2026-09-30"
+    assert models.CONSENT_TRAINING_BASIS_CONTRACT == "supplier_contract"
+    assert models.SUPPLIER_ERR_NAME_MISSING == "supplier_name_missing"
+    assert (
+        models.SUPPLIER_NAME_MISSING_MESSAGE
+        == "선수 이름이 등록되지 않았어요. 운영팀에 알려주세요."
+    )
     assert models.SUPPLIER_UIDS_PARAM_DEFAULT == "/sunity/motion/supplier-uids"

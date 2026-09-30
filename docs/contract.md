@@ -252,21 +252,21 @@ analysisId  string   본인 소유 분석 건
 
 요청 `ReferenceUploadUrlRequest` (서버 2차 검증 = `validation.validate_reference_upload_request`,
 D-07/D-08/D-14 — 본문에 uid/refId 필드는 없다, 키는 서버가 토큰 uid + 서버 생성 refId 로만 구성)
+quick-260930-w9l(belle 2026-09-30 폰 확인) 뒤 모양:
 ```
 name             string                 동작 이름 (strip, 1~30자 — REFERENCE_NAME_MAX_LEN)
-athleteName      string                 선수 이름 (strip, 1~30자)
 level            'basic'|'intermediate'|'advanced'   REFERENCE_LEVELS (picker normalize 가 버리지 않는 값)
 techniqueRefId?  string | null          사전 선택한 기존 motionId — 등록 정보로만 보관, 채점 소비 없음 (리뷰 R7)
-isCombo          boolean                부재 = false. true 면 길이 상한 60초
-isSplit          boolean                선언 4 — bool 만 (int 위장 거부)
-hasHold          boolean                선언 4
-standingStart    boolean                선언 4 — false 는 400 bad_request (D-09 사전 차단)
 clipRange?       { execStartS, execEndS } | null   선택(D-06). 0 ≤ start < end. 비공개 doc 에 그대로 저장
-consent          { portrait, usage, silent, training }   필수 3 은 true 만 통과, training 부재 = false (D-08)
+consent          { portrait, usage }    필수 2 는 true 만 통과. 학습은 체크박스가 아니라 공급자 계약 근거(서버가 기록)
 format           'mp4' | 'mov'
-fileSizeBytes    number                 > 0, ≤ 100MB (서버 재검증). 실제 객체 크기는 파이프라인 head_object 가 따로 거른다(R9 too_large)
-durationSec?     number | null          웹이 metadata 를 못 읽으면 null (fail-open). 있으면 5~30초, 콤보 60초
+fileSizeBytes    number                 > 0, ≤ 1GB (REFERENCE_MAX_VIDEO_BYTES, 서버 재검증). 실제 객체 크기는 파이프라인 head_object 가 따로 거른다(R9 too_large)
+durationSec?     number | null          웹이 metadata 를 못 읽으면 null (fail-open). 있으면 5~120초 (REFERENCE_MAX_DURATION_SEC, 콤보 구분 없음)
 ```
+무시되는 옛 필드(배포된 옛 웹 번들 호환 — **검증 없이 무시**, `validation.IGNORED_LEGACY_REFERENCE_FIELDS`):
+`athleteName`(선수 이름은 서버가 공급자 `suppliers/{uid}.displayName` 으로 채운다) · `isCombo` ·
+`isSplit` · `hasHold` · `standingStart`(서 있는 시작은 파이프라인 `no_standing_start` 가 영상으로 본다) ·
+`consent.silent`(소리는 Pod 등록 경로가 지운다) · `consent.training`.
 
 `{"probe": true}` 변형 — 명단 확인만(페이지 진입 게이트, D-12). 초대 수락 말고 부작용 0.
 응답 `SupplierProbeResponse` (quick-260930-lfw: 옛 모양을 넓혔다 — 옛 웹 번들이 supplierCode 를 읽는다)
@@ -291,18 +291,21 @@ expiresInSec   number   = models.REFERENCE_UPLOAD_EXPIRES_SEC (900) — doc uplo
 401  unauthorized         토큰 없음/무효
 403  not_invited          명단 밖·초대 없음/만료/취소/메일 미인증·회수됨 — error.email = 토큰 메일(없으면 null).
                           옛 `forbidden` 을 대체한다. 원인을 나누지 않는다(화면 하나 — 38-DESIGN-v2 A-2)
-400  bad_request          폼 메타·선언·동의·clipRange 규칙 위반 (message 는 한국어 안내)
+400  bad_request          폼 메타·동의·clipRange 규칙 위반 (message 는 한국어 안내 — 동의 누락 = '필수 동의 2가지에 체크해주세요.')
 400  unsupported_format   format ∉ mp4/mov (ERROR_MESSAGE 재사용)
-400  size_exceeded        fileSizeBytes > 100MB (ERROR_MESSAGE 재사용)
+400  too_large            fileSizeBytes > 1GB (REGISTRATION_ERROR_MESSAGE.too_large — w9l 부터 수강생 size_exceeded 100MB 문구 아님)
 400  too_short            durationSec < 5초 (REGISTRATION_ERROR_MESSAGE.too_short)
-400  too_long             durationSec > 30초 (콤보 60초) (REGISTRATION_ERROR_MESSAGE.too_long)
+400  too_long             durationSec > 120초 (REGISTRATION_ERROR_MESSAGE.too_long)
+409  supplier_name_missing  공급자 displayName 없음(SSM·BELLE_UID 경로 또는 빈 이름 doc) — 폼 검증 통과 뒤,
+                          presign·doc 생성 **전**. message = models.SUPPLIER_NAME_MISSING_MESSAGE
+                          '선수 이름이 등록되지 않았어요. 운영팀에 알려주세요.' 운영 해결 = revoke 후 create --name 실명
 500  server_error         presign/Firestore 실패
 ```
 
 부작용: `reference/{refId}` 공개 doc + `reference/{refId}/private/registration` 비공개 doc 을
 **배치 `create()`** 로 선작성 — 공개 doc `registrationStatus: 'registering'`, `isActive: false`,
-`uploadKey`, `uploadExpiresAt`(R4); 비공개 doc 에 동의(서버가 version/at/uid 부착)·선언·
-techniqueRefId·clipRange (리뷰 R13). 필드 분배 표는 §3. 이후 S3 ObjectCreated(upload 키) →
+`uploadKey`, `uploadExpiresAt`(R4), `athleteName` = 공급자 displayName; 비공개 doc 에 동의(서버가
+training·trainingBasis·version/at/uid 부착)·techniqueRefId·clipRange (리뷰 R13). 필드 분배 표는 §3. 이후 S3 ObjectCreated(upload 키) →
 SQS → pipeline `_register_reference`(38-07) 가 `processing → active|failed` 로 옮긴다.
 
 > 참고: backend/CLAUDE.md 의 `POST /analyze`, `GET /history/{userId}` 는
@@ -434,23 +437,26 @@ createdAt?         number (epoch ms)      선작성 시각
 > 손 등록 11개 legacy doc 은 무접촉(D-19), picker `normalize()` 는 name·athleteName·level·
 > isActive 만 본다. 3-way lockstep: 본 §3 + app/src/types/analysis.ts ReferenceMotion(`// register`
 > 주석) + models.py REGISTRATION_* / SELF_CHECK_* 상수 + docs/reference-motions.md §3.
-> **공개 doc 에 두지 않는 것(R13):** consent · registrationError · techniqueRefId · isCombo ·
-> isSplit · hasHold · standingStart · clipRange(등록 입력) → 아래 비공개 서브문서.
+> **공개 doc 에 두지 않는 것(R13):** consent · registrationError · techniqueRefId · clipRange
+> (등록 입력) · 옛 선언(isCombo·isSplit·hasHold·standingStart — 2026-09-30 이전 doc 에만) → 아래 비공개 서브문서.
 
 `reference/{refId}/private/registration` — `ReferenceRegistrationPrivate` (Phase 38, 리뷰 R13)
 ```
 supplierUid        string                 = 공개 doc supplierUid (규칙의 읽기 조건 재료)
-consent            { portrait, usage, silent, training, version, at, uid }
-                                          필수 3 = true 만 통과, training 기본 false (D-08). version =
-                                          models.CONSENT_VERSION, at/uid 는 서버가 붙인다 (본문 값 무시)
+consent            { portrait, usage, training, trainingBasis?, silent?, version, at, uid }
+                                          2026-09-30(w9l) 부터: portrait·usage = 필수 2 true, training = true,
+                                          trainingBasis = 'supplier_contract'(models.CONSENT_TRAINING_BASIS_CONTRACT —
+                                          학습 근거는 공급자 계약), silent 없음. version = models.CONSENT_VERSION
+                                          ('2026-09-30'), at/uid 는 서버가 붙인다 (본문 값 무시).
+                                          이전 doc(version '2026-09-26'): silent true, training = 공급자가 고른 값, trainingBasis 없음
 registrationError? { code, message, joints? } | null   registrationStatus='failed' 일 때.
                                           code ∈ REGISTRATION_ERROR_CODES, message = REGISTRATION_ERROR_MESSAGE[code]
                                           ({joints} 치환 뒤), joints = KEYPOINT_LABEL_KO 부위명 (low_confidence)
 techniqueRefId     string | null          사전 선택한 기존 motionId — 등록 정보로만 보관 (R7)
-isCombo            boolean
-isSplit            boolean                선언 4 (D-07)
-hasHold            boolean
-standingStart      boolean                검증 통과 = 항상 true (false 는 400)
+isCombo?           boolean                2026-09-30 이전 doc 에만 (옛 선언 — 소비처 0, 새 등록은 쓰지 않는다)
+isSplit?           boolean                2026-09-30 이전 doc 에만
+hasHold?           boolean                2026-09-30 이전 doc 에만
+standingStart?     boolean                2026-09-30 이전 doc 에만
 clipRange?         { execStartS, execEndS } | null   폼 선택 입력 (D-06)
 updatedAt          number (epoch ms)
 ```
@@ -469,7 +475,8 @@ firestore.rules 는 38-06 T3 가 기존 `reference/{document=**}` 재귀 와일�
                                             selfCheckAnalysisId · selfCheckJobId · angles* · anglesRealFps ·
                                             referenceKeypointReport · referenceSplitAngle · createdAt · updatedAt
 비공개 reference/{refId}/private/registration  supplierUid · consent · registrationError · techniqueRefId ·
-                                            isCombo · isSplit · hasHold · standingStart · clipRange · updatedAt
+                                            clipRange · updatedAt (+ 2026-09-30 이전 doc 에만 isCombo · isSplit ·
+                                            hasHold · standingStart)
 ```
 
 ### 공급자 명단 · 강사 코드 · 메일 초대 (quick-260930-lfw, 38-DESIGN-v2 §W1)
@@ -1051,8 +1058,8 @@ multiple_people     영상에 여러 사람이 나와요. 한 사람만 나오�
 no_standing_start   서 있는 자세로 시작하지 않았어요. 서 있는 자세에서 시작해 주세요. 폴 옆에 서서 1초쯤 있다가 동작을 시작하면 돼요.
 low_confidence      일부 관절을 못 읽었어요. 잘 안 보인 부위: {joints}. 밝은 곳에서, 옷과 배경이 구분되게 다시 촬영해 주세요.
 too_short           영상이 너무 짧아요. 기준 동작은 5초 이상이어야 해요. 동작 전체가 담기게 다시 올려주세요.
-too_long            영상이 너무 길어요. 동작 하나는 30초 이내로 올려주세요. 콤보는 60초까지예요.
-too_large           용량이 너무 커요. 100MB 이하 영상으로 다시 올려주세요.
+too_long            영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.
+too_large           용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.
 server_error        등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.
 ```
 

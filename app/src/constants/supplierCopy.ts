@@ -173,11 +173,11 @@ export const supplierCopy = {
       },
       too_long: {
         title: '영상이 너무 길어요',
-        body: '동작 하나는 30초 이내로 올려주세요. 콤보는 60초까지예요.',
+        body: '기준 동작은 2분 이내로 올려주세요.',
       },
       too_large: {
         title: '용량이 너무 커요',
-        body: '100MB 이하 영상으로 다시 올려주세요.',
+        body: '1GB 이하 영상으로 다시 올려주세요.',
       },
       server_error: {
         title: '등록 중 문제가 생겼어요',

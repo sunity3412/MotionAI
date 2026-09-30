@@ -82,58 +82,109 @@ def test_non_dict_body_rejected():
 
 
 # ── Phase 38 (Plan 38-01) — POST /reference/upload-url 폼 검증 (D-07·D-08·D-14) ──
+# quick-260930-w9l (belle 2026-09-30 폰 확인): 새 본문 = name·level·techniqueRefId?·
+# consent{portrait,usage}·format·fileSizeBytes·durationSec?. 선수 이름은 서버가 공급자
+# displayName 으로 채운다. 옛 웹 번들이 보내는 athleteName·isCombo·isSplit·hasHold·
+# standingStart·consent.silent·consent.training 은 **검증 없이 무시**한다.
 
 OK_REFERENCE = {
     "name": "  킵업 ",
-    "athleteName": " 정은지 ",
     "level": "intermediate",
     "techniqueRefId": "ref-kip-up",
-    "isCombo": False,
-    "isSplit": True,
-    "hasHold": False,
-    "standingStart": True,
     "clipRange": {"execStartS": 1.5, "execEndS": 7},
-    "consent": {"portrait": True, "usage": True, "silent": True, "training": True},
+    "consent": {"portrait": True, "usage": True},
     "format": "mov",
     "fileSizeBytes": 30 * 1024 * 1024,
     "durationSec": 12.4,
+}
+
+# 배포된 옛 웹 번들(38-13) 본문 — 새 서버도 200 이어야 한다(웹이 늦게 나가는 동안).
+OLD_WEB_BODY = {
+    **OK_REFERENCE,
+    "athleteName": " 정은지 ",
+    "isCombo": "true",  # 옛 검증이면 bad_request — 이제 무시
+    "isSplit": 1,
+    "hasHold": "yes",
+    "standingStart": False,  # 옛 D-09 사전 차단 — 이제 파이프라인 no_standing_start 가 본다
+    "consent": {"portrait": True, "usage": True, "silent": False, "training": "yes"},
 }
 
 
 def test_reference_ok_normalizes():
     req = validate_reference_upload_request(OK_REFERENCE)
     assert req.name == "킵업"  # strip
-    assert req.athlete_name == "정은지"
     assert req.level == "intermediate"
     assert req.technique_ref_id == "ref-kip-up"
-    assert req.is_combo is False
-    assert req.is_split is True and req.has_hold is False and req.standing_start is True
     assert req.clip_range == (1.5, 7.0)  # 튜플, float 정규화
-    assert req.consent_training is True
     assert req.fmt == "mov"
     assert req.file_size_bytes == 30 * 1024 * 1024
     assert req.duration_sec == 12.4
 
 
-def test_reference_defaults_training_false_and_combo_false():
-    body = {**OK_REFERENCE, "consent": {"portrait": True, "usage": True, "silent": True}}
-    del body["isCombo"]
+def test_reference_request_has_no_dropped_fields():
+    """선수 이름·선언 4·학습 동의는 요청 dataclass 에서 빠졌다(w9l 항목 5·9·10·11)."""
+    req = validate_reference_upload_request(OK_REFERENCE)
+    for gone in (
+        "athlete_name",
+        "is_combo",
+        "is_split",
+        "has_hold",
+        "standing_start",
+        "consent_training",
+    ):
+        assert not hasattr(req, gone), gone
+
+
+def test_reference_old_web_body_is_accepted_and_ignored():
+    req = validate_reference_upload_request(OLD_WEB_BODY)
+    assert req.name == "킵업"
+    assert req.level == "intermediate"
+
+
+def test_reference_optional_fields_absent():
+    body = dict(OK_REFERENCE)
     body["techniqueRefId"] = None
     body["clipRange"] = None
     body["durationSec"] = None  # 웹이 metadata 를 못 읽은 경우 — fail-open
     req = validate_reference_upload_request(body)
-    assert req.consent_training is False  # D-08 기본 꺼짐
-    assert req.is_combo is False
     assert req.technique_ref_id is None
     assert req.clip_range is None
     assert req.duration_sec is None
 
 
-def test_reference_combo_allows_up_to_60s():
+def test_reference_duration_upper_bound_is_120s_even_for_combo():
+    """콤보 상한(2026-09-30 삭제) — 길이 상한은 하나, isCombo 는 무시."""
+    assert models.REFERENCE_MAX_DURATION_SEC == 120.0
+    assert not hasattr(models, "REFERENCE_COMBO_MAX_DURATION_SEC")
+    req = validate_reference_upload_request({**OK_REFERENCE, "durationSec": 120})
+    assert req.duration_sec == 120.0
+    with pytest.raises(ValidationError) as e:
+        validate_reference_upload_request(
+            {**OK_REFERENCE, "isCombo": True, "durationSec": 120.1}
+        )
+    assert e.value.code == models.REG_ERR_TOO_LONG
+
+
+def test_reference_size_limit_is_1gb_with_registration_message():
+    assert models.REFERENCE_MAX_VIDEO_BYTES == 1024 * 1024 * 1024
+    assert models.MAX_VIDEO_BYTES == 100 * 1024 * 1024  # 수강생 경로 불변
     req = validate_reference_upload_request(
-        {**OK_REFERENCE, "isCombo": True, "durationSec": 45}
+        {**OK_REFERENCE, "fileSizeBytes": models.REFERENCE_MAX_VIDEO_BYTES}
     )
-    assert req.is_combo is True and req.duration_sec == 45.0
+    assert req.file_size_bytes == models.REFERENCE_MAX_VIDEO_BYTES
+    with pytest.raises(ValidationError) as e:
+        validate_reference_upload_request(
+            {**OK_REFERENCE, "fileSizeBytes": models.REFERENCE_MAX_VIDEO_BYTES + 1}
+        )
+    assert e.value.code == models.REG_ERR_TOO_LARGE
+    assert e.value.message == models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_LARGE]
+    assert "1GB" in e.value.message
+
+
+def test_student_upload_still_100mb():
+    with pytest.raises(ValidationError) as e:
+        validate_upload_request({**OK_MODE3, "fileSizeBytes": models.MAX_VIDEO_BYTES + 1})
+    assert e.value.code == models.ERR_SIZE_EXCEEDED
 
 
 @pytest.mark.parametrize(
@@ -141,26 +192,20 @@ def test_reference_combo_allows_up_to_60s():
     [
         ({"name": "   "}, "bad_request"),
         ({"name": "가" * 31}, "bad_request"),  # REFERENCE_NAME_MAX_LEN = 30
-        ({"athleteName": ""}, "bad_request"),
         ({"level": "pro"}, "bad_request"),
         ({"techniqueRefId": "bad id!"}, "bad_request"),
-        ({"isSplit": 1}, "bad_request"),  # int 위장 거부
-        ({"hasHold": "yes"}, "bad_request"),
-        ({"standingStart": False}, "bad_request"),  # D-09 사전 차단
-        ({"isCombo": "true"}, "bad_request"),
         ({"clipRange": {"execStartS": 5, "execEndS": 3}}, "bad_request"),
         ({"clipRange": {"execStartS": True, "execEndS": 3}}, "bad_request"),
         ({"clipRange": [1, 2]}, "bad_request"),
-        ({"consent": {"portrait": True, "usage": False, "silent": True}}, "bad_request"),
-        ({"consent": {"portrait": True, "silent": True}}, "bad_request"),  # usage 누락
-        ({"consent": {"portrait": True, "usage": True, "silent": True, "training": "yes"}}, "bad_request"),
+        ({"consent": {"portrait": True, "usage": False}}, "bad_request"),
+        ({"consent": {"portrait": True}}, "bad_request"),  # usage 누락
+        ({"consent": {"usage": True, "silent": True, "training": True}}, "bad_request"),
         ({"format": "avi"}, models.ERR_UNSUPPORTED_FORMAT),
         ({"fileSizeBytes": True}, "bad_request"),
         ({"fileSizeBytes": 0}, "bad_request"),
-        ({"fileSizeBytes": models.MAX_VIDEO_BYTES + 1}, models.ERR_SIZE_EXCEEDED),
+        ({"fileSizeBytes": models.REFERENCE_MAX_VIDEO_BYTES + 1}, models.REG_ERR_TOO_LARGE),
         ({"durationSec": 4.9}, models.REG_ERR_TOO_SHORT),
-        ({"durationSec": 31}, models.REG_ERR_TOO_LONG),
-        ({"durationSec": 61, "isCombo": True}, models.REG_ERR_TOO_LONG),
+        ({"durationSec": 120.1}, models.REG_ERR_TOO_LONG),
         ({"durationSec": "12"}, "bad_request"),
         ({"durationSec": 0}, "bad_request"),
     ],
@@ -171,12 +216,21 @@ def test_reference_rejections(patch, code):
     assert e.value.code == code
 
 
+def test_reference_consent_message_is_two():
+    with pytest.raises(ValidationError) as e:
+        validate_reference_upload_request(
+            {**OK_REFERENCE, "consent": {"portrait": True}}
+        )
+    assert e.value.message == "필수 동의 2가지에 체크해주세요."
+
+
 def test_reference_consent_missing_rejected():
     body = dict(OK_REFERENCE)
     del body["consent"]
     with pytest.raises(ValidationError) as e:
         validate_reference_upload_request(body)
     assert e.value.code == "bad_request"
+    assert e.value.message == "필수 동의 2가지에 체크해주세요."
 
 
 def test_reference_duration_codes_reuse_registration_messages():
@@ -184,7 +238,7 @@ def test_reference_duration_codes_reuse_registration_messages():
         validate_reference_upload_request({**OK_REFERENCE, "durationSec": 3})
     assert e.value.message == models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_SHORT]
     with pytest.raises(ValidationError) as e:
-        validate_reference_upload_request({**OK_REFERENCE, "durationSec": 40})
+        validate_reference_upload_request({**OK_REFERENCE, "durationSec": 121})
     assert e.value.message == models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_LONG]
 
 

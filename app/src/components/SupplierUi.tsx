@@ -528,7 +528,7 @@ export function AccountBox({ label, email }: { label: string; email: string }) {
 }
 
 // 38-DESIGN-v2 A-2 문의 행 — 1px divider · 반경 13 · 패딩 12 16. 아이콘 32(반경 8) + 제목 17/700 /
-// 부제 15 textMid + 쉐브론 20 inputBorder. 카카오 노랑은 외부 서비스 식별 예외(기존 토큰 sns.kakao).
+// 부제 15 textMid(선택 — 카카오 줄은 부제 없음, belle 09-30 폰 확인) + 쉐브론 20 inputBorder. 카카오 노랑은 외부 서비스 식별 예외(기존 토큰 sns.kakao).
 export function ContactRow({
   kind,
   title,
@@ -537,7 +537,7 @@ export function ContactRow({
 }: {
   kind: 'kakao' | 'mail';
   title: string;
-  sub: string;
+  sub?: string;
   onPress: () => void;
 }) {
   return (
@@ -556,7 +556,7 @@ export function ContactRow({
       </View>
       <View style={s.contactText}>
         <Text style={text.labelBold}>{title}</Text>
-        <Text style={text.aux}>{sub}</Text>
+        {sub ? <Text style={text.aux}>{sub}</Text> : null}
       </View>
       <Ionicons name="chevron-forward" size={20} color={colors.inputBorder} />
     </Pressable>

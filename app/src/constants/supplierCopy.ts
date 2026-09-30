@@ -60,7 +60,6 @@ export const supplierCopy = {
     helpTitle: '초대가 필요하거나 계정이 헷갈리면',
     helpBody: '아래로 알려 주세요. 운영팀이 확인해 드려요.',
     kakaoTitle: '카카오톡 채널로 문의',
-    kakaoSub: 'pf.kakao.com/_CyNxkn',
     kakaoUrl: 'http://pf.kakao.com/_CyNxkn',
     mailTitle: '메일로 문의',
     mailSub: 'cs@sunity.ai',

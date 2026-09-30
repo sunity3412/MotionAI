@@ -427,7 +427,6 @@ export default function SupplierHome() {
               <ContactRow
                 kind="kakao"
                 title={na.kakaoTitle}
-                sub={na.kakaoSub}
                 onPress={() => openLink(na.kakaoUrl)}
               />
               <ContactRow

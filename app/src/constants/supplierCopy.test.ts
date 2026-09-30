@@ -296,7 +296,7 @@ test('38-DESIGN-v2 A-2 초대받은 분만 — 문구 글자 단위', () => {
   assert.equal(n.helpTitle, '초대가 필요하거나 계정이 헷갈리면');
   assert.equal(n.helpBody, '아래로 알려 주세요. 운영팀이 확인해 드려요.');
   assert.equal(n.kakaoTitle, '카카오톡 채널로 문의');
-  assert.equal(n.kakaoSub, 'pf.kakao.com/_CyNxkn');
+  assert.equal('kakaoSub' in n, false); // belle 09-30: 카카오 줄 부제 없음
   assert.equal(n.kakaoUrl, 'http://pf.kakao.com/_CyNxkn');
   assert.equal(n.mailTitle, '메일로 문의');
   assert.equal(n.mailSub, 'cs@sunity.ai');

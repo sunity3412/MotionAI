@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { signInAnonymously, signOut } from 'firebase/auth';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -19,7 +19,14 @@ import { auth } from '../../lib/firebase';
 import { displayNameOf, useAuthUser } from '../../lib/authUser';
 import { useMyAnalyses } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
+import { instructorName, type InstructorLink } from '../../lib/instructorCode';
+import { useInstructorLink } from '../../lib/instructorLink';
 import BodyProfileForm from '../../components/BodyProfileForm';
+import {
+  BottomToast,
+  InstructorCodeRow,
+  InstructorCodeSheet,
+} from '../../components/InstructorCodeSheet';
 import type { AnalysisDoc, BodyProfile } from '../../types/analysis';
 import {
   DOMINANT_HAND_LABEL_KO,
@@ -39,6 +46,9 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 // 게스트 진입 자체는 **무접촉**이다 (belle 08-31 "실증할 땐 게스트로 들어갈 테니").
 // 인트로 "시작하기" = 익명 인증 그대로. 이 화면은 로그인을 권할 뿐 강요하지 않는다
 // (CLAUDE.md §2 파일럿 요건 = 회원가입 강제 없음).
+
+// 강사 연결 토스트 표시 시간(ms).
+const TOAST_MS = 3000;
 
 function averageScore(analyses: AnalysisDoc[]): number | null {
   // belle D-08 — 결과화면이 숨긴 점수를 평균에 되살리지 않는다. 홈(index.tsx)과
@@ -87,6 +97,30 @@ export default function Profile() {
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
   const [editing, setEditing] = useState(false);
+  const {
+    link: instructorLink,
+    status: instructorStatus,
+    setLink: setInstructorLink,
+  } = useInstructorLink(uid);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // 토스트는 3초 뒤 사라진다. 새 토스트가 오면 타이머를 다시 건다, 언마운트 때 정리.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), TOAST_MS);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const onInstructorLinked = (link: InstructorLink, kind: 'linked' | 'already') => {
+    setInstructorLink(link);
+    const name = instructorName(link.displayName, link.code);
+    setToast(
+      kind === 'linked'
+        ? profileCopy.instructorCode.toastLinked(name)
+        : profileCopy.instructorCode.alreadyLinked(name),
+    );
+  };
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const summary = useMemo(
     () => summarizeBodyProfile(profile, painAreaNote),
@@ -174,23 +208,18 @@ export default function Profile() {
           </View>
         )}
 
-        {/* instructorCode 행 — 공급자 페이지 "내 코드"의 수요자 쪽 자리 (Phase 38 D-12).
-            표시만: 입력·귀속·크레딧 지급은 다음 업데이트(D-13 결제 없음). 그래서
-            Pressable 이 아니고 값은 고정(문구는 profileCopy.ts 단일 출처 — 화면 리터럴 금지).
-            게스트·회원 모두 보인다. 기존 infoList/InfoRow/guestHint 스타일 재사용 —
-            신규 스타일 0 (UI-SPEC §B). */}
-        <View
-          style={styles.infoList}
-          accessible
-          accessibilityLabel={profileCopy.instructorCode.a11yEmpty}
-        >
-          <InfoRow
-            label={profileCopy.instructorCode.label}
-            value={profileCopy.instructorCode.action}
-            isLast
-          />
-        </View>
-        <Text style={styles.guestHint}>{profileCopy.instructorCode.hint}</Text>
+        {/* instructorCode 행 — 수강생 강사 코드 입력 (quick-260930-o0u, 38-DESIGN-v2 §W2).
+            게스트·회원 모두 보인다(uid 기준 — 로그인해도 uid 불변). 연결은 한 번뿐이고
+            instructorLinks/{uid} 에 남는다(플래너 결정 (a) — users 밖). 읽기는 uid 당
+            get 1회(결정 (b)). 행 3상태·시트·토스트는 components/InstructorCodeSheet,
+            문구는 profileCopy.ts 단일 출처(화면 리터럴 금지). */}
+        <InstructorCodeRow
+          status={instructorStatus}
+          link={instructorLink}
+          onPress={() => {
+            if (uid) setSheetOpen(true);
+          }}
+        />
 
         {/* 내 몸 정보 — 미입력=권유 / 입력됨=요약+수정 (D-01/D-02/D-06) */}
         <Pressable
@@ -287,6 +316,16 @@ export default function Profile() {
           />
         </SafeAreaView>
       </Modal>
+
+      {uid ? (
+        <InstructorCodeSheet
+          visible={sheetOpen}
+          uid={uid}
+          onClose={() => setSheetOpen(false)}
+          onLinked={onInstructorLinked}
+        />
+      ) : null}
+      <BottomToast message={toast} />
     </View>
   );
 }

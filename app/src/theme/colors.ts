@@ -171,6 +171,10 @@ export const colors = {
   dividerSoft: '#EDEDED', // 카드 안 구분선(목록 행 · 정보 표 행 · 체크 카드)
   barGlass: 'rgba(255,255,255,0.86)', // STEP 01/02 하단 바 — 웹(뒤 흐림 20 과 함께)
   barSolid: 'rgba(255,255,255,0.96)', // STEP 01/02 하단 바 — 네이티브(흐림 없음)
+
+  // ── quick-260930-o0u (38-DESIGN-v2 §W2 강사 확인 원형) ──
+  // 기존 brandBg(#FFE5E0)와 다른 시안 실측값이라 alias 하지 않는다. brand #FF4B33 변경 0.
+  brandAvatarBg: '#FFE3DF',
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

@@ -18,6 +18,7 @@
 //      analysis.ts 는 타입 파일이라 import 하지 않고 텍스트로 읽는다.
 //   9) R7/R11 정직 문구 — 선언은 보관만, 자기 점수는 일관성 진단.
 //  10) Figma 1:499 확정 다이얼로그 2종이 pickerFailure.ts 와 같은 원문이다.
+//  11) 38-DESIGN.md(Figma 282:506, 2026-09-30) 새/바뀐 문구 키 값 잠금 + 지운 키가 없다.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -178,8 +179,10 @@ test('form.sec5 동의 문안 4건이 기획안 §6 원문과 같다 (D-08)', ()
 test('ui-checker flags #1 #2 #3 적용값 (§Decisions 표가 §Copywriting 원문보다 우선)', () => {
   assert.equal(supplierCopy.common.copy, '코드 복사');
   assert.equal(supplierCopy.common.cancel, '올리기 취소');
-  assert.ok(supplierCopy.home.codePending.includes('운영팀'));
-  assert.equal(supplierCopy.home.upload, '동작 올리기 >'); // flag #4 유지
+  assert.ok(supplierCopy.home.codePendingBody.includes('운영팀'));
+  // 38-DESIGN A-3: '>' 대신 쉐브론 아이콘
+  assert.equal(supplierCopy.home.upload, '동작 올리기');
+  assert.ok(!supplierCopy.home.upload.includes('>'));
 });
 
 // ── 7) 크레딧·결제 없음 ─────────────────────────────────────────────────────
@@ -229,13 +232,13 @@ test('R7 — 선언은 등록 정보로 보관, 채점 규칙 약속 문구 없�
 });
 
 test('R11 — 자기 점수는 일관성 진단, 고지 문장 고정, low 는 다시 찍기 유지', () => {
-  assert.ok(supplierCopy.row.self.ok.includes('추출·저장이 일관돼요'));
-  assert.ok(supplierCopy.row.self.ok.includes('{score}'));
+  assert.ok(supplierCopy.row.self.okBody.includes('추출·저장이 일관돼요'));
+  assert.equal(supplierCopy.row.self.title, '자기 영상 재분석');
   for (const [p, s] of ALL_STRINGS) {
     assert.ok(!s.includes('기준으로 쓸 수 있어요'), `${p}: 옛 R11 문구`);
   }
   assert.equal(supplierCopy.row.self.note, '동작 정확도는 시험 영상으로 따로 봐요.');
-  assert.ok(supplierCopy.row.self.low.includes('다시 찍어 주세요'));
+  assert.ok(supplierCopy.row.self.lowBody.includes('다시 찍어 주세요'));
   assert.ok(supplierCopy.row.status.selfLow.includes('다시 찍어 주세요'));
 });
 
@@ -252,4 +255,33 @@ test('dialog.format · dialog.tooLarge 가 pickerFailure.ts 의 Figma 확정 문
   for (const kind of ['format', 'tooLarge', 'tooShort', 'tooLong', 'unreadable'] as const) {
     assert.equal(supplierCopy.dialog[kind].lines.length, 2, `${kind} 는 2줄`);
   }
+});
+
+// ── 11) 38-DESIGN.md 새/바뀐 문구 키 ────────────────────────────────────────
+
+test('38-DESIGN.md 새/바뀐 문구 키', () => {
+  const c = supplierCopy;
+  assert.equal(c.login.chip, '강사·선수 전용');
+  assert.equal(c.noAccess.refreshHint, '등록이 끝나면 눌러서 바로 확인할 수 있어요.');
+  assert.equal(c.home.count, '{n}개');
+  assert.equal(c.home.upload, '동작 올리기');
+  assert.equal(c.home.codePendingTitle, '코드 준비 중');
+  assert.equal(c.home.codePendingBody, '운영팀이 코드를 넣으면 여기에 보여요.');
+  assert.equal(c.form.sec5.allHint, '필수 3개');
+  assert.equal(c.row.done.sub, '{name} · {athlete} 선수');
+  assert.equal(c.row.self.title, '자기 영상 재분석');
+  assert.equal(c.row.self.okBody, '추출·저장이 일관돼요.');
+  assert.equal(c.row.self.lowBody, '낮아요. 다시 찍어 주세요.');
+  assert.equal(c.row.self.scoreText, '{score}점');
+  assert.equal(c.form.uploading.progressLabel, '올리는 중');
+  assert.equal(c.form.uploading.pct, '{pct}%');
+  assert.equal(c.form.uploading.keepOpen, '화면을 닫지 마세요. 다 올라가면 목록으로 돌아가요.');
+  assert.equal(c.form.uploading.summaryTitle, '{name} · {level}');
+  assert.equal(c.form.uploading.summaryMeta, '{file} · {meta}');
+  assert.equal(c.form.sec1.guideLink, '자세한 가이드');
+  // 한 줄 문구를 둘로 나눈 키 — 옛 키가 남아 있으면 소비처가 옛 문구를 계속 읽을 수 있다.
+  assert.equal('progress' in c.form.uploading, false);
+  assert.equal('codePending' in c.home, false);
+  assert.equal('ok' in c.row.self, false);
+  assert.equal('low' in c.row.self, false);
 });

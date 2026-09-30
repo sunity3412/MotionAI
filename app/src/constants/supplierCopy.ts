@@ -13,9 +13,14 @@
 //   · UI-SPEC §Decisions "ui-checker flags (2026-09-26)" 표의 적용값이 §Copywriting 원문보다
 //     우선한다 — 해당 키에 `// ui-checker flag #n` 을 달았다.
 //   · `{score}` `{joints}` `{name}` `{email}` `{n}` `{durationSec}` `{sizeMB}` `{pct}` `{sha}`
+//     `{athlete}` `{level}` `{file}` `{meta}`
 //     는 치환 자리 — 소비처가 String.replace 만 한다(HTML/JSX 로 해석하지 않는다, T-38-03-2).
 //   · 숫자 상수(재현성 문턱 SELF_SCORE_OK_MIN 등)는 여기 두지 않는다 — lib/supplierRules.ts.
 //   · 실증은 무료라 돈에 관한 문구가 없다(D-13). 기술 용어(RTMW·DTW·conf) 없음. 이모지 없음.
+//   · 2026-09-30 38-DESIGN.md(Figma 282:506)가 표시 문구 일부를 바꿨다 — 이 파일이 여전히 단일 출처.
+//     재량 판단 2건: (a) form.uploading.summaryTitle/summaryMeta/pct · row.self.scoreText 는
+//     38-DESIGN 키 요약에 없지만 A-5·A-3c 화면 파일에 ` · `·'점'·'%' 리터럴을 두지 않으려고 추가.
+//     (b) form.sec1.guideLink 는 키 요약에서 빠졌으나 A-4 본문이 '자세한 가이드' 를 명시해 따른다.
 
 export const supplierCopy = {
   common: {
@@ -39,6 +44,7 @@ export const supplierCopy = {
   login: {
     title: '시작해 볼까요?',
     body: '기준 동작을 올리는 강사·선수를 위한 페이지예요. 앱과 같은 Google 계정으로 시작해 주세요.',
+    chip: '강사·선수 전용', // 38-DESIGN A-1
     google: 'Google로 시작하기',
     busy: '로그인 중...',
     sameAccountHint: '앱에서 쓰는 Google 계정과 같으면 하나의 ID로 연결돼요.',
@@ -55,6 +61,7 @@ export const supplierCopy = {
     refresh: '등록 확인하기',
     checking: '확인하는 중...',
     stillNo: '아직 등록 전이에요. 등록이 끝나면 다시 눌러주세요.',
+    refreshHint: '등록이 끝나면 눌러서 바로 확인할 수 있어요.', // 38-DESIGN A-2
   },
 
   // A-3 메인 (Figma 1:717 · 1:743 · 1:646)
@@ -63,7 +70,8 @@ export const supplierCopy = {
     identity: '{name} · {email}',
     motionsTitle: '내 동작',
     motionsSub: '올린 동작이 앱의 기준 동작 목록에 올라가요.',
-    upload: '동작 올리기 >', // ui-checker flag #4 — Figma 1:717 알약 어법 유지
+    count: '{n}개', // 38-DESIGN A-3 내 동작 카드 머리 오른쪽
+    upload: '동작 올리기', // 38-DESIGN A-3 — '>' 대신 쉐브론 아이콘(ui-checker flag #4 대체)
     emptyStep: 'STEP 1',
     emptyTitle: '첫 동작을 올려보세요',
     emptyBody: '올린 동작은 앱의 기준 동작 목록에 올라가요. 촬영 전 체크 5가지를 먼저 확인해요.',
@@ -75,10 +83,12 @@ export const supplierCopy = {
     sport: '폴스포츠',
     codeHow:
       "수업 때 수강생에게 이 코드를 알려주세요. 수강생이 앱 마이 탭 '강사 코드' 칸에 넣으면 회원님과 연결돼요. (입력 칸은 다음 업데이트에서 열려요)",
-    codePending: '코드 준비 중 · 운영팀이 코드를 넣으면 여기에 보여요', // ui-checker flag #3
+    // ui-checker flag #3 의 한 줄을 38-DESIGN A-3 에서 둘로 나눔(코드 자리 제목 + 안내 자리 본문).
+    codePendingTitle: '코드 준비 중',
+    codePendingBody: '운영팀이 코드를 넣으면 여기에 보여요.',
   },
 
-  // A-3 행 · A-3b 실패 상세 · A-3c 완료 상세. 부제 = `{레벨} {상태어}`(레벨 라벨은
+  // A-3 행 · A-3b 실패 상세 · A-3c 완료 상세. 부제 = `{레벨} · {상태어}`(38-DESIGN A-3, 레벨 라벨은
   // form.sec2.level.options), 날짜 `YYYY.MM.DD`.
   row: {
     status: {
@@ -98,6 +108,7 @@ export const supplierCopy = {
     },
     done: {
       title: '등록됐어요',
+      sub: '{name} · {athlete} 선수', // 38-DESIGN A-3c
       // A-3c 정보 표 라벨(UI-SPEC A-3c "동작 이름 · 선수 · 레벨 · 등록일 · 스플릿/유지/서 있는 시작").
       // UI-SPEC 이 표의 항목만 정하고 문구 키를 두지 않아 38-10 이 추가 — 값은 `form.sec3.yes/no`.
       info: {
@@ -110,14 +121,18 @@ export const supplierCopy = {
         stand: '서 있는 시작',
       },
     },
-    // 자기 재현성 줄(D-10). ok 는 리뷰 R11 판 — 높은 점수는 정확도 증명이 아니라
-    // 추출·저장·재분석이 일관됐다는 진단이고, note 가 그 아래 항상 붙는다(D-11).
+    // 자기 재현성 카드(D-10, 38-DESIGN A-3c). 옛 한 줄(ok)을 제목 + `{score}점` + 본문으로
+    // 나눴다. okBody 가 리뷰 R11 취지(높은 점수 = 정확도 증명이 아니라 추출·저장·재분석이
+    // 일관됐다는 진단)를 잇고, note 가 그 아래 항상 붙는다(D-11). 점수는 카드 오른쪽
+    // scoreText 한 자리에만 — 본문(okBody·lowBody)엔 숫자를 다시 쓰지 않는다.
     self: {
+      title: '자기 영상 재분석',
+      scoreText: '{score}점',
       pending: '본인 재현성 확인 중',
       queued: '본인 재현성 확인 대기 중 · 분석 서버가 켜지면 이어서 해요',
-      ok: '자기 영상 재분석 {score}점 — 추출·저장이 일관돼요',
+      okBody: '추출·저장이 일관돼요.',
       note: '동작 정확도는 시험 영상으로 따로 봐요.',
-      low: '본인 재현성 {score}점 · 낮아요. 다시 찍어 주세요',
+      lowBody: '낮아요. 다시 찍어 주세요.',
       failed: '본인 재현성을 확인하지 못했어요. 운영팀에 알려주세요.',
     },
     reupload: '다시 올리기',
@@ -185,7 +200,7 @@ export const supplierCopy = {
         '· 소리(음악)가 없어요.',
       ],
       confirm: '위 5가지를 확인했어요',
-      guideLink: '자세한 가이드 보기',
+      guideLink: '자세한 가이드', // 38-DESIGN A-4 ① 체크 행 오른쪽 링크
       error: '촬영 전 체크를 확인해주세요.',
     },
     // ② 동작 정보
@@ -258,17 +273,21 @@ export const supplierCopy = {
       silent: '무음 영상 확인(음악·안무 라이선스 회피)',
       training: '학습 사용 동의',
       trainingNote: '체크하지 않으면 AI 학습에 쓰지 않아요.',
+      allHint: '필수 3개', // 38-DESIGN A-4 STEP 02 전체 동의 상자 오른쪽
       withdraw:
         '동의는 언제든 철회할 수 있어요. 철회하면 이 영상은 새 분석의 기준으로 더 쓰이지 않고 앱에서 재생되지 않아요. 이미 끝난 수강생의 분석 기록(각도·동작 이름)은 수강생의 기록이라 남아요. 철회는 운영팀에 알려주세요.',
       error: '필수 동의 3가지에 체크해주세요.',
     },
     sessionExpired: '로그인이 만료됐어요. 다시 로그인해주세요.',
     presignFail: '잠깐 문제가 있었어요. 잠시 후 다시 시도해주세요.',
-    // A-5 진행 패널
+    // A-5 진행 패널(38-DESIGN A-5). 옛 progress 한 줄을 progressLabel + pct 두 조각으로.
     uploading: {
       title: '올리는 중',
-      progress: '올리는 중 · {pct}%',
-      keepOpen: '화면을 닫지 마세요.',
+      progressLabel: '올리는 중',
+      pct: '{pct}%',
+      keepOpen: '화면을 닫지 마세요. 다 올라가면 목록으로 돌아가요.',
+      summaryTitle: '{name} · {level}',
+      summaryMeta: '{file} · {meta}',
     },
     uploaded: { toast: '동작을 올렸어요. 등록이 끝나면 목록에 표시돼요.' },
     uploadFail: {

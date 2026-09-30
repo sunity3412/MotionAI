@@ -8,8 +8,8 @@
 // 검증 축:
 //   1) normalizeRegistration — 필수 4(supplierUid·name·athleteName·level) 없으면 null, 있으면
 //      공개 doc 필드만 담은 SupplierMotion(registering 기본).
-//   2) rowSubtitle — A-3 상태 표 8행(expired 포함) 전부 `{레벨} {상태어}`.
-//   3) selfCheckLine / selfCheckNote — R11 판 문구, 반올림, 문턱 경계.
+//   2) rowSubtitle — A-3 상태 표 8행(expired 포함) 전부 `{레벨} · {상태어}`(38-DESIGN A-3).
+//   3) selfCheckView / selfCheckNote — 재현성 카드 점수·본문 분리(38-DESIGN A-3c), 반올림, 문턱 경계.
 //   4) failCopy / expiredCopy / normalizePrivate — {joints} 치환, too_large, 미지 코드 → server_error.
 //   5) hasDetail / sortNewestFirst / mapPresignFailure / uploadOutcomeNext — 두 트랙 공용 전이표.
 
@@ -28,7 +28,7 @@ import {
   presignFailureMessage,
   rowSubtitle,
   SELF_SCORE_OK_MIN,
-  selfCheckLine,
+  selfCheckView,
   selfCheckNote,
   sortNewestFirst,
   uploadOutcomeNext,
@@ -85,31 +85,37 @@ test('registrationStatus 가 없거나 미지 값이면 registering 기본', () 
 
 // ── 2) rowSubtitle ─────────────────────────────────────────────────────────
 
-test('rowSubtitle — A-3 상태 표 8행 = `{레벨} {상태어}` (expired 포함, R4)', () => {
+test('rowSubtitle — A-3 상태 표 8행 = `{레벨} · {상태어}` (expired 포함, R4)', () => {
   const s = supplierCopy.row.status;
-  assert.equal(rowSubtitle(motion('registering')), '기본기 올린 영상 확인 중');
-  assert.equal(rowSubtitle(motion('queued')), `${LEVEL_LABEL_KO.intermediate} ${s.queued}`);
-  assert.equal(rowSubtitle(motion('processing')), `${LEVEL_LABEL_KO.advanced} ${s.processing}`);
-  assert.equal(rowSubtitle(motion('activePending')), `${LEVEL_LABEL_KO.intermediate} ${s.newlyAdded}`);
-  assert.equal(rowSubtitle(motion('activeSelfQueued')), `${LEVEL_LABEL_KO.advanced} ${s.newlyAdded}`);
-  assert.equal(rowSubtitle(motion('activeOk')), '기본기 재현성 97점');
-  assert.equal(rowSubtitle(motion('activeLow')), '고급 재현성 61점 · 다시 찍어 주세요');
-  assert.equal(rowSubtitle(motion('failedLowConfidence')), `${LEVEL_LABEL_KO.intermediate} ${s.failed}`);
-  assert.equal(rowSubtitle(motion('expired')), `${LEVEL_LABEL_KO.basic} ${s.expired}`);
+  assert.equal(rowSubtitle(motion('registering')), '기본기 · 올린 영상 확인 중');
+  assert.equal(rowSubtitle(motion('queued')), `${LEVEL_LABEL_KO.intermediate} · ${s.queued}`);
+  assert.equal(rowSubtitle(motion('processing')), `${LEVEL_LABEL_KO.advanced} · ${s.processing}`);
+  assert.equal(rowSubtitle(motion('activePending')), `${LEVEL_LABEL_KO.intermediate} · ${s.newlyAdded}`);
+  assert.equal(rowSubtitle(motion('activeSelfQueued')), `${LEVEL_LABEL_KO.advanced} · ${s.newlyAdded}`);
+  assert.equal(rowSubtitle(motion('activeOk')), '기본기 · 재현성 97점');
+  assert.equal(rowSubtitle(motion('activeLow')), '고급 · 재현성 61점 · 다시 찍어 주세요');
+  assert.equal(rowSubtitle(motion('failedLowConfidence')), `${LEVEL_LABEL_KO.intermediate} · ${s.failed}`);
+  assert.equal(rowSubtitle(motion('expired')), `${LEVEL_LABEL_KO.basic} · ${s.expired}`);
   assert.deepEqual(LEVEL_LABEL_KO, { basic: '기본기', intermediate: '중급', advanced: '고급' });
 });
 
-// ── 3) selfCheckLine / selfCheckNote ────────────────────────────────────────
+// ── 3) selfCheckView / selfCheckNote ────────────────────────────────────────
 
-test('selfCheckLine — pending/queued/ok/low/failed 5분기 + 고지', () => {
+// 재현성 카드(38-DESIGN A-3c) — 점수는 카드 오른쪽 `{score}점` 한 자리에만, 본문엔 숫자를
+// 다시 쓰지 않는다(낮음 분기에서 점수가 두 번 보이던 것을 막는다).
+test('selfCheckView — pending/queued/ok/low/failed 5분기 + 고지', () => {
   const c = supplierCopy.row.self;
-  assert.equal(selfCheckLine(motion('activePending')), c.pending);
-  assert.equal(selfCheckLine(motion('activeSelfQueued')), c.queued);
-  assert.equal(selfCheckLine(motion('activeOk')), '자기 영상 재분석 97점 — 추출·저장이 일관돼요');
-  assert.equal(selfCheckLine(motion('activeLow')), '본인 재현성 61점 · 낮아요. 다시 찍어 주세요');
-  assert.equal(selfCheckLine(motion('activeSelfFailed')), c.failed);
+  assert.deepEqual(selfCheckView(motion('activePending')), { score: null, body: c.pending });
+  assert.deepEqual(selfCheckView(motion('activeSelfQueued')), { score: null, body: c.queued });
+  assert.deepEqual(selfCheckView(motion('activeOk')), { score: 97, body: c.okBody });
+  assert.deepEqual(selfCheckView(motion('activeLow')), { score: 61, body: c.lowBody });
+  assert.deepEqual(selfCheckView(motion('activeSelfFailed')), { score: null, body: c.failed });
   assert.equal(selfCheckNote(), c.note);
-  assert.ok(!selfCheckLine(motion('activeOk')).includes('{score}'));
+  for (const key of ['activePending', 'activeSelfQueued', 'activeOk', 'activeLow', 'activeSelfFailed'] as const) {
+    const body = selfCheckView(motion(key)).body;
+    assert.ok(!body.includes('{score}'), `${key}: ${body}`);
+    assert.ok(!/\d+점/.test(body), `${key} 본문에 점수가 또 나온다: ${body}`);
+  }
 });
 
 test('SELF_SCORE_OK_MIN 은 90 하나 — 경계는 반올림한 표시값으로 가른다', () => {
@@ -117,14 +123,14 @@ test('SELF_SCORE_OK_MIN 은 90 하나 — 경계는 반올림한 표시값으로
   for (const { selfScore, expect } of supplierFixtures.selfScoreBoundary) {
     const m = normalizeRegistration('b', { ...rawDocs.activeOk, selfScore });
     assert.ok(m);
-    const line = selfCheckLine(m);
-    const rounded = String(Math.round(selfScore));
-    assert.ok(line.includes(`${rounded}점`), `${selfScore} → ${line}`);
+    const view = selfCheckView(m);
+    const rounded = Math.round(selfScore);
+    assert.equal(view.score, rounded, `${selfScore} → ${view.score}`);
     if (expect === 'ok') {
-      assert.ok(line.includes('일관돼요'), `${selfScore} 는 ok 여야: ${line}`);
+      assert.equal(view.body, supplierCopy.row.self.okBody, `${selfScore} 는 ok 여야: ${view.body}`);
       assert.ok(rowSubtitle(m).endsWith(`재현성 ${rounded}점`));
     } else {
-      assert.ok(line.includes('다시 찍어 주세요'), `${selfScore} 는 low 여야: ${line}`);
+      assert.ok(view.body.includes('다시 찍어 주세요'), `${selfScore} 는 low 여야: ${view.body}`);
       assert.ok(rowSubtitle(m).endsWith('다시 찍어 주세요'));
     }
   }

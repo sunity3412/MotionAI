@@ -171,7 +171,7 @@ function assertNever(x: never): never {
 
 // A-3 행 부제의 상태어(UI-SPEC A-3 상태 표 8행). active 는 자기 점수로 3분기 —
 // 점수 없음(pending/queued/failed selfCheck)은 Figma `새로 추가됨`; selfCheck failed 의 사연은
-// 상세 패널의 selfCheckLine 이 말한다.
+// 상세 패널의 selfCheckView 가 말한다.
 export function rowStatusWord(m: SupplierMotion): string {
   const s = supplierCopy.row.status;
   switch (m.registrationStatus) {
@@ -195,20 +195,27 @@ export function rowStatusWord(m: SupplierMotion): string {
   }
 }
 
-// 행 부제 = `{레벨} {상태어}` (Figma 1:717 "고급 새로 추가됨" 어법, 색 없이 말로).
+// 행 부제 = `{레벨} · {상태어}` (38-DESIGN A-3 행 부제, 색 없이 말로).
 export function rowSubtitle(m: SupplierMotion): string {
-  return `${LEVEL_LABEL_KO[m.level]} ${rowStatusWord(m)}`;
+  return `${LEVEL_LABEL_KO[m.level]} · ${rowStatusWord(m)}`;
 }
 
-// A-3c 완료 패널 재현성 줄. ok 는 리뷰 R11 판(일관성 진단) — 바로 아래 selfCheckNote() 가
-// 항상 붙는다(D-11). done 인데 점수가 없으면 데이터 이상 → failed 문구(운영팀에 알려주세요).
-export function selfCheckLine(m: SupplierMotion): string {
+// A-3c 재현성 카드(38-DESIGN A-3c) = 제목 + 오른쪽 `{score}점` + 본문. score 는 카드 오른쪽
+// 한 자리에만 그린다 — 본문엔 숫자를 다시 쓰지 않는다(낮음이면 lowBody). ok 본문은 리뷰 R11
+// 판(일관성 진단)이고 바로 아래 selfCheckNote() 가 항상 붙는다(D-11). done 인데 점수가 없으면
+// 데이터 이상 → failed 문구(운영팀에 알려주세요).
+// 표시와 분기가 같은 반올림 숫자 — 문턱 비교와 화면 `{score}점` 모두 doneScore 한 값이다.
+export function selfCheckView(m: SupplierMotion): { score: number | null; body: string } {
   const c = supplierCopy.row.self;
   const score = doneScore(m);
-  if (score != null) return withScore(score >= SELF_SCORE_OK_MIN ? c.ok : c.low, score);
-  if (m.selfCheckStatus === 'queued') return c.queued;
-  if (m.selfCheckStatus === 'failed' || m.selfCheckStatus === 'done') return c.failed;
-  return c.pending;
+  if (score != null) {
+    return { score, body: score >= SELF_SCORE_OK_MIN ? c.okBody : c.lowBody };
+  }
+  if (m.selfCheckStatus === 'queued') return { score: null, body: c.queued };
+  if (m.selfCheckStatus === 'failed' || m.selfCheckStatus === 'done') {
+    return { score: null, body: c.failed };
+  }
+  return { score: null, body: c.pending };
 }
 
 export function selfCheckNote(): string {

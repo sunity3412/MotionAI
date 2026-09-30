@@ -162,6 +162,15 @@ export const colors = {
   resultPagerLine: '#767676', // 시안 #7F7F7F(4.00:1) — AA 미달이라 명도만 낮췄다. 흰 배경 4.54:1 — 모달 페이저 글자·원 테두리
   resultPagerChevron: '#2F2F2F', // 시안 #2F2F2F 그대로 (13.39:1) — 모달 페이저 셰브론
   resultGrip: '#8B8B8D', // 시안 #8B8B8D 그대로 (비텍스트 3.40:1) — 모달 손잡이 바
+
+  // ── Phase 38 공급자 시안(Figma 282:506, 38-DESIGN §0) ─────────────────────
+  // 38-DESIGN §0 은 신규 색을 #FFF4F2 하나로 적었지만 #EDEDED · 흰 86/96% · 음영 0.55 도
+  // 기존 토큰이 없어, 화면 색 리터럴 금지(app/CLAUDE.md)를 지키려고 같이 추가.
+  // brand #FF4B33 변경 0 (CLAUDE.md §4). 기존 값 변경 0.
+  supplierPinkBg: '#FFF4F2', // A-6 '등록이 안 되는 4가지' 상자(38-DESIGN 지정 신규 토큰)
+  dividerSoft: '#EDEDED', // 카드 안 구분선(목록 행 · 정보 표 행 · 체크 카드)
+  barGlass: 'rgba(255,255,255,0.86)', // STEP 01/02 하단 바 — 웹(뒤 흐림 20 과 함께)
+  barSolid: 'rgba(255,255,255,0.96)', // STEP 01/02 하단 바 — 네이티브(흐림 없음)
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)
@@ -179,6 +188,11 @@ export const gradients = {
   // linear-gradient(to-bottom, #FFFFFF, #FFF0EE)
   homeCard: {
     colors: ['#FFFFFF', '#FFF0EE'] as const,
+  },
+  // 38-DESIGN A-3 내 코드 사진 음영 — 35% 지점 투명 → 끝 rgba(0,0,0,0.55), 위→아래.
+  supplierPhotoShade: {
+    colors: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)'] as const,
+    locations: [0.35, 1] as const,
   },
 } as const;
 

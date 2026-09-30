@@ -1,0 +1,39 @@
+{
+ "reference": {
+  "motionId": "dca3a34718704ef8bcbac339df6b2788",
+  "level": "basic",
+  "source": "supplier-link",
+  "registrationUpdatedAt": 1790776061994,
+  "name": "클라임",
+  "registrationStatus": "queued",
+  "uploadKey": "reference/UmH3ZHVYKXeanc01JzB6T4QhUuu1/dca3a34718704ef8bcbac339df6b2788/upload.mp4",
+  "jobId": null,
+  "supplierCode": "TESTB",
+  "queuedReason": "pod_down",
+  "createdAt": 1790776049691,
+  "leaseUntil": null,
+  "uploadExpiresAt": 1790776949691,
+  "athleteName": "김미연",
+  "supplierUid": "UmH3ZHVYKXeanc01JzB6T4QhUuu1",
+  "isActive": false,
+  "updatedAt": 1790776061994
+ },
+ "private_registration": {
+  "isSplit": true,
+  "standingStart": true,
+  "hasHold": false,
+  "techniqueRefId": "ref-climb",
+  "consent": {
+   "training": false,
+   "silent": true,
+   "uid": "UmH3ZHVYKXeanc01JzB6T4QhUuu1",
+   "at": 1790776049691,
+   "portrait": true,
+   "version": "2026-09-26",
+   "usage": true
+  },
+  "supplierUid": "UmH3ZHVYKXeanc01JzB6T4QhUuu1",
+  "isCombo": false,
+  "updatedAt": 1790776049691
+ }
+}

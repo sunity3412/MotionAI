@@ -56,7 +56,37 @@ belle 지시: *"재계획은 하지 않고, 차단 3건만 플래너 1회와 검
 - 38-04 T3 · VALIDATION 범례의 `⏭` → ASCII `[skipped-by-decision]`(CLAUDE.md §7 이모지 금지). `★` 는 그대로.
 - 그 밖(rtk 접두 없음 · PATTERNS 행 누락 · low_confidence 가 multiple_people 보다 먼저) 변경 없음.
 
-## 다음 (2026-09-30 새벽 갱신 — belle 세션 일시정지, 웨이브 4 끝)
+## 다음 (2026-10-01 새벽 갱신 — belle "일단 여기까지 하고 정리하자", 38-13 완료 = 13/14)
+
+### 진행 [확인]
+
+- **38-13 완료** (`38-13-SUMMARY.md`). belle 실기기 최종 원문 *"1~9번 다 오케이"*. 링크 = `https://d2ivnoigym2xlu.cloudfront.net/supplier`.
+- 그 사이 belle 폰 확인 수정 3건이 quick 으로 나갔다:
+  - 260930-lfw 공급자 메일 초대(W1) · 260930-o0u 수강생 강사 코드 입력(W2, belle 폰 키보드 ○)
+  - **260930-w9l 공급자 폼 수정 묶음** — 필수 4 · 동의 2(`[필수] … · 보기 >`) · 학습 체크박스 삭제 → 공급자 계약 근거 기록 · 5초~2분 단일 상한 · 공급자만 1GB · '이 동작에 대해' 3문항 삭제 · 선수 이름 = 초대 실명 고정(서버 409 supplier_name_missing) · '기본기'→'초급'. 배포 = layer `:23`(reference-upload-url · playback-url) · 웹 무효화 `IA83OV9SRXLSAVLLUPILU2U5Q9` · OTA preview `62eb42e4`. belle 결정 원문 = 메모리 `supplier-form-decisions-20260930`.
+- 정리 끝: 시험 doc(클라임) 백업 뒤 삭제 + S3 객체 삭제 · TESTB deactivate(2026-09-30T15:30:15Z). 남은 reference doc 12개 = 시드, 대기 0 [확인].
+- 게이트(w9l 끝): backend pytest 5755 passed / 20 skipped · typecheck 0 · node 82/82.
+
+### 재개 = 웨이브 7 = 38-14 (Pod `pod:go` E2E + 정은지 초대)
+
+순서가 중요하다:
+1. Pod 기동(`/start` 절차) → **Pod 코드 배포를 requeue 보다 먼저** — w9l 의 `_register_reference`(소리 제거 · 서 있는 시작 썸네일 · 1GB · 120초). 옛 Pod 코드는 새 doc 을 isCombo 없음 = 30초 상한으로 본다.
+2. `requeue_reference_registrations.py --dry-run` → 대기 0 이어야 정상(시험 doc 지움).
+3. 정은지 초대 전 확인 2개: (a) 공급자 계약서에 AI 학습 조항이 들어가고 서명됐는가 — w9l 부터 새 등록은 learningOptIn true 로 기록된다 [미확인 — 법률 자문]. (b) 초대 `create --name` 에 **서류로 확인한 실명**.
+4. 38-14 실측 대상 [미확인]: 1GB 4K 2분 영상의 폰 업로드(presign 900초) · Pod 다운로드·추출 · lease 900초 · 새 썸네일 프레임 belle 눈 판정.
+
+### belle 결정 대기
+
+- **push 방식** — 로컬 커밋 미push(origin/main = `ca739390`). 38-14 Pod 전까지 필요.
+- **BELLE 코드** — Google 로그인 없는 옛 익명 계정(FDJr…)에 붙어 있음. belle 본인 Google 계정으로 초대할지.
+
+### 알려진 작은 것
+
+- 서버가 400 too_large · 409 supplier_name_missing 을 주면 화면은 일반 문구 '잠깐 문제가 있었어요'(`mapPresignFailure` 가 상태코드만 봄). 화면에서 먼저 막으니 보통 안 보인다.
+- Figma 282:506 은 w9l 이후 코드와 다르다(`38-DESIGN-v2.md` 끝 w9l 절).
+- `GET /reference` 500(08-31 부터, 앱 미사용) 그대로.
+
+## 다음 (2026-09-30 새벽 갱신 — 이행 완료, 이력)
 
 belle: *"일단 정리하고 인계서작성해줘 시간이 늦었다"* — 38-09·38-11 은 시작하지 않았다.
 

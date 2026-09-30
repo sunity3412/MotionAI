@@ -209,3 +209,15 @@ belle 수정 요청 원문(순서대로):
 시험 doc: belle 이 올린 `클라임 · 기본기 · 대기 중` 1건이 TESTB(UmH3…) 소유로 남아 있다 — 정리 대상.
 
 수정 반영 = quick-260930-w9l (2026-10-01 00:20~00:24 KST · layer `sunity-motion-pilot-shared:23` → reference-upload-url · playback-url · 웹 재배포 무효화 `IA83OV9SRXLSAVLLUPILU2U5Q9` · OTA preview ios group `62eb42e4-afa8-443d-8afa-ff55757bbd59`), belle 폰 재확인 대기 — 목록은 `.planning/quick/260930-w9l-supplier-form-revisions-belle-phone-chec/260930-w9l-SUMMARY.md` 끝. TESTB 는 아직 켜져 있다(재확인용).
+
+### belle 폰 재확인 (2026-10-01 새벽) — 승인
+
+- belle 원문: *"1~9번 다 오케이"* [확인 belle] — w9l SUMMARY 재확인 목록 1~8(공급자 웹) + 9(수강생 앱 '초급' 탭) 전부 ○.
+- Task 3 = approved. A-2(다른 계정)는 lfw 에서 ○, Figma 대조는 09-30 저녁 총평 ○(이후 코드가 시안과 달라진 점은 `38-DESIGN-v2.md` 끝 w9l 절).
+
+### 시험 창 닫음 · 시험 doc 정리 (2026-09-30T15:30Z = 10-01 00:30 KST)
+
+- 시험 doc 백업 → 삭제: `reference/dca3a347…`(클라임 · basic · queued, supplierUid UmH3…) + `private/registration`. 백업 = `.planning/quick/260930-w9l-supplier-form-revisions-belle-phone-chec/test-doc-backup-dca3a347.json`. 삭제 뒤 두 doc exists False [확인].
+- S3 `reference/UmH3…/dca3a347…/upload.mp4`(88,264,052 bytes) 삭제 → 그 접두사 객체 0 [확인 `aws s3 ls`].
+- `supplier_invite.py deactivate --uid UmH3…` → `revokedInvite=-`, 15:30:15Z. 다시 읽기: suppliers active False [확인 list]. **시험 창 = 13:23:51Z ~ 15:30:15Z.**
+- 남은 reference doc 12개 전부 registrationStatus 없음(= 기존 시드 기준 동작) — 대기·등록중 0 [확인 Admin 읽기]. → 38-14 requeue 가 시험 영상을 집을 일 없음.

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-09-30 오전 — Phase 38 12/14(실행 11: 38-01~11 + 38-12 skipped-by-decision). 38-09 완료: CFN 배포(POST /reference/upload-url 401+CORS, layer :21, pipeline POD_EXPECTED_PARAM) · 버킷 알림 uploads/+reference/ · 수명주기 해제(D-17) · baseline 재diff 0 · Firestore 규칙 belle 콘솔 게시 → 라이브 = 리포 바이트 동일(rulesets/18587bf6) + 라이브 probe 6/6(타인 private·위조 표식 permission-denied), 커밋 6989f64a. 미결: GET /reference 500(10초 타임아웃, 08-31 부터, 앱 미사용 — belle 보고됨) · Pod 코드 미배포(38-14). belle 요청으로 오케스트레이터가 공급자 시안을 Figma 에 직접 그림 — fileKey jrdI7kp245HkPfLB0nclsz 섹션 282:506 (화면 11 + 컴포넌트 5 + UI-SPEC 과 다른 점 8 노트, 글꼴 Noto Sans KR — MCP 에 Pretendard 없음). /supplier 코드를 38-13 전에 시안에 맞출지 belle 결정 대기. 다음 = 웨이브 6 38-13(HTTPS 배포 + Authorized domain + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-09-SUMMARY.md. + quick 260930-eal 완료(공급자 코드를 Figma 시안 282:506 에 맞춤, belle "먼저 시안에 맞추기") — 다음 = `/gsd-execute-phase 38` 웨이브 6 = 38-13(HTTPS 배포 + Authorized domain + 실기기 belle 검증, 시안 반영된 화면으로) + quick 260930-lfw 완료(공급자 메일 초대 W1, belle 폰 ○ — 실제 Google 초대 수락). 38-13 Task 3 폰 확인은 새 화면으로 다시(올리기 STEP 01/02·가이드 남음). 다음 = W2 수강생 강사 코드 입력(38-DESIGN-v2 §W2) → 38-13 마무리 → 38-14. 경우의 수·결정 정본 = 38-SCENARIOS.md 리서치 반영판 + quick 260930-o0u 완료(수강생 강사 코드 입력 W2, OTA preview b2b148b4). 다음 = belle 폰: 앱 강사 코드 입력(키보드 겹침) + 38-13 Task 3 나머지(공급자 올리기 STEP 01/02·가이드) → 38-13 마무리 → 38-14(정은지 메일 받아 초대). 미결: BELLE 코드가 옛 익명 계정(FDJr…)에 붙어 있음 — belle Google 계정 초대 여부 belle 결정 + quick 260930-w9l 완료(belle 09-30 저녁 폰 확인 수정 묶음 — 필수 4·동의 2·5초~2분·공급자 1GB·선수 이름 실명 고정·학습=공급자 계약 근거·초급 라벨; Lambda 2개 layer :23 · 웹 무효화 IA83OV9SRXLSAVLLUPILU2U5Q9 · OTA preview 62eb42e4, Pod 코드(소리 제거·썸네일)는 38-14). 다음 = belle 폰 재확인(w9l SUMMARY 목록 10개) → 38-13 마무리 → 38-14(Pod 코드 배포를 requeue 전에 · belle 시험 doc '클라임' 삭제 · TESTB 끄기 · 계약서 학습 조항 확인)"
+stopped_at: "2026-10-01 새벽 — Phase 38 13/14. 38-13 완료(belle 실기기 1~9번 다 오케이), quick 260930-w9l 공급자 폼 수정 묶음 배포(layer :23 · 웹 · OTA 62eb42e4), 시험 doc 삭제 · TESTB 끔. belle 지시로 여기서 정리. 다음 = 38-14(Pod 기동 → Pod 코드 배포를 requeue 보다 먼저 → 정은지 초대 전 계약서 학습 조항·실명 확인). push 방식 · BELLE 코드 계정 belle 결정 대기. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절"
 last_updated: "2026-09-30T01:02:33.985Z"
 last_activity: 2026-10-01
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 123
+  completed_plans: 124
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 12 of 14
+Plan: 13 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -1111,7 +1111,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-09-29T16:28:11.952Z
 
-Stopped at: 2026-09-30 오전 — Phase 38 12/14(실행 11: 38-01~11 + 38-12 skipped-by-decision). 38-09 완료: CFN 배포(POST /reference/upload-url 401+CORS, layer :21, pipeline POD_EXPECTED_PARAM) · 버킷 알림 uploads/+reference/ · 수명주기 해제(D-17) · baseline 재diff 0 · Firestore 규칙 belle 콘솔 게시 → 라이브 = 리포 바이트 동일(rulesets/18587bf6) + 라이브 probe 6/6(타인 private·위조 표식 permission-denied), 커밋 6989f64a. 미결: GET /reference 500(10초 타임아웃, 08-31 부터, 앱 미사용 — belle 보고됨) · Pod 코드 미배포(38-14). belle 요청으로 오케스트레이터가 공급자 시안을 Figma 에 직접 그림 — fileKey jrdI7kp245HkPfLB0nclsz 섹션 282:506 (화면 11 + 컴포넌트 5 + UI-SPEC 과 다른 점 8 노트, 글꼴 Noto Sans KR — MCP 에 Pretendard 없음). /supplier 코드를 38-13 전에 시안에 맞출지 belle 결정 대기. 다음 = 웨이브 6 38-13(HTTPS 배포 + Authorized domain + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-09-SUMMARY.md. + quick 260930-eal 완료(공급자 코드를 Figma 시안 282:506 에 맞춤, belle "먼저 시안에 맞추기") — 다음 = `/gsd-execute-phase 38` 웨이브 6 = 38-13(HTTPS 배포 + Authorized domain + 실기기 belle 검증, 시안 반영된 화면으로) + quick 260930-lfw 완료(공급자 메일 초대 W1, belle 폰 ○ — 실제 Google 초대 수락). 38-13 Task 3 폰 확인은 새 화면으로 다시(올리기 STEP 01/02·가이드 남음). 다음 = W2 수강생 강사 코드 입력(38-DESIGN-v2 §W2) → 38-13 마무리 → 38-14. 경우의 수·결정 정본 = 38-SCENARIOS.md 리서치 반영판 + quick 260930-o0u 완료(수강생 강사 코드 입력 W2, OTA preview b2b148b4). 다음 = belle 폰: 앱 강사 코드 입력(키보드 겹침) + 38-13 Task 3 나머지(공급자 올리기 STEP 01/02·가이드) → 38-13 마무리 → 38-14(정은지 메일 받아 초대). 미결: BELLE 코드가 옛 익명 계정(FDJr…)에 붙어 있음 — belle Google 계정 초대 여부 belle 결정 + quick 260930-w9l 완료(belle 09-30 저녁 폰 확인 수정 묶음 — 필수 4·동의 2·5초~2분·공급자 1GB·선수 이름 실명 고정·학습=공급자 계약 근거·초급 라벨; Lambda 2개 layer :23 · 웹 무효화 IA83OV9SRXLSAVLLUPILU2U5Q9 · OTA preview 62eb42e4, Pod 코드(소리 제거·썸네일)는 38-14). 다음 = belle 폰 재확인(w9l SUMMARY 목록 10개) → 38-13 마무리 → 38-14(Pod 코드 배포를 requeue 전에 · belle 시험 doc '클라임' 삭제 · TESTB 끄기 · 계약서 학습 조항 확인)
+Stopped at: 2026-10-01 새벽 — Phase 38 13/14. 38-13 완료(belle 실기기 1~9번 다 오케이), quick 260930-w9l 공급자 폼 수정 묶음 배포(layer :23 · 웹 · OTA 62eb42e4), 시험 doc 삭제 · TESTB 끔. belle 지시로 여기서 정리. 다음 = 38-14(Pod 기동 → Pod 코드 배포를 requeue 보다 먼저 → 정은지 초대 전 계약서 학습 조항·실명 확인). push 방식 · BELLE 코드 계정 belle 결정 대기. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

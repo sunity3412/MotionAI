@@ -10,16 +10,19 @@
 //
 // 문구는 전부 supplierCopy(화면 리터럴 0), 규칙은 전부 supplierRules import(리뷰 R14),
 // 색·반경은 theme 토큰 → SupplierUi 프리미티브. 브라우저는 Firestore 를 쓰지 않는다(T-38-10-4).
+// 2026-09-30 배치 = 38-DESIGN.md(Figma 282:506) A-1 · A-2 · A-3 · A-3b · A-3c.
 
-import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AlertIcon } from '../../components/PickErrorDialog';
 import {
+  BrandMark,
   Card,
+  Chip,
   CodeCard,
   DonePanel,
   FailurePanel,
@@ -40,6 +43,7 @@ import {
   TextLink,
   Toast,
   TopBar,
+  type RowTrailing,
 } from '../../components/SupplierUi';
 import { supplierCopy } from '../../constants/supplierCopy';
 import { ApiError, probeSupplier } from '../../lib/api';
@@ -56,13 +60,13 @@ import {
   presignFailureMessage,
   rowSubtitle,
   SELF_SCORE_OK_MIN,
-  selfCheckLine,
   selfCheckNote,
+  selfCheckView,
   sortNewestFirst,
   type SupplierMotion,
   type SupplierMotionPrivate,
 } from '../../lib/supplierRules';
-import { colors } from '../../theme';
+import { colors, layout } from '../../theme';
 
 // 목록 카드에 한 번에 보이는 행 수 — 넘으면 `전체보기`(UI-SPEC A-3 "행 6개 초과").
 const ROWS_BEFORE_SEE_ALL = 6;
@@ -111,12 +115,11 @@ function formatDate(epochMs: number): string {
 // 비공개 doc 로딩 중·값 없음 표시.
 const EMPTY_VALUE = '–';
 
-// 화면에 보이는 재현성 점수(반올림) — selfCheckLine 이 그리는 숫자와 같게: done(또는 상태 없는 옛 doc)
-// 이고 점수가 있을 때만. 낮음 분기(TIP + 다시 올리기)도 이 숫자로 가른다 — 표시와 분기가 같은 숫자.
-function shownSelfScore(m: SupplierMotion): number | null {
-  if (m.selfScore == null) return null;
-  if (m.selfCheckStatus !== 'done' && m.selfCheckStatus !== null) return null;
-  return Math.round(m.selfScore);
+// 38-DESIGN A-3 행 오른쪽 — 진행 중(registering/processing/queued)은 8px 점, 상세가 있으면 쉐브론.
+function rowTrailing(m: SupplierMotion): RowTrailing {
+  const st = m.registrationStatus;
+  if (st === 'registering' || st === 'processing' || st === 'queued') return 'progress';
+  return hasDetail(m) ? 'chevron' : null;
 }
 
 // 38-11 올리기 폼이 읽는 프리필 파라미터 계약 — 이름 그대로(name · athleteName · level ·
@@ -135,6 +138,7 @@ export default function SupplierHome() {
   const router = useRouter();
   const params = useLocalSearchParams<{ detail?: string; justUploaded?: string; expired?: string }>();
   const { user, isGuest, ready } = useAuthUser();
+  const insets = useSafeAreaInsets();
   const signedIn = !!user && !isGuest;
   const uid = signedIn ? user.uid : null;
 
@@ -326,12 +330,24 @@ export default function SupplierHome() {
   }
 
   if (phase === 'login') {
+    // 38-DESIGN A-1 — 워드마크(safe-area 위 40) → 48 → 칩 → 12 → 제목 → 8 → 본문 → 48 → Google 54 →
+    // 12 → 힌트 → (알림) → 아래 빌드, 하단 여백 34.
     return (
-      <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.page} edges={['top']}>
         <PageFrame>
-          <View style={styles.pad}>
-            <TopBar showWordmark />
-            <Text style={[text.display, styles.mt32]} accessibilityRole="header">
+          <View
+            style={[
+              styles.pad,
+              { paddingBottom: Math.max(insets.bottom, layout.safeAreaBottom) },
+            ]}
+          >
+            <View style={styles.mt40}>
+              <BrandMark variant="brand" />
+            </View>
+            <View style={styles.mt48}>
+              <Chip label={supplierCopy.login.chip} />
+            </View>
+            <Text style={[text.display, styles.mt12]} accessibilityRole="header">
               {supplierCopy.login.title}
             </Text>
             <Text style={[text.label, text.mid, styles.mt8]}>{supplierCopy.login.body}</Text>
@@ -342,7 +358,7 @@ export default function SupplierHome() {
                 busy={loginBusy}
               />
             </View>
-            <Text style={[text.label, text.mid, text.center, styles.mt12]}>
+            <Text style={[text.auxFaint, text.center, styles.mt12]}>
               {supplierCopy.login.sameAccountHint}
             </Text>
             {loginNotice ? (
@@ -351,7 +367,7 @@ export default function SupplierHome() {
               </Text>
             ) : null}
             <View style={styles.flex} />
-            <Text style={[text.label, text.sub, text.center, styles.mt24]}>{buildLabel()}</Text>
+            <Text style={[text.caption, text.center, styles.mt24]}>{buildLabel()}</Text>
           </View>
         </PageFrame>
       </SafeAreaView>
@@ -367,7 +383,9 @@ export default function SupplierHome() {
       <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
         <PageFrame>
           <View style={styles.pad}>
-            <TopBar showWordmark />
+            <View style={styles.mt40}>
+              <BrandMark variant="brand" />
+            </View>
             <Text style={[text.display, styles.mt32]} accessibilityRole="header">
               {supplierCopy.home.title}
             </Text>
@@ -396,46 +414,58 @@ export default function SupplierHome() {
   }
 
   if (phase === 'noAccess') {
+    // 38-DESIGN A-2 — 카드 하나(아이콘 · 제목 · 본문 · 내 ID · ID 복사) + 카드 밖 `등록 확인하기` ·
+    // 힌트(확인 중 · 여전히 없음 문구도 이 자리) · 다른 계정 링크. 카드 안은 왼쪽 정렬.
+    const recheckHint = recheckBusy
+      ? supplierCopy.noAccess.checking
+      : stillNo
+        ? supplierCopy.noAccess.stillNo
+        : supplierCopy.noAccess.refreshHint;
     return (
       <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
         <Toast message={toast} />
         <PageFrame>
           <ScrollView contentContainerStyle={styles.pad}>
-            <TopBar showWordmark />
+            <View style={styles.mt40}>
+              <BrandMark variant="brand" />
+            </View>
             <Text style={[text.display, styles.mt32]} accessibilityRole="header">
               {supplierCopy.home.title}
             </Text>
             <Text style={[text.label, text.mid, styles.mt4]}>{identity}</Text>
-            <View style={[styles.mt32, styles.iconCenter]}>
-              <AlertCircle />
-            </View>
-            <Text style={[text.title, text.center, styles.mt16]}>{supplierCopy.noAccess.title}</Text>
-            <Text style={[text.label, text.mid, text.center, styles.mt8]}>
-              {supplierCopy.noAccess.body}
-            </Text>
-            <Text style={[text.label, styles.mt16]}>{supplierCopy.noAccess.idLabel}</Text>
-            <View style={styles.mt4}>
-              <IdBox value={user?.uid ?? ''} />
-            </View>
-            {copyFallback ? (
-              <Text style={[text.label, text.mid, styles.mt8]}>{supplierCopy.common.copyFallback}</Text>
-            ) : null}
-            <View style={[styles.mt16, styles.gap8]}>
+            <Card style={styles.mt32}>
+              <AlertIcon size={44} />
+              <Text style={[text.title, styles.mt16]}>{supplierCopy.noAccess.title}</Text>
+              <Text style={[text.label, text.mid, styles.mt8]}>{supplierCopy.noAccess.body}</Text>
+              <Text style={[text.body15Bold, text.mid, styles.mt16]}>
+                {supplierCopy.noAccess.idLabel}
+              </Text>
+              <View style={styles.mt6}>
+                <IdBox value={user?.uid ?? ''} />
+              </View>
+              <View style={styles.mt8}>
+                <OutlineButton
+                  label={supplierCopy.noAccess.copyId}
+                  onPress={() => onCopy(user?.uid ?? '', false)}
+                />
+              </View>
+              {copyFallback ? (
+                <Text style={[text.aux, styles.mt8]}>{supplierCopy.common.copyFallback}</Text>
+              ) : null}
+            </Card>
+            <View style={styles.mt16}>
               <OutlineButton
-                label={supplierCopy.noAccess.copyId}
-                onPress={() => onCopy(user?.uid ?? '', false)}
-              />
-              <OutlineButton
-                label={recheckBusy ? supplierCopy.noAccess.checking : supplierCopy.noAccess.refresh}
+                label={supplierCopy.noAccess.refresh}
                 onPress={onRecheck}
                 disabled={recheckBusy}
               />
             </View>
-            {stillNo ? (
-              <Text style={[text.label, styles.teal, styles.mt8]} accessibilityLiveRegion="polite">
-                {supplierCopy.noAccess.stillNo}
-              </Text>
-            ) : null}
+            <Text
+              style={[text.auxFaint, text.center, styles.mt8]}
+              accessibilityLiveRegion="polite"
+            >
+              {recheckHint}
+            </Text>
             <View style={styles.mt24}>
               <TextLink label={supplierCopy.common.signOut} onPress={onSignOut} tone="signOut" />
             </View>
@@ -483,15 +513,24 @@ export default function SupplierHome() {
         />
       );
     } else {
-      const score = shownSelfScore(m);
+      // 표시와 분기가 같은 숫자 — 카드의 `{score}점` 과 낮음 분기(TIP + 다시 올리기) 모두 view.score.
+      const view = selfCheckView(m);
       const info = supplierCopy.row.done.info;
       const yn = (v: boolean | undefined) =>
         privLoading || v == null ? EMPTY_VALUE : v ? supplierCopy.form.sec3.yes : supplierCopy.form.sec3.no;
       panel = (
         <DonePanel
           title={supplierCopy.row.done.title}
-          selfLine={selfCheckLine(m)}
-          score={score}
+          sub={supplierCopy.row.done.sub
+            .replace('{name}', m.name)
+            .replace('{athlete}', m.athleteName)}
+          selfTitle={supplierCopy.row.self.title}
+          scoreText={
+            view.score != null
+              ? supplierCopy.row.self.scoreText.replace('{score}', String(view.score))
+              : null
+          }
+          selfBody={view.body}
           note={selfCheckNote()}
           info={[
             { label: info.name, value: m.name },
@@ -502,7 +541,7 @@ export default function SupplierHome() {
             { label: info.hold, value: yn(priv?.hasHold) },
             { label: info.stand, value: yn(priv?.standingStart) },
           ]}
-          low={score != null && score < SELF_SCORE_OK_MIN}
+          low={view.score != null && view.score < SELF_SCORE_OK_MIN}
           tip={tip}
           reuploadLabel={supplierCopy.row.reupload}
           onReupload={() => reupload(m, priv)}
@@ -530,105 +569,106 @@ export default function SupplierHome() {
     <PillCta label={supplierCopy.home.upload} onPress={() => router.push('/supplier/upload')} />
   );
 
+  const showEmpty = !listError && !listLoading && sorted.length === 0;
+  const hiddenRows = !showAll && sorted.length > ROWS_BEFORE_SEE_ALL;
+  const countText =
+    listError || listLoading ? null : supplierCopy.home.count.replace('{n}', String(sorted.length));
+
   return (
     <View style={styles.page}>
       <Toast message={toast} />
       <PageFrame>
         <ScrollView ref={scrollRef} contentContainerStyle={styles.homeScroll}>
-          <GradientHeader title={supplierCopy.home.title} />
+          {/* 38-DESIGN A-3 로 identity · 촬영 가이드 링크가 헤더에 복귀(ui-checker flag 7행 대체) */}
+          <GradientHeader
+            title={supplierCopy.home.title}
+            identity={identity}
+            guideLabel={supplierCopy.common.guideLink}
+            onGuide={() => router.push('/supplier/guide')}
+          />
           <View onLayout={(e) => (offsets.current.sheet = e.nativeEvent.layout.y)}>
             <Sheet>
-              {/* ui-checker flag 7행 — identity · 가이드 링크는 헤더가 아니라 시트 맨 위 한 줄 */}
-              <View style={styles.identityRow}>
-                <Text style={[text.label, text.mid, styles.flex]} numberOfLines={1}>
-                  {identity}
-                </Text>
-                <TextLink
-                  label={supplierCopy.common.guideLink}
-                  onPress={() => router.push('/supplier/guide')}
-                  tone="go"
+              {/* 카드 1 — 내 동작. 비었으면 점선 STEP 카드 하나가 그 자리(38-DESIGN 빈 상태) */}
+              {showEmpty ? (
+                <StepCard
+                  step={supplierCopy.home.emptyStep}
+                  title={supplierCopy.home.emptyTitle}
+                  body={supplierCopy.home.emptyBody}
+                  cta={uploadCta}
                 />
-              </View>
-
-              {/* 카드 1 — 내 동작 */}
-              <View onLayout={(e) => (offsets.current.card = e.nativeEvent.layout.y)}>
-                <Card style={styles.mt16}>
-                  <SectionHeader
-                    title={supplierCopy.home.motionsTitle}
-                    moreLabel={supplierCopy.common.seeAll}
-                    onMore={
-                      !showAll && sorted.length > ROWS_BEFORE_SEE_ALL ? () => setShowAll(true) : undefined
-                    }
-                  />
-                  <Text style={[text.label, text.mid, styles.mt8]}>{supplierCopy.home.motionsSub}</Text>
-                  {anyQueued ? (
-                    <View style={styles.mt16}>
-                      <NoticePill lines={supplierCopy.home.podDown} />
-                    </View>
-                  ) : null}
-                  {listError ? (
-                    <View style={[styles.mt16, styles.gap8]}>
-                      <GrayCard message={listError} />
-                      <OutlineButton label={supplierCopy.common.retry} onPress={retry} />
-                    </View>
-                  ) : listLoading ? null : sorted.length === 0 ? (
-                    <View style={styles.mt16}>
-                      <StepCard
-                        step={supplierCopy.home.emptyStep}
-                        title={supplierCopy.home.emptyTitle}
-                        body={supplierCopy.home.emptyBody}
-                        cta={uploadCta}
-                      />
-                    </View>
-                  ) : (
-                    <>
-                      <View style={styles.mt12}>{uploadCta}</View>
-                      <View
-                        style={styles.mt12}
-                        onLayout={(e) => (offsets.current.list = e.nativeEvent.layout.y)}
-                      >
-                        {visible.map((m, i) => (
-                          <ListRow
-                            key={m.motionId}
-                            title={m.name}
-                            subtitle={rowSubtitle(m)}
-                            showChevron={hasDetail(m)}
-                            onPress={hasDetail(m) ? () => openDetail(m.motionId) : undefined}
-                            highlighted={m.motionId === highlightId}
-                            isLast={i === visible.length - 1}
-                            onLayout={(y) => onRowLayout(m.motionId, y)}
-                          />
-                        ))}
+              ) : (
+                <View onLayout={(e) => (offsets.current.card = e.nativeEvent.layout.y)}>
+                  <Card style={styles.motionsCard}>
+                    <SectionHeader title={supplierCopy.home.motionsTitle} count={countText} />
+                    <Text style={[text.aux, styles.mt4]}>{supplierCopy.home.motionsSub}</Text>
+                    {anyQueued ? (
+                      <View style={styles.mt16}>
+                        <NoticePill lines={supplierCopy.home.podDown} />
                       </View>
-                    </>
-                  )}
-                </Card>
-              </View>
+                    ) : null}
+                    {listError ? (
+                      <View style={[styles.mt16, styles.gap8]}>
+                        <GrayCard message={listError} />
+                        <OutlineButton label={supplierCopy.common.retry} onPress={retry} />
+                      </View>
+                    ) : listLoading ? null : (
+                      <>
+                        <View style={anyQueued ? styles.mt12 : styles.mt16}>{uploadCta}</View>
+                        <View
+                          style={styles.mt8}
+                          onLayout={(e) => (offsets.current.list = e.nativeEvent.layout.y)}
+                        >
+                          {visible.map((m, i) => (
+                            <ListRow
+                              key={m.motionId}
+                              title={m.name}
+                              subtitle={rowSubtitle(m)}
+                              trailing={rowTrailing(m)}
+                              onPress={hasDetail(m) ? () => openDetail(m.motionId) : undefined}
+                              highlighted={m.motionId === highlightId}
+                              isLast={i === visible.length - 1}
+                              onLayout={(y) => onRowLayout(m.motionId, y)}
+                            />
+                          ))}
+                        </View>
+                        {/* 재량: 헤더 오른쪽 자리를 `{n}개` 가 가져가 `전체보기` 는 목록 아래 가운데로 */}
+                        {hiddenRows ? (
+                          <TextLink
+                            label={supplierCopy.common.seeAll}
+                            onPress={() => setShowAll(true)}
+                            tone="go"
+                            center
+                          />
+                        ) : null}
+                      </>
+                    )}
+                  </Card>
+                </View>
+              )}
 
               {/* 카드 2 — 내 코드 (표시·복사만, D-12/D-13) */}
               <View style={styles.mt16}>
-                <Text style={[text.heading, styles.mb8]} accessibilityRole="header">
-                  {supplierCopy.home.codeTitle}
-                </Text>
                 <CodeCard
                   photoUrl={user?.photoURL ?? null}
                   sportLabel={supplierCopy.home.sport}
                   athleteLine={supplierCopy.home.athlete.replace('{name}', athleteName)}
+                  codeTitle={supplierCopy.home.codeTitle}
                   code={supplierCode}
-                  pendingLabel={supplierCopy.home.codePending}
+                  pendingTitle={supplierCopy.home.codePendingTitle}
+                  pendingBody={supplierCopy.home.codePendingBody}
                   copyLabel={codeCopied ? supplierCopy.common.copiedShort : supplierCopy.common.copy}
                   onCopy={() => supplierCode && onCopy(supplierCode, true)}
                   howText={supplierCopy.home.codeHow}
                 />
                 {copyFallback ? (
-                  <Text style={[text.label, text.mid, styles.mt8]}>{supplierCopy.common.copyFallback}</Text>
+                  <Text style={[text.aux, styles.mt8]}>{supplierCopy.common.copyFallback}</Text>
                 ) : null}
               </View>
 
               <View style={styles.mt24}>
                 <TextLink label={supplierCopy.common.signOut} onPress={onSignOut} tone="signOut" />
               </View>
-              <Text style={[text.label, text.sub, styles.mt8]}>{buildLabel()}</Text>
+              <Text style={[text.caption, styles.mt8]}>{buildLabel()}</Text>
             </Sheet>
           </View>
         </ScrollView>
@@ -637,28 +677,24 @@ export default function SupplierHome() {
   );
 }
 
-// A-2 아이콘 — alert-circle 44 brand (UI-SPEC A-2).
-function AlertCircle() {
-  return <Ionicons name="alert-circle" size={44} color={colors.brand} />;
-}
-
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   pad: { flexGrow: 1, paddingHorizontal: space.screen, paddingBottom: space.lg },
   homeScroll: { flexGrow: 1 },
   mt4: { marginTop: space.xs },
+  mt6: { marginTop: space.s6 },
   mt8: { marginTop: space.sm },
   mt12: { marginTop: space.row },
   mt16: { marginTop: space.md },
   mt24: { marginTop: space.lg },
   mt32: { marginTop: space.xl },
+  mt40: { marginTop: space.s40 },
   mt48: { marginTop: space.xxl },
-  mb8: { marginBottom: space.sm },
   gap8: { gap: space.sm },
   teal: { color: colors.infoTeal },
-  iconCenter: { alignItems: 'center' },
-  identityRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  // 38-DESIGN A-3 내 동작 카드 패딩 16 16 8.
+  motionsCard: { paddingBottom: space.sm },
   skeleton: {
     alignSelf: 'stretch',
     height: space.lg,

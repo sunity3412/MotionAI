@@ -2,14 +2,14 @@
 //
 // 원형 = Figma jrdI7kp245HkPfLB0nclsz 노드(1:960 가입 · 1:977 Google · 1:419~424 권한 ·
 // 1:717 메인 · 1:743 섹션 · 1:646/663/713/709 선수 카드 · 1:399 알약 · 1:482/483 TIP).
-// 값은 UI-SPEC 표의 값(= design.md·theme 에 박제된 같은 Figma 추출값)이다. UI-SPEC 이 `≈` 로
-// 남긴 4개(Google 버튼 48 · STEP 라벨 13.8 · 테두리 버튼 48 · 안내 알약 반경 15)는 이 실행에서
-// Figma MCP 를 열 수 없어 UI-SPEC 값 그대로 두었다 — 38-10 SUMMARY "Figma 실측" 절 [미확인].
+// 2026-09-30 38-DESIGN.md(Figma 282:506) 값으로 갱신 — UI-SPEC 과 부딪히는 시각 값은 DESIGN 우선.
+// 38-10 이 `≈` 로 남긴 값 중 Google 48 은 54 로 확정(38-DESIGN A-1), STEP 라벨 13.8 은 15/700
+// 으로(38-DESIGN §0). 테두리 버튼 48 은 38-DESIGN 이 높이를 적지 않아 그대로 둔다.
 //
 // 규칙: 색은 전부 theme 토큰(리터럴 색 0) · 문구는 호출부가 supplierCopy 에서 넘긴다(여기 한국어
-// 리터럴 0) · 라이트 전용 · 이모지 0. 간격은 UI-SPEC §Spacing Scale 의 선언값만(`space`).
-// ui-checker flags(UI-SPEC §Decisions) 적용: 7행 헤더 = 워드마크 + 제목만 · 8행 TIP 헤더-줄 8 /
-// 줄 간 4 · 9행 코드 문자 = textPrimary · 10행 칩 패딩 4 8.
+// 리터럴 0) · 라이트 전용 · 이모지 0. 간격은 이 파일의 선언값만(`space`).
+// 눌림 피드백 = Pressable `pressed` 스타일(apple-design press-down). 새 애니메이션 0 — reduced
+// motion 을 따로 고려할 움직임을 만들지 않는다.
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,31 +32,39 @@ import { AlertIcon } from './PickErrorDialog';
 import SocialIcon from './SocialIcon';
 import SunityWordmark from './SunityWordmark';
 
-// UI-SPEC §Spacing Scale (4 의 배수 선언값). 새 theme 토큰을 만들지 않고 이 화면군 안에서만 쓴다.
+// 간격 선언값. 새 theme 토큰을 만들지 않고 이 화면군 안에서만 쓴다.
+// xxs~s40 은 38-DESIGN.md 가 적은 간격(2 · 6 · 10 · 13 · 14 · 40)이라 4 의 배수 밖이다.
 export const space = {
+  xxs: 2,
   xs: 4,
+  s6: 6,
   sm: 8,
+  s10: 10,
   row: 12,
+  s13: 13,
+  s14: 14,
   md: 16,
   screen: spacing.screenX, // 20
   lg: 24,
   xl: 32,
+  s40: 40,
   xxl: 48,
 } as const;
 
 // UI-SPEC §Spacing Exceptions — 높이 규격.
 const H = {
   cta: layout.ctaHeight, // 54
-  outline: 48, // 1:423 / 1:424 (≈, 실측 대기)
-  google: 48, // 1:977 (≈, 실측 대기)
+  outline: 48, // 1:423 / 1:424 (38-DESIGN 이 높이를 적지 않음)
+  google: 54, // 38-DESIGN A-1
   pill: 44, // 1:717 알약
   touch: 44,
   thumb: 48, // 1:717 썸네일
   rowMin: 72,
-  photo: 180, // 1:646 선수 카드 사진 영역
+  photo: 180, // 38-DESIGN A-3 내 코드 사진
+  ring: 72, // 38-DESIGN X 링 · 체크 링
 } as const;
 
-// 반경 — theme 토큰 + UI-SPEC 박제값(시트 17 · 알약 22 · 칩 8 · 토스트 12).
+// 반경 — theme 토큰 + 박제값(시트 17 · 알약 22 · 칩 8 · 토스트 12).
 const R = {
   button: radius.button, // 13
   card: radius.card, // 15
@@ -65,31 +73,49 @@ const R = {
   pill: 22,
   chip: 8,
   toast: 12,
-  noticePill: 15, // 1:399 (≈, 실측 대기)
+  noticePill: 15, // 38-DESIGN A-4 ④ 안내 알약 15
 } as const;
+
+// 시트가 헤더 위로 겹치는 높이 — 시안 헤더 ≈300, 시트가 216 에서 시작(38-DESIGN A-3).
+const SHEET_OVERLAP = 84;
 
 // 웹은 1px(서브픽셀 불안정, UI-SPEC Decisions 20), 앱은 박제값 0.858.
 const BORDER = Platform.OS === 'web' ? 1 : layout.cardBorderWidth;
 
-// UI-SPEC §Typography 4단(17 / 18 / 20 / 30) — 기존 토큰 + lineHeight.
+// 굵기는 fontFamily 로 정한다 — fontWeight 만으로는 iOS 가 Pretendard 굵기를 무시한다.
+const REGULAR = { fontFamily: fontFamily.regular, fontWeight: '400', letterSpacing: 0 } as const;
+const BOLD = { fontFamily: fontFamily.bold, fontWeight: '700', letterSpacing: 0 } as const;
+
+// 30pt 제목 자간 −2%(38-DESIGN §0). 음수 letterSpacing 은 iOS 26+ SIGABRT(typography.ts 2~6행)라
+// 웹에서만 준다 — 이 라우트는 38-04 option-1 로 웹이 주 무대.
+const DISPLAY_TRACK = Platform.OS === 'web' ? -0.6 : 0;
+
+// UI-SPEC §Typography 4단(17 / 18 / 20 / 30) + 38-DESIGN §0 보조 15 · 캡션 13.
 export const text = StyleSheet.create({
   label: { ...typography.buttonSecondary, lineHeight: 24, color: colors.textPrimary },
   labelBold: { ...typography.metricNumber, lineHeight: 24, color: colors.textPrimary },
   title: { ...typography.listTitle, lineHeight: 25, color: colors.textPrimary },
   heading: { ...typography.sectionTitle, lineHeight: 28, color: colors.textPrimary },
-  display: { ...typography.headline, color: colors.textPrimary },
+  display: { ...typography.headline, letterSpacing: DISPLAY_TRACK, color: colors.textPrimary },
   caption: { ...typography.caption, color: colors.resultTextSub },
   mid: { color: colors.textMid },
   sub: { color: colors.resultTextSub },
   center: { textAlign: 'center' },
-  // 1:960 STEP 라벨 ≈13.8/700 브랜드 — Figma 가 정한 소형이라 17 하한 밖(UI-SPEC Typography 표).
-  step: {
-    fontSize: 13.8,
-    fontWeight: '700',
-    fontFamily: fontFamily.bold,
-    letterSpacing: 0,
-    color: colors.brand,
-  },
+  // 38-DESIGN §0 보조 문구 15/400/20 textMid — 도움말·카드 부제·행 부제·알약 본문·코드 안내.
+  aux: { ...REGULAR, fontSize: 15, lineHeight: 20, color: colors.textMid },
+  // 38-DESIGN §0 흐린 보조 — 로그인 힌트·등록 확인 힌트·재현성 고지·"필수 3개".
+  auxFaint: { ...REGULAR, fontSize: 15, lineHeight: 20, color: colors.resultTextSub },
+  body15: { ...REGULAR, fontSize: 15, lineHeight: 20, color: colors.textPrimary },
+  body15Bold: { ...BOLD, fontSize: 15, lineHeight: 20, color: colors.textPrimary },
+  caption13: { ...REGULAR, fontSize: 13, lineHeight: 18, color: colors.textMid },
+  // 38-DESIGN A-6 가이드 섹션 번호 01~07.
+  num13: { ...BOLD, fontSize: 13, lineHeight: 18, color: colors.brand },
+  // 38-DESIGN §0 칩 글자.
+  chipText: { ...BOLD, fontSize: 13, lineHeight: 18, color: colors.textMid },
+  // 38-DESIGN A-3 코드 30/700 brand, 자간 +4%(양수라 모든 플랫폼).
+  code: { ...BOLD, fontSize: 30, lineHeight: 39, letterSpacing: 1.2, color: colors.brand },
+  // 38-DESIGN §0 STEP 라벨 15/700 brand(38-10 의 13.8 폐기).
+  step: { ...BOLD, fontSize: 15, lineHeight: 20, color: colors.brand },
 });
 
 // ── 골격 ─────────────────────────────────────────────────────────────────
@@ -103,12 +129,10 @@ export function PageFrame({ children }: { children: ReactNode }) {
 export function TopBar({
   onBack,
   backLabel,
-  showWordmark,
   right,
 }: {
   onBack?: () => void;
   backLabel?: string;
-  showWordmark?: boolean;
   right?: ReactNode;
 }) {
   return (
@@ -124,15 +148,43 @@ export function TopBar({
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
       ) : null}
-      {showWordmark ? <SunityWordmark variant="brand" width={59} height={20} /> : null}
       <View style={s.flex} />
       {right}
     </View>
   );
 }
 
-// A-3 그라디언트 헤더 — 워드마크(흰) + Display 제목만(ui-checker flag 7행).
-export function GradientHeader({ title }: { title: string }) {
+// 워드마크 — brand = 로그인 화면(login.tsx 1:573)과 같은 110×37, white = 0.75배 83×28(A-3 헤더).
+export function BrandMark({ variant }: { variant: 'brand' | 'white' }) {
+  return variant === 'brand' ? (
+    <SunityWordmark variant="brand" width={110} height={37} />
+  ) : (
+    <SunityWordmark variant="white" width={83} height={28} />
+  );
+}
+
+// 38-DESIGN §0 칩 — softBg · 반경 8 · 패딩 4 10 · 13/700 textMid.
+export function Chip({ label }: { label: string }) {
+  return (
+    <View style={s.chipLogin}>
+      <Text style={text.chipText}>{label}</Text>
+    </View>
+  );
+}
+
+// 38-DESIGN A-3 헤더 — 첫 줄(높이 44) 흰 워드마크 + 오른쪽 `촬영 가이드` 흰 밑줄 → 8 → 제목
+// 30/700 흰 → 4 → identity 17/700 흰. 아래로 시트가 SHEET_OVERLAP 만큼 겹친다.
+export function GradientHeader({
+  title,
+  identity,
+  guideLabel,
+  onGuide,
+}: {
+  title: string;
+  identity: string;
+  guideLabel: string;
+  onGuide: () => void;
+}) {
   const insets = useSafeAreaInsets();
   return (
     <LinearGradient
@@ -142,15 +194,21 @@ export function GradientHeader({ title }: { title: string }) {
       end={{ x: 1, y: 0.08 }}
       style={[s.header, { paddingTop: insets.top + space.md }]}
     >
-      <SunityWordmark variant="white" width={59} height={20} />
-      <Text style={[text.display, s.headerTitle]} accessibilityRole="header">
+      <View style={s.headerTop}>
+        <BrandMark variant="white" />
+        <TextLink label={guideLabel} onPress={onGuide} tone="onHeader" />
+      </View>
+      <Text style={[text.display, s.onBrand, s.mt8]} accessibilityRole="header">
         {title}
+      </Text>
+      <Text style={[text.labelBold, s.onBrand, s.mt4]} numberOfLines={1}>
+        {identity}
       </Text>
     </LinearGradient>
   );
 }
 
-// 헤더 위로 −24 겹치는 흰 시트(상단 반경 17, gradients.homeCard).
+// 헤더 위로 SHEET_OVERLAP 겹치는 흰 시트(상단 반경 17, gradients.homeCard, 패딩 20 20 24).
 export function Sheet({ children }: { children: ReactNode }) {
   return (
     <LinearGradient colors={gradients.homeCard.colors} style={s.sheet}>
@@ -177,41 +235,26 @@ export function GrayCard({ message }: { message: string }) {
   );
 }
 
-// 1:743 — Heading 20/700 왼쪽 · 오른쪽 `전체보기` + chevron(행 6개 초과일 때만).
-export function SectionHeader({
-  title,
-  moreLabel,
-  onMore,
-}: {
-  title: string;
-  moreLabel?: string;
-  onMore?: () => void;
-}) {
+// 38-DESIGN A-3 — 제목 20/700 왼쪽 · 오른쪽 `{n}개` 17 textMid.
+export function SectionHeader({ title, count }: { title: string; count?: string | null }) {
   return (
     <View style={s.sectionHead}>
       <Text style={text.heading} accessibilityRole="header">
         {title}
       </Text>
-      {onMore && moreLabel ? (
-        <Pressable
-          onPress={onMore}
-          style={({ pressed }) => [s.moreBtn, pressed && s.pressed]}
-          accessibilityRole="link"
-          hitSlop={8}
-        >
-          <Text style={[text.label, text.mid]}>{moreLabel}</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMid} />
-        </Pressable>
-      ) : null}
+      {count ? <Text style={[text.label, text.mid]}>{count}</Text> : null}
     </View>
   );
 }
 
-// 1:717 행 — 썸네일 48 자리 + Title 18/700 + 부제 17 textMid + chevron(상세가 있는 행만).
+export type RowTrailing = 'chevron' | 'progress' | null;
+
+// 38-DESIGN A-3 행 — 세로 12 · 썸네일 48 반경 8 → 12 → 이름 18/700 / 2 / 부제 15 textMid.
+// 오른쪽: 상세 있음 = 쉐브론 20 inputBorder, 진행 중 = 8px 점 brandButtonDisabled. 행 사이 dividerSoft.
 export function ListRow({
   title,
   subtitle,
-  showChevron,
+  trailing,
   onPress,
   highlighted,
   isLast,
@@ -219,7 +262,7 @@ export function ListRow({
 }: {
   title: string;
   subtitle: string;
-  showChevron: boolean;
+  trailing: RowTrailing;
   onPress?: () => void;
   highlighted?: boolean;
   isLast?: boolean;
@@ -246,10 +289,12 @@ export function ListRow({
         <Text style={text.title} numberOfLines={1}>
           {title}
         </Text>
-        <Text style={[text.label, text.mid]}>{subtitle}</Text>
+        <Text style={text.aux}>{subtitle}</Text>
       </View>
-      {showChevron ? (
+      {trailing === 'chevron' ? (
         <Ionicons name="chevron-forward" size={20} color={colors.inputBorder} />
+      ) : trailing === 'progress' ? (
+        <View style={s.progressDot} />
       ) : null}
     </Pressable>
   );
@@ -257,7 +302,8 @@ export function ListRow({
 
 // ── 버튼 ─────────────────────────────────────────────────────────────────
 
-// 1:717 알약 CTA — 높이 44 · 반경 22 · gradients.brandButton · 흰 Label 17/700.
+// 38-DESIGN A-3 알약 CTA — 전폭 · 44 · 반경 22 · gradients.brandButton · 흰 17/700 + 흰 쉐브론 20.
+// 글자 `>` 로 쉐브론을 흉내 내지 않는다(38-DESIGN §0 아이콘).
 export function PillCta({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
@@ -274,6 +320,7 @@ export function PillCta({ label, onPress }: { label: string; onPress: () => void
         style={s.pill}
       >
         <Text style={[text.labelBold, s.onBrand]}>{label}</Text>
+        <Ionicons name="chevron-forward" size={20} color={colors.textWhite} />
       </LinearGradient>
     </Pressable>
   );
@@ -312,6 +359,7 @@ export function PrimaryCta({
 }
 
 // 1:423 / 1:424 테두리 버튼 — 48 / 반경 13 / 테두리 inputBorder / 글자 textPrimary 700.
+// 비활성 = opacity 0.4, 누를 수 없음(38-DESIGN A-3 코드 준비 중). 눌림 = 0.7(press-down).
 export function OutlineButton({
   label,
   onPress,
@@ -325,7 +373,7 @@ export function OutlineButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [s.outline, (pressed || disabled) && s.pressed]}
+      style={({ pressed }) => [s.outline, pressed && !disabled && s.pressed, disabled && s.cardPressed]}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
@@ -336,7 +384,8 @@ export function OutlineButton({
   );
 }
 
-// 1:977 — 흰 배경 + 1px inputBorder + 왼쪽 16 에 G 20 + Title 18/700 중앙. 진행 중 opacity 0.6.
+// 38-DESIGN A-1 — 54 · 반경 13 · 흰 · 1px inputBorder · G 20 + 10 + 18/700 라벨을 가로로 묶어
+// 가운데 정렬. 진행 중 opacity 0.6.
 export function GoogleButton({
   label,
   onPress,
@@ -355,37 +404,39 @@ export function GoogleButton({
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!busy, busy: !!busy }}
     >
-      <View style={s.googleIcon}>
-        <SocialIcon id="google" width={20} height={20} />
-      </View>
-      <Text style={[text.title, s.googleLabel]}>{label}</Text>
+      <SocialIcon id="google" width={20} height={20} />
+      <Text style={text.title}>{label}</Text>
     </Pressable>
   );
 }
 
-// design.md §0 — 이동 = brand 밑줄 · 로그아웃 = infoTeal · 취소 = textMid 밑줄.
+// design.md §0 — 이동 = brand 밑줄 · 로그아웃 = infoTeal 밑줄(38-DESIGN A-3 "틸 링크 17 밑줄") ·
+// 취소 = textMid 밑줄 · onHeader = 흰 17/700 밑줄(A-3 헤더 촬영 가이드).
 export function TextLink({
   label,
   onPress,
   tone,
+  center,
 }: {
   label: string;
   onPress: () => void;
-  tone: 'go' | 'signOut' | 'cancel';
+  tone: 'go' | 'signOut' | 'cancel' | 'onHeader';
+  center?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [s.link, pressed && s.pressed]}
+      style={({ pressed }) => [s.link, center && s.linkCenter, pressed && s.pressed]}
       accessibilityRole="link"
       hitSlop={8}
     >
       <Text
         style={[
-          text.label,
+          tone === 'onHeader' ? text.labelBold : text.label,
           tone === 'go' && s.linkGo,
           tone === 'signOut' && s.linkSignOut,
           tone === 'cancel' && s.linkCancel,
+          tone === 'onHeader' && s.linkOnHeader,
         ]}
       >
         {label}
@@ -396,14 +447,15 @@ export function TextLink({
 
 // ── 안내 · 카드 ───────────────────────────────────────────────────────────
 
-// 1:399 안내 알약 — AlertIcon 24 + Label 17 2줄(podDown 재사용, UI-SPEC Decisions 21).
+// 38-DESIGN A-4 ④ 안내 알약 — 반경 15 · 1px divider · 패딩 12 16 · AlertIcon 24 + 12 + 두 줄 15.
+// 홈 podDown 과 폼 ④ 가 같이 쓴다.
 export function NoticePill({ lines }: { lines: readonly string[] }) {
   return (
     <View style={s.notice} accessibilityRole="alert">
       <AlertIcon size={24} />
       <View style={s.flex}>
         {lines.map((line) => (
-          <Text key={line} style={text.label}>
+          <Text key={line} style={text.aux}>
             {line}
           </Text>
         ))}
@@ -412,17 +464,17 @@ export function NoticePill({ lines }: { lines: readonly string[] }) {
   );
 }
 
-// 1:482 / 1:483 TIP 카드 — 헤더 alert-circle 16 brand + Label 700 → 8 → 줄(간 4).
+// 38-DESIGN A-3b TIP 카드 — 머리 AlertIcon 18 + 6 + 17/700 → 8 → 줄 15(간 4).
 export function TipCard({ head, lines }: { head: string; lines: readonly string[] }) {
   return (
     <View style={[s.card, s.tipCard]}>
       <View style={s.tipHead}>
-        <Ionicons name="alert-circle" size={16} color={colors.brand} />
+        <AlertIcon size={18} />
         <Text style={text.labelBold}>{head}</Text>
       </View>
       <View style={s.tipLines}>
         {lines.map((line) => (
-          <Text key={line} style={text.label}>
+          <Text key={line} style={text.body15}>
             {line}
           </Text>
         ))}
@@ -431,7 +483,9 @@ export function TipCard({ head, lines }: { head: string; lines: readonly string[
   );
 }
 
-// 1:717 점선 STEP 카드(빈 상태) — STEP 라벨 → 4 → Title → 8 → Label → 16 → 알약.
+// 38-DESIGN A-3 빈 상태 점선 STEP 카드 — 1px dashed brand · 반경 15 · 패딩 20 16 · 가운데 정렬:
+// STEP 15/700 → 4 → 18/700 제목 → 8 → 보조 문구 → 16 → 알약(전폭).
+// 시안의 dash 6/4 는 RN borderStyle 이 길이를 제어하지 못해 dashed 기본 모양으로 둔다(근사).
 export function StepCard({
   step,
   title,
@@ -446,14 +500,14 @@ export function StepCard({
   return (
     <View style={s.stepCard}>
       <Text style={text.step}>{step}</Text>
-      <Text style={[text.title, s.mt4]}>{title}</Text>
-      <Text style={[text.label, text.mid, s.mt8]}>{body}</Text>
-      <View style={s.mt16}>{cta}</View>
+      <Text style={[text.title, text.center, s.mt4]}>{title}</Text>
+      <Text style={[text.aux, text.center, s.mt8]}>{body}</Text>
+      <View style={[s.mt16, s.stretch]}>{cta}</View>
     </View>
   );
 }
 
-// ID box — softBg · 반경 13 · Label 17/700 · 선택 가능(웹 user-select).
+// 38-DESIGN A-2 ID 상자 — softBg · 반경 13 · 패딩 12 16 · 17/700 · 줄바꿈 허용 · 선택 가능.
 export function IdBox({ value }: { value: string }) {
   return (
     <View style={s.idBox}>
@@ -480,14 +534,19 @@ export function Toast({ message }: { message: string | null }) {
   );
 }
 
-// 1:646 / 1:663 / 1:713 선수 카드 — photoURL 있으면 사진 180 + 하단 어둡게 + `폴스포츠`(밑줄 brand)
-// + `{name} 선수`; 없으면 흰 카드(1:709). 코드 Display 30/700 = textPrimary(ui-checker flag 9행).
+// 38-DESIGN A-3 내 코드 카드 — 1px divider · 반경 15 · 내용 잘림 · 패딩 0.
+// 사진 있음: 높이 180 cover + 아래로 어두워지는 음영(gradients.supplierPhotoShade) + 왼쪽·아래 16 에
+// `폴스포츠`(15/700 흰, 2px brand 밑줄) → `{name} 선수`(18/700 흰). 사진 없음: 이름 블록.
+// 본문(패딩 16 가운데): `내 코드` 15/700 textMid → 4 → 코드 30/700 brand(+4%) 또는 `코드 준비 중`
+// 20/700 resultTextSub → 12 → `코드 복사`(준비 중이면 비활성) → 12 → 안내 보조 문구.
 export function CodeCard({
   photoUrl,
   sportLabel,
   athleteLine,
+  codeTitle,
   code,
-  pendingLabel,
+  pendingTitle,
+  pendingBody,
   copyLabel,
   onCopy,
   howText,
@@ -495,8 +554,10 @@ export function CodeCard({
   photoUrl: string | null;
   sportLabel: string;
   athleteLine: string;
+  codeTitle: string;
   code: string | null;
-  pendingLabel: string;
+  pendingTitle: string;
+  pendingBody: string;
   copyLabel: string;
   onCopy: () => void;
   howText: string;
@@ -506,33 +567,37 @@ export function CodeCard({
       {photoUrl ? (
         <View style={s.photo}>
           <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          {/* 하단 어둡게 — 색 리터럴 없이 textPrimary + opacity (UI-SPEC 오버레이 0→0.5 근사) */}
-          <View style={s.photoShade} />
+          <LinearGradient
+            colors={gradients.supplierPhotoShade.colors}
+            locations={gradients.supplierPhotoShade.locations}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={s.photoText}>
-            <Text style={[text.labelBold, s.onBrand, s.sportUnderline]}>{sportLabel}</Text>
+            <Text style={[text.body15Bold, s.onBrand, s.sportUnderline]}>{sportLabel}</Text>
             <Text style={[text.title, s.onBrand]}>{athleteLine}</Text>
           </View>
         </View>
       ) : (
         <View style={s.codeNameOnly}>
-          <Text style={[text.labelBold, s.sportUnderline]}>{sportLabel}</Text>
+          <Text style={[text.body15Bold, s.sportUnderline]}>{sportLabel}</Text>
           <Text style={text.title}>{athleteLine}</Text>
         </View>
       )}
       <View style={s.codeBody}>
+        <Text style={[text.body15Bold, text.mid]}>{codeTitle}</Text>
         {code ? (
-          <>
-            <Text style={[text.display, text.center]} selectable>
-              {code}
-            </Text>
-            <View style={s.mt8}>
-              <OutlineButton label={copyLabel} onPress={onCopy} />
-            </View>
-          </>
+          <Text style={[text.code, text.center, s.mt4]} selectable>
+            {code}
+          </Text>
         ) : (
-          <Text style={[text.label, text.mid, text.center]}>{pendingLabel}</Text>
+          <Text style={[text.heading, text.sub, text.center, s.mt4]}>{pendingTitle}</Text>
         )}
-        <Text style={[text.label, text.mid, s.mt12]}>{howText}</Text>
+        <View style={[s.mt12, s.stretch]}>
+          <OutlineButton label={copyLabel} onPress={onCopy} disabled={!code} />
+        </View>
+        <Text style={[text.aux, text.center, s.mt12]}>{code ? howText : pendingBody}</Text>
       </View>
     </View>
   );
@@ -552,7 +617,9 @@ function RingIcon({ name, color }: { name: 'close' | 'checkmark'; color: string 
   );
 }
 
-// A-3b 실패 패널 + 만료 패널(리뷰 R4: code·tip 없이). 코드 칩 패딩 4 8(ui-checker flag 10행).
+// 38-DESIGN A-3b 실패 패널 + 만료 패널(리뷰 R4: code·tip 없이). 내용 y≈128(TopBar 아래 24).
+// X 링 72 → 24 → 제목 18/700 → 8 → 본문 17 textMid → 8 → 코드 칩(패딩 2 8, 12 resultTextSub) →
+// 24 → TIP → 24 → CTA 54 → 16 → `목록으로` 가운데.
 export function FailurePanel({
   title,
   body,
@@ -573,7 +640,7 @@ export function FailurePanel({
   onBack: () => void;
 }) {
   return (
-    <View style={s.panel}>
+    <View style={[s.panel, s.panelFail]}>
       <RingIcon name="close" color={colors.brand} />
       <Text style={[text.title, text.center, s.mt24]} accessibilityRole="header">
         {title}
@@ -585,15 +652,15 @@ export function FailurePanel({
         </View>
       ) : null}
       {tip ? (
-        <View style={[s.panelBlock, s.mt24]}>
+        <View style={[s.stretch, s.mt24]}>
           <TipCard head={tip.head} lines={tip.lines} />
         </View>
       ) : null}
-      <View style={[s.panelBlock, s.mt24]}>
+      <View style={[s.stretch, s.mt24]}>
         <PrimaryCta label={reuploadLabel} onPress={onReupload} />
       </View>
-      <View style={s.mt8}>
-        <TextLink label={backLabel} onPress={onBack} tone="cancel" />
+      <View style={s.mt16}>
+        <TextLink label={backLabel} onPress={onBack} tone="cancel" center />
       </View>
     </View>
   );
@@ -601,12 +668,18 @@ export function FailurePanel({
 
 export type InfoRow = { label: string; value: string };
 
-// A-3c 완료 패널 — 재현성 줄(점수 숫자만 Heading 20/700 brand, UI-SPEC Color accent 5) + 바로 아래
-// 고지(row.self.note, 리뷰 R11 · D-11 — 항상) + 정보 표 + 낮으면 TIP·다시 올리기.
+// 38-DESIGN A-3c 완료 패널 — 내용 y≈112(TopBar 아래 8). 체크 링 → 20 → `등록됐어요` 18/700 → 4 →
+// `{name} · {athlete} 선수` 17 textMid → 24 → 재현성 카드(softBg · 반경 15 · 패딩 16):
+// 제목 17/700 왼쪽 + `{score}점` 20/700 brand 오른쪽(점수가 있을 때만) → 4 → 본문 보조 → 8 → 고지
+// 흐린 보조(리뷰 R11 · D-11 — 항상) → 16 → 정보 표 카드(행 7, 세로 10, 사이 dividerSoft) →
+// 낮음이면 24 → TIP → 24 → 다시 올리기 → 24 → `목록으로`.
+// 점수·본문·낮음 분기는 호출부가 supplierRules.selfCheckView 한 값으로 정한다(표시 = 분기).
 export function DonePanel({
   title,
-  selfLine,
-  score,
+  sub,
+  selfTitle,
+  scoreText,
+  selfBody,
   note,
   info,
   low,
@@ -617,8 +690,10 @@ export function DonePanel({
   onBack,
 }: {
   title: string;
-  selfLine: string;
-  score: number | null;
+  sub: string;
+  selfTitle: string;
+  scoreText: string | null;
+  selfBody: string;
   note: string;
   info: readonly InfoRow[];
   low: boolean;
@@ -628,47 +703,41 @@ export function DonePanel({
   backLabel: string;
   onBack: () => void;
 }) {
-  // 숫자 강조는 표시만 — 문구·분기는 supplierRules.selfCheckLine 이 이미 정했다.
-  const scoreText = score != null ? String(score) : null;
-  const at = scoreText ? selfLine.indexOf(scoreText) : -1;
   return (
-    <View style={s.panel}>
+    <View style={[s.panel, s.panelDone]}>
       <RingIcon name="checkmark" color={colors.progressGreen} />
-      <Text style={[text.title, text.center, s.mt24]} accessibilityRole="header">
+      <Text style={[text.title, text.center, s.mt20]} accessibilityRole="header">
         {title}
       </Text>
-      <Text style={[text.label, text.mid, text.center, s.mt8]}>
-        {at >= 0 && scoreText ? (
-          <>
-            {selfLine.slice(0, at)}
-            <Text style={[text.heading, s.scoreNum]}>{scoreText}</Text>
-            {selfLine.slice(at + scoreText.length)}
-          </>
-        ) : (
-          selfLine
-        )}
-      </Text>
-      <Text style={[text.label, text.mid, text.center, s.mt4]}>{note}</Text>
-      <View style={[s.card, s.panelBlock, s.mt24]}>
+      <Text style={[text.label, text.mid, text.center, s.mt4]}>{sub}</Text>
+      <View style={[s.selfCard, s.stretch, s.mt24]}>
+        <View style={s.selfHead}>
+          <Text style={[text.labelBold, s.flex]}>{selfTitle}</Text>
+          {scoreText ? <Text style={[text.heading, s.scoreNum]}>{scoreText}</Text> : null}
+        </View>
+        <Text style={[text.aux, s.mt4]}>{selfBody}</Text>
+        <Text style={[text.auxFaint, s.mt8]}>{note}</Text>
+      </View>
+      <View style={[s.card, s.infoCard, s.stretch, s.mt16]}>
         {info.map((r, i) => (
           <View key={r.label} style={[s.infoRow, i < info.length - 1 && s.rowDivider]}>
-            <Text style={[text.label, text.mid]}>{r.label}</Text>
-            <Text style={[text.labelBold, s.infoValue]}>{r.value}</Text>
+            <Text style={text.aux}>{r.label}</Text>
+            <Text style={[text.body15Bold, s.infoValue]}>{r.value}</Text>
           </View>
         ))}
       </View>
       {low ? (
         <>
-          <View style={[s.panelBlock, s.mt24]}>
+          <View style={[s.stretch, s.mt24]}>
             <TipCard head={tip.head} lines={tip.lines} />
           </View>
-          <View style={[s.panelBlock, s.mt24]}>
+          <View style={[s.stretch, s.mt24]}>
             <PrimaryCta label={reuploadLabel} onPress={onReupload} />
           </View>
         </>
       ) : null}
-      <View style={s.mt8}>
-        <TextLink label={backLabel} onPress={onBack} tone="cancel" />
+      <View style={s.mt24}>
+        <TextLink label={backLabel} onPress={onBack} tone="cancel" center />
       </View>
     </View>
   );
@@ -676,6 +745,7 @@ export function DonePanel({
 
 const s = StyleSheet.create({
   flex: { flex: 1 },
+  stretch: { alignSelf: 'stretch' },
   frame: { flex: 1, width: '100%', maxWidth: 430, alignSelf: 'center', backgroundColor: colors.bg },
   pressed: { opacity: 0.7 },
   busy: { opacity: 0.6 },
@@ -684,6 +754,8 @@ const s = StyleSheet.create({
   mt8: { marginTop: space.sm },
   mt12: { marginTop: space.row },
   mt16: { marginTop: space.md },
+  mt20: { marginTop: space.screen },
+  mt24: { marginTop: space.lg },
   onBrand: { color: colors.textWhite },
 
   topBar: {
@@ -700,13 +772,26 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  chipLogin: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.softBg,
+    borderRadius: R.chip,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.s10,
+  },
+
   header: {
     paddingHorizontal: space.screen,
-    paddingBottom: space.md + space.lg, // 시트 겹침 24 포함
+    paddingBottom: SHEET_OVERLAP + space.lg,
   },
-  headerTitle: { color: colors.textWhite, marginTop: space.md },
+  headerTop: {
+    height: H.touch,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sheet: {
-    marginTop: -space.lg,
+    marginTop: -SHEET_OVERLAP,
     borderTopLeftRadius: R.sheet,
     borderTopRightRadius: R.sheet,
     paddingTop: space.screen,
@@ -731,8 +816,8 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: space.sm,
   },
-  moreBtn: { flexDirection: 'row', alignItems: 'center', minHeight: H.touch },
 
   row: {
     minHeight: H.rowMin,
@@ -742,7 +827,7 @@ const s = StyleSheet.create({
     paddingVertical: space.row,
     borderRadius: R.thumb,
   },
-  rowDivider: { borderBottomWidth: BORDER, borderBottomColor: colors.divider },
+  rowDivider: { borderBottomWidth: BORDER, borderBottomColor: colors.dividerSoft },
   rowHighlighted: { borderWidth: 1, borderColor: colors.brand, paddingHorizontal: space.sm },
   thumb: {
     width: H.thumb,
@@ -752,14 +837,22 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowText: { flex: 1, gap: space.xs },
+  rowText: { flex: 1, gap: space.xxs },
+  progressDot: {
+    width: space.sm,
+    height: space.sm,
+    borderRadius: space.xs,
+    backgroundColor: colors.brandButtonDisabled,
+  },
 
   pillWrap: { alignSelf: 'stretch' },
   pill: {
     height: H.pill,
     borderRadius: R.pill,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: space.xs,
     paddingHorizontal: space.md,
   },
   primary: {
@@ -782,22 +875,24 @@ const s = StyleSheet.create({
     paddingHorizontal: space.md,
   },
   google: {
-    minHeight: H.google,
+    height: H.google,
     borderRadius: R.button,
     borderWidth: 1,
     borderColor: colors.inputBorder,
     backgroundColor: colors.bg,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: space.s10,
     alignSelf: 'stretch',
-    paddingHorizontal: space.xxl,
+    paddingHorizontal: space.md,
   },
-  googleIcon: { position: 'absolute', left: space.md },
-  googleLabel: { textAlign: 'center' },
   link: { minHeight: H.touch, justifyContent: 'center', alignSelf: 'flex-start' },
+  linkCenter: { alignSelf: 'center' },
   linkGo: { color: colors.brand, textDecorationLine: 'underline' },
-  linkSignOut: { color: colors.infoTeal },
+  linkSignOut: { color: colors.infoTeal, textDecorationLine: 'underline' },
   linkCancel: { color: colors.textMid, textDecorationLine: 'underline' },
+  linkOnHeader: { color: colors.textWhite, textDecorationLine: 'underline' },
 
   notice: {
     flexDirection: 'row',
@@ -811,7 +906,7 @@ const s = StyleSheet.create({
     paddingHorizontal: space.md,
   },
   tipCard: { alignSelf: 'stretch' },
-  tipHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tipHead: { flexDirection: 'row', alignItems: 'center', gap: space.s6 },
   tipLines: { marginTop: space.sm, gap: space.xs },
   stepCard: {
     backgroundColor: colors.cardBg,
@@ -819,7 +914,9 @@ const s = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: colors.brand,
     borderRadius: R.card,
-    padding: spacing.cardPadding,
+    paddingVertical: space.screen,
+    paddingHorizontal: space.md,
+    alignItems: 'center',
   },
   idBox: {
     backgroundColor: colors.softBg,
@@ -840,15 +937,6 @@ const s = StyleSheet.create({
 
   codeCard: { padding: 0, overflow: 'hidden' },
   photo: { height: H.photo, justifyContent: 'flex-end' },
-  photoShade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: H.photo / 2,
-    backgroundColor: colors.textPrimary,
-    opacity: 0.5,
-  },
   photoText: { padding: spacing.cardPadding, gap: space.xs },
   sportUnderline: {
     alignSelf: 'flex-start',
@@ -860,15 +948,15 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.cardPadding,
     gap: space.xs,
   },
-  codeBody: { padding: spacing.cardPadding },
+  codeBody: { padding: spacing.cardPadding, alignItems: 'center' },
 
-  mt24: { marginTop: space.lg },
-  panel: { alignItems: 'center', paddingTop: space.xl },
-  panelBlock: { alignSelf: 'stretch' },
+  panel: { alignItems: 'center' },
+  panelFail: { paddingTop: space.lg },
+  panelDone: { paddingTop: space.sm },
   ring: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: H.ring,
+    height: H.ring,
+    borderRadius: H.ring / 2,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -876,16 +964,23 @@ const s = StyleSheet.create({
   chip: {
     backgroundColor: colors.softBg,
     borderRadius: R.chip,
-    paddingVertical: space.xs,
+    paddingVertical: space.xxs,
     paddingHorizontal: space.sm,
   },
+  selfCard: {
+    backgroundColor: colors.softBg,
+    borderRadius: R.card,
+    padding: spacing.cardPadding,
+  },
+  selfHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   scoreNum: { color: colors.brand },
+  infoCard: { paddingVertical: space.xs, paddingHorizontal: spacing.cardPadding },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: space.row,
-    paddingVertical: space.row,
+    paddingVertical: space.s10,
   },
   infoValue: { flexShrink: 1, textAlign: 'right' },
 });

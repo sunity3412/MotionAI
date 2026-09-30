@@ -1,6 +1,6 @@
 # quick-260930-lfw 배포 기록 — 공급자 메일 초대 (Lambda layer+코드 · SSM v1 되돌림 · 이관)
 
-> **상태: Task 4 끝 — Task 5(belle 폰 확인) 대기.**
+> **상태: Task 5 끝 — belle 폰 확인 1·4·5 ○ (2026-09-30).**
 > 1차(07:14~07:21Z)에 콜드 호출이 10초 타임아웃으로 500 → belle "A 올리기" → Timeout 30 · Memory 512 로 올림(F2)
 > → 라이브 1~9행 전부 다시 돌려 통과(F3) → 웹 재배포(G).
 
@@ -252,6 +252,20 @@ aws lambda wait function-updated --function-name $F
 
 ## 폰 확인 (Task 5)
 
-(오케스트레이터가 적는 자리 — TESTB 초대·회수: 두 번째 계정 uid 앞 4자 · 가린 메일 · 시각)
+belle 폰(아이폰 Safari) 확인 결과 — 2026-09-30 [확인 belle]
+
+| 단계 | 결과 | belle 원문 / 기록 |
+|---|---|---|
+| 1~2 두 번째 계정 → A-2 "초대받은 분만" | ○ | *"맞는거 같은데 카카오톡채널 문의 아래 링크 없어도 될 듯"* — 화면에 로그인 메일 표시 확인(사진). 후속: 카카오 줄 부제(`pf.kakao.com/…`) 제거 |
+| 3 오케스트레이터 `create --code TESTB --name "테스트 공급자"` | 실행 | 초대 pending, 만료 2026-10-14 KST, 대상 c***@gmail.com |
+| 4 새로고침 → 홈 + `내 강사 코드 TESTB` 줄 | ○ | *"4번 5번 오케이"* — 실제 Google 로그인으로 초대 수락 [확인] |
+| 5 복사 토스트 · 크게 보기 열기/닫기 · 큰 코드 카드·빌드 라벨 없음 | ○ | 같은 원문 |
+| 6 오케스트레이터 `deactivate --uid UmH3…` | 실행 08:15:04Z | 공급자 UmH3… active False, 초대 revoked(c***@gmail.com). TESTB 는 수강생 연결에 못 쓴다 |
 
 순서 변경(오케스트레이터 2026-09-30): 본 계정 BELLE(`FDJr…`)은 Google 로그인 수단이 없는 익명 계정이라(E 관측) 코드 줄·복사·크게 보기 확인은 **두 번째 계정이 TESTB 로 수락된 뒤 그 계정으로** 한다. 두 번째 계정 deactivate 는 그 확인 뒤에 한다.
+
+## 폰 확인 후속 재배포 (2026-09-30)
+
+- belle 1단계 피드백 *"카카오톡채널 문의 아래 링크 없어도 될 듯"* → `ContactRow` 부제 선택값화, 카카오 줄 부제 제거(`kakaoSub` 키 삭제). 커밋 `cff7d634`. typecheck 0 · node 6파일 70/70.
+- 웹 재배포: export exit 0 → `s3 sync --delete` 08:16:25Z → 무효화 `I7GAR3GF5UL7ASMUUGAI9OVRS2` 완료 08:16:48Z → `/supplier` 200 [확인]. 롤백 = 위 G 절 `web-before/` 역방향 sync(그 번들은 부제 있는 판).
+- 부제 제거 화면을 belle 가 폰으로 다시 보지는 않았다 [미확인 — 다음 폰 확인 때].

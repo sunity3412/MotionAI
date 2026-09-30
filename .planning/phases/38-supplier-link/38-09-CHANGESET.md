@@ -141,7 +141,14 @@ aws lambda update-function-code --function-name sunity-motion-pilot-playback-url
 ```
 zip 은 전부 50 MB 미만(31.8~35.3 MB)이라 `--zip-file` 직접 업로드 한도 안이다. 함수 단위 롤백은 CFN 밖 변경이라 드리프트를 남긴다 — 새 함수·라우트는 그대로 두고(무토큰 401 뿐, 부작용 없음) 다음 CFN 배포 때 정리한다.
 
-**버킷 설정(T3 B·C 에서 원본 저장 후 채움):** 알림 = `put-bucket-notification-configuration … file://…/infra/notification-before.json`, 수명주기 = `put-bucket-lifecycle-configuration … file://…/infra/lifecycle-before.json`.
+**버킷 설정(T3 B·C 에서 원본 저장 — 커밋됨):**
+```
+# 알림 되돌리기 (uploads/ 1항목으로)
+aws s3api put-bucket-notification-configuration --bucket sunity-motion-pilot-videos --notification-configuration file://.planning/phases/38-supplier-link/infra/notification-before.json --profile sunity-motion
+# 수명주기 되돌리기 (uploads/ 30일 만료 규칙 복원)
+aws s3api put-bucket-lifecycle-configuration --bucket sunity-motion-pilot-videos --lifecycle-configuration file://.planning/phases/38-supplier-link/infra/lifecycle-before.json --profile sunity-motion
+```
+`lifecycle-before.json` 에는 get 응답의 `TransitionDefaultMinimumObjectSize` 키가 같이 들어 있다 — put 이 그 키를 거부하면 `Rules` 만 남긴 사본으로 put 한다 [미확인 — 실행 안 해 봄].
 
 **Firestore 규칙:**
 ```
@@ -165,4 +172,111 @@ FIREBASE_SA_PATH=<리포 루트 SA json> backend/.venv/bin/python backend/script
 
 (Task 2 — belle 응답을 원문 그대로 여기에 적는다.)
 
-- 대기 중.
+belle 응답 (2026-09-30, 오케스트레이터 질문에 대한 답):
+- 배포: "승인 — 배포 진행" → **approved** (changeset 실행)
+- 규칙: "콘솔에 직접 붙여넣기" → 선택지 **(B)** — belle 이 Firebase 콘솔 규칙 탭에 `firestore.rules` 를 붙여 넣고 게시. 실행기는 IAM 을 부여하지 않고 `--test`·`--release` 를 부르지 않는다.
+
+## 10. 실행 결과 (Task 3, 2026-09-30)
+
+### A. 배포 [확인]
+- `execute-change-set` 2026-09-29T23:56:58Z(UTC) → `wait stack-update-complete` exit 0 → 스택 `UPDATE_COMPLETE` (LastUpdatedTime 23:56:59Z). 이벤트: 새 함수·역할·권한·로그그룹·layer `SharedLayer1654f65912` CREATE_COMPLETE, 5함수·`PipelineFunctionRole`·`MotionHttpApi` UPDATE_COMPLETE, 정리 단계에서 `SharedLayer4941b5eae7`(:16) DELETE_COMPLETE. 실패 이벤트 0.
+- ① 라우트 (`get-routes --api-id 2rbpecm4d8`): `GET /reference` · `POST /playback-url` · `POST /reference/auto-register` · **`POST /reference/upload-url`** · `POST /upload-url`
+- ② pipeline env: `POD_EXPECTED_PARAM=/sunity/motion/runpod-pod-expected` · `RUNPOD_ANALYZE_URL=https://pod-down.invalid/analyze` (배포 전 라이브 값과 같음. 토큰 미출력)
+- ③ layer: 6함수(기존 5 + 새 1) 모두 `sunity-motion-pilot-shared:21`, `State Active` · `LastUpdateStatus Successful`. 남은 layer 버전 = 21·20·19·18·17 (:16 삭제됨 — 예상 밖 1 대로)
+- ④ 스모크: `POST /reference/upload-url` 본문 `{}` 무토큰 → `HTTP 401` `{"error": {"code": "unauthorized", "message": "인증이 필요합니다."}}`
+- 38-10 이월 CORS 줄: `Origin: http://localhost:8082` 로 POST → `HTTP/2 401` + `access-control-allow-origin: *`. preflight `OPTIONS` → `204` + `access-control-allow-origin: *` · `access-control-allow-methods: GET,OPTIONS,POST` · `access-control-allow-headers: authorization,content-type`. (38-10 때의 404 무헤더 → 해소. 브라우저 실측은 38-13)
+
+### A-2. 설정 diff (R12) [확인 `infra/lambda-after.json`]
+
+| 함수 | 필드 | before | after | 예고됐나 |
+|---|---|---|---|---|
+| upload-url | Layers / CodeSha256 | :16 / `USY2eaYeJg…` | :21 / `5ceFWtQRtQ…` | 예 (의존성만) |
+| reference | Layers / CodeSha256 | :16 / `YcoJ3Im2Nc…` | :21 / `rb9kpifr/j…` | 예 (의존성만) |
+| reference-auto-register | Layers / CodeSha256 | :16 / `LgCTx++M39…` | :21 / `8Y9X5XCKN8…` | 예 (의존성만) |
+| pipeline | Layers / CodeSha256 / EnvKeys | :16 / `8Ew9qbrRYt…` / 4키 | :21 / `RFXSEcgMOr…` / +`POD_EXPECTED_PARAM` | 예 |
+| playback-url | Layers / CodeSha256 | :20 / `whIHZBkjC2…` | :21 / `9Y2ahu2W56…` | 예 (의존성만) |
+| reference-upload-url (신규) | — | — | :21 · Mem 256 · Timeout 10 · env `BELLE_UID`·`FIREBASE_SA_PARAM`·`SUPPLIER_UIDS_PARAM`·`VIDEO_BUCKET` | 예 |
+
+Memory·Timeout·Runtime·Handler·Role·그 밖의 env 키 변화 0 → 예고 밖 차이 없음.
+
+### A-2. 기존 API 회귀 (R12)
+무토큰 [확인]:
+- `POST /upload-url` → `401` `error.code=unauthorized`
+- `GET /reference` → `401` `error.code=unauthorized`
+- `POST /playback-url` → `401` `error.code=unauthorized`
+
+토큰 (Admin SA custom token → `signInWithCustomToken`, uid `regress38`, 토큰 미출력; 스크립트 = scratchpad `regress38.py`, `e2e_app_path.signin_custom` 재사용) [확인, 2회 같은 결과]:
+- `POST /upload-url {mode:'mode3', format:'mp4', fileSizeBytes:1000}` → `200` 키 `analysisId · expiresInSec · s3Key · uploadUrl` (PUT 안 함 — 객체 0. 이 함수는 Firestore 에 쓰지 않는다 [확인 코드])
+- `POST /playback-url {referenceMotionId:'ref-kip-up'}` → `200` 키 `expiresInSec · playbackUrl`
+- **`GET /reference` → `500` `{"message": ...}`(API Gateway 기본 본문) — 함수가 10초 타임아웃**(`Duration: 10000.00 ms · Status: timeout · Max Memory 171 MB`)
+
+**`GET /reference` 500 은 배포 전부터 있던 것이다 — 이번 배포로 깨진 게 아니다.**
+관측 [확인 CloudWatch `/aws/lambda/sunity-motion-pilot-reference`, 31일 REPORT 전부]:
+| 시각(KST) | Duration | 상태 | 코드 |
+|---|---|---|---|
+| 08-31 09:30:24 | 10000 ms | timeout | 배포 전(:16 + 옛 zip) |
+| 08-31 09:32:02 | 10000 ms | timeout | 배포 전 |
+| 08-31 09:32:15 | 10000 ms | timeout | 배포 전 |
+| 09-30 08:59:55 | 2 ms | ok (무토큰 401) | 배포 후 |
+| 09-30 09:00:28 | 10000 ms | timeout | 배포 후 |
+| 09-30 09:01:14 | 10000 ms | timeout | 배포 후 |
+
+- 10초를 채운 호출은 인증을 통과한 호출이다(무토큰 401 경로는 2 ms) [확인].
+- 앱은 `GET /reference` 를 부르지 않는다 — 기준 목록은 Firestore `reference` 컬렉션을 `onSnapshot` 으로 직접 읽는다(`app/src/lib/referenceMotions.ts:214`); `app/src/lib/api.ts` 에 이 경로를 부르는 함수가 없다 [확인 grep].
+- 그래서 **함수 롤백은 하지 않았다** — 롤백 대상 코드도 같은 타임아웃을 냈고(위 08-31), 롤백은 CFN 밖 드리프트만 남긴다. 플랜 A-2 의 "3 × 200" 중 이 한 줄은 **미충족**으로 남긴다.
+
+진단(승계 전 재검증 대상) [추정]: `list_reference_motions()` 가 `reference` 컬렉션 전체 doc 을 `angles`·`joints3d`·`keypointReport` 등 큰 필드째 읽어 돌려주는데, 256 MB·10초 안에 못 끝나는 것으로 보인다. 컬렉션 크기·응답 크기는 재지 않았다.
+
+### A-3. baseline 재diff (R10) [확인]
+```
+$ FIREBASE_SA_PATH=… backend/.venv/bin/python backend/scripts/snapshot_reference_baseline.py \
+    --diff .planning/phases/38-supplier-link/infra/legacy-reference-baseline.json \
+    --out <scratchpad>/baseline-after-deploy.json
+differences: 0
+exit=0
+```
+legacy 11 doc raw 필드 · `reference/_release` 포인터 · S3 `reference/ref-*.mp4` ETag 11 · 저장 분석 표본 3건 — 배포 전과 차이 0.
+
+### B. 버킷 알림 (교체-전체, 한 번에 2항목) [확인]
+- 원본: `infra/notification-before.json` — 1항목 `Id M2Y1OTFk…` · `uploads/` · 큐 `sunity-motion-pilot-analysis`
+- 넣은 설정: `infra/notification-after.json` (원본 항목 그대로 + `reference-supplier-link` · `reference/`)
+- `put-bucket-notification-configuration` exit 0 → `get` 결과:
+```
+M2Y1OTFkZDctN2RiYi00MTFhLTliMDctZWI0OTM1M2JjM2Nl	arn:aws:sqs:ap-northeast-2:976369350031:sunity-motion-pilot-analysis	s3:ObjectCreated:*	uploads/
+reference-supplier-link	arn:aws:sqs:ap-northeast-2:976369350031:sunity-motion-pilot-analysis	s3:ObjectCreated:*	reference/
+```
+- `reference/` 아래 다른 모양 키(평면 `ref-*.mp4`, `_archive/…`, 확정 `v1.*`)는 pipeline 이 경고 로그만 남기고 넘긴다 [확인 코드 — `parse_reference_key` 영숫자 세그먼트 · `parse_upload_key` None → `스킵: 인식 불가 S3 키`; 확정 키 → `확정 키 이벤트 무시`]. 라이브 관측은 아직 없다 [미확인].
+- 롤백: §7 명령.
+
+### C. 수명주기 해제 (REQ-38-7 · D-17) [확인]
+- 원본: `infra/lifecycle-before.json` — 규칙 1개 `expire-raw-uploads-30d` (`uploads/`, 30일)
+- `delete-bucket-lifecycle` exit 0 → `get-bucket-lifecycle-configuration`:
+```
+aws: [ERROR]: An error occurred (NoSuchLifecycleConfiguration) when calling the GetBucketLifecycleConfiguration operation: The lifecycle configuration does not exist
+```
+- 롤백: §7 명령.
+
+### D. 문서 [확인]
+- `backend/README.md`: 수명주기 put 명령 → "해제됨(D-17)" 주석 + 되돌리기 원본 경로. 알림 명령 → 2항목 판 + "교체-전체 — 항목 하나만 넣으면 다른 접두사 알림이 사라진다" 경고.
+- `backend/scripts/intake_clips.py:27`: "30일 뒤 지워진다" → "`uploads/` 도 영구 보관(D-17)".
+- `grep -c '30일'` README·intake_clips = 0 · template `uploads/ 30일|30일 만료` = 0.
+
+### E. IAM (읽기 전용 simulate) [확인]
+caller `arn:aws:iam::976369350031:user/sunity-motion` (매칭 정책 `AdministratorAccess`):
+
+| Action | Resource | 결과 |
+|---|---|---|
+| s3:PutObject | `…/uploads/u1/0123…cdef.mp4` | allowed |
+| s3:PutObject | `…/reference/u1/0123…cdef/v1.mp4` | allowed |
+| s3:PutObject | `…/reference/u1/0123…cdef/upload.mp4` | allowed |
+| s3:GetObject | `…/uploads/u1/0123…cdef.mp4` | allowed |
+| s3:GetObject | `…/reference/u1/0123…cdef/v1.mp4` | allowed |
+| s3:GetObject | `…/reference/u1/0123…cdef/upload.mp4` | allowed |
+
+이 결과는 **로컬 `sunity-motion` 사용자** 기준이다. Pod 이 같은 키를 쓰는지는 [미확인 — 38-14 T2 3-b 가 Pod 에서 `get-caller-identity` 로 대조].
+
+### F. Firestore 규칙 — 선택지 (B) 콘솔 게시 대기
+- 리포 `firestore.rules`: 마지막 변경 커밋 `e4c3d16a` (38-06), 작업트리 변경 없음, 51줄, sha256 `b5b63131…48b8` [확인].
+- 라이브 `--current`(09-30 Task 3 시점): release `rulesets/bc005961-b1db-4099-85a7-91c4756ecf62`, updateTime 2026-05-19T09:27:24Z — 내용 = `infra/firestore-rules-before.rules` (diff 0) [확인]. 리포 파일과는 다름(아직 안 올림 — 예상대로).
+- 실행기는 `--test`·`--release` 를 부르지 않았고 IAM 도 바꾸지 않았다 (belle 선택 B).
+- 다음: belle 이 콘솔에서 게시 → 이어받는 실행기가 `--current` 로 라이브 = 리포 확인 + 라이브 probe 5줄.

@@ -1,0 +1,38 @@
+{
+    "QueueConfigurations": [
+        {
+            "Id": "M2Y1OTFkZDctN2RiYi00MTFhLTliMDctZWI0OTM1M2JjM2Nl",
+            "QueueArn": "arn:aws:sqs:ap-northeast-2:976369350031:sunity-motion-pilot-analysis",
+            "Events": [
+                "s3:ObjectCreated:*"
+            ],
+            "Filter": {
+                "Key": {
+                    "FilterRules": [
+                        {
+                            "Name": "Prefix",
+                            "Value": "uploads/"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "Id": "reference-supplier-link",
+            "QueueArn": "arn:aws:sqs:ap-northeast-2:976369350031:sunity-motion-pilot-analysis",
+            "Events": [
+                "s3:ObjectCreated:*"
+            ],
+            "Filter": {
+                "Key": {
+                    "FilterRules": [
+                        {
+                            "Name": "Prefix",
+                            "Value": "reference/"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

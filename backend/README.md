@@ -76,10 +76,9 @@ awscli 로 직접 만들어 reference/ 5 영상을 이미 넣어둔 기존 버�
 그래서 버킷의 라이프사이클/CORS/Notification 은 별도로 1회 설정.
 
 ```bash
-# 1) Lifecycle (uploads/ 30일 만료 — 비용 관리)
-aws s3api put-bucket-lifecycle-configuration \
-  --bucket sunity-motion-pilot-videos \
-  --lifecycle-configuration '{"Rules":[{"ID":"expire-raw-uploads-30d","Status":"Enabled","Filter":{"Prefix":"uploads/"},"Expiration":{"Days":30}}]}'
+# 1) Lifecycle — 해제됨 (2026-09-26, Phase 38 D-17: uploads/ 영구 보관). 수명주기 규칙 없음.
+#    되돌리려면 .planning/phases/38-supplier-link/infra/lifecycle-before.json 으로
+#    put-bucket-lifecycle-configuration (2026-09-30 삭제 전 원본).
 
 # 2) CORS (앱이 직접 PUT)
 aws s3api put-bucket-cors --bucket sunity-motion-pilot-videos --cors-configuration '{
@@ -91,7 +90,10 @@ aws s3api put-bucket-cors --bucket sunity-motion-pilot-videos --cors-configurati
   }]
 }'
 
-# 3) S3 → SQS Notification (uploads/* 가 올라오면 분석 큐로)
+# 3) S3 → SQS Notification (uploads/* 학생 분석 + reference/* 공급자 링크 등록 → 같은 분석 큐)
+#    주의: put-bucket-notification-configuration 은 교체-전체다 — 항목 하나만 넣으면
+#    다른 접두사 알림이 사라진다. 두 항목을 항상 한 번에 넣는다(Phase 38 D-05).
+#    현재 라이브 원본(2026-09-30): .planning/phases/38-supplier-link/infra/notification-after.json
 #    QUEUE_ARN = sam deploy outputs 의 AnalysisQueueUrl 에서 ARN 으로 변환
 #    (보통 arn:aws:sqs:ap-northeast-2:<acct>:sunity-motion-pilot-analysis)
 QUEUE_ARN="$(aws sqs get-queue-attributes \
@@ -105,6 +107,11 @@ aws s3api put-bucket-notification-configuration \
       \"QueueArn\": \"$QUEUE_ARN\",
       \"Events\": [\"s3:ObjectCreated:*\"],
       \"Filter\": {\"Key\": {\"FilterRules\": [{\"Name\": \"prefix\", \"Value\": \"uploads/\"}]}}
+    }, {
+      \"Id\": \"reference-supplier-link\",
+      \"QueueArn\": \"$QUEUE_ARN\",
+      \"Events\": [\"s3:ObjectCreated:*\"],
+      \"Filter\": {\"Key\": {\"FilterRules\": [{\"Name\": \"prefix\", \"Value\": \"reference/\"}]}}
     }]
   }"
 ```

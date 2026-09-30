@@ -24,7 +24,7 @@ analyze   등록된 영상을 앱과 같은 경로로 분석(e2e_app_path.py)하
   주 1회 자동으로 학습에 들어간다. 그래서 clips.jsonl 이 따로 있다.
 - 점수 필드 없음. 사람 이름 없음 — 학생은 display_name 을 두지 않고, note 에도 이름을 쓰지 않는다.
   원본 파일명도 남기지 않는다(이름이 들어 있을 수 있다).
-- S3 영구 사본은 `fixtures/intake/` 에 둔다. 앱 경로의 `uploads/` 는 30일 뒤 지워진다(수명 규칙).
+- S3 영구 사본은 `fixtures/intake/` 에 둔다. 앱 경로의 `uploads/` 도 영구 보관이다(2026-09-26 D-17) — `fixtures/intake/` 는 분석 fixture 용 별도 사본.
 
 사용
 ────

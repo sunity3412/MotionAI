@@ -280,3 +280,38 @@ caller `arn:aws:iam::976369350031:user/sunity-motion` (매칭 정책 `Administra
 - 라이브 `--current`(09-30 Task 3 시점): release `rulesets/bc005961-b1db-4099-85a7-91c4756ecf62`, updateTime 2026-05-19T09:27:24Z — 내용 = `infra/firestore-rules-before.rules` (diff 0) [확인]. 리포 파일과는 다름(아직 안 올림 — 예상대로).
 - 실행기는 `--test`·`--release` 를 부르지 않았고 IAM 도 바꾸지 않았다 (belle 선택 B).
 - 다음: belle 이 콘솔에서 게시 → 이어받는 실행기가 `--current` 로 라이브 = 리포 확인 + 라이브 probe 5줄.
+
+#### F-2. belle 콘솔 게시 뒤 확인 (2026-09-30)
+
+belle: "게시했어" — Firebase 콘솔 규칙 탭에 리포 `firestore.rules`(38-06 `e4c3d16a`, 51줄)를 붙여 넣고 게시.
+
+**`--current` 대조 [확인]:**
+```
+$ FIREBASE_SA_PATH=<리포 루트 firebase-sa.json> backend/.venv/bin/python backend/scripts/deploy_firestore_rules.py --current --out <scratchpad>/rules-live-after-publish.rules
+current release name=projects/sunity-ai-coach/releases/cloud.firestore rulesetName=projects/sunity-ai-coach/rulesets/18587bf6-155f-43ae-aded-fdafdd7eabda updateTime=2026-09-30T00:58:37.642026Z files=1
+saved …/rules-live-after-publish.rules (2263 chars)
+$ diff firestore.rules <scratchpad>/rules-live-after-publish.rules   → 출력 없음, exit 0
+sha256 둘 다 b5b631319bcc811f0f7891b364cd12bfece56866bdbf32f3aaf2ce11d76448b8
+```
+- 새 release = `rulesets/18587bf6-155f-43ae-aded-fdafdd7eabda` (이전 `bc005961-…`, 05-19). 라이브 = 리포 **바이트 단위 동일** — 공백 차이도 없음.
+- `--test`(projects:test 12 케이스)는 선택지 (B) 라 돌리지 않았다(SA 403, 38-06). 아래 라이브 probe 가 유일한 검증이다.
+
+**라이브 probe [확인]** — scratchpad `rulesprobe38.py`. 클라이언트 요청은 Firestore REST v1 + Firebase ID 토큰(Admin SA custom token → `signInWithCustomToken` 교환, uid `regress38A`·`regress38B`, 토큰 미출력). 규칙은 웹 SDK 와 REST 에 똑같이 적용된다. 임시 doc 은 Admin 으로 만들고 지웠다.
+
+| # | 요청 (클라이언트) | 기대 | 결과 |
+|---|---|---|---|
+| 1 | A → `reference/_rulesprobe38/private/registration` get (`supplierUid = regress38A`) | ALLOW | HTTP 200 |
+| 2 | B → 같은 private doc get | DENY | HTTP 403 `PERMISSION_DENIED` (permission-denied) |
+| 3 | B → `reference/_rulesprobe38` (공개 top-level) get | ALLOW | HTTP 200 |
+| 4 | B → `users/regress38B/analyses/probe38` create, `selfCheckForReference:'x'` 포함 | DENY | HTTP 403 `PERMISSION_DENIED` (permission-denied) |
+| 5 | B → 같은 경로 create, 표식 없음 | ALLOW | HTTP 200 |
+| 6 | B → 5 의 doc delete (본인) | ALLOW | HTTP 200 |
+
+`ALL PASS` (6/6).
+
+**정리 [확인]:**
+- 시작 전 임시 doc 3개 존재 여부 `[False, False, False]` → 끝난 뒤 `[False, False, False]` (`reference/_rulesprobe38`, 그 `private/registration`, `users/regress38B/analyses/probe38`).
+- Firebase Auth 임시 유저 삭제: `regress38A` · `regress38B` · `regress38`(A-2 회귀 때 만든 것) — 3개 모두 `delete_user` 성공.
+- Firestore 읽기·쓰기: Admin 읽기 6 · 쓰기 2 · 삭제 3, 클라이언트 요청 6 — Spark 캡 무관.
+
+**규칙 롤백** (필요 시): §7 "Firestore 규칙" 명령 — 또는 콘솔 규칙 탭에 `infra/firestore-rules-before.rules` 내용을 붙여 넣고 게시.

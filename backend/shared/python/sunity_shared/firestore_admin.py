@@ -4773,11 +4773,17 @@ def set_registration_active(
     *,
     video_s3_key: str,
     video_etag: str,
+    thumbnail_s3_key: str | None = None,
 ) -> bool:
     """processing ∧ doc.jobId == job_id 일 때만 active(리뷰 R3·R5).
 
     `videoS3Key` 는 서버가 copy_object 한 확정 키(`v1.{ext}`)만, `videoETag` 는 그 객체의
     ETag — 등록 산출물과 영상을 묶는다(R5). lease 는 지운다(종결).
+
+    quick-260930-w9l: v1 이 무음본으로 다시 올라갔으면 `video_etag` 는 그 새 ETag 다.
+    `thumbnail_s3_key`(선택) = `s3keys.build_reference_thumb_key` 로 만든 키 — 있으면 같은
+    트랜잭션 update 에 `thumbnailS3Key` 로, None 이면 키를 쓰지 않는다(썸네일 실패는 등록을
+    막지 않는다). 앱은 이 키로 POST /playback-url asset 'thumbnail' 을 부른다.
     """
     _require_registration_ref_id(ref_id)
     if not video_s3_key:
@@ -4806,6 +4812,7 @@ def set_registration_active(
                 "leaseUntil": None,
                 "registrationUpdatedAt": now,
                 "updatedAt": now,
+                **({"thumbnailS3Key": thumbnail_s3_key} if thumbnail_s3_key else {}),
             },
         )
         return True

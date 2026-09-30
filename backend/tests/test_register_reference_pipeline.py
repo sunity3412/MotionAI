@@ -13,6 +13,9 @@ mock 으로 우회하지 않는다.
   · 차단 1: `check_registration` 과 `set_reference_angles` 가 받는 keypointReport 는 **같은 camelCase dict**.
   · R8 자기 재현성 = begin_self_check → create_analysis_doc → copy_object(v1 → uploads/).
   · stale job 은 쓰기 0 · 활성화 뒤 재PUT 은 스킵되고 v1·angles 불변.
+  · quick-260930-w9l: 크기 상한 1GB · 길이 상한 120초(isCombo 무시) · 판정 통과 뒤·angles 앞에 소리 제거
+    (있으면 무음본을 같은 v1 키로 upload_file, ETag 갱신; 실패 = server_error) · 서 있는 창 가운데 썸네일
+    (실패는 등록을 막지 않는다). reference_media 는 여기서 가짜 — 실제 ffmpeg 는 test_reference_media.py.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ import logging
 import re
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -43,6 +47,8 @@ JOB = "A"
 BUCKET = "b"
 UPLOAD_KEY = f"reference/{UID}/{REF_ID}/upload.mp4"
 V1_KEY = f"reference/{UID}/{REF_ID}/v1.mp4"
+THUMB_KEY = f"reference/{UID}/{REF_ID}/thumb.jpg"
+SILENT_ETAG = '"silent"'  # 무음본 재업로드 뒤 v1 ETag
 ETAG = '"e1"'
 FPS = 10.0
 W = H = 100
@@ -107,6 +113,7 @@ class _FakeS3:
         self.downloads: list[tuple[str, str]] = []
         self.on_head = None  # callable(key) — 처리 중 원본 교체 재현용
         self.deny_copy_prefix: str | None = None
+        self.deny_upload_prefix: str | None = None
 
     def head_object(self, *, Bucket, Key):
         self.calls.append(("head_object", {"Bucket": Bucket, "Key": Key}))
@@ -132,6 +139,16 @@ class _FakeS3:
             )
         self.objects[Key] = dict(src)
         return {"CopyObjectResult": {"ETag": src["ETag"]}}
+
+    def upload_file(self, Filename, Bucket, Key, ExtraArgs=None):  # noqa: N803 - boto3 이름
+        self.calls.append(("upload_file", {"Filename": Filename, "Bucket": Bucket, "Key": Key,
+                                           "ExtraArgs": ExtraArgs}))
+        self.events.append(("upload_file", Key))
+        if self.deny_upload_prefix and Key.startswith(self.deny_upload_prefix):
+            raise ClientError({"Error": {"Code": "AccessDenied", "Message": "Access Denied"}}, "PutObject")
+        assert Path(Filename).exists(), Filename
+        etag = SILENT_ETAG if Key.endswith((".mp4", ".mov")) else '"thumb"'  # noqa: Q000
+        self.objects[Key] = {"ETag": etag, "ContentLength": Path(Filename).stat().st_size}
 
     def download_file(self, bucket, key, dest):
         self.calls.append(("download_file", {"Bucket": bucket, "Key": key}))
@@ -192,7 +209,13 @@ class _Harness:
         self.priv: dict | None = {"isCombo": False, "consent": {"training": False, "version": "2026-09-26"}}
         self.calls: dict[str, list] = {
             "angles": [], "active": [], "failed": [], "begin": [], "create_doc": [], "self_check": [], "check": [],
+            "active_thumb": [],
         }
+        # reference_media 가짜 — 기본 = 소리 없음 · 썸네일 성공.
+        self.media = SimpleNamespace(
+            audio=False, has_audio_exc=None, strip_exc=None, thumb_exc=None,
+            has_audio=[], strip=[], thumb=[],
+        )
         self.angles_ok = True
         self.active_ok = True
         self.begin_ok = True
@@ -244,8 +267,9 @@ def h(app, monkeypatch) -> _Harness:
         h.events.append(("set_reference_angles", ref_id))
         return h.angles_ok
 
-    def set_active(ref_id, job_id, *, video_s3_key, video_etag):
+    def set_active(ref_id, job_id, *, video_s3_key, video_etag, thumbnail_s3_key=None):
         h.calls["active"].append((ref_id, job_id, video_s3_key, video_etag))
+        h.calls["active_thumb"].append(thumbnail_s3_key)
         h.events.append(("set_registration_active", ref_id))
         return h.active_ok
 
@@ -285,6 +309,33 @@ def h(app, monkeypatch) -> _Harness:
         return real_check(counts, report, n_stand=n_stand)
 
     monkeypatch.setattr(app.registration_checks, "check_registration", spy)
+
+    rm = app.reference_media
+
+    def fake_has_audio(path):
+        h.media.has_audio.append(path)
+        h.events.append(("has_audio", path))
+        if h.media.has_audio_exc is not None:
+            raise h.media.has_audio_exc
+        return h.media.audio
+
+    def fake_strip(src, dst, container):
+        h.media.strip.append((src, dst, container))
+        h.events.append(("strip_audio", container))
+        if h.media.strip_exc is not None:
+            raise h.media.strip_exc
+        Path(dst).write_bytes(b"silent")
+
+    def fake_thumb(src, t_sec, dst, width=360):
+        h.media.thumb.append((src, t_sec, dst, width))
+        h.events.append(("extract_thumbnail", t_sec))
+        if h.media.thumb_exc is not None:
+            raise h.media.thumb_exc
+        Path(dst).write_bytes(b"jpg")
+
+    monkeypatch.setattr(rm, "has_audio", fake_has_audio)
+    monkeypatch.setattr(rm, "strip_audio", fake_strip)
+    monkeypatch.setattr(rm, "extract_thumbnail", fake_thumb)
     return h
 
 
@@ -295,8 +346,16 @@ def _ops(h: _Harness, name: str) -> list[dict]:
 # ── R9 크기 · R5 복사 · 길이 (디코딩 전) ─────────────────────────────────────────────────
 
 
+def test_size_limit_is_1gb(h, app):
+    """w9l 항목 7 — 공급자 기준 등록만 1GB. 101MB(옛 한도 초과)도, 정확히 1GB 도 통과."""
+    for size in (101 * 1024 * 1024, app.models.REFERENCE_MAX_VIDEO_BYTES):
+        h.s3.objects[UPLOAD_KEY]["ContentLength"] = size
+        h.run()
+        assert h.failed_codes == [], size
+
+
 def test_too_large_is_rejected_before_download(h, app):
-    h.s3.objects[UPLOAD_KEY]["ContentLength"] = 101 * 1024 * 1024
+    h.s3.objects[UPLOAD_KEY]["ContentLength"] = app.models.REFERENCE_MAX_VIDEO_BYTES + 1
     h.run()
     err = h.failed_error()
     assert err == {"code": "too_large", "message": app.models.REGISTRATION_ERROR_MESSAGE["too_large"]}
@@ -345,7 +404,7 @@ def test_v1_copy_access_denied_is_server_error(h):
     assert _ops(h, "download_file") == [] and h.calls["angles"] == []
 
 
-@pytest.mark.parametrize("duration, code", [(35.0, "too_long"), (3.0, "too_short")])
+@pytest.mark.parametrize("duration, code", [(121.0, "too_long"), (3.0, "too_short")])
 def test_duration_rejected_before_extract(h, app, duration, code):
     h.ext.duration = duration
     h.run()
@@ -354,38 +413,33 @@ def test_duration_rejected_before_extract(h, app, duration, code):
     assert h.calls["angles"] == []
 
 
-def test_combo_limit_is_60(h):
+def test_length_limit_is_120_and_combo_flag_is_ignored(h):
+    """w9l 항목 6 — 콤보 상한(2026-09-30 삭제). 비공개 isCombo 가 True 여도 상한 120초 하나."""
     h.priv = {"isCombo": True, "consent": {"training": True}}
-    h.ext.duration = 35.0
-    h.ext.T = 350
-    h.outputs = _frames_133(350)
+    h.ext.duration = 119.0
     h.run()
     assert h.failed_codes == [] and len(h.calls["active"]) == 1
-    # 65초는 콤보도 초과.
-    h2_ext = h.ext
-    h2_ext.duration = 65.0
+    h.ext.duration = 121.0
     h.calls["failed"].clear()
-    h.outputs = _frames_133(350)
     h.run()
     assert h.failed_codes == ["too_long"]
 
 
 def test_probe_none_caps_extract_and_rechecks_length(h):
-    """메타를 못 읽으면 extract(end_s=상한+1.0) 캡 뒤 len(frames)/real_fps 로 다시 검사(R9 2차 방어)."""
+    """메타를 못 읽으면 extract(end_s=상한+1.0 = 121) 캡 뒤 len(frames)/real_fps 로 다시 검사(R9 2차 방어)."""
     h.ext.duration = None
-    h.ext.T = 350
-    h.outputs = _frames_133(350)
+    h.ext.T = 1250  # 125초 @10fps
     h.run()
-    assert h.ext.extract_calls == [31.0]
+    assert h.ext.extract_calls == [121.0]
     assert h.failed_codes == ["too_long"]
     assert h.calls["angles"] == []
 
 
-def test_probe_none_combo_cap_is_61(h):
+def test_probe_none_combo_flag_does_not_change_cap(h):
     h.priv = {"isCombo": True, "consent": {"training": False}}
     h.ext.duration = None
     h.run()
-    assert h.ext.extract_calls == [61.0]
+    assert h.ext.extract_calls == [121.0]
     assert h.failed_codes == []
 
 
@@ -619,3 +673,150 @@ def test_no_scoring_path_called(h, app, monkeypatch):
     monkeypatch.setattr(app.assemble, "build_mode1", lambda *a, **k: pytest.fail("build_mode1 호출 금지"))
     h.run()
     assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+
+
+
+# ── quick-260930-w9l — 소리 제거 · 썸네일 (판정 통과 뒤 · angles 앞) ──────────────────────
+
+
+def _uploads(h: _Harness) -> list[dict]:
+    return _ops(h, "upload_file")
+
+
+def test_audio_present_strips_and_reuploads_v1_with_new_etag(h):
+    h.media.audio = True
+    h.run()
+    assert h.failed_codes == []
+    assert len(h.media.strip) == 1
+    src, dst, container = h.media.strip[0]
+    assert src == h.s3.downloads[0][1] and container == "mp4"
+    v1_up = [u for u in _uploads(h) if u["Key"] == V1_KEY]
+    assert len(v1_up) == 1
+    assert v1_up[0]["Bucket"] == BUCKET
+    assert v1_up[0]["ExtraArgs"] == {"ContentType": "video/mp4"}
+    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, SILENT_ETAG)]
+    # 순서 — 판정 → 소리 확인 → 제거 → 업로드 → angles → active.
+    names = [e[0] for e in h.events]
+    order = ["has_audio", "strip_audio", "upload_file", "set_reference_angles", "set_registration_active"]
+    idx = [names.index(n) for n in order]
+    assert idx == sorted(idx)
+    assert len(h.calls["check"]) == 1
+    # 썸네일은 무음본에서.
+    assert h.media.thumb[0][0] == dst
+    # 자기 재현성은 여전히 v1(이제 무음본)을 복사한다.
+    assert _ops(h, "copy_object")[-1]["CopySource"] == {"Bucket": BUCKET, "Key": V1_KEY}
+
+
+def test_audio_absent_does_not_reupload(h):
+    h.media.audio = False
+    h.run()
+    assert h.media.strip == []
+    assert [u for u in _uploads(h) if u["Key"] == V1_KEY] == []
+    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    assert h.media.thumb[0][0] == h.s3.downloads[0][1]
+
+
+def test_mov_reupload_content_type_is_quicktime(h):
+    up = f"reference/{UID}/{REF_ID}/upload.mov"
+    v1 = f"reference/{UID}/{REF_ID}/v1.mov"
+    h.s3.objects = {up: {"ETag": ETAG, "ContentLength": 5_000_000}}
+    h.doc = dict(h.doc, uploadKey=up)
+    h.media.audio = True
+    h.run(key=up)
+    assert h.failed_codes == []
+    assert h.media.strip[0][2] == "mov"
+    v1_up = [u for u in _uploads(h) if u["Key"] == v1]
+    assert v1_up[0]["ExtraArgs"] == {"ContentType": "video/quicktime"}
+
+
+@pytest.mark.parametrize("where", ["has_audio", "strip", "upload"])
+def test_audio_removal_failure_is_server_error_fail_closed(h, app, where):
+    """w9l 항목 8 — 무음 동의를 없앴으니 저장본에 소리가 없다는 보장은 서버 하나뿐. 실패 = 등록 실패."""
+    from sunity_shared.analysis.reference_media import ReferenceMediaError
+
+    h.media.audio = True
+    if where == "has_audio":
+        h.media.has_audio_exc = ReferenceMediaError("probe failed")
+    elif where == "strip":
+        h.media.strip_exc = ReferenceMediaError("ffmpeg failed")
+    else:
+        h.s3.deny_upload_prefix = "reference/"
+    h.run()
+    assert h.failed_error() == {
+        "code": "server_error",
+        "message": app.models.REGISTRATION_ERROR_MESSAGE["server_error"],
+    }
+    assert h.calls["angles"] == [] and h.calls["active"] == []
+    assert h.calls["begin"] == []
+
+
+def test_thumbnail_from_standing_window_middle(h):
+    """기본 서 있는 창 1.0초(10프레임 @10fps) → t = 0.5초. thumb 키에 image/jpeg, active 에 키."""
+    h.run()
+    assert h.failed_codes == []
+    assert len(h.media.thumb) == 1
+    _, t_sec, _, width = h.media.thumb[0]
+    assert t_sec == pytest.approx(0.5)
+    assert width == 360
+    th = [u for u in _uploads(h) if u["Key"] == THUMB_KEY]
+    assert len(th) == 1 and th[0]["ExtraArgs"] == {"ContentType": "image/jpeg"}
+    assert h.calls["active_thumb"] == [THUMB_KEY]
+    names = [e[0] for e in h.events]
+    assert names.index("extract_thumbnail") < names.index("set_reference_angles")
+
+
+def test_thumbnail_uses_clip_range_stand_window(h):
+    h.priv = {"isCombo": False, "clipRange": {"execStartS": 0.8, "execEndS": 4.0},
+              "consent": {"training": False}}
+    h.run()
+    assert h.failed_codes == []
+    assert h.media.thumb[0][1] == pytest.approx(0.4)  # 8프레임 / 10fps / 2
+
+
+@pytest.mark.parametrize("where", ["extract", "upload"])
+def test_thumbnail_failure_does_not_block_registration(h, caplog, where):
+    from sunity_shared.analysis.reference_media import ReferenceMediaError
+
+    caplog.set_level(logging.WARNING)
+    if where == "extract":
+        h.media.thumb_exc = ReferenceMediaError("no frame")
+    else:
+        h.s3.deny_upload_prefix = THUMB_KEY
+    h.run()
+    assert h.failed_codes == []
+    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    assert h.calls["active_thumb"] == [None]
+    assert any("thumb" in r.getMessage().lower() for r in caplog.records)
+
+
+def test_verdict_failure_skips_audio_and_thumbnail(h):
+    h.media.audio = True
+    h.outputs = _frames_133(60, n_people=2)
+    h.run()
+    assert h.failed_codes == ["multiple_people"]
+    assert h.media.has_audio == [] and h.media.strip == [] and h.media.thumb == []
+    assert _uploads(h) == []
+
+
+def test_temp_media_files_removed(h):
+    h.media.audio = True
+    h.run()
+    silent = h.media.strip[0][1]
+    thumb = h.media.thumb[0][2]
+    assert not Path(silent).exists()
+    assert not Path(thumb).exists()
+    assert not Path(h.s3.downloads[0][1]).exists()
+
+
+@pytest.mark.parametrize(
+    "n_stand, fps, dur, expected",
+    [
+        (10, 10.0, 6.0, 0.5),
+        (9, 9.0, 30.0, 0.5),
+        (100, 10.0, 3.0, 2.9),  # 창이 영상보다 길면 끝에서 0.1초 앞
+        (0, 10.0, 6.0, 0.0),
+        (10, 10.0, 0.05, 0.0),  # 하한 0
+    ],
+)
+def test_thumbnail_time_rule(app, n_stand, fps, dur, expected):
+    assert app._thumbnail_time_sec(n_stand, fps, dur) == pytest.approx(expected)

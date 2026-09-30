@@ -60,7 +60,8 @@ interface ReferenceMotion {
   videoUrl?: string;            // seed — 7일 presigned HTTPS URL
   videoUrlExpiresAt?: number;   // seed — epoch ms (앱 만료 안내용)
   videoS3Key?: string;          // seed — 백엔드가 비교 영상 재서명에 사용
-  thumbnailUrl?: string;        // 미사용 — 자동 생성은 §7 미결
+  thumbnailUrl?: string;        // 미사용 — 자동 생성은 §7 미결 (서명 URL 은 만료된다)
+  thumbnailS3Key?: string;      // register — reference/{supplierUid}/{refId}/thumb.jpg (w9l). URL 은 POST /playback-url asset 'thumbnail' 로만
   clipRange?: ClipRange;        // seed
   checkpoints?: Checkpoint[];   // seed
   sharedBaseMotionId?: string;  // seed(조건부) — 공유 베이스 체인

@@ -481,6 +481,26 @@ def test_set_registration_active_with_matching_job(reg_db):
     assert doc["registrationUpdatedAt"] == T0 and doc["updatedAt"] == T0
 
 
+def test_set_registration_active_writes_thumbnail_key_when_given(reg_db):
+    """quick-260930-w9l — 같은 트랜잭션 update 에 thumbnailS3Key. None 이면 키 없음."""
+    thumb = f"reference/u1/{REF}/thumb.jpg"
+    _create(reg_db)
+    assert fa.claim_registration(REF, "A", now_ms=T0) is True
+    assert fa.set_registration_active(
+        REF, "A", video_s3_key=FINAL_KEY, video_etag='"abc"', thumbnail_s3_key=thumb
+    ) is True
+    assert reg_db.store[PUBLIC]["thumbnailS3Key"] == thumb
+
+
+def test_set_registration_active_without_thumbnail_has_no_key(reg_db):
+    _create(reg_db)
+    assert fa.claim_registration(REF, "A", now_ms=T0) is True
+    assert fa.set_registration_active(
+        REF, "A", video_s3_key=FINAL_KEY, video_etag='"abc"', thumbnail_s3_key=None
+    ) is True
+    assert "thumbnailS3Key" not in reg_db.store[PUBLIC]
+
+
 def test_set_registration_active_stale_job_false_no_change(reg_db, caplog):
     _seed(reg_db, "processing", job_id="B", lease_until=T0 + LEASE_MS)
     before = copy.deepcopy(reg_db.store[PUBLIC])

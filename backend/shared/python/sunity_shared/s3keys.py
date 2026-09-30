@@ -95,8 +95,24 @@ def build_reference_final_key(uid: str, ref_id: str, ext: str) -> str:
     `copy_object` 로 이 키에 복사하고 `videoS3Key`·`videoETag` 에는 이 키/그 ETag 만
     적는다(38-07). presign 은 이 키에 절대 발급하지 않는다 — 등록 뒤 기준 영상이
     바뀌지 않는다는 보장이 이 분리 하나에 걸려 있다.
+
+    2026-09-30(quick-260930-w9l): v1 은 업로드 바이트에서 오디오 트랙만 뺀 스트림 복사본일 수
+    있다 — 판정 통과 뒤 오디오가 있으면 Pod 가 무음본을 같은 v1 키에 다시 올리고 videoETag 를
+    그 ETag 로 적는다(analysis.reference_media).
     """
     return f"{REFERENCE_PREFIX}/{uid}/{ref_id}/{REFERENCE_KEY_KIND_FINAL}.{ext}"
+
+
+def build_reference_thumb_key(uid: str, ref_id: str) -> str:
+    """공급자 기준 동작 썸네일 키 `reference/{uid}/{refId}/thumb.jpg` (quick-260930-w9l).
+
+    **단일 출처** — `pipeline._register_reference` 가 이 키로 올리고 공개 doc `thumbnailS3Key` 에
+    적으며, `playback-url` 의 asset 'thumbnail' 이 서버에서 같은 키를 **구성해 exact 비교**한 뒤에만
+    서명한다. doc 에 서명 URL 을 박지 않는 이유 = 7일 만료(motionThumbs.ts 주석). 버킷 알림이
+    reference/ 접두사로 이벤트를 보내도 `parse_reference_key`(upload|v1 만) 가 None 이라
+    파이프라인을 깨우지 않는다.
+    """
+    return f"{REFERENCE_PREFIX}/{uid}/{ref_id}/thumb.jpg"
 
 
 @dataclass(frozen=True)

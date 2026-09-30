@@ -117,12 +117,16 @@ from sunity_shared.s3keys import (
     build_coach_audio_key,
     build_fault_zoom_key,
     build_reference_final_key,  # Phase 38 (38-07) — upload → v1 확정 키(R5)
+    build_reference_thumb_key,  # quick-260930-w9l — 기준 동작 썸네일(playback-url 이 exact 비교)
     build_rendered_compare_key,
     build_upload_key,  # Phase 38 (38-07) — 자기 재현성 복사 목적지(D-10)
     parse_reference_key,  # Phase 38 (38-07) — reference/ 접두사 분기
     parse_upload_key,
 )
 from sunity_shared.analysis import registration_checks  # Phase 38 (38-05/38-07) — 등록 판정(순수)
+# quick-260930-w9l — 소리 제거 · 썸네일. 최상단 import 는 표준 라이브러리뿐(imageio_ffmpeg 는 함수 안에서
+# 지연 import) — 이 Lambda 에 imageio_ffmpeg 가 없어도 import 로 깨지지 않는다. 실제 호출은 Pod 에서만.
+from sunity_shared.analysis import reference_media
 
 # FfmpegFrameExtractor / NlfPoseEstimator / CerebrasCoachWriter 는 imageio·torch·
 # requests 같은 무거운 의존성을 끌어옴. RunPod 위임 모드에선 사용하지 않으므로
@@ -10457,6 +10461,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
 #   차단1 KeypointReport dataclass → `_dataclass_to_camel_case_dict` **한 번** → 같은 dict 를 판정과 writer 에
 #   R3   입구 jobId 대조 + 모든 writer 가 job 가드(38-06) — stale 작업은 쓰기 0
 #   R8   자기 재현성 = begin_self_check(선기록) → create_analysis_doc → copy_object(v1 → uploads/)
+#   w9l  판정 통과 뒤 · set_reference_angles 앞: 오디오 있으면 무음본(스트림 복사)을 같은 v1 키로 upload_file
+#        → head ETag 를 videoETag 로(실패 = server_error, fail-closed). 서 있는 창 가운데 프레임 썸네일 →
+#        thumb.jpg(실패는 경고만, thumbnailS3Key 없음). 크기 상한 1GB · 길이 상한 120초(콤보 구분 없음).
 
 
 def _fail_registration(
@@ -10515,6 +10522,25 @@ def _stand_frames(clip_range, real_fps: float) -> int:
     return registration_checks.default_stand_frames(real_fps)
 
 
+_VIDEO_CONTENT_TYPE = {"mp4": "video/mp4", "mov": "video/quicktime"}
+
+
+def _thumbnail_time_sec(n_stand: int, real_fps: float, duration_sec: float) -> float:
+    """썸네일 순간 = 서 있는 시작 창의 가운데 (n_stand / real_fps) / 2 초 (quick-260930-w9l 플래너 판단 3).
+
+    창이 영상보다 길면 끝에서 0.1초 앞으로 자르고(프레임이 없으면 ffmpeg 가 아무것도 안 쓴다), 하한 0.
+    기본 창 1.0초 → 약 0.5초.
+    """
+    t = (float(n_stand) / float(real_fps)) / 2.0 if real_fps > 0 else 0.0
+    return max(0.0, min(t, float(duration_sec) - 0.1))
+
+
+def _tmp_path(suffix: str) -> str:
+    tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    tmp.close()
+    return tmp.name
+
+
 def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: str) -> None:
     """공급자 링크 기준 영상 등록 — upload 키 → 불변 v1 → 판정 → angles → active → 자기 재현성(REQ-38-2, D-05·D-09·D-10).
 
@@ -10536,7 +10562,7 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
         )
         return
     priv = firestore_admin.get_reference_registration_private(ref_id) or {}
-    is_combo = bool(priv.get("isCombo"))
+    # 비공개 isCombo 는 읽지 않는다 — 콤보 상한(2026-09-30 삭제), 길이 상한은 하나(w9l 항목 6).
     clip_range = priv.get("clipRange")
     training_opt_in = bool((priv.get("consent") or {}).get("training"))
     ref = parse_reference_key(key)
@@ -10548,7 +10574,7 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
     # R9 크기 — 다운로드 **전**. 클라이언트 fileSizeBytes 는 신고값이고 이것이 실제 객체 크기다.
     head = _s3.head_object(Bucket=bucket, Key=key)
     size = int(head.get("ContentLength") or 0)
-    if size > models.MAX_VIDEO_BYTES:
+    if size > models.REFERENCE_MAX_VIDEO_BYTES:
         log.info("register-reference too_large ref_id=%s bytes=%s", ref_id, size)
         _fail_registration(ref_id, job_id, models.REG_ERR_TOO_LARGE)
         return
@@ -10582,8 +10608,13 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
         return
 
     path = _download_analysis_video(bucket, final_key, analysis_id=ref_id)
+    silent_path: str | None = None
+    thumb_path: str | None = None
+    audio_stripped = False
+    thumb_key: str | None = None
+    final_etag = etag
     try:
-        limit = models.REFERENCE_COMBO_MAX_DURATION_SEC if is_combo else models.REFERENCE_MAX_DURATION_SEC
+        limit = models.REFERENCE_MAX_DURATION_SEC
         # R9 길이 — 디코딩 **전**. 메타를 못 읽으면(None) 아래 extract 캡 + T/fps 재검사가 2차 방어.
         dur = _FRAME_EXTRACTOR.probe_duration_sec(path)
         code = _duration_verdict(dur, limit)
@@ -10660,6 +10691,51 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
             _fail_registration(ref_id, job_id, verdict.reason, message=message, joints=labels or None)
             return
 
+        # w9l 항목 8 — 소리 제거(판정 통과 뒤 · angles 앞: 실패 영상은 1GB 재업로드 비용을 치르지 않는다).
+        # 오디오가 있으면 스트림 복사 무음본을 같은 v1 키에 다시 올리고 그 ETag 를 videoETag 로. 실패는
+        # 등록 실패 — 무음 동의를 없앴으므로 저장본에 소리가 남지 않는다는 보장은 여기 하나뿐(fail-closed).
+        thumb_src = path
+        try:
+            if reference_media.has_audio(path):
+                silent_path = _tmp_path(f".{ref.ext}")
+                reference_media.strip_audio(path, silent_path, ref.ext)
+                _s3.upload_file(
+                    silent_path,
+                    bucket,
+                    final_key,
+                    ExtraArgs={"ContentType": _VIDEO_CONTENT_TYPE[ref.ext]},
+                )
+                final_etag = str(_s3.head_object(Bucket=bucket, Key=final_key)["ETag"])
+                audio_stripped = True
+                thumb_src = silent_path
+        except Exception as e:  # noqa: BLE001 - ReferenceMediaError·ClientError 등 전부 등록 실패
+            log.warning(
+                "register-reference 소리 제거 실패 ref_id=%s reason=%s: %s",
+                ref_id,
+                type(e).__name__,
+                str(e)[-300:],
+            )
+            _fail_registration(ref_id, job_id, models.REG_ERR_SERVER_ERROR)
+            return
+
+        # 썸네일 — 서 있는 시작 창 가운데 프레임(플래너 판단 3). 실패는 등록을 막지 않는다(경고, 키 없음).
+        try:
+            thumb_path = _tmp_path(".jpg")
+            reference_media.extract_thumbnail(
+                thumb_src, _thumbnail_time_sec(n_stand, real_fps, dur2), thumb_path
+            )
+            candidate = build_reference_thumb_key(uid, ref_id)
+            _s3.upload_file(thumb_path, bucket, candidate, ExtraArgs={"ContentType": "image/jpeg"})
+            thumb_key = candidate
+        except Exception as e:  # noqa: BLE001 - 썸네일은 부가물
+            log.warning(
+                "register-reference thumbnail 실패(등록 계속) ref_id=%s reason=%s: %s",
+                ref_id,
+                type(e).__name__,
+                str(e)[-300:],
+            )
+            thumb_key = None
+
         # angles — extract_reference_angles.py :127-154 그대로(소수 2자리 · NaN→0.0 · max_split 튜플 언패킹 R1).
         raw = compute_joint_angles(keypoints)
         unc = joint_uncertainty(keypoints)
@@ -10683,12 +10759,15 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
         if not ok:
             log.warning("register-reference stale job(angles) ref_id=%s job_id=%s", ref_id, job_id)
             return
-        ok = firestore_admin.set_registration_active(ref_id, job_id, video_s3_key=final_key, video_etag=etag)
+        ok = firestore_admin.set_registration_active(
+            ref_id, job_id, video_s3_key=final_key, video_etag=final_etag, thumbnail_s3_key=thumb_key
+        )
         if not ok:
             log.warning("register-reference stale job(active) ref_id=%s job_id=%s", ref_id, job_id)
             return
         log.info(
-            "register-reference ok ref_id=%s job_id=%s frames=%s fps=%.3f dur=%.1f split=%s peak_idx=%s etag=%s",
+            "register-reference ok ref_id=%s job_id=%s frames=%s fps=%.3f dur=%.1f split=%s peak_idx=%s etag=%s "
+            "audio_stripped=%s thumb=%s",
             ref_id,
             job_id,
             int(angles.shape[0]),
@@ -10696,10 +10775,15 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
             dur2,
             split,
             peak_idx,
-            etag,
+            final_etag,
+            audio_stripped,
+            thumb_key,
         )
     finally:
         Path(path).unlink(missing_ok=True)
+        for extra in (silent_path, thumb_path):
+            if extra:
+                Path(extra).unlink(missing_ok=True)
 
     # D-10 자기 재현성 — active 뒤에만(위 return 들은 여기 오지 않는다).
     _trigger_self_check(bucket, final_key, uid, ref_id, ref.ext, training_opt_in, job_id)

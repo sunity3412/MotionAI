@@ -4,6 +4,7 @@ from sunity_shared.s3keys import (
     REFERENCE_KEY_KIND_FINAL,
     REFERENCE_KEY_KIND_UPLOAD,
     build_reference_final_key,
+    build_reference_thumb_key,
     build_reference_upload_key,
     build_upload_key,
     parse_reference_key,
@@ -96,3 +97,12 @@ def test_upload_parser_rejects_reference_keys():
     # 학생 경로 파서는 기준 키를 절대 받지 않는다(Success ④ byte-무접촉).
     assert parse_upload_key("reference/u1/a1/upload.mp4") is None
     assert parse_upload_key("reference/u1/a1/v1.mp4") is None
+
+
+def test_reference_thumb_key_shape_and_not_dispatched():
+    """quick-260930-w9l — 썸네일 키는 pipeline 이 쓰고 playback-url 이 exact 비교(단일 출처).
+    버킷 알림 reference/ 접두사로 이벤트가 와도 두 파서 모두 None → pipeline 은 로그만."""
+    key = build_reference_thumb_key("uid42", _REF_ID)
+    assert key == f"reference/uid42/{_REF_ID}/thumb.jpg"
+    assert parse_reference_key(key) is None
+    assert parse_upload_key(key) is None

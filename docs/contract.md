@@ -101,6 +101,27 @@ playbackUrl   string   S3 presigned GET URL
 expiresInSec  number   URL 만료(초) = 604800 (7일)
 ```
 
+#### POST /playback-url — `referenceMotionId` + `asset: 'thumbnail'` (quick-260930-w9l)
+
+공급자 링크로 등록된 기준 동작의 썸네일(jpg) 재서명. doc 에 서명 URL 을 박지 않는다 — Pod IAM
+사용자 키 서명은 최대 7일이면 만료된다(`app/src/lib/motionThumbs.ts` 머리 주석의 함정, `thumbnailUrl`
+은 레거시 미사용 필드로 둔다).
+
+```
+referenceMotionId  string        (2) 변형과 같은 형식 가드
+asset              'thumbnail'   referenceMotionId 와 함께 쓸 수 있는 asset 은 이것 하나 — 다른 값은 400
+```
+
+- 서버가 `s3keys.build_reference_thumb_key(doc.supplierUid, referenceMotionId)`
+  (= `reference/{supplierUid}/{refId}/thumb.jpg`) 를 **구성**하고 공개 doc `thumbnailS3Key` 와
+  **전체 문자열 exact 비교** 후에만 서명한다. 가드 = doc 존재 · `isActive` 가 false 아님 ·
+  `supplierUid` 문자열 · exact 일치 · `reference/` prefix. 하나라도 어기면 **동일 `404 not_found`**
+  (숨김 doc leak 0). 손 등록 11개(legacy `ref-*`)는 `thumbnailS3Key` 가 없어 404 — 앱은 번들 썸네일을 먼저 쓴다.
+- 응답 `{playbackUrl, expiresInSec: 3600}` (`ResponseContentType: image/jpeg`).
+- `asset` 없는 `referenceMotionId` 요청(영상 재서명, 7일)은 바이트 그대로.
+- 썸네일 생성 = Pod 등록 경로(`pipeline._register_reference`) — 서 있는 시작 창 가운데 프레임,
+  실패하면 `thumbnailS3Key` 없이 active(등록은 막지 않는다).
+
 #### POST /playback-url — `asset` 확장 (Phase 31, 리뷰 H-02)
 
 기존 body 에 optional 필드 하나를 추가한다. **`asset` 미지정 = 기존 동작 100% 보존**
@@ -390,7 +411,7 @@ description?       string
 videoUrl?          string                 HTTPS presigned URL (S3, 7일 서명) — 앱 동작 비교 영상 재생
 videoUrlExpiresAt? number (epoch ms)      위 URL 만료 시각 (재시드 시점 추정)
 videoS3Key?        string                 'reference/{motionId}.mp4' — 백엔드 pipeline mode1 비교 영상 서명 URL 발급에 사용. 공급자 링크 등록은 `reference/{uid}/{refId}/v1.{ext}` — 불변 확정 키, upload 키 금지(R5)
-thumbnailUrl?      string
+thumbnailUrl?      string                 레거시 — 쓰는 곳 없음(서명 URL 은 만료된다). 새 등록은 아래 thumbnailS3Key
 clipRange?         ClipRange              구간 시점(초)
 checkpoints?       Checkpoint[]           KISMAM 가중 관절 (weight 합 1.0)
 sharedBaseMotionId? string                공유 베이스 — 베이스 제공 기술 ID
@@ -421,7 +442,11 @@ queuedReason?      string | null          queued 사유(Pod 부재 등) — 페�
 registrationUpdatedAt? number (epoch ms)  상태 전이 시각
 uploadKey?         string                 reference/{uid}/{refId}/upload.{ext} — 재개 스크립트 전용, 재생 금지
 uploadExpiresAt?   number (epoch ms)      presign 만료 = 발급 시각 + REFERENCE_UPLOAD_EXPIRES_SEC (R4 스윕 기준; 민감정보 아님)
-videoETag?         string                 v1 객체 ETag (R5 — 등록 산출물과 영상을 묶는다)
+videoETag?         string                 v1 객체 ETag (R5 — 등록 산출물과 영상을 묶는다). w9l 부터 v1 이 무음본으로
+                                          다시 올라갔으면 그 ETag. v1 = 업로드 바이트에서 오디오 트랙만 뺀 스트림 복사본일 수 있다
+thumbnailS3Key?    string                 quick-260930-w9l — `reference/{supplierUid}/{refId}/thumb.jpg`(s3keys.build_reference_thumb_key).
+                                          서버(Pod 등록 경로)만 쓴다. 앱은 이 키로 URL 을 만들지 않고 POST /playback-url
+                                          {referenceMotionId, asset:'thumbnail'} 로만 1시간 URL 을 받는다. 썸네일 실패 = 필드 없음
 jobId?             string | null          현재 등록 작업 id (R3 claim). 완료/실패 쓰기는 doc.jobId 일치 때만
 leaseUntil?        number (epoch ms) | null   claim lease 만료 = claim 시각 + REGISTRATION_LEASE_SEC. 만료 뒤에만 재claim
 selfScore?         number | null          자기 재현성 점수 (D-10, 38-08 훅이 씀)
@@ -471,7 +496,7 @@ firestore.rules 는 38-06 T3 가 기존 `reference/{document=**}` 재귀 와일�
 공개  reference/{refId}                      motionId · name · athleteName · level · isActive · supplierUid ·
                                             supplierCode · source · registrationStatus · queuedReason ·
                                             registrationUpdatedAt · uploadKey · uploadExpiresAt · videoS3Key(v1) ·
-                                            videoETag · jobId · leaseUntil · selfScore · selfCheckStatus ·
+                                            videoETag · thumbnailS3Key · jobId · leaseUntil · selfScore · selfCheckStatus ·
                                             selfCheckAnalysisId · selfCheckJobId · angles* · anglesRealFps ·
                                             referenceKeypointReport · referenceSplitAngle · createdAt · updatedAt
 비공개 reference/{refId}/private/registration  supplierUid · consent · registrationError · techniqueRefId ·

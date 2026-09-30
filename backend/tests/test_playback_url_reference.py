@@ -193,3 +193,89 @@ def test_neither_id_400(patched):
     app, _ = patched
     resp = app.lambda_handler(_event({}), None)
     assert resp["statusCode"] == 400
+
+
+
+# ── quick-260930-w9l — 기준 동작 썸네일 재서명 (asset 'thumbnail') ──────────────────────
+# doc 에 서명 URL 을 박지 않는다(7일 만료 함정 — motionThumbs.ts 주석). 공개 doc 의 thumbnailS3Key 를
+# 서버가 구성한 키와 exact 비교하고 1시간 서명. 가드 위반은 전부 같은 404.
+
+_THUMB_REF = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+_THUMB_DOC = {
+    "motionId": _THUMB_REF,
+    "isActive": True,
+    "supplierUid": "sup1",
+    "videoS3Key": f"reference/sup1/{_THUMB_REF}/v1.mp4",
+    "thumbnailS3Key": f"reference/sup1/{_THUMB_REF}/thumb.jpg",
+}
+
+
+def _thumb_event(ref_id=_THUMB_REF, asset="thumbnail"):
+    return _event({"referenceMotionId": ref_id, "asset": asset})
+
+
+def test_thumbnail_active_doc_signs_1h_jpeg(patched, monkeypatch):
+    app, fake_s3 = patched
+    _set_ref_doc(monkeypatch, app, dict(_THUMB_DOC))
+    resp = app.lambda_handler(_thumb_event(), None)
+    assert resp["statusCode"] == 200
+    payload = json.loads(resp["body"])
+    assert set(payload) == {"playbackUrl", "expiresInSec"}
+    assert payload["expiresInSec"] == 3600
+    call = fake_s3.calls[0]
+    assert call["op"] == "get_object"
+    assert call["params"]["Key"] == f"reference/sup1/{_THUMB_REF}/thumb.jpg"
+    assert call["params"]["ResponseContentType"] == "image/jpeg"
+    assert call["expires"] == 3600
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"thumbnailS3Key": None},  # 키 없음(레거시 11개 · 썸네일 실패 등록)
+        {"thumbnailS3Key": f"reference/other/{_THUMB_REF}/thumb.jpg"},  # 다른 uid 키
+        {"thumbnailS3Key": f"reference/sup1/{_THUMB_REF}/v1.mp4"},  # 영상 키 위장
+        {"thumbnailS3Key": "uploads/sup1/x.jpg"},  # prefix 밖
+        {"isActive": False},  # 숨김 doc
+        {"supplierUid": None},  # canonical 구성 불가
+    ],
+)
+def test_thumbnail_guard_violations_are_same_404(patched, monkeypatch, patch):
+    app, fake_s3 = patched
+    doc = dict(_THUMB_DOC, **patch)
+    doc = {k: v for k, v in doc.items() if v is not None}
+    _set_ref_doc(monkeypatch, app, doc)
+    resp = app.lambda_handler(_thumb_event(), None)
+    _set_ref_doc(monkeypatch, app, None)
+    absent = app.lambda_handler(_thumb_event(), None)
+    assert resp["statusCode"] == 404
+    assert json.loads(resp["body"]) == json.loads(absent["body"])
+    assert fake_s3.calls == []
+
+
+def test_thumbnail_legacy_ref_doc_404(patched, monkeypatch):
+    app, fake_s3 = patched
+    _set_ref_doc(monkeypatch, app, dict(_ACTIVE_DOC))
+    resp = app.lambda_handler(_thumb_event("ref-power-spin"), None)
+    assert resp["statusCode"] == 404
+    assert fake_s3.calls == []
+
+
+@pytest.mark.parametrize("asset", ["coachAudio", "video", "", 1])
+def test_reference_with_other_asset_is_400(patched, monkeypatch, asset):
+    app, fake_s3 = patched
+    _set_ref_doc(monkeypatch, app, dict(_THUMB_DOC))
+    resp = app.lambda_handler(_thumb_event(asset=asset), None)
+    assert resp["statusCode"] == 400
+    assert fake_s3.calls == []
+
+
+def test_reference_without_asset_still_signs_video(patched, monkeypatch):
+    """asset 없는 기존 영상 재서명 무회귀 — 7일, videoS3Key."""
+    app, fake_s3 = patched
+    _set_ref_doc(monkeypatch, app, dict(_THUMB_DOC))
+    resp = app.lambda_handler(_event({"referenceMotionId": _THUMB_REF}), None)
+    assert resp["statusCode"] == 200
+    assert json.loads(resp["body"])["expiresInSec"] == 7 * 24 * 60 * 60
+    assert fake_s3.calls[0]["params"]["Key"] == f"reference/sup1/{_THUMB_REF}/v1.mp4"
+    assert "ResponseContentType" not in fake_s3.calls[0]["params"]

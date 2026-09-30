@@ -10,6 +10,9 @@ referenceMotionId 재서명 경로 확장: mode1 우측(정은지) 영상도 7�
 흐름:
   앱 → POST /playback-url { analysisId, ext } + Firebase ID 토큰        (기존)
   앱 → POST /playback-url { referenceMotionId } + Firebase ID 토큰     (신규)
+  앱 → POST /playback-url { referenceMotionId, asset: 'thumbnail' }    (quick-260930-w9l —
+       공급자 등록 기준 동작 썸네일. 공개 doc thumbnailS3Key 를 서버가 구성한 키와 exact 비교 후
+       1시간 서명, image/jpeg. 다른 asset 값은 400)
   Lambda → uid 검증 → s3 key 빌드/조회 → presigned GET 발급
   앱 → 새 URL 로 영상 재생
 
@@ -36,6 +39,7 @@ from sunity_shared.auth import AuthError, verify_request
 from sunity_shared.s3keys import (
     build_coach_audio_key,
     build_fault_zoom_key,
+    build_reference_thumb_key,
     build_rendered_compare_key,
     build_upload_key,
     parse_result_key_from_presigned_url,
@@ -57,7 +61,14 @@ _REF_KEY_PREFIX = "reference/"
 # 표시 URL 은 매 요청 재서명이라 1시간이면 충분하다 — 영상 재생용 7일과 다르다.
 _ASSET_EXPIRES = 3600
 # mp3 = Phase 32 (Plan 32-16, D-18) 재생 중 큐 오디오 (contract.md §12.7).
-_ASSET_CONTENT_TYPE = {"png": "image/png", "mp4": "video/mp4", "mp3": "audio/mpeg"}
+_ASSET_CONTENT_TYPE = {
+    "png": "image/png",
+    "mp4": "video/mp4",
+    "mp3": "audio/mpeg",
+    "jpg": "image/jpeg",  # quick-260930-w9l — 기준 동작 썸네일
+}
+# referenceMotionId 와 함께 받을 수 있는 asset — 썸네일 하나(quick-260930-w9l).
+_REFERENCE_ASSET_THUMBNAIL = "thumbnail"
 # Phase 32 (Plan 32-16) — coachAudio asset 의 recordId 형식 화이트리스트
 # (contract.md §12.3 'r{index:02d}:{criterion}' — criterion 은 영숫자·언더스코어).
 # path injection('../' 등) 을 canonical key 구성 **전에** 차단한다 (_REF_ID_RE 선례).
@@ -369,6 +380,46 @@ def _handle_reference(uid: str, reference_motion_id: str) -> dict:
     return responses.ok({"playbackUrl": url, "expiresInSec": _PLAYBACK_EXPIRES})
 
 
+def _handle_reference_thumbnail(uid: str, reference_motion_id: str) -> dict:
+    """공급자 등록 기준 동작 썸네일 재서명 (quick-260930-w9l — contract.md POST /playback-url).
+
+    doc 에 서명 URL 을 박지 않는다(Pod IAM 키 서명은 최대 7일이면 만료 — motionThumbs.ts 주석의 함정).
+    공개 doc 의 `thumbnailS3Key` 를 서버가 `build_reference_thumb_key(doc.supplierUid, refId)` 로
+    **구성해 exact 비교**한 뒤에만 1시간 서명한다. 가드(하나라도 어기면 동일 404 — 숨김 doc leak 0,
+    T-w9l-04): doc 존재 · isActive 가 False 아님 · supplierUid 문자열 · 저장 키 == 구성 키 ·
+    reference/ 접두사. 번들 썸네일 11개(legacy ref-*)는 thumbnailS3Key 가 없어 404 — 앱이 번들을 먼저 쓴다.
+    """
+    if not _REF_ID_RE.match(reference_motion_id):
+        return responses.error("bad_request", "referenceMotionId 형식 오류", status=400)
+
+    doc = firestore_admin.get_reference_motion(reference_motion_id)
+    doc = doc if isinstance(doc, dict) else None
+    supplier_uid = (doc or {}).get("supplierUid")
+    stored = (doc or {}).get("thumbnailS3Key")
+    expected = (
+        build_reference_thumb_key(supplier_uid, reference_motion_id)
+        if isinstance(supplier_uid, str) and supplier_uid
+        else None
+    )
+    guards_ok = (
+        doc is not None
+        and doc.get("isActive") is not False
+        and expected is not None
+        and isinstance(stored, str)
+        and stored == expected  # exact equality — 다른 uid·영상 키 위장 불가
+        and stored.startswith(_REF_KEY_PREFIX)
+    )
+    if not guards_ok:
+        return responses.error("not_found", "기준 모션을 찾을 수 없어요.", status=404)
+
+    url = _sign_get(expected, expires=_ASSET_EXPIRES, content_type=_ASSET_CONTENT_TYPE["jpg"])
+    if url is None:
+        return responses.error("server_error", "서명 실패", status=500)
+
+    log.info("playback-url 발급(referenceThumbnail) uid=%s ref_id=%s", uid, reference_motion_id)
+    return responses.ok({"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES})
+
+
 def lambda_handler(event: dict, _context) -> dict:
     # 1. Firebase Auth
     try:
@@ -392,6 +443,14 @@ def lambda_handler(event: dict, _context) -> dict:
     if reference_motion_id:
         if not isinstance(reference_motion_id, str):
             return responses.error("bad_request", "referenceMotionId 형식 오류", status=400)
+        # quick-260930-w9l — referenceMotionId 와 asset 이 같이 오면 'thumbnail' 만. asset 없는
+        # 기존 영상 재서명은 바이트 그대로.
+        if asset is not None:
+            if asset != _REFERENCE_ASSET_THUMBNAIL:
+                return responses.error(
+                    "bad_request", "referenceMotionId 의 asset 은 thumbnail 만 가능해요", status=400
+                )
+            return _handle_reference_thumbnail(uid, reference_motion_id)
         return _handle_reference(uid, reference_motion_id)
 
     if not analysis_id or not isinstance(analysis_id, str):

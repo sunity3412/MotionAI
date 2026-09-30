@@ -400,8 +400,11 @@ const s = StyleSheet.create({
   linkedCode: { ...text.caption13, color: colors.resultTextSub, textAlign: 'right' },
   // profile guestHint 처럼 카드에 붙인다 — 그쪽은 body gap 14 를 -6 으로 당겨 실제 8. 이 힌트는
   // 카드와 같은 View 안이라 gap 이 없으므로 8 을 직접 준다. 좌우 4.
+  // 글자는 바로 위 로그인 힌트(profile.tsx guestHint = typography.caption + textSecondary)와
+  // 같은 크기·색 (belle 09-30 "안내 글자만 맞추고" — 명세 15 는 로그인 힌트보다 커 보였다).
   hint: {
-    ...text.auxFaint,
+    ...typography.caption,
+    color: colors.textSecondary,
     marginTop: space.sm,
     paddingHorizontal: SIZE.hintInset,
   },

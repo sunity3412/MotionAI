@@ -62,6 +62,8 @@ belle: *"일단 정리하고 인계서작성해줘 시간이 늦었다"* — 38-
 
 ### 진행 [확인]
 
+- **2026-09-30 오전 38-09 완료 → 12/14, 웨이브 5 끝** (`61a255e2` · `d50cf39f` · `c8f6607f` · `6989f64a`, 상세 `38-09-SUMMARY.md` · `38-09-CHANGESET.md`). CFN 배포(belle 승인) — `POST /reference/upload-url` 무토큰 401 + CORS, 6함수 layer `:21`, pipeline `POD_EXPECTED_PARAM`. 버킷 알림 `uploads/`+`reference/` · 수명주기 없음(D-17) · baseline 재diff 0. Firestore 규칙 = belle 콘솔 게시(선택 B) → 라이브 = 리포 바이트 동일(`rulesets/18587bf6…`) + 라이브 probe 6/6. 미결: `GET /reference` 500(10초 타임아웃, 08-31 부터, 앱 미사용 — belle 보고됨) · Pod 코드 미배포(38-14).
+- **공급자 Figma 시안 (2026-09-30, belle 요청 → 오케스트레이터가 직접 그림)**: fileKey `jrdI7kp245HkPfLB0nclsz` 섹션 `282:506` "Phase 38 - 공급자 페이지 시안 (Claude, 2026-09-30)" — 화면 11 + 컴포넌트 5 + UI-SPEC 과 다른 점 8개 노트. 글꼴 Noto Sans KR(MCP 에 Pretendard 없음). **`/supplier` 코드를 38-13 전에 이 시안에 맞출지 belle 결정 대기.**
 - **2026-09-30 아침 38-11 완료** (`685f02ce` · `b51e9fbc` · `4d66855d`) — `/supplier/upload`(STEP 01/02 · 제출 · 진행/취소 · 실패 패널) + `/supplier/guide`. typecheck 0 · node 65/65 · web export 15초(SPA, 세 라우트 번들 포함). 폼 화면은 로그인+화이트리스트가 필요해 아직 한 번도 그려 보지 않음 [미확인] → 38-13. Figma D-22 실측 또 미실행(MCP 없음) — 표는 `38-11-SUMMARY.md` 'Figma 실측'. 홈 index.tsx 에 justUploaded 토스트 · `?expired=1` 문구 추가. 남은 웨이브 5 = 38-09 Task 2 belle 체크포인트(changeset 생성만, 미실행).
 - **9/14 실행 완료 + 38-12 skipped-by-decision** — 38-01~08 · 38-10 (각 `38-NN-SUMMARY.md`). 웨이브 1~4 끝.
 - 38-10 (`3254d11e` 까지) = 웹 영상 길이 초→ms 수리(TDD `55f8eae6` → `0c902e29`) + `/supplier` 라우트(로그인 · 권한 없음 · 홈 두 카드 · 실패/만료/등록됨 상세). belle 시뮬 재측정 원문 *"1번 오케이, 2번은.. 한 8% 가다가 이렇게 문제가 있어요 실패. 3번도 마찬가지."* → 1·2·3 ○(Pod 끈 측정이라 실패 화면 도달 = 정상). 표 = `38-04-MEASUREMENT.md` "## 38-10 재측정".
@@ -77,11 +79,12 @@ belle: *"일단 정리하고 인계서작성해줘 시간이 늦었다"* — 38-
 
 ### belle 결정 대기
 
+- **Figma 시안 반영 여부** — `/supplier` 코드를 38-13 전에 섹션 `282:506` 시안에 맞출지(위 진행 절).
 - **push 방식** — 로컬 39커밋 미push(origin/main = `ca739390`, 이 인계 커밋 포함). 38-14 Pod 전까지만 필요. 선택지: `.claude/settings.local.json` 에 `Bash(git push origin main)` 좁은 규칙 → Claude 가 push / belle 이 `! git push origin main`.
 
 ### 다음 플랜이 알아야 할 관측 (진단은 따로 표시)
 
-- **38-09**
+- **38-09 (완료 — 아래 네 줄은 착수 전 관측, 결과는 38-09-SUMMARY.md)**
   - rules `--test` 가 HTTP 403 `firebaserules.rulesets.test`(Admin SA) [확인 38-06]. `--release` 도 막힐 것 [추정]. IAM 부여 또는 belle 콘솔 배포 중 하나.
   - 배포 순서 = Pod 코드(38-08 `/register-reference`) → Lambda(38-07) → 버킷 알림 `reference/` 접두사 [38-08 SUMMARY]. 라우트 존재 확인 = Pod `POST /register-reference` 무토큰 401(토큰 미설정 503, 옛 코드 404).
   - `POST /reference/upload-url` = 404, CORS 헤더 없음 [확인 38-10 curl]. 그래서 지금 `/supplier` 는 `연결이 안 돼요` 로 뜬다 [확인 시뮬 스크린샷]. 배포 뒤 A-2/A-3 로 바뀔 것 [추정]. 38-09 라이브 검증에 Origin 헤더 curl 한 줄 추가됨(`a4ba62d2`).

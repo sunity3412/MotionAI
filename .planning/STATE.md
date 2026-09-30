@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 2026-09-30 아침 — Phase 38 10/14 실행 완료(38-01~08 · 38-10 · 38-11) + 38-12 skipped-by-decision. 38-11 = /supplier/upload(STEP 01/02 · presign · XHR 진행/취소 · 실패 패널) + /supplier/guide(7섹션) 완료, typecheck 0 · node 65/65 · web export 15초. Figma D-22 실측은 38-10 에 이어 미실행(MCP 없음) → 38-13 Task 3 이월. 38-09 는 Task 3 규칙 콘솔 게시 대기(belle 선택 B) — CFN 배포 완료(스택 UPDATE_COMPLETE, POST /reference/upload-url 401+CORS, layer :21), 버킷 알림 uploads/+reference/, 수명주기 해제, baseline 재diff 0, 커밋 c8f6607f. GET /reference 500 은 배포 전(08-31)부터 10초 타임아웃 · 앱 미사용 · 롤백 안 함. 다음 = belle 콘솔 게시 → 38-09 이어받기(--current 대조 + 라이브 probe + SUMMARY) → 웨이브 6 38-13(배포 + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-11-SUMMARY.md.
-last_updated: "2026-09-29T23:26:45.659Z"
+stopped_at: "2026-09-30 오전 — Phase 38 12/14(실행 11: 38-01~11 + 38-12 skipped-by-decision). 38-09 완료: CFN 배포(POST /reference/upload-url 401+CORS, layer :21, pipeline POD_EXPECTED_PARAM) · 버킷 알림 uploads/+reference/ · 수명주기 해제(D-17) · baseline 재diff 0 · Firestore 규칙 belle 콘솔 게시 → 라이브 = 리포 바이트 동일(rulesets/18587bf6) + 라이브 probe 6/6(타인 private·위조 표식 permission-denied), 커밋 6989f64a. 미결: GET /reference 500(10초 타임아웃, 08-31 부터, 앱 미사용 — belle 보고됨) · Pod 코드 미배포(38-14). belle 요청으로 오케스트레이터가 공급자 시안을 Figma 에 직접 그림 — fileKey jrdI7kp245HkPfLB0nclsz 섹션 282:506 (화면 11 + 컴포넌트 5 + UI-SPEC 과 다른 점 8 노트, 글꼴 Noto Sans KR — MCP 에 Pretendard 없음). /supplier 코드를 38-13 전에 시안에 맞출지 belle 결정 대기. 다음 = 웨이브 6 38-13(HTTPS 배포 + Authorized domain + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-09-SUMMARY.md."
+last_updated: "2026-09-30T01:02:33.985Z"
 last_activity: 2026-09-29
 progress:
   total_phases: 21
   completed_phases: 11
   total_plans: 134
-  completed_plans: 122
+  completed_plans: 123
   percent: 52
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 38 (supplier-link) — EXECUTING
-Plan: 11 of 14
+Plan: 12 of 14
 > **2026-09-23 밤 정리 (quick-260923-smt):** 착수점 = 맨 위 `stopped_at` 이 가리키는 인계서
 > 하나다(CLAUDE.md 도 이제 경로를 박지 않고 이걸 가리킨다). 종전 이 자리에 있던 09-18·09-20
 > 착수점 노트 2개는 서로 다른 문서를 착수점이라 적고 있어 지웠다.
@@ -923,6 +923,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 38 P08 | 12min | 2 tasks | 6 files |
 | Phase 38 P10 | 51min | 5 tasks | 14 files |
 | Phase 38 P11 | 12min | 3 tasks | 4 files |
+| Phase 38 P09 | 2h20m | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -1066,6 +1067,10 @@ Recent decisions affecting current work:
 - [Phase 38]: 38-08: Pod /register-reference 는 jobId 가 오면 그대로, 없으면 Pod 가 claim(False 409) — requeue 도 claim 경유라 두 번 돌려도 실행 1회
 - [Phase 38]: 38-10: Figma MCP 미가용으로 D-22 get_design_context 실측 미실행 — UI-SPEC 값 그대로, ≈ 네 칸 38-13 이월
 - [Phase 38]: 38-10: /reference/upload-url 미배포(404) — Task 4 항목 4·5 는 38-09 라이브 curl + 38-13 Task 3 으로 이월
+- [Phase 38]: 38-09: 배포 템플릿 = 32-16 브리지 + Phase 38 델타(template-38-09-deploy.yaml) — 정본 template.yaml 은 Phase 31 Visual 스택을 같이 올리므로
+- [Phase 38]: 38-09: 5함수 layer :21 재바인딩, 옛 ARN 고정 안 함 — 회귀 + 함수 단위 롤백 zip(/Users/Shared/sunity-motion-rollback/38-09/)으로 반경을 닫음
+- [Phase 38]: 38-09: Firestore 규칙은 belle 콘솔 게시(B), 라이브 = 리포 바이트 동일 + probe 6/6 — Admin SA 에 Rules IAM 부여 안 함
+- [Phase 38]: 38-09: GET /reference 500(10초 타임아웃)은 08-31 부터 · 앱 미사용 — 이 플랜에서 안 고침, 미결
 
 ### Pending Todos
 
@@ -1102,7 +1107,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-09-29T16:28:11.952Z
 
-Stopped at: 2026-09-30 아침 — Phase 38 10/14 실행 완료(38-01~08 · 38-10 · 38-11) + 38-12 skipped-by-decision. 38-11 = /supplier/upload(STEP 01/02 · presign · XHR 진행/취소 · 실패 패널) + /supplier/guide(7섹션) 완료, typecheck 0 · node 65/65 · web export 15초. Figma D-22 실측은 38-10 에 이어 미실행(MCP 없음) → 38-13 Task 3 이월. 38-09 는 Task 3 규칙 콘솔 게시 대기(belle 선택 B) — CFN 배포 완료(스택 UPDATE_COMPLETE, POST /reference/upload-url 401+CORS, layer :21), 버킷 알림 uploads/+reference/, 수명주기 해제, baseline 재diff 0, 커밋 c8f6607f. GET /reference 500 은 배포 전(08-31)부터 10초 타임아웃 · 앱 미사용 · 롤백 안 함. 다음 = belle 콘솔 게시 → 38-09 이어받기(--current 대조 + 라이브 probe + SUMMARY) → 웨이브 6 38-13(배포 + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-11-SUMMARY.md.
+Stopped at: 2026-09-30 오전 — Phase 38 12/14(실행 11: 38-01~11 + 38-12 skipped-by-decision). 38-09 완료: CFN 배포(POST /reference/upload-url 401+CORS, layer :21, pipeline POD_EXPECTED_PARAM) · 버킷 알림 uploads/+reference/ · 수명주기 해제(D-17) · baseline 재diff 0 · Firestore 규칙 belle 콘솔 게시 → 라이브 = 리포 바이트 동일(rulesets/18587bf6) + 라이브 probe 6/6(타인 private·위조 표식 permission-denied), 커밋 6989f64a. 미결: GET /reference 500(10초 타임아웃, 08-31 부터, 앱 미사용 — belle 보고됨) · Pod 코드 미배포(38-14). belle 요청으로 오케스트레이터가 공급자 시안을 Figma 에 직접 그림 — fileKey jrdI7kp245HkPfLB0nclsz 섹션 282:506 (화면 11 + 컴포넌트 5 + UI-SPEC 과 다른 점 8 노트, 글꼴 Noto Sans KR — MCP 에 Pretendard 없음). /supplier 코드를 38-13 전에 시안에 맞출지 belle 결정 대기. 다음 = 웨이브 6 38-13(HTTPS 배포 + Authorized domain + 실기기 — 폼 화면 첫 실물 확인). push 방식 belle 결정 대기. 정은지 중급콤보 영상(09-29)은 Phase 38 뒤. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` '다음' 절 + 38-09-SUMMARY.md.
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

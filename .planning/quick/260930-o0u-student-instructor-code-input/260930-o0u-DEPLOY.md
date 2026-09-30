@@ -1,7 +1,7 @@
 # quick-260930-o0u 배포 기록 — 수강생 강사 코드 입력 (instructorLinks 규칙 · 라이브 probe · 시뮬 · OTA)
 
-> **상태: Task 6 끝 — 규칙 게시 확인 · probe 22/22 · 뒤처리 0 · 시뮬 8장 · OTA 사전 점검. belle 판정(Task 7) 대기.**
-> OTA 는 belle ○ 전에는 발행하지 않는다. 시험 공급자 TESTB 는 **지금 active True** 다(§D-0) — belle 답이 오면 OTA 전에 먼저 끈다.
+> **상태: Task 8 끝 — belle ○(09-30) · TESTB 다시 끔 · 힌트 글자 수리 · 시뮬 연결 해제 · OTA 발행(preview, ios, group `b2b148b4-…`).** 상세 §F.
+> belle 폰 확인은 아직이다(앱 완전 종료→다시 켜기 두 번).
 
 - 실행: 2026-09-30, 실행자 = gsd-executor (opus). `AWS_PROFILE=sunity-motion`.
 - 코드 기준: Task 1 `6e4b2e1e` · Task 2 `5dc1789c` · Task 3 `aa78d126`.
@@ -157,3 +157,82 @@ Admin 확인(연결 직후):
 | 공급자(웹) 페이지 | 38-03·04·10·11·13, quick eal·lfw | `app/src/app/supplier/*` 라우트·공급자 문구·색 토큰. 번들에는 들어가지만 수강생 탭에서 가는 길은 없다 [추정 — 라우트 파일이 번들에 포함되는 것은 expo-router 구조상 확인, "가는 길 없음"은 탭·버튼을 다 따라가 보진 않았다]. `socialAuth.web.ts` 는 웹 전용 파일 |
 
 진단(재검증 대상): 직전 발행(09-20) 뒤 수강생 앱에 한 번도 폰으로 안 나간 38-02 변경(영상 길이 검사·촬영 문구)이 W2 와 함께 처음 나간다. 38-02 는 당시 시뮬 실물 2장을 찍었다고 커밋 메시지에 적혀 있다 [확인 fab5d4b7 메시지] — 폰에서 본 적은 없다 [미확인].
+
+## F. belle ○ 뒤 — TESTB 끄기 · 힌트 수리 · 시뮬 연결 해제 · OTA (Task 8)
+
+belle 원문(2026-09-30, sim 01~08 한 장 모음을 보고): **"안내 글자만 맞추고 OTA 진행"** — 01~08 ○, 고칠 것은 강사 코드 행 아래 안내 글자 크기 하나.
+
+### F-1. 시험 공급자 TESTB 다시 끔 (창 닫힘)
+
+관측:
+- `supplier_invite.py deactivate --uid <UmH3 전체 uid>` → `deactivate uid=UmH3… code=TESTB revokedInvite=-`, exit 0, **2026-09-30T09:19:56Z** [확인].
+- 곧바로 다시 읽기: `suppliers/UmH3…` active **False** · `supplierCodes/TESTB` active **False** · displayName '테스트 공급자' 그대로 [확인 Admin 읽기 09:19:57Z].
+- **TESTB 가 열려 있던 창 = 08:52:07Z ~ 09:19:56Z (약 28분)** [확인].
+- 캐시: `reference-upload-url` Lambda 의 공급자 판정 캐시 60초(§D-0) 때문에 따뜻한 컨테이너는 09:20:56Z 무렵까지 UmH3 를 공급자로 볼 수 있었다 [추정 — 코드 읽기, 실측 안 함]. 수강생 앱의 'TESTB' 조회는 Firestore 직접 get 이라 끈 즉시 "없는 코드" [확인 코드].
+
+### F-2. 안내 글자 크기 수리 — `e813c9ee`
+
+관측:
+- 원인: 강사 코드 행 힌트(`InstructorCodeSheet.tsx` `s.hint`, 미연결·연결됨 공용)가 `text.auxFaint`(15)였고, 바로 위 로그인 힌트(`profile.tsx` `guestHint`)는 `typography.caption`(12) + `colors.textSecondary` 였다 [확인 코드].
+- 수리: `s.hint` 를 `...typography.caption, color: colors.textSecondary` 로 — guestHint 와 같은 토큰. 여백(위 8 · 좌우 4)은 그대로 [확인 diff, 4+ 1-].
+- 게이트: `npm run typecheck` 오류 0 · `node --test --test-reporter=tap` 7파일(instructorCode · supplierCopy · supplierForm · supplierRules · pickerFailure · videoDuration · videoMeta) **79/79 pass, fail 0** [확인].
+
+### F-3. 시뮬 연결 해제 — 운영 스크립트 첫 실전 (`unlinked`)
+
+관측(`FIREBASE_SA_PATH=<리포 SA json>`, uid 는 가림):
+
+```
+$ instructor_link.py show --uid <sim uid>
+uid=k9fQ… code=TESTB supplierUid=UmH3… displayName=테스트 공급자 linkedAt=2026-09-30 18:07:03 (KST)
+$ instructor_link.py unlink --uid <sim uid> --dry-run
+would unlink uid=k9fQ… code=TESTB supplierUid=UmH3… displayName=테스트 공급자 linkedAt=2026-09-30 18:07:03 (KST)
+$ instructor_link.py show --uid <sim uid>          (dry-run 뒤 — doc 남아 있음)
+uid=k9fQ… code=TESTB supplierUid=UmH3… displayName=테스트 공급자 linkedAt=2026-09-30 18:07:03 (KST)
+$ instructor_link.py unlink --uid <sim uid>
+unlinked uid=k9fQ… code=TESTB supplierUid=UmH3… displayName=테스트 공급자 linkedAt=2026-09-30 18:07:03 (KST)
+$ instructor_link.py show --uid <sim uid>
+연결이 없어요 uid=k9fQ…
+```
+
+- dry-run 은 doc 을 지우지 않았다(바로 뒤 show 에 그대로) [확인]. 해제 시각 약 09:20:55Z [확인 셸 시각].
+- Admin 으로 `instructorLinks` 문서 수 = **0** [확인].
+- 스크립트 종료 코드는 출력을 sed 로 가리느라 따로 남기지 못했다 [미확인 — 출력 줄과 뒤이은 show·문서 수로 성공을 확인].
+- 참고: 스크립트는 supplierUid 를 원문으로 출력한다(위 기록은 가렸다). 운영자 터미널 전용이라 규칙상 문제는 아니다 [확인 출력].
+
+### F-4. 시뮬 — `sim/09-row-empty-after-unlink.png`
+
+관측:
+- 앱 terminate → launch → 인트로 '시작하기' → '게스트로 시작하기' → 마이 탭(같은 게스트 uid `k9fQ…wbm2`, 분석 7회) [확인 화면].
+- 강사 코드 행이 **미연결 상태로 돌아왔다**: '강사 코드' · 브랜드 '입력하기' + 쉐브론, AX 라벨 '강사 코드 입력하기. 수업에서 받은 코드를 넣으면 강사님과 연결돼요.' [확인] → 해제된 학생은 다시 입력할 수 있는 행을 본다.
+- 힌트 글자: 로그인 힌트와 강사 코드 힌트가 같은 크기·같은 회색·같은 왼쪽 들여쓰기로 보인다(확대 잘라 보기로 확인). AX frame 높이 둘 다 **14.33pt**, x 20 · 너비 362 동일 [확인].
+- 연결됨 상태 힌트('바꾸려면 cs@sunity.ai 로 알려 주세요.')도 같은 `s.hint` 를 쓰므로 같은 크기다 [확인 코드 / 화면으로는 안 봤다 — 미확인].
+- 시뮬은 Debug dev client + Metro 였다. Metro(8081)는 이 뒤 멈췄고, 시뮬레이터는 켜 둔 채 두었다 [확인].
+
+### F-5. OTA 발행
+
+관측:
+```
+$ cd app && eas update --branch preview --platform ios --message "W2 강사 코드 입력 + 38-02 길이 검사·문구 (quick 260930-o0u)" --non-interactive
+✔ Published!
+Branch           preview
+Runtime version  1.2.4
+Platform         ios
+Update group ID  b2b148b4-a789-49fe-bd18-b926fefb8fa9
+iOS update ID    01a0f1a0-52d8-7c18-92cd-dfab1ed63406
+Commit           e813c9eea8a2ed9b8838b0f9994cfa17abb870a3*
+```
+- exit 0 · eas-cli 20.1.0 · 계정 sunity3412 [확인].
+- `eas update:view b2b148b4-… --json` 다시 읽기: platform ios · runtimeVersion **1.2.4** · gitCommitHash `e813c9ee…` · createdAt **2026-09-30T09:23:31Z** · branch preview [확인]. runtime 1.2.4 = TestFlight 빌드 40 runtime(§E) 일치 [확인].
+- Commit 뒤 `*` = 발행 때 작업 트리가 깨끗하지 않았다는 표시. 그때 바뀐 파일은 `.planning/` 쪽뿐(TRAINING-DUE.md 수정, PLAN·sim 이미지 미추적)이고 `app/` 은 깨끗했다 [확인 `git status --short app/` 빈 출력] → 번들 내용 = 커밋 `e813c9ee` 의 app/ [추정 — 번들 해시와 커밋을 따로 대조하진 않았다].
+- 환경변수: EAS 가 `app/.env` 를 읽어 EXPO_PUBLIC_* 7개를 넣었다(`env: load .env`) — §E 에서 이 7개가 testflight-preview 프로필 값과 같음을 확인했다 [확인].
+- 번들: ios hbc 3.26 MB, 새 에셋 없음(업로드 건너뜀), iOS 에셋 65개 [확인 로그].
+- 이번 발행에 실린 변경 = §E 표(W2 + 38-02 길이 검사·촬영 문구 + 강사 질문 말투 등) + `e813c9ee` 힌트 수리 [확인 커밋 범위 / 폰에서 본 적 없음 — 미확인].
+
+**롤백**(직전 preview 발행 = 09-20 ios 전용 group 으로 되돌리기):
+```
+cd app && eas update:republish --group b59f97ae-3b1f-4b67-9819-7a5c8a592ed1 --message "ROLLBACK: quick-260930-o0u" --non-interactive
+```
+- `eas update:republish --help` 에 `--group` · `--message` · `--non-interactive` 가 있고 설명은 "roll back to an existing update" [확인]. 같은 group 을 그 group 의 브랜치(preview)에 다시 올린다 [추정 — 도움말 기준, 실제로 돌려 보지는 않았다]. 롤백하면 강사 코드 행과 38-02 변경이 함께 빠진다.
+
+**belle 폰에서 보는 법**: TestFlight 앱을 완전히 종료(앱 전환기에서 위로 밀기)했다가 다시 켠다. 첫 실행에 새 번들을 받고 **그다음 실행에** 적용되므로 종료→다시 켜기를 **두 번** 한다. 마이 탭 로그인 카드 아래에 '강사 코드 · 입력하기' 행이 보이면 새 번들이다 [미확인 — 폰 적용은 belle 확인 전].
+

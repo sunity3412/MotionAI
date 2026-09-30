@@ -41,8 +41,9 @@ import {
 // 상태 C/D 는 멀티종목·온보딩 영역(루트 CLAUDE.md "MVP 범위 밖").
 
 const SPORT_LABEL = '폴스포츠';
+// quick-260930-w9l 항목 1 — basic 표시 '초급'(belle 09-30, 기준 선택 탭·공급자 폼과 같은 라벨).
 const LEVEL_LABEL: Record<SkillLevel, string> = {
-  basic: '기본기',
+  basic: '초급',
   intermediate: '중급',
   advanced: '고급',
 };
@@ -97,7 +98,7 @@ export default function Home() {
   // 2건은 주별 평균 점 1개뿐이라 추이를 못 그리므로, 주별 기준과 정합하는 게이트로 교체한다.
   const growthBaseMode = useMemo(() => defaultGrowthMode(analyses), [analyses]);
 
-  // 오늘 도전해볼 동작: 고급 우선 → 중급 → 기본기 (Figma 1:719 — 챌린지 욕구 자극 우선), 최대 3개
+  // 오늘 도전해볼 동작: 고급 우선 → 중급 → 초급 (Figma 1:719 — 챌린지 욕구 자극 우선), 최대 3개
   const challenges = useMemo<ReferenceMotion[]>(() => {
     const order: SkillLevel[] = ['advanced', 'intermediate', 'basic'];
     return [...motions]

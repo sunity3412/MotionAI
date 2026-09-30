@@ -1343,13 +1343,16 @@ export interface ReferenceRegistrationError {
   joints?: string[]; // low_confidence — KEYPOINT_LABEL_KO 한국어 부위명 목록 (38-05 가 채움)
 }
 
-// 동의 기록(기획안 §6 문안). 필수 3(portrait·usage·silent)은 검증 통과 = 전부 true,
-// training 은 기본 false(D-08). version·at·uid 는 서버가 붙인다 — 본문 값은 무시(T-38-01-4).
+// 동의 기록(비공개 doc). quick-260930-w9l(2026-09-30) 부터: 필수 2(portrait·usage) true,
+// training = true + trainingBasis 'supplier_contract'(학습 근거는 체크박스가 아니라 공급자 계약),
+// silent 없음(소리는 Pod 등록 경로가 지운다). 그 이전 doc(version '2026-09-26')은 silent true ·
+// training = 공급자가 고른 값 · trainingBasis 없음. version·at·uid 는 서버가 붙인다(T-38-01-4).
 export interface ReferenceConsent {
   portrait: boolean;
   usage: boolean;
-  silent: boolean;
+  silent?: boolean; // 2026-09-30 이전 doc 에만
   training: boolean;
+  trainingBasis?: 'supplier_contract'; // models.py CONSENT_TRAINING_BASIS_CONTRACT (w9l 부터)
   version: string; // models.py CONSENT_VERSION
   at: number; // epoch ms (서버 시각)
   uid: string;
@@ -1365,20 +1368,17 @@ export interface ReferenceClipRangeInput {
 
 // POST /reference/upload-url 요청 — uid/refId 필드는 두지 않는다(키는 서버가 토큰 uid +
 // 서버 생성 refId 로만 구성, T-38-01-2). 서버 2차 검증 = validation.validate_reference_upload_request.
+// quick-260930-w9l: 선수 이름(서버가 공급자 displayName 으로 채운다) · 선언 4 · silent · training 은
+// 보내지 않는다. 옛 웹 번들이 보내면 서버가 검증 없이 무시한다(contract.md §2).
 export interface ReferenceUploadUrlRequest {
   name: string; // 동작 이름 (≤ 30자)
-  athleteName: string;
   level: SkillLevel;
   techniqueRefId?: string | null; // 사전 선택한 기존 motionId — 등록 정보로만 보관(R7)
-  isCombo: boolean; // true 면 길이 상한 60초
-  isSplit: boolean;
-  hasHold: boolean;
-  standingStart: boolean; // false 는 서버가 400 으로 거부(D-09 사전 차단)
   clipRange?: ReferenceClipRangeInput | null;
-  consent: { portrait: boolean; usage: boolean; silent: boolean; training: boolean };
+  consent: { portrait: boolean; usage: boolean };
   format: VideoFormat;
-  fileSizeBytes: number;
-  durationSec?: number | null; // 웹이 metadata 를 못 읽으면 null (fail-open, RESEARCH A12)
+  fileSizeBytes: number; // ≤ 1GB (models.py REFERENCE_MAX_VIDEO_BYTES)
+  durationSec?: number | null; // 5~120초. 웹이 metadata 를 못 읽으면 null (fail-open, RESEARCH A12)
 }
 
 export interface ReferenceUploadUrlResponse {
@@ -1445,7 +1445,7 @@ export interface ReferenceMotion {
   entryDescription?: string; // 진입 방식 상세 (사용자 안내용)
   description?: string;
   videoUrl?: string; // s3://... — 분석 시 reference 시퀀스 추출 원본
-  thumbnailUrl?: string;
+  thumbnailUrl?: string; // 레거시 — 쓰는 곳 없음(서명 URL 은 만료된다). 새 등록은 thumbnailS3Key
   clipRange?: ClipRange;
   checkpoints?: Checkpoint[];
   // 공유 베이스 (reference-motions.md §7). 이 기술이 다른 기술의 베이스
@@ -1523,7 +1523,10 @@ export interface ReferenceMotion {
   uploadKey?: string; // register — reference/{uid}/{refId}/upload.{ext}; 재개 스크립트 전용, 재생 금지
   uploadExpiresAt?: number; // register — epoch ms, presign 만료(R4 스윕 기준; 민감정보 아님)
   videoS3Key?: string; // seed · register — 등록은 **v1 키만**(reference/{uid}/{refId}/v1.{ext}, R5) — upload 키 금지
-  videoETag?: string; // register — v1 객체 ETag(R5, 등록 산출물과 영상을 묶는다)
+  videoETag?: string; // register — v1 객체 ETag(R5). w9l: v1 이 무음본으로 다시 올라갔으면 그 ETag
+  // register — quick-260930-w9l: reference/{supplierUid}/{refId}/thumb.jpg (서 있는 시작 창 가운데 프레임).
+  // URL 은 POST /playback-url {referenceMotionId, asset:'thumbnail'} 로만 받는다(doc 에 서명 URL 금지).
+  thumbnailS3Key?: string;
   jobId?: string | null; // register — 현재 등록 작업 id(R3 claim). 완료/실패 쓰기는 일치할 때만
   leaseUntil?: number | null; // register — epoch ms, claim lease 만료(R3). 만료 뒤에만 재claim
   selfScore?: number | null; // register — 자기 재현성 점수(D-10), 38-08 훅이 씀
@@ -1544,10 +1547,11 @@ export interface ReferenceRegistrationPrivate {
   consent: ReferenceConsent;
   registrationError?: ReferenceRegistrationError | null; // registrationStatus==='failed'
   techniqueRefId: string | null; // 등록 정보로 보관 — 채점 소비 배선 없음(R7)
-  isCombo: boolean;
-  isSplit: boolean;
-  hasHold: boolean;
-  standingStart: boolean;
+  // 옛 선언 4 — 2026-09-30 이전 doc 에만(소비처 0, 새 등록은 쓰지 않는다 — quick-260930-w9l).
+  isCombo?: boolean;
+  isSplit?: boolean;
+  hasHold?: boolean;
+  standingStart?: boolean;
   clipRange?: ReferenceClipRangeInput | null;
   updatedAt: number; // epoch ms
 }

@@ -40,7 +40,7 @@ const SELF_CHECK_STATUSES: readonly SelfCheckStatus[] = ['pending', 'queued', 'd
 const FAIL_CODES = Object.keys(supplierCopy.row.fail) as ReferenceRegistrationErrorCode[];
 
 // 공개 doc `reference/{refId}` 에서 페이지 목록·상세가 쓰는 필드만(공개 doc 은 인증자 전체가
-// 읽는다 — 동의·실패 상세·선언은 SupplierMotionPrivate, 리뷰 R13).
+// 읽는다 — 동의·실패 상세는 SupplierMotionPrivate, 리뷰 R13).
 export interface SupplierMotion {
   motionId: string;
   name: string;
@@ -54,16 +54,16 @@ export interface SupplierMotion {
   createdAt: number; // epoch ms, 없으면 0(목록 맨 뒤)
   videoS3Key: string | null;
   uploadExpiresAt: number | null;
+  // quick-260930-w9l — Pod 등록이 만든 썸네일 키. 화면은 이 키로 POST /playback-url asset
+  // 'thumbnail' 을 부른다(referenceThumbs.ts). 없으면 아이콘 자리.
+  thumbnailS3Key: string | null;
 }
 
 // 비공개 doc `reference/{refId}/private/registration` — 상세 패널·다시 올리기 프리필 전용.
+// 옛 선언 4(isCombo·isSplit·hasHold·standingStart)는 읽지 않는다 — 폼에서 지웠고 소비처가 없다(w9l).
 export interface SupplierMotionPrivate {
   registrationError: ReferenceRegistrationError | null;
   techniqueRefId: string | null;
-  isCombo: boolean;
-  isSplit: boolean;
-  hasHold: boolean;
-  standingStart: boolean;
 }
 
 // notInvited = 403(quick-260930-lfw not_invited — 옛 서버의 forbidden 도 상태코드로 같이 받는다).
@@ -122,6 +122,7 @@ export function normalizeRegistration(
     createdAt: num(raw.createdAt) ?? 0,
     videoS3Key: str(raw.videoS3Key),
     uploadExpiresAt: num(raw.uploadExpiresAt),
+    thumbnailS3Key: str(raw.thumbnailS3Key),
   };
 }
 
@@ -146,10 +147,6 @@ export function normalizePrivate(raw: unknown): SupplierMotionPrivate | null {
   return {
     registrationError,
     techniqueRefId: str(r.techniqueRefId),
-    isCombo: r.isCombo === true,
-    isSplit: r.isSplit === true,
-    hasHold: r.hasHold === true,
-    standingStart: r.standingStart === true,
   };
 }
 

@@ -156,7 +156,7 @@ flowchart TD
 |---|---|---|---|---|---|
 | AC-HOME-002-1 | Recent analysis card | 점수 / 종목 / 날짜 / 변화량 | 분석 결과 존재 | 분석 결과로 이동합니다. | 결과 상세 |
 | AC-HOME-002-1E | Deleted analysis | Deleted state | 분석 데이터 없음 | 삭제된 분석입니다. | 닫기 |
-| AC-HOME-002-2 | Reference motion recommendation | 기본기 / 중급 / 고급 카드 | 기준 모션 존재 | 이 동작으로 분석을 시작해볼까요? | 분석하기 |
+| AC-HOME-002-2 | Reference motion recommendation | 초급 / 중급 / 고급 카드 | 기준 모션 존재 | 이 동작으로 분석을 시작해볼까요? | 분석하기 |
 | AC-HOME-002-3 | Growth graph preview | 최근 5회 분석 점수 | 분석 기록 2건 이상 | 기록 상세로 이동합니다. | 기록 탭 |
 | AC-HOME-002-3E | Growth graph locked | Empty graph | 분석 기록 1건 이하 | 분석을 2번 이상 하면 성장 그래프를 볼 수 있어요. | 분석 시작하기 |
 | AC-HOME-002-4 | Notice / event banner | 신규 기준 모션 / 이벤트 | 공지 활성화 | 공지 상세로 이동합니다. | 공지 상세 |

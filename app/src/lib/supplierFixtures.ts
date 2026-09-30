@@ -20,20 +20,20 @@ const PUBLIC_BASE = {
   source: 'supplier-link',
 } as const;
 
+// quick-260930-w9l(belle 2026-09-30): STEP 01 필수 4 = 체크 확인 · 동작 이름 · 레벨 · 파일.
+// 선수 이름은 입력 칸이 아니라 초대 때 이름(읽기 전용), 콤보·선언 3 은 지웠다.
 const STEP1_COMPLETE = {
   checkConfirmed: true,
   nameChoice: { kind: 'dict', motionId: 'ref-kip-up', name: 'kip-up' },
-  athleteName: '정은지',
   level: 'basic',
-  isCombo: false,
-  isSplit: 'yes',
-  hasHold: 'no',
-  standingStart: 'yes',
   file: { name: 'kipup.mp4', sizeBytes: 24_000_000, durationSec: 8.2, format: 'mp4' },
 } as const;
 
-const CONSENT_REQUIRED = { portrait: true, usage: true, silent: true, training: false } as const;
-const CONSENT_WITH_TRAINING = { portrait: true, usage: true, silent: true, training: true } as const;
+// STEP 02 필수 2 — 학습은 체크박스가 아니라 공급자 계약 안내 한 줄(w9l 항목 5·11).
+const CONSENT_REQUIRED = { portrait: true, usage: true } as const;
+// 2026-09-30 이전 doc 의 동의 기록 모양(silent·training 이 있다) — 비공개 doc fixture 전용.
+const CONSENT_LEGACY = { portrait: true, usage: true, silent: true, training: false } as const;
+const GIB = 1024 * 1024 * 1024; // = models.py REFERENCE_MAX_VIDEO_BYTES
 
 export const supplierFixtures = {
   supplierUid: UID,
@@ -103,6 +103,7 @@ export const supplierFixtures = {
       selfCheckStatus: 'done',
       selfScore: 97,
       videoS3Key: 'reference/uid-eunji/r-active-ok/v1.mp4',
+      thumbnailS3Key: 'reference/uid-eunji/r-active-ok/thumb.jpg', // w9l — Pod 등록이 만든 썸네일
       createdAt: T0 + 4_000,
     },
     activeLow: {
@@ -176,10 +177,12 @@ export const supplierFixtures = {
   ],
 
   // ── 비공개 doc `reference/{refId}/private/registration` (리뷰 R13) ────────
+  // failedLowConfidence · unknownCode = 2026-09-30 이전 doc 모양(선언 4 · silent 있음) — 페이지는
+  // 그 필드를 읽지 않는다. activeOk · failedTooLarge = w9l 뒤 새 모양.
   privateDocs: {
     failedLowConfidence: {
       supplierUid: UID,
-      consent: { ...CONSENT_REQUIRED, version: '2026-09-26', at: T0 + 2_000, uid: UID },
+      consent: { ...CONSENT_LEGACY, version: '2026-09-26', at: T0 + 2_000, uid: UID },
       registrationError: {
         code: 'low_confidence',
         message:
@@ -195,35 +198,41 @@ export const supplierFixtures = {
     },
     activeOk: {
       supplierUid: UID,
-      consent: { ...CONSENT_WITH_TRAINING, version: '2026-09-26', at: T0 + 4_000, uid: UID },
+      consent: {
+        ...CONSENT_REQUIRED,
+        training: true,
+        trainingBasis: 'supplier_contract',
+        version: '2026-09-30',
+        at: T0 + 4_000,
+        uid: UID,
+      },
       registrationError: null,
       techniqueRefId: 'ref-kip-up',
-      isCombo: false,
-      isSplit: false,
-      hasHold: true,
-      standingStart: true,
       clipRange: { execStartS: 1.5, execEndS: 7 },
       updatedAt: T0 + 4_100,
     },
-    // 리뷰 R9 — 실제 객체 크기(head_object)가 100MB 초과: 클라이언트 메타는 통과했던 건
+    // 리뷰 R9 — 실제 객체 크기(head_object)가 1GB 초과: 클라이언트 메타는 통과했던 건
     failedTooLarge: {
       supplierUid: UID,
-      consent: { ...CONSENT_REQUIRED, version: '2026-09-26', at: T0 + 500, uid: UID },
+      consent: {
+        ...CONSENT_REQUIRED,
+        training: true,
+        trainingBasis: 'supplier_contract',
+        version: '2026-09-30',
+        at: T0 + 500,
+        uid: UID,
+      },
       registrationError: {
         code: 'too_large',
-        message: '용량이 너무 커요. 100MB 이하 영상으로 다시 올려주세요.',
+        message: '용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.',
       },
       techniqueRefId: null,
-      isCombo: false,
-      isSplit: false,
-      hasHold: false,
-      standingStart: true,
       updatedAt: T0 + 600,
     },
     // 서버가 새 코드를 먼저 붙인 경우 — 페이지는 server_error 문구로 받는다(미지 코드 규칙)
     unknownCode: {
       supplierUid: UID,
-      consent: { ...CONSENT_REQUIRED, version: '2026-09-26', at: T0, uid: UID },
+      consent: { ...CONSENT_LEGACY, version: '2026-09-26', at: T0, uid: UID },
       registrationError: { code: 'gpu_oom', message: '등록 중 문제가 생겼어요.' },
       techniqueRefId: null,
       isCombo: true,
@@ -244,6 +253,8 @@ export const supplierFixtures = {
     { status: 0, code: 'unauthenticated', expect: 'sessionExpired' }, // api.ts: currentUser 없음
     { status: 500, code: 'server_error', expect: 'presignFail' },
     { status: 400, code: 'too_long', expect: 'presignFail' },
+    { status: 400, code: 'too_large', expect: 'presignFail' }, // w9l — 1GB 문구지만 분기는 상태코드만 본다
+    { status: 409, code: 'supplier_name_missing', expect: 'presignFail' }, // w9l — 화면이 먼저 막는다
     { status: 502, code: 'unknown', expect: 'presignFail' },
   ],
 
@@ -254,115 +265,92 @@ export const supplierFixtures = {
     { outcome: 'failed', next: 'failPanel' },
   ],
 
-  // ── 파일 검증 경계 (D-14 공급자 5~30초 · 콤보 60 · 100MB · mp4/mov) ─────────
+  // ── 파일 검증 경계 (w9l: 공급자 5초~2분 · 1GB · mp4/mov, 콤보 구분 없음) ─────────
   files: [
-    { name: 'a.mp4', sizeBytes: 10_000_000, durationSec: 4.9, isCombo: false, expect: 'tooShort' },
-    { name: 'b.mp4', sizeBytes: 10_000_000, durationSec: 5, isCombo: false, expect: null },
-    { name: 'c.mov', sizeBytes: 10_000_000, durationSec: 30, isCombo: false, expect: null },
-    { name: 'd.mp4', sizeBytes: 10_000_000, durationSec: 30.1, isCombo: false, expect: 'tooLong' },
-    { name: 'e.mp4', sizeBytes: 10_000_000, durationSec: 60, isCombo: true, expect: null },
-    { name: 'f.mp4', sizeBytes: 10_000_000, durationSec: 60.1, isCombo: true, expect: 'tooLong' },
-    { name: 'g.mp4', sizeBytes: 10_000_000, durationSec: 45, isCombo: false, expect: 'tooLong' },
-    { name: 'h.mov', sizeBytes: 10_000_000, durationSec: 4.9, isCombo: true, expect: 'tooShort' }, // 콤보는 하한을 낮추지 않는다
-    { name: 'i.avi', sizeBytes: 10_000_000, durationSec: 12, isCombo: false, expect: 'format' },
-    { name: 'j.mp4', sizeBytes: 101 * 1024 * 1024, durationSec: 12, isCombo: false, expect: 'tooLarge' },
-    { name: 'k.mp4', sizeBytes: 100 * 1024 * 1024, durationSec: 12, isCombo: false, expect: null }, // 정확히 100MB 는 통과(초과만 거부)
-    { name: 'l.mp4', sizeBytes: 10_000_000, durationSec: null, isCombo: false, expect: null }, // metadata 없음 = fail-open
-    { name: 'M.MP4', sizeBytes: 10_000_000, durationSec: 12, isCombo: false, expect: null }, // 확장자 대소문자 무관
-    { name: 'n.avi', sizeBytes: 101 * 1024 * 1024, durationSec: 1, isCombo: false, expect: 'format' }, // 순서: 형식 먼저
-    { name: 'o.mp4', sizeBytes: 101 * 1024 * 1024, durationSec: 1, isCombo: false, expect: 'tooLarge' }, // 순서: 용량이 길이보다 먼저
-    { name: 'noext', sizeBytes: 10_000_000, durationSec: 12, isCombo: false, expect: 'format' },
-    { name: 'p.mp4', sizeBytes: 10_000_000, durationSec: Number.NaN, isCombo: false, expect: null }, // 비유한 = 모름 = fail-open
+    { name: 'a.mp4', sizeBytes: 10_000_000, durationSec: 4.9, expect: 'tooShort' },
+    { name: 'b.mp4', sizeBytes: 10_000_000, durationSec: 5, expect: null },
+    { name: 'c.mov', sizeBytes: 10_000_000, durationSec: 120, expect: null },
+    { name: 'd.mp4', sizeBytes: 10_000_000, durationSec: 120.1, expect: 'tooLong' },
+    { name: 'g.mp4', sizeBytes: 10_000_000, durationSec: 45, expect: null }, // 옛 30초 상한 밖 — 이제 통과
+    { name: 'e.mp4', sizeBytes: GIB, durationSec: 12, expect: null }, // 정확히 1GB 는 통과(초과만 거부)
+    { name: 'f.mp4', sizeBytes: GIB + 1, durationSec: 12, expect: 'tooLarge' },
+    { name: 'i.avi', sizeBytes: 10_000_000, durationSec: 12, expect: 'format' },
+    { name: 'j.mp4', sizeBytes: 101 * 1024 * 1024, durationSec: 12, expect: null }, // 옛 100MB 한도 밖 — 이제 통과
+    { name: 'k.mp4', sizeBytes: 100 * 1024 * 1024, durationSec: 12, expect: null },
+    { name: 'l.mp4', sizeBytes: 10_000_000, durationSec: null, expect: null }, // metadata 없음 = fail-open
+    { name: 'M.MP4', sizeBytes: 10_000_000, durationSec: 12, expect: null }, // 확장자 대소문자 무관
+    { name: 'n.avi', sizeBytes: GIB + 1, durationSec: 1, expect: 'format' }, // 순서: 형식 먼저
+    { name: 'o.mp4', sizeBytes: GIB + 1, durationSec: 1, expect: 'tooLarge' }, // 순서: 용량이 길이보다 먼저
+    { name: 'noext', sizeBytes: 10_000_000, durationSec: 12, expect: 'format' },
+    { name: 'p.mp4', sizeBytes: 10_000_000, durationSec: Number.NaN, expect: null }, // 비유한 = 모름 = fail-open
   ],
 
-  // ── STEP 01 상태 (필수 8 = 체크 확인·동작 이름·선수 이름·레벨·선언 3·파일) ──
+  // ── STEP 01 상태 (필수 4 = 체크 확인·동작 이름·레벨·파일) ──
   step1: {
     complete: STEP1_COMPLETE,
     completeNewName: {
       ...STEP1_COMPLETE,
       nameChoice: { kind: 'new', name: '  새 동작 ' },
       level: 'advanced',
-      isCombo: true,
-      hasHold: 'yes',
-      file: { name: 'combo.mov', sizeBytes: 55_000_000, durationSec: null, format: 'mov' },
+      file: { name: 'combo.mov', sizeBytes: 550_000_000, durationSec: null, format: 'mov' },
     },
     missingTwo: { ...STEP1_COMPLETE, level: null, file: null },
     empty: {
       checkConfirmed: false,
       nameChoice: null,
-      athleteName: '',
       level: null,
-      isCombo: false,
-      isSplit: null,
-      hasHold: null,
-      standingStart: null,
       file: null,
     },
-    standingNo: { ...STEP1_COMPLETE, standingStart: 'no' },
     blankName: { ...STEP1_COMPLETE, nameChoice: { kind: 'new', name: '   ' } },
     longName: { ...STEP1_COMPLETE, nameChoice: { kind: 'new', name: '가'.repeat(31) } }, // > REFERENCE_NAME_MAX_LEN
-    blankAthlete: { ...STEP1_COMPLETE, athleteName: ' ' },
   },
 
   consent: {
     allRequired: CONSENT_REQUIRED,
-    allWithTraining: CONSENT_WITH_TRAINING,
-    missingSilent: { portrait: true, usage: true, silent: false, training: true },
-    none: { portrait: false, usage: false, silent: false, training: false },
+    missingUsage: { portrait: true, usage: false },
+    missingPortrait: { portrait: false, usage: true },
+    none: { portrait: false, usage: false },
   },
 
-  // ── buildRequest 가 내야 할 정확한 형상 (ReferenceUploadUrlRequest, clipRange 키 없음) ──
+  // ── buildRequest 가 내야 할 정확한 형상 (ReferenceUploadUrlRequest — 선수 이름·선언·학습 없음) ──
   expectedRequest: {
     fromComplete: {
       name: 'kip-up',
-      athleteName: '정은지',
       level: 'basic',
       techniqueRefId: 'ref-kip-up',
-      isCombo: false,
-      isSplit: true,
-      hasHold: false,
-      standingStart: true,
-      consent: { portrait: true, usage: true, silent: true, training: false },
+      consent: { portrait: true, usage: true },
       format: 'mp4',
       fileSizeBytes: 24_000_000,
       durationSec: 8.2,
     },
     fromCompleteNewName: {
       name: '새 동작',
-      athleteName: '정은지',
       level: 'advanced',
       techniqueRefId: null,
-      isCombo: true,
-      isSplit: true,
-      hasHold: true,
-      standingStart: true,
-      consent: { portrait: true, usage: true, silent: true, training: true },
+      consent: { portrait: true, usage: true },
       format: 'mov',
-      fileSizeBytes: 55_000_000,
+      fileSizeBytes: 550_000_000,
       durationSec: null,
     },
   },
 
-  // ── 다시 올리기 프리필 (38-10/38-12 가 URL/라우트 params 로 보낸다, '1'|'0' 인코딩) ──
+  // ── 다시 올리기 프리필 (URL/라우트 params — name · level · techniqueRefId 만) ──
+  // 옛 링크(38-13 웹 번들)에 남은 athleteName·isCombo·isSplit… 는 무시된다.
   prefillParams: {
     failedRow: {
       name: 'kip-up',
-      athleteName: '정은지',
       level: 'basic',
+      athleteName: '정은지',
       isSplit: '1',
       hasHold: '0',
       standingStart: '1',
     },
     withDict: {
       name: 'kip-up',
-      athleteName: '정은지',
       level: 'intermediate',
       techniqueRefId: 'ref-kip-up',
       isCombo: '1',
-      isSplit: '0',
-      hasHold: '1',
-      standingStart: '1',
     },
-    garbage: { name: '', level: 'expert', isSplit: 'maybe', hasHold: '', standingStart: '1' },
+    garbage: { name: '', level: 'expert', isSplit: 'maybe' },
   },
 } as const;

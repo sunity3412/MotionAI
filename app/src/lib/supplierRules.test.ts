@@ -73,6 +73,13 @@ test('공개 doc 8상태가 SupplierMotion 으로 — 상태·점수·키 필드
   assert.equal(ok.uploadExpiresAt, null);
 
   assert.equal(motion('activePending').selfCheckStatus, 'pending');
+  // w9l — Pod 등록이 만든 썸네일 키. 없으면 null(아이콘 자리).
+  assert.equal(ok.thumbnailS3Key, rawDocs.activeOk.thumbnailS3Key);
+  assert.equal(reg.thumbnailS3Key, null);
+  assert.equal(
+    normalizeRegistration('t', { ...rawDocs.activeOk, thumbnailS3Key: 42 })?.thumbnailS3Key,
+    null,
+  );
   assert.equal(motion('failedLowConfidence').registrationStatus, 'failed');
   assert.equal(motion('expired').registrationStatus, 'expired');
 });
@@ -88,16 +95,17 @@ test('registrationStatus 가 없거나 미지 값이면 registering 기본', () 
 
 test('rowSubtitle — A-3 상태 표 8행 = `{레벨} · {상태어}` (expired 포함, R4)', () => {
   const s = supplierCopy.row.status;
-  assert.equal(rowSubtitle(motion('registering')), '기본기 · 올린 영상 확인 중');
+  // w9l 항목 1 — 레벨 라벨 basic = '초급'(키 'basic' 불변, belle 09-30).
+  assert.equal(rowSubtitle(motion('registering')), '초급 · 올린 영상 확인 중');
   assert.equal(rowSubtitle(motion('queued')), `${LEVEL_LABEL_KO.intermediate} · ${s.queued}`);
   assert.equal(rowSubtitle(motion('processing')), `${LEVEL_LABEL_KO.advanced} · ${s.processing}`);
   assert.equal(rowSubtitle(motion('activePending')), `${LEVEL_LABEL_KO.intermediate} · ${s.newlyAdded}`);
   assert.equal(rowSubtitle(motion('activeSelfQueued')), `${LEVEL_LABEL_KO.advanced} · ${s.newlyAdded}`);
-  assert.equal(rowSubtitle(motion('activeOk')), '기본기 · 재현성 97점');
+  assert.equal(rowSubtitle(motion('activeOk')), '초급 · 재현성 97점');
   assert.equal(rowSubtitle(motion('activeLow')), '고급 · 재현성 61점 · 다시 찍어 주세요');
   assert.equal(rowSubtitle(motion('failedLowConfidence')), `${LEVEL_LABEL_KO.intermediate} · ${s.failed}`);
   assert.equal(rowSubtitle(motion('expired')), `${LEVEL_LABEL_KO.basic} · ${s.expired}`);
-  assert.deepEqual(LEVEL_LABEL_KO, { basic: '기본기', intermediate: '중급', advanced: '고급' });
+  assert.deepEqual(LEVEL_LABEL_KO, { basic: '초급', intermediate: '중급', advanced: '고급' });
 });
 
 // ── 3) selfCheckView / selfCheckNote ────────────────────────────────────────
@@ -166,22 +174,18 @@ test('failCopy — 미지 코드는 server_error 문구, expiredCopy 는 row.exp
   });
 });
 
-test('normalizePrivate — 실패 상세·선언 3·techniqueRefId 는 비공개 doc 에서만 (R13)', () => {
+test('normalizePrivate — 실패 상세·techniqueRefId 만 (R13). 옛 doc 의 선언 4 는 읽지 않는다(w9l)', () => {
   const failed = normalizePrivate(supplierFixtures.privateDocs.failedLowConfidence);
   assert.ok(failed);
   assert.equal(failed.registrationError?.code, 'low_confidence');
   assert.deepEqual(failed.registrationError?.joints, ['왼쪽 발목', '오른쪽 발목']);
   assert.equal(failed.techniqueRefId, null);
-  assert.equal(failed.isSplit, true);
-  assert.equal(failed.hasHold, false);
-  assert.equal(failed.standingStart, true);
-  assert.equal(failed.isCombo, false);
+  // 2026-09-30 이전 doc 에 isCombo·isSplit·hasHold·standingStart 가 있어도 결과엔 없다.
+  assert.deepEqual(Object.keys(failed).sort(), ['registrationError', 'techniqueRefId']);
 
   const ok = normalizePrivate(supplierFixtures.privateDocs.activeOk);
   assert.ok(ok);
-  assert.equal(ok.registrationError, null);
-  assert.equal(ok.techniqueRefId, 'ref-kip-up');
-  assert.equal(ok.hasHold, true);
+  assert.deepEqual(ok, { registrationError: null, techniqueRefId: 'ref-kip-up' });
 
   const tooLarge = normalizePrivate(supplierFixtures.privateDocs.failedTooLarge);
   assert.equal(tooLarge?.registrationError?.code, 'too_large');

@@ -19,7 +19,7 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 type Tab = SkillLevel;
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'basic', label: '기본기' },
+  { key: 'basic', label: '초급' }, // quick-260930-w9l 항목 1 — belle 09-30 '초급'(키 불변)
   { key: 'intermediate', label: '중급' },
   { key: 'advanced', label: '고급' },
 ];

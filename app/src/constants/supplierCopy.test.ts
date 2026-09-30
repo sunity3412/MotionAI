@@ -20,6 +20,8 @@
 //  10) Figma 1:499 확정 다이얼로그 2종이 pickerFailure.ts 와 같은 원문이다.
 //  11) 38-DESIGN.md(Figma 282:506, 2026-09-30) 새/바뀐 문구 키 값 잠금 + 지운 키가 없다.
 //  12) 38-DESIGN-v2(quick-260930-lfw) A-2 초대받은 분만 · 강사 코드 줄 · 크게 보기 문구 + 지운 키.
+//  13) quick-260930-w9l(belle 2026-09-30 폰 확인) — 필수 표시 · 체크 4 · 동의 2 + 보기 · 학습 계약
+//      안내 · 5초~2분 · 1GB · 소리 서버 제거 · 선언 3 삭제 · 선수 이름 고정 · 초급 + 지운 키.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -93,8 +95,9 @@ test('md 의 ## 제목 7개가 guide.s1..s7.h 와 같은 순서·같은 글자�
 
 test('guide 섹션 7개 = D-18 7항목 제목 그대로', () => {
   assert.equal(supplierCopy.guide.s1.h, '어떻게 찍나요');
-  assert.equal(supplierCopy.guide.s2.h, '영상 하나에 동작 하나');
-  assert.equal(supplierCopy.guide.s3.h, '올릴 때 왜 4가지를 묻나요');
+  // w9l — s2·s3 제목이 바뀌었다(콤보·선언 3 삭제).
+  assert.equal(supplierCopy.guide.s2.h, '길이와 시작');
+  assert.equal(supplierCopy.guide.s3.h, '올릴 때 무엇을 적나요');
   assert.equal(supplierCopy.guide.s4.h, '올리면 무엇이 보이나요');
   assert.equal(supplierCopy.guide.s5.h, '권리와 동의');
   assert.equal(supplierCopy.guide.s6.h, '내 코드를 수강생에게 알려주는 법');
@@ -165,14 +168,22 @@ test('row.status.expired · row.expired.* · row.self.note 비공백 (R4/R11)', 
 
 // ── 5) 동의 문안 = 기획안 §6 원문 ─────────────────────────────────────────
 
-test('form.sec5 동의 문안 4건이 기획안 §6 원문과 같다 (D-08)', () => {
-  assert.equal(supplierCopy.form.sec5.portrait, '초상·성명 사용 동의(앱 내 표시·재생)');
+test('form.sec5 동의 = 필수 2 + 보기 + 필수 안내 + 학습 계약 안내 (w9l 항목 4·5·11)', () => {
+  const c = supplierCopy.form.sec5;
+  assert.equal(c.portrait, '초상·성명 사용 동의');
+  assert.equal(c.usage, '영상 이용 동의');
+  assert.equal(c.tagRequired, '[필수]');
+  assert.equal(c.view, '보기');
+  assert.equal(c.allHint, '필수 2개');
+  assert.equal(c.requiredNote, '필수 항목에 동의하지 않으면 등록할 수 없어요.');
   assert.equal(
-    supplierCopy.form.sec5.usage,
-    '영상 이용 허락 — 분석 기준 사용 · 프레임 추출·표시 · 썸네일',
+    c.trainingNotice,
+    '올린 영상은 공급자 계약에 따라 Sunity AI 학습에도 쓰여요. 학습용 영상과 데이터는 외부에 공개하거나 넘기지 않아요.',
   );
-  assert.equal(supplierCopy.form.sec5.silent, '무음 영상 확인(음악·안무 라이선스 회피)');
-  assert.equal(supplierCopy.form.sec5.training, '학습 사용 동의');
+  assert.equal(c.error, '필수 동의 2가지에 체크해주세요.');
+  for (const gone of ['silent', 'training', 'trainingNote', 'withdraw', 'tagOptional']) {
+    assert.equal(gone in c, false, `form.sec5.${gone}`);
+  }
 });
 
 // ── 6) ui-checker flags 적용값 ─────────────────────────────────────────────
@@ -244,13 +255,23 @@ test('R11 — 자기 점수는 일관성 진단, 고지 문장 고정, low 는 �
 
 // ── 10) Figma 1:499 확정 다이얼로그 = pickerFailure.ts 원문 ──────────────────
 
-test('dialog.format · dialog.tooLarge 가 pickerFailure.ts 의 Figma 확정 문구와 같다', () => {
+test('dialog.format 은 pickerFailure.ts 와 같고 dialog.tooLarge 는 제목만 같다(1GB)', () => {
   const format = describePickFailure('format');
   const tooLarge = describePickFailure('tooLarge');
   assert.equal(supplierCopy.dialog.format.title, format.title);
   assert.deepEqual([...supplierCopy.dialog.format.lines], format.lines);
+  // belle 2026-09-30(quick-260930-w9l 항목 7) — 공급자 기준 등록만 1GB 로 갈라졌다. 수강생 분석
+  // 경로(pickerFailure.ts)는 100MB 그대로라 본문 첫 줄이 다르고, 제목은 같다.
   assert.equal(supplierCopy.dialog.tooLarge.title, tooLarge.title);
-  assert.deepEqual([...supplierCopy.dialog.tooLarge.lines], tooLarge.lines);
+  assert.deepEqual([...supplierCopy.dialog.tooLarge.lines], [
+    '1GB 이하 영상만 업로드 할 수 있어요.',
+    '영상을 잘라서 다시 시도해주세요.',
+  ]);
+  assert.notDeepEqual([...supplierCopy.dialog.tooLarge.lines], tooLarge.lines);
+  assert.deepEqual([...supplierCopy.dialog.tooLong.lines], [
+    '기준 동작은 2분 이내로 올릴 수 있어요.',
+    '동작이 담긴 부분만 잘라서 다시 선택해주세요.',
+  ]);
   assert.equal(supplierCopy.form.sec4.repick, format.primaryLabel);
   for (const kind of ['format', 'tooLarge', 'tooShort', 'tooLong', 'unreadable'] as const) {
     assert.equal(supplierCopy.dialog[kind].lines.length, 2, `${kind} 는 2줄`);
@@ -264,7 +285,7 @@ test('38-DESIGN.md 새/바뀐 문구 키', () => {
   assert.equal(c.login.chip, '강사·선수 전용');
   assert.equal(c.home.count, '{n}개');
   assert.equal(c.home.upload, '동작 올리기');
-  assert.equal(c.form.sec5.allHint, '필수 3개');
+  assert.equal(c.form.sec5.allHint, '필수 2개'); // w9l — 필수 동의 3 → 2
   assert.equal(c.row.done.sub, '{name} · {athlete} 선수');
   assert.equal(c.row.self.title, '자기 영상 재분석');
   assert.equal(c.row.self.okBody, '추출·저장이 일관돼요.');
@@ -324,5 +345,80 @@ test('38-DESIGN-v2 가 지운 키가 없다 (옛 ID 닭-달걀 절차 · 코드 
   }
   for (const k of ['build', 'copy', 'copiedShort']) {
     assert.equal(k in c.common, false, `common.${k}`);
+  }
+});
+
+// ── 13) quick-260930-w9l (belle 2026-09-30 폰 확인) ─────────────────────────
+
+test('w9l — 필수 표시 · 촬영 전 체크 4 · 선수 이름 고정 · 초급 · 파일 알약', () => {
+  const f = supplierCopy.form;
+  assert.equal(f.requiredTag, '필수');
+  assert.equal(f.remaining, '필수 항목 {n}개가 남았어요');
+  assert.deepEqual([...f.sec1.items], [
+    '· 세로로, 삼각대나 거치대에 고정해서 찍었어요. 손으로 들고 찍지 않았어요.',
+    '· 폴 전체(천장~바닥)와 몸 전체가 동작 내내 화면 안에 있어요. 카메라는 약 4~5m 떨어져 있어요.',
+    '· 한 사람만 나오고, 밝은 실내예요. 창을 등지지 않았어요.',
+    '· 서 있는 자세에서 시작했어요.',
+  ]);
+  assert.equal(f.sec1.confirm, '위 4가지를 확인했어요');
+  assert.equal(
+    supplierCopy.home.emptyBody,
+    '올린 동작은 앱의 기준 동작 목록에 올라가요. 촬영 전 체크 4가지를 먼저 확인해요.',
+  );
+  assert.equal(
+    f.sec2.name.helper,
+    '동작 이름은 등록 정보로 보관해요. 채점은 지금은 정은지 기준과 같은 기본 비교 방식으로만 해요. 동작별 채점 규칙은 다음 단계에서 붙어요.',
+  );
+  assert.equal(
+    f.sec2.athlete.helper,
+    '초대할 때 확인한 실명이에요. 앱의 기준 동작 목록에 이 이름으로 보여요. 바꾸려면 운영팀에 알려주세요.',
+  );
+  assert.equal(f.sec2.athlete.missing, '선수 이름이 아직 등록되지 않았어요. 운영팀에 알려주시면 등록해 드려요.');
+  assert.deepEqual(f.sec2.level.options, { basic: '초급', intermediate: '중급', advanced: '고급' });
+  assert.deepEqual([...f.sec4.pill], [
+    '기준 영상처럼 찍으세요(폴 전체와 전신이 들어오는 거리, 세로, 고정)',
+    '5초~2분 · 1GB 이하 · 서 있는 자세에서 시작 · 소리는 자동으로 지워요',
+  ]);
+  assert.equal(supplierCopy.row.tip[2], '· 5초~2분, 서 있는 자세에서 시작');
+});
+
+test('w9l — 지운 키가 없다 (콤보 · 선언 3 · 선수 이름 오류 · 상세 표 선언 행)', () => {
+  const f = supplierCopy.form as unknown as Record<string, Record<string, unknown>>;
+  assert.equal('sec3' in f, false, 'form.sec3');
+  assert.equal('combo' in f.sec2, false, 'form.sec2.combo');
+  assert.equal('error' in (f.sec2.athlete as Record<string, unknown>), false, 'form.sec2.athlete.error');
+  const info = supplierCopy.row.done.info as unknown as Record<string, unknown>;
+  for (const k of ['split', 'hold', 'stand']) {
+    assert.equal(k in info, false, `row.done.info.${k}`);
+  }
+  // 30초·60초·무음·100MB 약속이 공급자 문구 어디에도 남지 않는다.
+  for (const [p, s] of ALL_STRINGS) {
+    for (const stale of ['30초', '60초', '5~30초', '100MB', '무음']) {
+      assert.ok(!s.includes(stale), `${p} 에 '${stale}': ${s}`);
+    }
+  }
+});
+
+test('w9l — 가이드 s2 · s3 · s5 · s7 새 문구', () => {
+  const g = supplierCopy.guide;
+  assert.deepEqual([...g.s2.items], [
+    '길이는 5초~2분이에요. 동작 하나도, 여러 동작을 이은 콤보도 올릴 수 있어요.',
+    '폴 옆에 서서 1초쯤 있다가 시작해요. 서 있는 순간이 발 높이를 재는 기준이 돼요.',
+    '소리는 신경 쓰지 않아도 돼요. 등록할 때 영상의 소리를 지워서 저장해요.',
+    '영상 파일은 1GB까지 올릴 수 있어요.',
+  ]);
+  assert.equal(g.s3.items.length, 4);
+  assert.ok(g.s3.items[2].startsWith('선수 이름: 초대할 때 확인한 실명으로 정해져 있어요.'));
+  assert.ok(g.s3.items[3].startsWith('서 있는 자세에서 시작했는지는 따로 묻지 않아요.'));
+  assert.equal(g.s5.items.length, 5);
+  assert.equal(
+    g.s5.items[2],
+    'AI 학습: 공급자 계약에 따라 올린 영상을 Sunity AI 학습에도 써요. 학습용 영상과 데이터는 외부에 공개하거나 넘기지 않아요.',
+  );
+  assert.equal(g.s5.items[4], '필수 항목(초상·성명 사용, 영상 이용)에 동의하지 않으면 등록할 수 없어요.');
+  assert.equal(g.s7.items.length, 4);
+  for (const it of g.s7.items) {
+    assert.ok(!it.startsWith('음악'), it);
+    assert.ok(!it.startsWith('여러 동작을 이어 찍기'), it);
   }
 });

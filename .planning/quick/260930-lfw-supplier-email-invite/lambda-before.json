@@ -1,0 +1,23 @@
+{
+  "FunctionName": "sunity-motion-pilot-reference-upload-url",
+  "Layers": [
+    "arn:aws:lambda:ap-northeast-2:976369350031:layer:sunity-motion-pilot-shared:21"
+  ],
+  "CodeSha256": "q89ZcGTr5g/U8xaP2gVGNwTOF3y0Dnto+7loTuOKl8I=",
+  "CodeSize": 33322088,
+  "LastModified": "2026-09-29T23:57:24.522+0000",
+  "Timeout": 10,
+  "MemorySize": 256,
+  "Runtime": "python3.12",
+  "Architectures": [
+    "arm64"
+  ],
+  "EnvKeys": [
+    "BELLE_UID",
+    "FIREBASE_SA_PARAM",
+    "SUPPLIER_UIDS_PARAM",
+    "VIDEO_BUCKET"
+  ],
+  "CapturedAt": "2026-09-30T07:14:39Z",
+  "Note": "quick-260930-lfw Task 4 B - env values omitted"
+}

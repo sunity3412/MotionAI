@@ -987,30 +987,50 @@ const s = StyleSheet.create({
 
 // ── 올리기 폼 프리미티브 (Phase 38-11 · UI-SPEC A-4 · A-5 · Component Inventory) ──────────
 //
-// Figma D-22 실측(`1:960` 입력/STEP/CTA · `1:1064` 동의 행 · `1:407` 파일 카드 · `1:499`
-// 다이얼로그)은 이 실행에서도 Figma MCP 가 열리지 않아 못 했다 — 값은 UI-SPEC Component
-// Inventory 그대로이고 38-11 SUMMARY "Figma 실측" 표에 [미확인] 으로 남겨 38-13 Task 3 로 넘긴다.
-// 파일 카드 아이콘-텍스트 간격만 ui-checker flag 11행 적용값 16.
+// 2026-09-30 38-DESIGN.md A-4 STEP 01 / STEP 02 · A-5 값으로 갱신. 검증 다이얼로그(PickErrorDialog)는
+// 38-DESIGN "바꿀 것 없음" 이라 그대로다. 파일 카드 아이콘-텍스트 간격은 ui-checker flag 11행 16.
 
 const F = {
   input: layout.inputHeight, // 54 (design.md §5-3-1)
-  segment: 44, // 탭 44 (UI-SPEC 탭/세그먼트)
-  checkRow: 48, // 체크 행 최소 48
+  segment: 44, // 38-DESIGN A-4 세그먼트 44
   box: 22, // 체크박스 22
   boxRadius: 8, // radius.listItem 8.58 → 웹 8
   check: 14, // 흰 체크 14
   fileIcon: 32, // 1:407 images-outline 32
   chevron: 20,
-  track: 8, // 진행 막대 높이 8 / 반경 4
-  previewMaxH: 360, // Video preview 최대 높이
+  linkChevron: 14, // 38-DESIGN A-4 ① 체크 행 링크의 작은 쉐브론
+  track: 8, // A-5 진행 트랙 높이 8 / 반경 4
+  stepBar: 4, // 38-DESIGN A-4 진행 막대 높이 4 / 반경 2
+  preview: 360, // 38-DESIGN A-4 ④ 미리보기 상자 높이
+  thumbW: 40, // 38-DESIGN A-5 썸네일 40×64
+  thumbH: 64,
+  focusBorder: 1.5, // 38-DESIGN A-4 입력 포커스 테두리
 } as const;
 
-// `STEP 01 / 02` — brand 소문 라벨(1:960) → 4 → Display 제목.
-export function StepHeader({ step, title }: { step: string; title: string }) {
+// 38-DESIGN A-4 머리 — `STEP 01 / 02` 15/700 brand → 8 → 진행 막대 2칸(높이 4 · 반경 2 · 간격 6 ·
+// 균등, 칸 번호 ≤ current = brand, 아니면 trackBg) → 16 → 30 제목.
+export function StepHeader({
+  step,
+  title,
+  current,
+}: {
+  step: string;
+  title: string;
+  current: 1 | 2;
+}) {
   return (
     <View>
       <Text style={text.step}>{step}</Text>
-      <Text style={[text.display, s.mt4]} accessibilityRole="header">
+      <View
+        style={f.stepBars}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 1, max: 2, now: current }}
+      >
+        {[1, 2].map((n) => (
+          <View key={n} style={[f.stepBar, n <= current && f.stepBarOn]} />
+        ))}
+      </View>
+      <Text style={[text.display, s.mt16]} accessibilityRole="header">
         {title}
       </Text>
     </View>
@@ -1027,12 +1047,13 @@ export function FieldError({ message }: { message: string | null }) {
   );
 }
 
-// 도움말 — Label 17 textMid, 위 8.
+// 도움말 — 38-DESIGN §0 보조 문구 15 textMid, 위 8.
 export function Helper({ children }: { children: string }) {
-  return <Text style={[text.label, text.mid, f.helper]}>{children}</Text>;
+  return <Text style={[text.aux, f.helper]}>{children}</Text>;
 }
 
-// 입력 54 / 반경 13 · 테두리 inputBorder → 포커스 brand → 오류 inputError · 라벨 위 8 · 오류 아래 8.
+// 입력 54 / 반경 13 · 테두리 1px inputBorder → 포커스 1.5px brand(38-DESIGN A-4) → 오류 inputError ·
+// 라벨 17/700 위 8 · 오류 아래 8.
 export function TextInput54({
   label,
   value,
@@ -1051,7 +1072,7 @@ export function TextInput54({
   const [focused, setFocused] = useState(false);
   return (
     <View>
-      {label ? <Text style={[text.label, f.fieldLabel]}>{label}</Text> : null}
+      {label ? <Text style={[text.labelBold, f.fieldLabel]}>{label}</Text> : null}
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -1075,8 +1096,9 @@ export function TextInput54({
 
 export type SelectOption = { value: string; label: string };
 
-// Select — 웹은 네이티브 `<select>` 를 Input 규격으로(오른쪽 chevron 20 textMid). 이 라우트는
-// 웹 전용(38-04 option-1)이라 네이티브는 옵션 목록 버튼으로만 둔다(Picker 패키지 설치 0).
+// Select — 웹은 네이티브 `<select>` 를 Input 규격으로(54 · 13 · 1px inputBorder · 값 17 · 오른쪽
+// chevron-down 20 textMid). 라벨 17/700(38-DESIGN A-4 ②). 이 라우트는 웹 전용(38-04 option-1)이라
+// 네이티브는 옵션 목록 버튼으로만 둔다(Picker 패키지 설치 0).
 export function SelectField({
   label,
   placeholder,
@@ -1096,7 +1118,7 @@ export function SelectField({
     const border = error ? colors.inputError : colors.inputBorder;
     return (
       <View>
-        <Text style={[text.label, f.fieldLabel]}>{label}</Text>
+        <Text style={[text.labelBold, f.fieldLabel]}>{label}</Text>
         <View style={f.selectWrap}>
           <select
             aria-label={label}
@@ -1136,7 +1158,7 @@ export function SelectField({
   }
   return (
     <View>
-      <Text style={[text.label, f.fieldLabel]}>{label}</Text>
+      <Text style={[text.labelBold, f.fieldLabel]}>{label}</Text>
       <View style={f.optionList} accessibilityRole="radiogroup">
         {options.map((o) => {
           const on = o.value === value;
@@ -1158,8 +1180,8 @@ export function SelectField({
   );
 }
 
-// 탭/세그먼트 — 균등 가로, 44 / 13, 미선택 흰 + 테두리 divider + Label 700 textMid,
-// 선택 = brand 채움 + 흰 글자(reference.tsx 탭 문법). role radiogroup / radio.
+// 탭/세그먼트 — 균등 가로, 간격 8, 44 / 13, 미선택 흰 + 테두리 divider + 700 textMid,
+// 선택 = brand 채움 + 흰 글자(38-DESIGN A-4 ② 레벨 · ③ 네/아니오). role radiogroup / radio.
 export function Segment<T extends string>({
   label,
   options,
@@ -1200,8 +1222,73 @@ function CheckBox({ checked }: { checked: boolean }) {
   );
 }
 
-// 1:1064 체크 행 — 행 전체 탭, 최소 48, 박스 22/8, 태그 `[필수]` brand 700 / `[선택]`
-// resultTextSub 700 → 4 → 라벨 → chevron(상세가 있을 때, 따로 누른다) · 부연 12 caption 아래 4.
+// 38-DESIGN A-4 ① 촬영 전 체크 카드 — Card(패딩 16 16 8): 머리 AlertIcon 18 + 6 + 18/700 → 12 →
+// 항목(간격 8) 번호 1~5 15/700 brand + 10 + 본문 15 → 12 → 구분선 → 체크 행(세로 13): 체크박스 22
+// + 10 + 확인 문구 17/700 · 오른쪽 링크 15 brand + 작은 쉐브론(가이드로).
+// 문구 원문(supplierCopy.form.sec1.items)은 `· ` 로 시작한다 — 번호가 그 자리를 대신해 화면에서만
+// 떼어 보여 준다(원문은 그대로, 38-DESIGN A-4 ①).
+export function CheckCard({
+  title,
+  items,
+  confirmLabel,
+  checked,
+  onToggle,
+  linkLabel,
+  onLink,
+}: {
+  title: string;
+  items: readonly string[];
+  confirmLabel: string;
+  checked: boolean;
+  onToggle: () => void;
+  linkLabel: string;
+  onLink: () => void;
+}) {
+  return (
+    <View style={[s.card, f.checkCard]}>
+      <View style={f.checkCardHead}>
+        <AlertIcon size={18} />
+        <Text style={[text.title, s.flex]} accessibilityRole="header">
+          {title}
+        </Text>
+      </View>
+      <View style={f.checkItems}>
+        {items.map((item, i) => (
+          <View key={item} style={f.checkItem}>
+            <Text style={text.step}>{String(i + 1)}</Text>
+            <Text style={[text.body15, s.flex]}>{item.replace(/^·\s*/, '')}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={f.checkConfirmRow}>
+        <Pressable
+          onPress={onToggle}
+          style={({ pressed }) => [f.checkConfirm, pressed && s.pressed]}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked }}
+          accessibilityLabel={confirmLabel}
+        >
+          <CheckBox checked={checked} />
+          <Text style={[text.labelBold, s.flex]}>{confirmLabel}</Text>
+        </Pressable>
+        <Pressable
+          onPress={onLink}
+          style={({ pressed }) => [f.checkLink, pressed && s.pressed]}
+          accessibilityRole="link"
+          accessibilityLabel={linkLabel}
+          hitSlop={8}
+        >
+          <Text style={[text.body15, f.brandText]}>{linkLabel}</Text>
+          <Ionicons name="chevron-forward" size={F.linkChevron} color={colors.brand} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// 38-DESIGN A-4 체크 행 — 체크박스 22 + 10 + 한 문단 17(태그 `[필수]` 700 brand / `[선택]` 700
+// resultTextSub 가 같은 문단 안), 세로 12. inset = 가로 16(STEP 02 동의 행). 부연 = 아래 4 에
+// 13 resultTextSub. chevron(상세가 있을 때, 따로 누른다) 20 inputBorder.
 export function CheckboxRow({
   label,
   checked,
@@ -1210,6 +1297,7 @@ export function CheckboxRow({
   note,
   onChevron,
   chevronLabel,
+  inset,
 }: {
   label: string;
   checked: boolean;
@@ -1218,9 +1306,10 @@ export function CheckboxRow({
   note?: string;
   onChevron?: () => void;
   chevronLabel?: string;
+  inset?: boolean;
 }) {
   return (
-    <View style={f.checkRow}>
+    <View style={[f.checkRow, inset && f.checkRowInset]}>
       <Pressable
         onPress={onToggle}
         style={({ pressed }) => [f.checkMain, pressed && s.pressed]}
@@ -1232,13 +1321,13 @@ export function CheckboxRow({
         <View style={s.flex}>
           <Text style={text.label}>
             {tag ? (
-              <Text style={[text.labelBold, tag.required ? f.tagRequired : text.sub]}>
+              <Text style={[text.labelBold, tag.required ? f.brandText : text.sub]}>
                 {tag.text}{' '}
               </Text>
             ) : null}
             {label}
           </Text>
-          {note ? <Text style={[text.caption, s.mt4]}>{note}</Text> : null}
+          {note ? <Text style={[text.caption13, text.sub, s.mt4]}>{note}</Text> : null}
         </View>
       </Pressable>
       {onChevron ? (
@@ -1256,13 +1345,16 @@ export function CheckboxRow({
   );
 }
 
-// 1:1064 전체 동의 박스 — 54 / 13, 테두리 divider, 패딩 0 16: 체크박스 22 + 12 + Label 700.
+// 38-DESIGN A-4 STEP 02 전체 동의 상자 — 54 / 13 / 1px divider / 패딩 0 16: 체크박스 + 12 +
+// 17/700(늘어남) + 오른쪽 `필수 3개` 흐린 보조.
 export function AllAgreeBox({
   label,
+  hint,
   checked,
   onToggle,
 }: {
   label: string;
+  hint: string;
   checked: boolean;
   onToggle: () => void;
 }) {
@@ -1275,13 +1367,23 @@ export function AllAgreeBox({
       accessibilityLabel={label}
     >
       <CheckBox checked={checked} />
-      <Text style={text.labelBold}>{label}</Text>
+      <Text style={[text.labelBold, s.flex]}>{label}</Text>
+      <Text style={text.auxFaint}>{hint}</Text>
     </Pressable>
   );
 }
 
+// 38-DESIGN A-4 STEP 02 철회 고지 — softBg · 반경 15 · 패딩 16 · 보조 문구.
+export function WithdrawNote({ text: body }: { text: string }) {
+  return (
+    <View style={f.withdraw}>
+      <Text style={text.aux}>{body}</Text>
+    </View>
+  );
+}
+
 // 1:407 선택 카드(파일) — Card 규격 + images-outline 32 brand → 16(ui-checker flag 11행) →
-// Title + Label 부제(4 아래) → chevron 20. 눌림 opacity 0.4(cardDimmed 선례).
+// Title + 보조 부제(4 아래) → chevron 20. 눌림 opacity 0.4(cardDimmed 선례).
 export function FileCard({
   title,
   sub,
@@ -1305,33 +1407,85 @@ export function FileCard({
       <Ionicons name="images-outline" size={F.fileIcon} color={colors.brand} />
       <View style={s.flex}>
         <Text style={text.title}>{title}</Text>
-        <Text style={[text.label, text.mid, s.mt4]}>{sub}</Text>
+        <Text style={[text.aux, s.mt4]}>{sub}</Text>
       </View>
       <Ionicons name="chevron-forward" size={F.chevron} color={colors.inputBorder} />
     </Pressable>
   );
 }
 
-// Video preview — 9:16, 최대 높이 360, 반경 15, 무음 · 컨트롤 · 자동 재생 없음(프레임 자가 확인용).
+// 38-DESIGN A-4 ④ 미리보기 — 전폭 × 360 · 반경 15 · 배경 textPrimary 상자 가운데에 9:16 영상.
+// 무음 · 컨트롤 · 자동 재생 없음(프레임 자가 확인용). 어두운 면은 영상 뒤판(videoBg 선례와 같은 예외).
 export function VideoPreview({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, (p) => {
     p.muted = true;
   });
   return (
-    <View style={f.previewWrap}>
+    <View style={f.previewBox}>
       <VideoView player={player} style={f.preview} nativeControls contentFit="contain" />
     </View>
   );
 }
 
-// 진행 막대 — 트랙 8/4 trackBg · 채움 brand · role progressbar(스피너 금지, design.md §0).
-export function ProgressBar({ pct, label }: { pct: number; label: string }) {
+// 38-DESIGN A-5 썸네일 40×64 · 반경 8 — 영상 첫 프레임(재생 안 함, 컨트롤 없음, 무음).
+// uri 가 없으면 trackBg 상자만.
+export function VideoThumb({ uri }: { uri: string | null }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.muted = true;
+  });
+  return (
+    <View style={f.thumb}>
+      {uri ? (
+        <VideoView player={player} style={f.thumbVideo} nativeControls={false} contentFit="cover" />
+      ) : null}
+    </View>
+  );
+}
+
+// 38-DESIGN A-5 파일 요약 카드 — softBg · 반경 15 · 패딩 12 · 가로: 썸네일 → 12 →
+// `{name} · {레벨}` 18/700 / 2 / `{파일 이름} · {길이} · {용량}` 보조.
+export function UploadSummary({
+  uri,
+  title,
+  meta,
+}: {
+  uri: string | null;
+  title: string;
+  meta: string;
+}) {
+  return (
+    <View style={f.summary}>
+      <VideoThumb uri={uri} />
+      <View style={f.summaryText}>
+        <Text style={text.title} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={text.aux} numberOfLines={2}>
+          {meta}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// 38-DESIGN A-5 진행 — 줄(`올리는 중` 17 왼쪽 + `{pct}%` 17/700 brand 오른쪽, aria-live) → 8 →
+// 트랙 8/4 trackBg + 채움 brand · role progressbar(스피너 금지, design.md §0).
+export function ProgressBar({
+  pct,
+  label,
+  valueText,
+}: {
+  pct: number;
+  label: string;
+  valueText: string;
+}) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <View>
-      <Text style={text.label} accessibilityLiveRegion="polite">
-        {label}
-      </Text>
+      <View style={f.progressHead} accessibilityLiveRegion="polite">
+        <Text style={text.label}>{label}</Text>
+        <Text style={[text.labelBold, f.brandText]}>{valueText}</Text>
+      </View>
       <View
         style={[f.track, s.mt8]}
         accessibilityRole="progressbar"
@@ -1343,13 +1497,27 @@ export function ProgressBar({ pct, label }: { pct: number; label: string }) {
   );
 }
 
-// 하단 고정 바 — 흰 배경 · 위 1px divider · 패딩 16 20 · 위 Label(남은 필수 개수 등, aria-live).
-export function BottomBar({ hint, children }: { hint: string | null; children: ReactNode }) {
+// 38-DESIGN §0 하단 바 재질 — 흰 86% + 뒤 흐림 20(웹 backdrop-filter), 위 테두리 없음. 네이티브는
+// 흐림이 없어 흰 96%. 화면 아래에 떠 있으므로(absolute) onHeight 로 높이를 알려 주고, 화면이
+// ScrollView contentContainer paddingBottom 에 더해 마지막 내용이 바 뒤에 숨지 않게 한다.
+// hint(남은 필수 등)는 CTA 위 보조 문구 가운데(aria-live).
+export function BottomBar({
+  hint,
+  children,
+  onHeight,
+}: {
+  hint: string | null;
+  children: ReactNode;
+  onHeight?: (height: number) => void;
+}) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[f.bottomBar, { paddingBottom: space.md + insets.bottom }]}>
+    <View
+      style={[f.bottomBar, BAR_MATERIAL, { paddingBottom: space.md + insets.bottom }]}
+      onLayout={onHeight ? (e) => onHeight(e.nativeEvent.layout.height) : undefined}
+    >
       {hint ? (
-        <Text style={[text.label, text.mid, f.bottomHint]} accessibilityLiveRegion="polite">
+        <Text style={[text.aux, f.bottomHint]} accessibilityLiveRegion="polite">
           {hint}
         </Text>
       ) : null}
@@ -1358,10 +1526,26 @@ export function BottomBar({ hint, children }: { hint: string | null; children: R
   );
 }
 
+// backdropFilter 는 RN ViewStyle 타입 밖이라 웹에서만 좁은 캐스트로 붙인다. react-native-web 이
+// 이 속성을 알고(prefixStyles) -webkit- 접두도 붙인다.
+const BAR_MATERIAL: ViewStyle =
+  Platform.OS === 'web'
+    ? ({ backgroundColor: colors.barGlass, backdropFilter: 'blur(20px)' } as ViewStyle)
+    : { backgroundColor: colors.barSolid };
+
 const f = StyleSheet.create({
   fieldLabel: { marginBottom: space.sm },
   error: { color: colors.infoTeal, marginTop: space.sm },
   helper: { marginTop: space.sm },
+  brandText: { color: colors.brand },
+  stepBars: { flexDirection: 'row', gap: space.s6, marginTop: space.sm },
+  stepBar: {
+    flex: 1,
+    height: F.stepBar,
+    borderRadius: F.stepBar / 2,
+    backgroundColor: colors.trackBg,
+  },
+  stepBarOn: { backgroundColor: colors.brand },
   input: {
     height: F.input,
     borderRadius: R.button,
@@ -1370,7 +1554,7 @@ const f = StyleSheet.create({
     backgroundColor: colors.bg,
     paddingHorizontal: space.md,
   },
-  inputFocus: { borderColor: colors.brand },
+  inputFocus: { borderColor: colors.brand, borderWidth: F.focusBorder },
   inputError: { borderColor: colors.inputError },
   selectWrap: { justifyContent: 'center' },
   selectChevron: { position: 'absolute', right: space.md },
@@ -1396,14 +1580,36 @@ const f = StyleSheet.create({
     justifyContent: 'center',
   },
   segItemOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  checkRow: { minHeight: F.checkRow, flexDirection: 'row', alignItems: 'center' },
-  checkMain: {
-    flex: 1,
-    minHeight: F.checkRow,
+
+  checkCard: { paddingBottom: space.sm },
+  checkCardHead: { flexDirection: 'row', alignItems: 'center', gap: space.s6 },
+  checkItems: { marginTop: space.row, gap: space.sm },
+  checkItem: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s10 },
+  checkConfirmRow: {
+    marginTop: space.row,
+    borderTopWidth: BORDER,
+    borderTopColor: colors.dividerSoft,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.row,
-    paddingVertical: space.sm,
+    gap: space.sm,
+  },
+  checkConfirm: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.s10,
+    paddingVertical: space.s13,
+  },
+  checkLink: { flexDirection: 'row', alignItems: 'center', gap: space.xxs, minHeight: H.touch },
+
+  checkRow: { flexDirection: 'row', alignItems: 'center' },
+  checkRowInset: { paddingHorizontal: space.md },
+  checkMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.s10,
+    paddingVertical: space.row,
   },
   chevronBtn: {
     width: H.touch,
@@ -1423,7 +1629,6 @@ const f = StyleSheet.create({
     justifyContent: 'center',
   },
   boxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  tagRequired: { color: colors.brand },
   allAgree: {
     height: F.input,
     borderRadius: R.button,
@@ -1434,14 +1639,44 @@ const f = StyleSheet.create({
     alignItems: 'center',
     gap: space.row,
   },
-  fileCard: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  previewWrap: { alignItems: 'center' },
-  preview: {
-    height: F.previewMaxH,
-    aspectRatio: 9 / 16,
-    borderRadius: R.card,
-    overflow: 'hidden',
+  withdraw: {
     backgroundColor: colors.softBg,
+    borderRadius: R.card,
+    padding: spacing.cardPadding,
+  },
+  fileCard: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  previewBox: {
+    alignSelf: 'stretch',
+    height: F.preview,
+    borderRadius: R.card,
+    backgroundColor: colors.textPrimary,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  preview: { height: F.preview, aspectRatio: 9 / 16 },
+  thumb: {
+    width: F.thumbW,
+    height: F.thumbH,
+    borderRadius: R.thumb,
+    backgroundColor: colors.trackBg,
+    overflow: 'hidden',
+  },
+  thumbVideo: { width: F.thumbW, height: F.thumbH },
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.row,
+    backgroundColor: colors.softBg,
+    borderRadius: R.card,
+    padding: space.row,
+  },
+  summaryText: { flex: 1, gap: space.xxs },
+  progressHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.sm,
   },
   track: {
     height: F.track,
@@ -1451,9 +1686,10 @@ const f = StyleSheet.create({
   },
   fill: { height: F.track, backgroundColor: colors.brand },
   bottomBar: {
-    backgroundColor: colors.bg,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingTop: space.md,
     paddingHorizontal: space.screen,
   },

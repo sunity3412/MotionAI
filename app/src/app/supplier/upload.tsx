@@ -8,6 +8,7 @@
 // 단계 = 라우트 param `step`(없음 = STEP 01, '2' = STEP 02). 브라우저 뒤로가기 = STEP 01.
 // 두 단계가 다른 화면 인스턴스라 입력은 모듈 범위 세션 초안(sessionDraft)에 같이 적는다 —
 // 뒤로 가도, 가이드를 보고 와도, 새로고침 전까지(세션 안) 입력이 남는다(UI-SPEC Decisions 11).
+// 2026-09-30 배치 = 38-DESIGN.md(Figma 282:506) A-4 STEP 01 · STEP 02 · A-5.
 
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -20,6 +21,7 @@ import {
   AllAgreeBox,
   BottomBar,
   Card,
+  CheckCard,
   CheckboxRow,
   FailurePanel,
   FileCard,
@@ -37,9 +39,10 @@ import {
   text,
   TextInput54,
   TextLink,
-  TipCard,
   TopBar,
+  UploadSummary,
   VideoPreview,
+  WithdrawNote,
   type SelectOption,
 } from '../../components/SupplierUi';
 import { supplierCopy } from '../../constants/supplierCopy';
@@ -49,7 +52,7 @@ import { auth } from '../../lib/firebase';
 import type { PickFailure, PickFailureKind } from '../../lib/pickerFailure';
 import { useReferenceMotions } from '../../lib/referenceMotions';
 import { buildRequest, consentAllRequired, emptyStep1, formatOf, parsePrefill, REFERENCE_NAME_MAX_LEN, remainingRequired, validateFile, type ConsentState, type FileFailureKind, type Step1State, type YesNo } from '../../lib/supplierForm';
-import { mapPresignFailure, uploadOutcomeNext, type UploadOutcome } from '../../lib/supplierRules';
+import { LEVEL_LABEL_KO, mapPresignFailure, uploadOutcomeNext, type UploadOutcome } from '../../lib/supplierRules';
 import { readVideoDurationSec } from '../../lib/videoMeta';
 import { colors } from '../../theme';
 import type { ReferenceUploadUrlResponse, SkillLevel } from '../../types/analysis';
@@ -414,34 +417,57 @@ export default function SupplierUpload() {
     value: k,
     label: supplierCopy.form.sec2.level.options[k],
   }));
+  // 하단 바가 화면 아래에 떠 있어(absolute) 그 높이만큼 스크롤 끝에 여백을 더한다.
+  const [barHeight, setBarHeight] = useState(0);
+  const scrollPad = [styles.pad, { paddingBottom: space.lg + barHeight }];
+
   const declarations = [
     { key: 'isSplit', copy: supplierCopy.form.sec3.split },
     { key: 'hasHold', copy: supplierCopy.form.sec3.hold },
     { key: 'standingStart', copy: supplierCopy.form.sec3.stand },
   ] as const;
 
+  const file = step1.file;
+  const meta =
+    file && file.durationSec != null
+      ? supplierCopy.form.sec4.meta
+          .replace('{durationSec}', file.durationSec.toFixed(1))
+          .replace('{sizeMB}', (file.sizeBytes / MB).toFixed(1))
+      : null;
+
   if (!ready || !signedIn) {
     return <SafeAreaView style={styles.page} />;
   }
 
   if (step === 2 && submitPhase.kind === 'uploading') {
+    // 38-DESIGN A-5 — 뒤로 없음. 제목 → 24 → 파일 요약 → 32 → `올리는 중` / `{pct}%` → 트랙 → 12 →
+    // keepOpen → 32 → 가운데 `올리기 취소`.
+    const u = supplierCopy.form.uploading;
+    const summaryTitle = u.summaryTitle
+      .replace('{name}', step1.nameChoice?.name.trim() ?? '')
+      .replace('{level}', step1.level ? LEVEL_LABEL_KO[step1.level] : '');
+    const fileName = file?.name ?? '';
+    const summaryMeta = meta ? u.summaryMeta.replace('{file}', fileName).replace('{meta}', meta) : fileName;
     return (
       <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
         <PageFrame>
-          <View style={styles.pad}>
-            <TopBar />
-            <Text style={[text.title, styles.mt32]} accessibilityRole="header">
-              {supplierCopy.form.uploading.title}
+          <View style={[styles.pad, styles.uploadingTop]}>
+            <Text style={text.display} accessibilityRole="header">
+              {u.title}
             </Text>
-            <View style={styles.mt16}>
+            <View style={styles.mt24}>
+              <UploadSummary uri={file?.uri ?? null} title={summaryTitle} meta={summaryMeta} />
+            </View>
+            <View style={styles.mt32}>
               <ProgressBar
                 pct={submitPhase.pct}
-                label={supplierCopy.form.uploading.progress.replace('{pct}', String(submitPhase.pct))}
+                label={u.progressLabel}
+                valueText={u.pct.replace('{pct}', String(submitPhase.pct))}
               />
             </View>
-            <Text style={[text.label, text.mid, styles.mt8]}>{supplierCopy.form.uploading.keepOpen}</Text>
-            <View style={styles.mt24}>
-              <TextLink label={supplierCopy.common.cancel} onPress={cancelUpload} tone="cancel" />
+            <Text style={[text.aux, styles.mt12]}>{u.keepOpen}</Text>
+            <View style={styles.mt32}>
+              <TextLink label={supplierCopy.common.cancel} onPress={cancelUpload} tone="cancel" center />
             </View>
           </View>
         </PageFrame>
@@ -478,24 +504,33 @@ export default function SupplierUpload() {
     return (
       <SafeAreaView style={styles.page} edges={['top']}>
         <PageFrame>
-          <ScrollView contentContainerStyle={styles.pad}>
+          <ScrollView contentContainerStyle={scrollPad}>
             <TopBar onBack={goBack} backLabel={supplierCopy.common.back} />
-            <View style={styles.mt8}>
-              <StepHeader step={supplierCopy.form.step2.label} title={supplierCopy.form.step2.title} />
-            </View>
-            <View style={styles.section}>
-              <AllAgreeBox label={supplierCopy.form.sec5.all} checked={allRequired} onToggle={toggleAllRequired} />
-              <View style={styles.mt12}>
-                <CheckboxRow label={supplierCopy.form.sec5.portrait} tag={required} checked={consent.portrait} onToggle={() => updateConsent({ portrait: !consent.portrait })} />
-                <CheckboxRow label={supplierCopy.form.sec5.usage} tag={required} checked={consent.usage} onToggle={() => updateConsent({ usage: !consent.usage })} />
-                <CheckboxRow label={supplierCopy.form.sec5.silent} tag={required} checked={consent.silent} onToggle={() => updateConsent({ silent: !consent.silent })} />
-                <CheckboxRow label={supplierCopy.form.sec5.training} note={supplierCopy.form.sec5.trainingNote} tag={{ text: supplierCopy.form.sec5.tagOptional, required: false }} checked={consent.training} onToggle={() => updateConsent({ training: !consent.training })} onChevron={() => router.push({ pathname: '/supplier/guide', params: { section: 's5' } })} chevronLabel={supplierCopy.common.guideLink} />
+            <StepHeader
+              step={supplierCopy.form.step2.label}
+              title={supplierCopy.form.step2.title}
+              current={2}
+            />
+            <View style={styles.mt32}>
+              <AllAgreeBox
+                label={supplierCopy.form.sec5.all}
+                hint={supplierCopy.form.sec5.allHint}
+                checked={allRequired}
+                onToggle={toggleAllRequired}
+              />
+              <View style={styles.mt8}>
+                <CheckboxRow inset label={supplierCopy.form.sec5.portrait} tag={required} checked={consent.portrait} onToggle={() => updateConsent({ portrait: !consent.portrait })} />
+                <CheckboxRow inset label={supplierCopy.form.sec5.usage} tag={required} checked={consent.usage} onToggle={() => updateConsent({ usage: !consent.usage })} />
+                <CheckboxRow inset label={supplierCopy.form.sec5.silent} tag={required} checked={consent.silent} onToggle={() => updateConsent({ silent: !consent.silent })} />
+                <CheckboxRow inset label={supplierCopy.form.sec5.training} note={supplierCopy.form.sec5.trainingNote} tag={{ text: supplierCopy.form.sec5.tagOptional, required: false }} checked={consent.training} onToggle={() => updateConsent({ training: !consent.training })} onChevron={() => router.push({ pathname: '/supplier/guide', params: { section: 's5' } })} chevronLabel={supplierCopy.common.guideLink} />
               </View>
               <FieldError message={showErrors && !allRequired ? supplierCopy.form.sec5.error : null} />
-              <Text style={[text.label, text.mid, styles.mt16]}>{supplierCopy.form.sec5.withdraw}</Text>
+              <View style={styles.mt16}>
+                <WithdrawNote text={supplierCopy.form.sec5.withdraw} />
+              </View>
             </View>
             {inlineError ? (
-              <View style={styles.section}>
+              <View style={styles.mt24}>
                 <FieldError message={inlineError} />
                 <View style={styles.mt8}>
                   <OutlineButton label={supplierCopy.common.retry} onPress={() => void submit()} />
@@ -505,6 +540,7 @@ export default function SupplierUpload() {
           </ScrollView>
           <BottomBar
             hint={missingConsents > 0 ? supplierCopy.form.remaining.replace('{n}', String(missingConsents)) : null}
+            onHeight={setBarHeight}
           >
             <PrimaryCta
               label={supplierCopy.form.submit}
@@ -518,13 +554,6 @@ export default function SupplierUpload() {
     );
   }
 
-  const file = step1.file;
-  const meta =
-    file && file.durationSec != null
-      ? supplierCopy.form.sec4.meta
-          .replace('{durationSec}', file.durationSec.toFixed(1))
-          .replace('{sizeMB}', (file.sizeBytes / MB).toFixed(1))
-      : null;
   const bottomHint =
     count > 0
       ? supplierCopy.form.remaining.replace('{n}', String(count))
@@ -535,45 +564,38 @@ export default function SupplierUpload() {
   return (
     <SafeAreaView style={styles.page} edges={['top']}>
       <PageFrame>
-        <ScrollView contentContainerStyle={styles.pad} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={scrollPad} keyboardShouldPersistTaps="handled">
           <TopBar onBack={goBack} backLabel={supplierCopy.common.back} />
-          <View style={styles.mt8}>
-            <StepHeader step={supplierCopy.form.step1.label} title={supplierCopy.form.step1.title} />
-          </View>
+          <StepHeader
+            step={supplierCopy.form.step1.label}
+            title={supplierCopy.form.step1.title}
+            current={1}
+          />
 
-          {/* ① 촬영 전 체크 5 + 확인 1 (UI-SPEC Decisions 11 — 세션 안에서 유지) */}
-          <View style={styles.section}>
-            <TipCard head={supplierCopy.form.sec1.title} lines={supplierCopy.form.sec1.items} />
-            <View style={styles.mt12}>
-              <CheckboxRow
-                label={supplierCopy.form.sec1.confirm}
-                checked={step1.checkConfirmed}
-                onToggle={() => update({ checkConfirmed: !step1.checkConfirmed })}
-              />
-            </View>
-            <FieldError message={err(!step1.checkConfirmed, supplierCopy.form.sec1.error)} />
-            <TextLink
-              label={supplierCopy.form.sec1.guideLink}
-              onPress={() => router.push('/supplier/guide')}
-              tone="go"
+          {/* ① 촬영 전 체크 5 + 확인 1 — 가이드 링크는 체크 행 안(38-DESIGN A-4 ①, Decisions 11 세션 유지) */}
+          <View style={styles.mt32}>
+            <CheckCard
+              title={supplierCopy.form.sec1.title}
+              items={supplierCopy.form.sec1.items}
+              confirmLabel={supplierCopy.form.sec1.confirm}
+              checked={step1.checkConfirmed}
+              onToggle={() => update({ checkConfirmed: !step1.checkConfirmed })}
+              linkLabel={supplierCopy.form.sec1.guideLink}
+              onLink={() => router.push('/supplier/guide')}
             />
+            <FieldError message={err(!step1.checkConfirmed, supplierCopy.form.sec1.error)} />
           </View>
 
-          {/* ② 동작 정보 */}
-          <Card style={styles.section}>
-            <Text style={text.heading} accessibilityRole="header">
-              {supplierCopy.form.sec2.title}
-            </Text>
-            <View style={styles.mt16}>
-              <SelectField
-                label={supplierCopy.form.sec2.name.label}
-                placeholder={supplierCopy.form.sec2.name.placeholder}
-                options={nameOptions}
-                value={selectValue}
-                onChange={onSelectName}
-                error={step1.nameChoice?.kind === 'new' ? null : err(nameMissing, supplierCopy.form.sec2.name.error)}
-              />
-            </View>
+          {/* ② 동작 정보 — 섹션 제목·외곽 카드 없음(페이지 제목과 겹쳐서 뺐다, 38-DESIGN A-4 ②) */}
+          <View style={styles.mt40}>
+            <SelectField
+              label={supplierCopy.form.sec2.name.label}
+              placeholder={supplierCopy.form.sec2.name.placeholder}
+              options={nameOptions}
+              value={selectValue}
+              onChange={onSelectName}
+              error={step1.nameChoice?.kind === 'new' ? null : err(nameMissing, supplierCopy.form.sec2.name.error)}
+            />
             {step1.nameChoice?.kind === 'new' ? (
               <View style={styles.mt8}>
                 <TextInput54
@@ -587,7 +609,7 @@ export default function SupplierUpload() {
             ) : null}
             {/* 리뷰 R7 — 이름·선언은 등록 정보로 보관, 채점은 지금 기본 비교 방식(techniqueRefId 소비 배선 없음) */}
             <Helper>{supplierCopy.form.sec2.name.helper}</Helper>
-            <View style={styles.mt12}>
+            <View style={styles.mt4}>
               <CheckboxRow
                 label={supplierCopy.form.sec2.combo.label}
                 tag={{ text: supplierCopy.form.sec5.tagOptional, required: false }}
@@ -607,8 +629,8 @@ export default function SupplierUpload() {
               />
               <Helper>{supplierCopy.form.sec2.athlete.helper}</Helper>
             </View>
-            <View style={styles.mt16}>
-              <Text style={[text.label, styles.mb8]}>{supplierCopy.form.sec2.level.label}</Text>
+            <View style={styles.mt24}>
+              <Text style={[text.labelBold, styles.mb8]}>{supplierCopy.form.sec2.level.label}</Text>
               <Segment
                 label={supplierCopy.form.sec2.level.label}
                 options={levelOptions}
@@ -618,40 +640,50 @@ export default function SupplierUpload() {
               <FieldError message={err(step1.level == null, supplierCopy.form.sec2.level.error)} />
               <Helper>{supplierCopy.form.sec2.level.helper}</Helper>
             </View>
-          </Card>
+          </View>
 
-          {/* ③ 선언 3 (D-07 · D-09 서 있는 시작 아니오 = 제출 차단) */}
-          <Card style={styles.section}>
+          {/* ③ 선언 3 — 질문마다 카드(38-DESIGN A-4 ③, D-07 · D-09 서 있는 시작 아니오 = 제출 차단) */}
+          <View style={styles.mt40}>
             <Text style={text.heading} accessibilityRole="header">
               {supplierCopy.form.sec3.title}
             </Text>
-            {declarations.map(({ key, copy }) => (
-              <View key={key} style={styles.mt16}>
-                <Text style={[text.label, styles.mb8]}>{copy.q}</Text>
-                <Segment label={copy.q} options={yesNo} value={step1[key]} onChange={(v) => update({ [key]: v } as Partial<Step1State>)} />
-                <FieldError message={err(step1[key] == null, supplierCopy.form.sec3.error)} />
-                {key === 'standingStart' && step1.standingStart === 'no' ? (
-                  <FieldError message={supplierCopy.form.sec3.stand.blocked} />
-                ) : null}
-                <Helper>{copy.helper}</Helper>
-              </View>
-            ))}
-          </Card>
+            <View style={styles.cards}>
+              {declarations.map(({ key, copy }) => (
+                <Card key={key}>
+                  <Text style={[text.labelBold, styles.mb12]}>{copy.q}</Text>
+                  <Segment label={copy.q} options={yesNo} value={step1[key]} onChange={(v) => update({ [key]: v } as Partial<Step1State>)} />
+                  <FieldError message={err(step1[key] == null, supplierCopy.form.sec3.error)} />
+                  <Helper>{copy.helper}</Helper>
+                  {key === 'standingStart' && step1.standingStart === 'no' ? (
+                    <FieldError message={supplierCopy.form.sec3.stand.blocked} />
+                  ) : null}
+                </Card>
+              ))}
+            </View>
+          </View>
 
-          {/* ④ 영상 파일 (1:407 카드 · 1:399 알약 — 알약 문구는 정정본 form.sec4.pill) */}
-          <Card style={styles.section}>
+          {/* ④ 영상 파일 — 안내 알약이 파일 카드 위(38-DESIGN A-4 ④) */}
+          <View style={styles.mt40}>
             <Text style={text.heading} accessibilityRole="header">
               {supplierCopy.form.sec4.title}
             </Text>
+            <View style={styles.mt16}>
+              <NoticePill lines={supplierCopy.form.sec4.pill} />
+            </View>
             {file ? (
-              <View style={[styles.mt16, styles.gap8]}>
+              <View style={styles.mt12}>
                 {file.uri ? <VideoPreview uri={file.uri} /> : null}
-                {meta ? <Text style={text.label}>{meta}</Text> : null}
-                <Text style={[text.label, text.mid]}>{supplierCopy.form.sec4.previewHint}</Text>
-                <OutlineButton label={supplierCopy.form.sec4.repick} onPress={pickFile} disabled={picking} />
+                <View style={[styles.metaRow, styles.mt12]}>
+                  <Text style={text.labelBold}>{file.name}</Text>
+                  {meta ? <Text style={[text.label, text.mid]}>{meta}</Text> : null}
+                </View>
+                <Text style={[text.aux, styles.mt4]}>{supplierCopy.form.sec4.previewHint}</Text>
+                <View style={styles.mt12}>
+                  <OutlineButton label={supplierCopy.form.sec4.repick} onPress={pickFile} disabled={picking} />
+                </View>
               </View>
             ) : (
-              <View style={styles.mt16}>
+              <View style={styles.mt12}>
                 <FileCard
                   title={supplierCopy.form.sec4.card.title}
                   sub={supplierCopy.form.sec4.card.sub}
@@ -661,12 +693,9 @@ export default function SupplierUpload() {
                 <FieldError message={err(true, supplierCopy.form.sec4.err.required)} />
               </View>
             )}
-            <View style={styles.mt12}>
-              <NoticePill lines={supplierCopy.form.sec4.pill} />
-            </View>
-          </Card>
+          </View>
         </ScrollView>
-        <BottomBar hint={bottomHint}>
+        <BottomBar hint={bottomHint} onHeight={setBarHeight}>
           <PrimaryCta
             label={supplierCopy.form.next}
             onPress={onNext}
@@ -690,12 +719,17 @@ export default function SupplierUpload() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   pad: { flexGrow: 1, paddingHorizontal: space.screen, paddingBottom: space.lg },
-  section: { marginTop: space.lg },
+  // A-5 내용 y≈120 = safe-area 59 + 60(근사).
+  uploadingTop: { paddingTop: space.xxl + space.row },
+  mt4: { marginTop: space.xs },
   mt8: { marginTop: space.sm },
   mt12: { marginTop: space.row },
   mt16: { marginTop: space.md },
   mt24: { marginTop: space.lg },
   mt32: { marginTop: space.xl },
+  mt40: { marginTop: space.s40 },
   mb8: { marginBottom: space.sm },
-  gap8: { gap: space.sm },
+  mb12: { marginBottom: space.row },
+  cards: { marginTop: space.md, gap: space.row },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: space.sm },
 });

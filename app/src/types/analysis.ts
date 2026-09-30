@@ -1406,7 +1406,7 @@ export interface SupplierNotInvitedError {
   email: string | null;
 }
 
-// `suppliers/{uid}` — 공급자 명단 정본(contract.md §3). W2 규칙에서 본인 읽기를 연다(소비 예정).
+// `suppliers/{uid}` — 공급자 명단 정본(contract.md §3). 본인 get 은 quick-260930-o0u 규칙에서 열었다(앱 소비처는 아직 없음).
 export interface SupplierDoc {
   email: string | null;
   code: string | null;
@@ -1415,11 +1415,23 @@ export interface SupplierDoc {
   since?: number; // epoch ms. SSM uid 를 회수만 한 doc 은 {active:false} 만 있다
 }
 
-// `supplierCodes/{code}` — 코드로 공급자 찾기. W2 수강생 강사 코드 입력이 읽는다(소비 예정).
+// `supplierCodes/{code}` — 코드로 공급자 찾기. 소비처 = app/src/lib/instructorLink.ts lookupInstructorCode
+// (instructorCode.classifyCodeDoc 로 판정 — 마이 탭 강사 코드 입력 시트).
 export interface SupplierCodeDoc {
   supplierUid: string;
   displayName: string | null;
   active: boolean;
+}
+
+// `instructorLinks/{학생 uid}` — 수강생 ↔ 강사 연결(contract.md §3, quick-260930-o0u, 38-DESIGN-v2 §W2).
+// 앱이 규칙(firestore.rules isValidInstructorLink)을 거쳐 한 번만 만든다. 필드는 이 넷뿐(규칙 hasOnly,
+// models.INSTRUCTOR_LINK_FIELDS) — 크레딧 필드 없음. 해제는 backend/scripts/instructor_link.py 만.
+export interface InstructorLinkDoc {
+  code: string;
+  supplierUid: string;
+  displayName: string | null;
+  // Firestore Timestamp(serverTimestamp) — 앱은 instructorCode.normalizeInstructorLink 로 ms 로 읽는다.
+  linkedAt: unknown;
 }
 
 // `supplierInvites/{email}` — 초대 doc 은 클라이언트가 읽지 못한다(서버 Admin 전용) → TS 타입을 두지 않는다.

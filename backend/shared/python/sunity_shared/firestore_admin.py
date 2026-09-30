@@ -5472,3 +5472,39 @@ def set_supplier_active(uid: str, active: bool, now_ms: int | None = None) -> di
         out.get("revokedInvite"),
     )
     return out
+
+
+# ── quick-260930-o0u (38-DESIGN-v2 §W2) — 수강생 ↔ 강사 연결 조회 · 운영 해제 ──
+#
+# instructorLinks/{학생 uid} 는 앱이 규칙(firestore.rules isValidInstructorLink)을 거쳐 한 번만
+# 만든다. 앱 규칙은 update·delete 를 막으므로, 해제는 운영 전용 — 이 두 함수를
+# backend/scripts/instructor_link.py 가 부른다.
+
+
+def get_instructor_link(uid: str) -> dict | None:
+    """`instructorLinks/{uid}` doc 또는 None. 빈 uid 면 None(Firestore 호출 0)."""
+    if not uid:
+        return None
+    return _snap_dict(_doc(models.instructor_link_path(uid)).get())
+
+
+def delete_instructor_link(uid: str) -> dict | None:
+    """연결을 지운다(운영 전용 — 앱 규칙은 delete 를 막는다). 반환 = 지운 doc, 없었으면 None.
+
+    지우기 전 내용을 돌려주는 것이 이력의 전부다 — 스크립트가 그 dict 를 stdout 에 남긴다
+    (별도 이력 컬렉션은 없다, 38-DESIGN-v2 §W2 에 없음). 빈 uid 면 None(Firestore 호출 0).
+    """
+    if not uid:
+        return None
+    ref = _doc(models.instructor_link_path(uid))
+    data = _snap_dict(ref.get())
+    if data is None:
+        return None
+    ref.delete()
+    _sup_log.info(
+        "delete_instructor_link uid=%s code=%s supplierUid=%s",
+        uid,
+        data.get("code"),
+        data.get("supplierUid"),
+    )
+    return data

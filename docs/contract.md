@@ -513,8 +513,28 @@ revokedAt?     number            취소(수락 전) 또는 회수(수락 후) �
 일 때만 통과하고, active false uid 는 어떤 초대도 수락하지 않는다. 한 번 수락된 메일에는 새 초대를 만들 수
 없다. 되살리기는 `reactivate --uid`(suppliers·supplierCodes active true, 초대는 revoked 그대로)로만 한다.
 
-클라이언트 접근: 지금은 전부 거부(firestore.rules 맨 끝 기본 차단 — 규칙 무변경). `suppliers` 본인 읽기 ·
-`supplierCodes` 로그인 읽기는 W2 규칙에서 연다.
+클라이언트 접근(quick-260930-o0u 규칙부터): `supplierCodes/{CODE}` 는 로그인 사용자(게스트 포함) **get 만**
+(list·쓰기 거부 — 코드 목록·공급자 uid 일괄 열람 금지). `suppliers/{uid}` 는 **본인 get 만**(list·쓰기 거부).
+`supplierInvites` 는 여전히 전부 거부(맨 끝 기본 차단).
+
+### 수강생 ↔ 강사 연결 (quick-260930-o0u, 38-DESIGN-v2 §W2)
+
+`instructorLinks/{학생 uid}` — 수강생이 마이 탭에서 강사 코드를 넣어 한 번 만든다 (analysis.ts
+`InstructorLinkDoc`, models.py `INSTRUCTOR_LINKS_COLLECTION` · `INSTRUCTOR_LINK_FIELDS`)
+```
+code           string            정규화된 강사 코드(공백 제거 + 대문자, ^[A-Z0-9]{3,8}$)
+supplierUid    string            supplierCodes/{code}.supplierUid 와 같아야 한다(규칙 대조)
+displayName    string | null     supplierCodes/{code}.displayName 과 같아야 한다(null 이면 앱은 코드를 이름 자리에)
+linkedAt       Timestamp         serverTimestamp 만(규칙 linkedAt == request.time). 끝 그림 보상 조건
+                                 ("첫 분석 전 연결")을 나중에 소급해 따지는 재료
+```
+필드는 이 넷뿐이다(규칙 hasOnly). **크레딧 필드는 없다**(38 D-13 결제 없음, SCENARIOS R7).
+
+규칙(firestore.rules `isValidInstructorLink`): 본인 경로만 · create 1회만(update·delete·list 거부) ·
+본인 코드 금지(`supplierUid != auth.uid`) · 코드 doc 이 있고 `active == true` · supplierUid·displayName 위조 금지.
+users/{uid}/** 아래에 두지 않은 이유 = 그 재귀 블록이 본인에게 delete 를 주고 규칙은 OR 결합이라 막을 수 없다.
+앱은 구독하지 않고 uid 당 get 1회(Spark 읽기 캡). 해제 = 운영 전용 `backend/scripts/instructor_link.py
+unlink --uid`(지우기 전 내용을 stdout 한 줄로 남김 — 이력의 전부). 해제된 수강생은 다시 입력할 수 있다.
 
 > Phase 14 (Plan 14-01) — techniqueProfile / forceDirectionPattern / captureViews
 > 신설. meanAngles / bodyNormalizationProfile 도 §3 에 명시 (Open-Q3 contract gap

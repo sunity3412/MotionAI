@@ -1015,6 +1015,20 @@ def supplier_invite_path(email: str) -> str:
     return f"{SUPPLIER_INVITES_COLLECTION}/{email}"
 
 
+# quick-260930-o0u (38-DESIGN-v2 §W2) — 수강생 ↔ 강사 연결. instructorLinks/{학생 uid} —
+# {code, supplierUid, displayName, linkedAt}. 클라이언트는 본인 get 과 create 1회만(update·delete
+# 금지), 해제는 Admin 스크립트(backend/scripts/instructor_link.py unlink)만. users/** 밖에 둔 이유 =
+# users 재귀 규칙이 본인에게 delete 를 주고 규칙은 OR 결합이라 하위 블록으로 못 막는다(플래너 결정 (a)).
+# 크레딧 필드는 없다(38 D-13 결제 없음).
+INSTRUCTOR_LINKS_COLLECTION = "instructorLinks"
+# firestore.rules isValidInstructorLink 의 hasOnly/hasAll 목록과 같다 — 바꾸면 규칙도 같이.
+INSTRUCTOR_LINK_FIELDS = ("code", "supplierUid", "displayName", "linkedAt")
+
+
+def instructor_link_path(uid: str) -> str:
+    return f"{INSTRUCTOR_LINKS_COLLECTION}/{uid}"
+
+
 def parse_supplier_uids(value: str | None) -> dict[str, str | None]:
     """`SUPPLIER_UIDS` 문자열 → {uid: 강사코드|None} (Phase 38 D-12). 순수 함수.
 

@@ -8,7 +8,11 @@ rules_version = '2';
 //     만들지도(create) 바꾸지도(update) 못한다. 나머지 필드는 종전처럼 본인 자유.
 //   · reference — 재귀 와일드카드를 좁혀 top-level·versions 만 인증자 읽기,
 //     private 서브문서는 supplierUid 본인만 읽기. 쓰기는 전부 백엔드(Admin SDK)/콘솔.
-// 검증·배포는 backend/scripts/deploy_firestore_rules.py (--test 로 검증, --release 는 38-09 승인 뒤).
+// quick-260930-o0u (38-DESIGN-v2 §W2):
+//   · instructorLinks — 수강생 ↔ 강사 연결, 본인 get · create 1회만. supplierCodes 로그인 get,
+//     suppliers 본인 get(contract.md §3 가 "W2 규칙에서 연다"고 한 두 줄).
+// 게시 = belle 콘솔(38-09 선택지 B — Admin SA 로 --release 는 403), 확인 = backend/scripts/
+// deploy_firestore_rules.py --current 대조 + 라이브 probe.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -41,6 +45,52 @@ service cloud.firestore {
     match /reference/{refId}/private/{doc} {
       allow read: if request.auth != null && resource.data.supplierUid == request.auth.uid;
       allow write: if false;
+    }
+
+    // quick-260930-o0u (38-DESIGN-v2 §W2) — 수강생 강사 코드 연결의 쓰기 조건.
+    // 본인 경로 · 필드 넷만 · 본인 코드 금지(SCENARIOS R5) · 서버 시각만(linkedAt) · 코드가
+    // supplierCodes 에 실제로 있고 active · supplierUid·displayName 이 코드 doc 과 같다(위조 금지).
+    // backend models.INSTRUCTOR_LINK_FIELDS 와 같은 필드 목록 — 바꾸면 같이.
+    function isValidInstructorLink(uid) {
+      let d = request.resource.data;
+      let codeDoc = /databases/$(database)/documents/supplierCodes/$(d.code);
+      return request.auth != null
+        && request.auth.uid == uid
+        && d.keys().hasOnly(['code', 'supplierUid', 'displayName', 'linkedAt'])
+        && d.keys().hasAll(['code', 'supplierUid', 'displayName', 'linkedAt'])
+        && d.code is string
+        && d.code.matches('^[A-Z0-9]{3,8}$')
+        && d.supplierUid is string
+        && d.supplierUid != request.auth.uid
+        && d.linkedAt == request.time
+        && exists(codeDoc)
+        && get(codeDoc).data.active == true
+        && get(codeDoc).data.supplierUid == d.supplierUid
+        && d.displayName == get(codeDoc).data.get('displayName', null);
+    }
+
+    // 수강생 ↔ 강사 연결(instructorLinks/{학생 uid}). 한 번만 만든다 — update·delete 거부,
+    // 해제는 운영 스크립트(backend/scripts/instructor_link.py unlink, Admin SDK)만.
+    // users/{uid}/** 아래에 두지 않은 이유: 그 재귀 블록이 본인에게 delete 를 주고 규칙은
+    // OR 결합이라 하위 블록으로 막을 수 없다(38-06 이 reference/** 에서 겪은 구조).
+    // list 거부 — 남의 연결을 훑지 못하게.
+    match /instructorLinks/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow create: if isValidInstructorLink(uid);
+      allow list, update, delete: if false;
+    }
+
+    // 강사 코드 조회(앱 입력 시트). 코드를 아는 로그인 사용자만 그 한 doc 을 get 한다.
+    // list 거부 — 코드 목록·공급자 uid 를 한꺼번에 보지 못하게. 쓰기는 백엔드(Admin SDK)만.
+    match /supplierCodes/{code} {
+      allow get: if request.auth != null;
+      allow list, write: if false;
+    }
+
+    // 공급자 명단 — 본인 doc 만 get. list·쓰기 거부(쓰기는 백엔드 supplier_invite.py 만).
+    match /suppliers/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
     }
 
     // 그 외 전부 차단

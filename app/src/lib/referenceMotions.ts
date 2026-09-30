@@ -6,8 +6,9 @@
 //
 // 데이터 스키마: reference/{motionId} 단일 컬렉션. 단일 진실 = docs/reference-motions.md §3.
 //   필수: name, athleteName, level('basic'|'intermediate'|'advanced')
-//   옵셔널: entryType/entryDescription/description/videoUrl/thumbnailUrl/clipRange/
-//           checkpoints/sharedBaseMotionId/baseUntilS, isActive(false 면 앱 미노출)
+//   옵셔널: entryType/entryDescription/description/videoUrl/thumbnailUrl/thumbnailS3Key/
+//           clipRange/checkpoints/sharedBaseMotionId/baseUntilS, isActive(false 면 앱 미노출)
+//   thumbnailS3Key(quick-260930-w9l) = 공급자 등록 썸네일 키 — URL 은 referenceThumbs.ts 가 받는다.
 
 import {
   collection,
@@ -175,6 +176,7 @@ function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | 
     description: str(raw.description),
     videoUrl: str(raw.videoUrl),
     thumbnailUrl: str(raw.thumbnailUrl),
+    thumbnailS3Key: str(raw.thumbnailS3Key),
     clipRange: raw.clipRange as ReferenceMotion['clipRange'],
     checkpoints: Array.isArray(raw.checkpoints)
       ? (raw.checkpoints as ReferenceMotion['checkpoints'])

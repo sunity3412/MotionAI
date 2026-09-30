@@ -138,6 +138,33 @@ export function requestReferencePlaybackUrl(
   });
 }
 
+// quick-260930-w9l — 공급자 등록 기준 동작 썸네일(jpg) 재서명. doc 에는 S3 키(thumbnailS3Key)만
+// 있고 URL 은 없다(서명 URL 은 만료된다 — motionThumbs.ts 머리 주석). 서버가 키를 구성해 exact
+// 비교한 뒤 1시간 서명한다. 번들 썸네일(기존 11개)·키 없음·숨김 doc 은 전부 404(leak 0).
+// 캐시·진행 중 요청 공유는 referenceThumbs.ts 가 한다.
+export type ReferenceThumbUrl = { url: string; expiresInSec: number };
+
+export function fetchReferenceThumbUrl(referenceMotionId: string): Promise<ReferenceThumbUrl> {
+  return authedJson<{ playbackUrl?: unknown; expiresInSec?: unknown }>('/playback-url', {
+    method: 'POST',
+    body: { referenceMotionId, asset: 'thumbnail' },
+  }).then((res) => {
+    if (typeof res.playbackUrl !== 'string' || res.playbackUrl.length === 0) {
+      throw new ApiError(
+        'POST /playback-url: playbackUrl 필드 부재/형식 오류',
+        200,
+        'malformed_response',
+      );
+    }
+    // expiresInSec 형식이 깨졌으면 짧게(300초) 잡는다 — 과소 추정의 대가는 재발급 1회뿐.
+    const ttl =
+      typeof res.expiresInSec === 'number' && Number.isFinite(res.expiresInSec) && res.expiresInSec > 0
+        ? res.expiresInSec
+        : 300;
+    return { url: res.playbackUrl, expiresInSec: ttl };
+  });
+}
+
 // Phase 31 (D-06) — POST /visual/rotation. 회전 참고 영상 온디맨드 생성 요청.
 // 건당 ~6-7분·과금이라 자동 생성하지 않는다 (contract.md §2).
 // 202 = 신규 접수/재시도 수락, 200 = 이미 완료. 어느 쪽도 URL 을 담지 않는다 —

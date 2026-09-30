@@ -12,12 +12,15 @@
 // 하나(투명도만) — 미끄러짐·확대가 없어 reduced-motion 과 같은 모습이다(38-DESIGN-v2).
 // 2026-09-30 38-DESIGN-v2(quick-260930-lfw): IdBox·CodeCard 삭제 → AccountBox · ContactRow ·
 // CodeRow · BigCodeModal.
+// 2026-09-30 quick-260930-w9l(belle 폰 확인): RequiredMark · FieldLabel(필수 표시) · ReadOnlyField
+// (선수 이름 고정) · CheckboxRow 링크 글자('보기 >') · ListRow 썸네일 · WithdrawNote 삭제.
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useState, type ReactNode } from 'react';
 import {
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -259,6 +262,7 @@ export type RowTrailing = 'chevron' | 'progress' | null;
 
 // 38-DESIGN A-3 행 — 세로 12 · 썸네일 48 반경 8 → 12 → 이름 18/700 / 2 / 부제 15 textMid.
 // 오른쪽: 상세 있음 = 쉐브론 20 inputBorder, 진행 중 = 8px 점 brandButtonDisabled. 행 사이 dividerSoft.
+// thumbUri(w9l) = 등록 썸네일 1시간 URL(referenceThumbs.ts). 없으면 종전 아이콘 자리.
 export function ListRow({
   title,
   subtitle,
@@ -267,6 +271,7 @@ export function ListRow({
   highlighted,
   isLast,
   onLayout,
+  thumbUri,
 }: {
   title: string;
   subtitle: string;
@@ -275,6 +280,7 @@ export function ListRow({
   highlighted?: boolean;
   isLast?: boolean;
   onLayout?: (y: number) => void;
+  thumbUri?: string | null;
 }) {
   return (
     <Pressable
@@ -291,7 +297,16 @@ export function ListRow({
       accessibilityLabel={`${title}, ${subtitle}`}
     >
       <View style={s.thumb}>
-        <Ionicons name="images-outline" size={20} color={colors.inputBorder} />
+        {thumbUri ? (
+          <Image
+            source={{ uri: thumbUri }}
+            style={s.thumbImage}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <Ionicons name="images-outline" size={20} color={colors.inputBorder} />
+        )}
       </View>
       <View style={s.rowText}>
         <Text style={text.title} numberOfLines={1}>
@@ -916,7 +931,9 @@ const s = StyleSheet.create({
     backgroundColor: colors.softBg,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  thumbImage: { width: H.thumb, height: H.thumb },
   rowText: { flex: 1, gap: space.xxs },
   progressDot: {
     width: space.sm,
@@ -1168,6 +1185,54 @@ export function FieldError({ message }: { message: string | null }) {
   );
 }
 
+// 필수 표시(w9l 항목 2) — CheckboxRow 의 [필수] 태그와 같은 모양(17/700 brand). 문구는 호출부가
+// supplierCopy.form.requiredTag 로 넘긴다. Text 라 다른 Text 문단 안에도 들어간다.
+export function RequiredMark({ label }: { label: string }) {
+  return <Text style={[text.labelBold, f.brandText]}>{label}</Text>;
+}
+
+// 필드 라벨 17/700 + (필수면) 옆에 RequiredMark, 아래 8. TextInput54 · SelectField · 레벨이 같이 쓴다.
+export function FieldLabel({ label, requiredMark }: { label: string; requiredMark?: string }) {
+  return (
+    <View style={[f.labelRow, f.fieldLabel]}>
+      <Text style={text.labelBold}>{label}</Text>
+      {requiredMark ? <RequiredMark label={requiredMark} /> : null}
+    </View>
+  );
+}
+
+// 읽기 전용 값(w9l 항목 10 — 선수 이름은 초대 때 이름). 입력 54 와 같은 상자·테두리, 편집 불가,
+// 글자 textMid. pending(아직 모름) = 빈 상자. value 가 null 이면 상자 없이 missingMessage 를 오류
+// 문구로 보인다.
+export function ReadOnlyField({
+  label,
+  value,
+  pending,
+  missingMessage,
+}: {
+  label: string;
+  value: string | null;
+  pending?: boolean;
+  missingMessage: string;
+}) {
+  return (
+    <View>
+      <FieldLabel label={label} />
+      {pending ? (
+        <View style={[f.input, f.readOnly]} />
+      ) : value ? (
+        <View style={[f.input, f.readOnly]} accessibilityLabel={`${label} ${value}`}>
+          <Text style={[text.label, text.mid]} numberOfLines={1}>
+            {value}
+          </Text>
+        </View>
+      ) : (
+        <FieldError message={missingMessage} />
+      )}
+    </View>
+  );
+}
+
 // 도움말 — 38-DESIGN §0 보조 문구 15 textMid, 위 8.
 export function Helper({ children }: { children: string }) {
   return <Text style={[text.aux, f.helper]}>{children}</Text>;
@@ -1177,6 +1242,7 @@ export function Helper({ children }: { children: string }) {
 // 라벨 17/700 위 8 · 오류 아래 8.
 export function TextInput54({
   label,
+  requiredMark,
   value,
   onChangeText,
   placeholder,
@@ -1184,6 +1250,7 @@ export function TextInput54({
   error,
 }: {
   label?: string;
+  requiredMark?: string;
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
@@ -1193,7 +1260,7 @@ export function TextInput54({
   const [focused, setFocused] = useState(false);
   return (
     <View>
-      {label ? <Text style={[text.labelBold, f.fieldLabel]}>{label}</Text> : null}
+      {label ? <FieldLabel label={label} requiredMark={requiredMark} /> : null}
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -1222,6 +1289,7 @@ export type SelectOption = { value: string; label: string };
 // 네이티브는 옵션 목록 버튼으로만 둔다(Picker 패키지 설치 0).
 export function SelectField({
   label,
+  requiredMark,
   placeholder,
   options,
   value,
@@ -1229,6 +1297,7 @@ export function SelectField({
   error,
 }: {
   label: string;
+  requiredMark?: string;
   placeholder: string;
   options: readonly SelectOption[];
   value: string | null;
@@ -1239,7 +1308,7 @@ export function SelectField({
     const border = error ? colors.inputError : colors.inputBorder;
     return (
       <View>
-        <Text style={[text.labelBold, f.fieldLabel]}>{label}</Text>
+        <FieldLabel label={label} requiredMark={requiredMark} />
         <View style={f.selectWrap}>
           <select
             aria-label={label}
@@ -1279,7 +1348,7 @@ export function SelectField({
   }
   return (
     <View>
-      <Text style={[text.labelBold, f.fieldLabel]}>{label}</Text>
+      <FieldLabel label={label} requiredMark={requiredMark} />
       <View style={f.optionList} accessibilityRole="radiogroup">
         {options.map((o) => {
           const on = o.value === value;
@@ -1350,6 +1419,7 @@ function CheckBox({ checked }: { checked: boolean }) {
 // 떼어 보여 준다(원문은 그대로, 38-DESIGN A-4 ①).
 export function CheckCard({
   title,
+  requiredMark,
   items,
   confirmLabel,
   checked,
@@ -1358,6 +1428,7 @@ export function CheckCard({
   onLink,
 }: {
   title: string;
+  requiredMark?: string;
   items: readonly string[];
   confirmLabel: string;
   checked: boolean;
@@ -1369,9 +1440,11 @@ export function CheckCard({
     <View style={[s.card, f.checkCard]}>
       <View style={f.checkCardHead}>
         <AlertIcon size={18} />
-        <Text style={[text.title, s.flex]} accessibilityRole="header">
+        <Text style={text.title} accessibilityRole="header">
           {title}
         </Text>
+        {requiredMark ? <RequiredMark label={requiredMark} /> : null}
+        <View style={s.flex} />
       </View>
       <View style={f.checkItems}>
         {items.map((item, i) => (
@@ -1409,7 +1482,8 @@ export function CheckCard({
 
 // 38-DESIGN A-4 체크 행 — 체크박스 22 + 10 + 한 문단 17(태그 `[필수]` 700 brand / `[선택]` 700
 // resultTextSub 가 같은 문단 안), 세로 12. inset = 가로 16(STEP 02 동의 행). 부연 = 아래 4 에
-// 13 resultTextSub. chevron(상세가 있을 때, 따로 누른다) 20 inputBorder.
+// 13 resultTextSub. chevron(상세가 있을 때, 따로 누른다) 20 inputBorder. w9l 항목 4 — linkText 가
+// 있으면 쉐브론 앞에 글자(15 textMid, belle 원문 '[필수] ○○ 동의 · 보기 >').
 export function CheckboxRow({
   label,
   checked,
@@ -1418,6 +1492,7 @@ export function CheckboxRow({
   note,
   onChevron,
   chevronLabel,
+  linkText,
   inset,
 }: {
   label: string;
@@ -1427,6 +1502,7 @@ export function CheckboxRow({
   note?: string;
   onChevron?: () => void;
   chevronLabel?: string;
+  linkText?: string;
   inset?: boolean;
 }) {
   return (
@@ -1442,9 +1518,11 @@ export function CheckboxRow({
         <View style={s.flex}>
           <Text style={text.label}>
             {tag ? (
-              <Text style={[text.labelBold, tag.required ? f.brandText : text.sub]}>
-                {tag.text}{' '}
-              </Text>
+              tag.required ? (
+                <RequiredMark label={`${tag.text} `} />
+              ) : (
+                <Text style={[text.labelBold, text.sub]}>{tag.text} </Text>
+              )
             ) : null}
             {label}
           </Text>
@@ -1454,11 +1532,12 @@ export function CheckboxRow({
       {onChevron ? (
         <Pressable
           onPress={onChevron}
-          style={({ pressed }) => [f.chevronBtn, pressed && s.pressed]}
+          style={({ pressed }) => [f.chevronBtn, linkText ? f.linkBtn : null, pressed && s.pressed]}
           accessibilityRole="link"
-          accessibilityLabel={chevronLabel}
+          accessibilityLabel={chevronLabel ?? linkText}
           hitSlop={8}
         >
+          {linkText ? <Text style={text.aux}>{linkText}</Text> : null}
           <Ionicons name="chevron-forward" size={F.chevron} color={colors.inputBorder} />
         </Pressable>
       ) : null}
@@ -1491,15 +1570,6 @@ export function AllAgreeBox({
       <Text style={[text.labelBold, s.flex]}>{label}</Text>
       <Text style={text.auxFaint}>{hint}</Text>
     </Pressable>
-  );
-}
-
-// 38-DESIGN A-4 STEP 02 철회 고지 — softBg · 반경 15 · 패딩 16 · 보조 문구.
-export function WithdrawNote({ text: body }: { text: string }) {
-  return (
-    <View style={f.withdraw}>
-      <Text style={text.aux}>{body}</Text>
-    </View>
   );
 }
 
@@ -1656,6 +1726,10 @@ const BAR_MATERIAL: ViewStyle =
 
 const f = StyleSheet.create({
   fieldLabel: { marginBottom: space.sm },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: space.s6 },
+  readOnly: { justifyContent: 'center', backgroundColor: colors.softBg },
+  // '보기 >' — 글자가 있어 44 정사각 대신 글자 폭(터치 높이 44 유지).
+  linkBtn: { width: 'auto', flexDirection: 'row', gap: space.xxs, paddingLeft: space.sm },
   error: { color: colors.infoTeal, marginTop: space.sm },
   helper: { marginTop: space.sm },
   brandText: { color: colors.brand },
@@ -1759,11 +1833,6 @@ const f = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.row,
-  },
-  withdraw: {
-    backgroundColor: colors.softBg,
-    borderRadius: R.card,
-    padding: spacing.cardPadding,
   },
   fileCard: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   previewBox: {

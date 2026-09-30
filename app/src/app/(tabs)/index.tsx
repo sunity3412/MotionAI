@@ -19,6 +19,7 @@ import {
   weeklyAverages,
 } from '../../lib/growthSelectors';
 import { motionThumb } from '../../constants/motionThumbs';
+import { useReferenceThumbUri } from '../../lib/referenceThumbs';
 import { useReferenceMotions } from '../../lib/referenceMotions';
 import { useMyAnalyses } from '../../lib/userAnalyses';
 import type {
@@ -318,6 +319,12 @@ function ChallengeRow({
   contextCopy: string;
   onPress: () => void;
 }) {
+  // 번들 썸네일이 먼저다 — 기존 11개는 belle 이 08-31 에 직접 고른 순간이라(motionThumbs.ts) 그대로.
+  // 번들에 없는 동작(공급자 링크 등록)은 Pod 가 서 있는 시작 창 가운데 프레임으로 만든 thumb.jpg 를
+  // 1시간 서명 URL 로 받는다(quick-260930-w9l, referenceThumbs.ts). 훅은 조건 없이 부르고 번들이
+  // 있으면 키 대신 null 을 넘긴다. 둘 다 없으면 종전 회색 자리.
+  const bundled = motionThumb(motion.motionId);
+  const remoteUri = useReferenceThumbUri(motion.motionId, bundled ? null : motion.thumbnailS3Key);
   return (
     <Pressable
       onPress={onPress}
@@ -325,10 +332,16 @@ function ChallengeRow({
       style={({ pressed }) => [styles.challengeRow, pressed && styles.cardPressed]}
     >
       {/* 썸네일 = 정은지 기준 영상의 실제 프레임(belle 2026-08-31 승인, motionThumbs).
-          등재 안 된 동작은 종전 회색 자리 그대로 — 새 기준 모션이 들어와도 안 깨진다. */}
-      {motionThumb(motion.motionId) ? (
+          등재 안 된 동작은 등록 썸네일 → 없으면 종전 회색 자리 — 새 기준 모션이 들어와도 안 깨진다. */}
+      {bundled ? (
         <Image
-          source={motionThumb(motion.motionId) as number}
+          source={bundled as number}
+          style={styles.challengeThumb}
+          accessibilityIgnoresInvertColors
+        />
+      ) : remoteUri ? (
+        <Image
+          source={{ uri: remoteUri }}
           style={styles.challengeThumb}
           accessibilityIgnoresInvertColors
         />

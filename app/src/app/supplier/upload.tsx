@@ -9,6 +9,9 @@
 // 두 단계가 다른 화면 인스턴스라 입력은 모듈 범위 세션 초안(sessionDraft)에 같이 적는다 —
 // 뒤로 가도, 가이드를 보고 와도, 새로고침 전까지(세션 안) 입력이 남는다(UI-SPEC Decisions 11).
 // 2026-09-30 배치 = 38-DESIGN.md(Figma 282:506) A-4 STEP 01 · STEP 02 · A-5.
+// 2026-09-30 quick-260930-w9l(belle 폰 확인) — 콤보 체크·'이 동작에 대해' 3문항·학습 체크박스·
+// 철회 문단 삭제, 필수 4 곳에 '필수' 표시, 선수 이름 = probe displayName(읽기 전용, 없으면 '다음'
+// 차단), STEP 02 = '[필수] ○○ 동의 · 보기 >' 두 줄 + 필수 안내 + 학습 계약 안내, 5초~2분 · 1GB.
 
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -20,10 +23,10 @@ import { PickErrorDialog } from '../../components/PickErrorDialog';
 import {
   AllAgreeBox,
   BottomBar,
-  Card,
   CheckCard,
   CheckboxRow,
   FailurePanel,
+  FieldLabel,
   FileCard,
   FieldError,
   Helper,
@@ -32,6 +35,8 @@ import {
   PageFrame,
   PrimaryCta,
   ProgressBar,
+  ReadOnlyField,
+  RequiredMark,
   Segment,
   SelectField,
   space,
@@ -42,16 +47,15 @@ import {
   TopBar,
   UploadSummary,
   VideoPreview,
-  WithdrawNote,
   type SelectOption,
 } from '../../components/SupplierUi';
 import { supplierCopy } from '../../constants/supplierCopy';
 import { ApiError, probeSupplier, requestReferenceUploadUrl, uploadToS3WithProgress } from '../../lib/api';
-import { displayNameOf, useAuthUser } from '../../lib/authUser';
+import { useAuthUser } from '../../lib/authUser';
 import { auth } from '../../lib/firebase';
 import type { PickFailure, PickFailureKind } from '../../lib/pickerFailure';
 import { useReferenceMotions } from '../../lib/referenceMotions';
-import { buildRequest, consentAllRequired, emptyStep1, formatOf, parsePrefill, REFERENCE_NAME_MAX_LEN, remainingRequired, validateFile, type ConsentState, type FileFailureKind, type Step1State, type YesNo } from '../../lib/supplierForm';
+import { buildRequest, consentAllRequired, emptyConsent, emptyStep1, formatOf, parsePrefill, REFERENCE_NAME_MAX_LEN, remainingRequired, supplierNameMissing, validateFile, type ConsentState, type FileFailureKind, type Step1State } from '../../lib/supplierForm';
 import { LEVEL_LABEL_KO, mapPresignFailure, uploadOutcomeNext, type UploadOutcome } from '../../lib/supplierRules';
 import { readVideoDurationSec } from '../../lib/videoMeta';
 import { colors } from '../../theme';
@@ -63,9 +67,13 @@ const MB = 1024 * 1024;
 
 type Draft = { step1: Step1State; consent: ConsentState };
 
-function emptyConsent(): ConsentState {
-  return { portrait: false, usage: false, silent: false, training: false };
-}
+// 선수 이름 = probe displayName(초대 때 이름, w9l 항목 10). loading = 아직 모름(막지 않는다),
+// ok = 서버 답(name null = 이름 없는 공급자 → '다음' 차단), unknown = 네트워크 실패(막지 않는다 —
+// 서버가 409 로 다시 막는다).
+type SupplierNameState =
+  | { kind: 'loading' }
+  | { kind: 'ok'; name: string | null }
+  | { kind: 'unknown' };
 
 // 세션 초안 — 화면 인스턴스(STEP 01 / 02)가 공유한다. 새로고침하면 사라진다(의도).
 let sessionDraft: Draft | null = null;
@@ -133,7 +141,6 @@ export default function SupplierUpload() {
     }
     return sessionDraft?.step1 ?? emptyStep1();
   });
-  const athleteTouched = useRef(step1.athleteName.length > 0);
 
   const update = (patch: Partial<Step1State>) => {
     setStep1((prev) => {
@@ -167,26 +174,29 @@ export default function SupplierUpload() {
   useEffect(() => {
     if (ready && !signedIn) router.replace('/supplier');
   }, [ready, signedIn, router]);
+  const [supplierName, setSupplierName] = useState<SupplierNameState>({ kind: 'loading' });
   useEffect(() => {
     if (!uid) return;
     let cancelled = false;
-    probeSupplier().catch((e: unknown) => {
-      if (cancelled) return;
-      const kind = mapPresignFailure(errorStatus(e));
-      if (kind === 'notInvited' || kind === 'sessionExpired') router.replace('/supplier');
-    });
+    probeSupplier()
+      .then((res) => {
+        if (cancelled) return;
+        // 옛 서버 응답엔 displayName 이 없을 수 있다 — `?? null`(contract.md §2).
+        const name = typeof res.displayName === 'string' ? res.displayName.trim() : '';
+        setSupplierName({ kind: 'ok', name: name || null });
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const kind = mapPresignFailure(errorStatus(e));
+        if (kind === 'notInvited' || kind === 'sessionExpired') router.replace('/supplier');
+        else setSupplierName({ kind: 'unknown' });
+      });
     return () => {
       cancelled = true;
     };
   }, [uid, router]);
-
-  // 선수 이름 프리필 = Google 표시 이름(사람이 고치기 전까지만).
-  useEffect(() => {
-    if (athleteTouched.current || !user) return;
-    const name = displayNameOf(user);
-    if (name) update({ athleteName: name });
-    // update 는 매 렌더 새 함수라 deps 에서 뺀다 — user 가 바뀔 때만 채운다.
-  }, [user]);
+  // 이름 없는 공급자 = 서버 답을 받았는데 비었을 때만(모르는 동안은 막지 않는다).
+  const nameBlocked = supplierName.kind === 'ok' && supplierNameMissing(supplierName.name);
 
   // ── 동작 이름 사전 = 활성 기준 동작 이름 중복 제거(값 = motionId) + 새 이름 ──
   const { motions } = useReferenceMotions();
@@ -240,7 +250,7 @@ export default function SupplierUpload() {
       const sizeBytes = asset.fileSize ?? webFile?.size ?? 0;
       // metadata 를 못 읽으면 null = 통과(fail-open) — 서버가 길이를 2차로 본다(D-14).
       const durationSec = await readVideoDurationSec(webFile ?? asset.uri);
-      const kind = validateFile({ name, sizeBytes, durationSec, isCombo: step1.isCombo });
+      const kind = validateFile({ name, sizeBytes, durationSec });
       const format = formatOf(name);
       if (kind || !format) {
         setDialog(dialogFailure(kind ?? 'format'));
@@ -256,23 +266,9 @@ export default function SupplierUpload() {
     }
   };
 
-  // 콤보를 바꾸면 길이 상한(30 ↔ 60)이 바뀐다 — 이미 고른 파일을 새 상한으로 다시 본다.
-  const onToggleCombo = () => {
-    const isCombo = !step1.isCombo;
-    const f = step1.file;
-    if (f) {
-      const kind = validateFile({ name: f.name, sizeBytes: f.sizeBytes, durationSec: f.durationSec, isCombo });
-      if (kind) {
-        update({ isCombo, file: null });
-        setDialog(dialogFailure(kind));
-        return;
-      }
-    }
-    update({ isCombo });
-  };
-
-  // ── 남은 필수 · 차단 · 인라인 오류 ──
-  const { count, blocked } = remainingRequired(step1);
+  // ── 남은 필수 · 이름 차단 · 인라인 오류 ──
+  const count = remainingRequired(step1);
+  const requiredMark = supplierCopy.form.requiredTag;
   const [showErrors, setShowErrors] = useState(false);
   const err = (missing: boolean, message: string) => (showErrors && missing ? message : null);
   const nameMissing = !step1.nameChoice || step1.nameChoice.name.trim().length === 0;
@@ -290,7 +286,7 @@ export default function SupplierUpload() {
   // ── STEP 02 · 제출 · 업로드 (A-4 STEP 02 · A-5 · A-7) ──
   const wantsStep2 = paramOf(params.step) === '2';
   // 직접 URL 로 step=2 에 왔는데 STEP 01 이 비었으면 STEP 01 을 보여준다(buildRequest 가 null 인 상태).
-  const step = wantsStep2 && count === 0 && !blocked ? 2 : 1;
+  const step = wantsStep2 && count === 0 && !nameBlocked ? 2 : 1;
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>({ kind: 'form' });
   const [inlineError, setInlineError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -404,15 +400,11 @@ export default function SupplierUpload() {
   };
 
   const toggleAllRequired = () => {
-    // 전체 동의 = 필수 3 만(D-08 학습 사용은 별도·기본 꺼짐, UI-SPEC Decisions 14).
+    // 전체 동의 = 필수 2(초상·성명 / 영상 이용). 학습은 체크박스가 아니다(공급자 계약, w9l 항목 5·11).
     const on = !consentAllRequired(consent);
-    updateConsent({ portrait: on, usage: on, silent: on });
+    updateConsent({ portrait: on, usage: on });
   };
-
-  const yesNo: { value: YesNo; label: string }[] = [
-    { value: 'yes', label: supplierCopy.form.sec3.yes },
-    { value: 'no', label: supplierCopy.form.sec3.no },
-  ];
+  const openConsentGuide = () => router.push({ pathname: '/supplier/guide', params: { section: 's5' } });
   const levelOptions = (Object.keys(supplierCopy.form.sec2.level.options) as SkillLevel[]).map((k) => ({
     value: k,
     label: supplierCopy.form.sec2.level.options[k],
@@ -420,12 +412,6 @@ export default function SupplierUpload() {
   // 하단 바가 화면 아래에 떠 있어(absolute) 그 높이만큼 스크롤 끝에 여백을 더한다.
   const [barHeight, setBarHeight] = useState(0);
   const scrollPad = [styles.pad, { paddingBottom: space.lg + barHeight }];
-
-  const declarations = [
-    { key: 'isSplit', copy: supplierCopy.form.sec3.split },
-    { key: 'hasHold', copy: supplierCopy.form.sec3.hold },
-    { key: 'standingStart', copy: supplierCopy.form.sec3.stand },
-  ] as const;
 
   const file = step1.file;
   const meta =
@@ -497,7 +483,7 @@ export default function SupplierUpload() {
   }
 
   if (step === 2) {
-    const missingConsents = [consent.portrait, consent.usage, consent.silent].filter((v) => !v).length;
+    const missingConsents = [consent.portrait, consent.usage].filter((v) => !v).length;
     const allRequired = consentAllRequired(consent);
     const presigning = submitPhase.kind === 'presigning';
     const required = { text: supplierCopy.form.sec5.tagRequired, required: true };
@@ -518,16 +504,15 @@ export default function SupplierUpload() {
                 checked={allRequired}
                 onToggle={toggleAllRequired}
               />
+              {/* w9l 항목 4 — '[필수] ○○ 동의 · 보기 >'. 보기 = 가이드 s5(권리와 동의). */}
               <View style={styles.mt8}>
-                <CheckboxRow inset label={supplierCopy.form.sec5.portrait} tag={required} checked={consent.portrait} onToggle={() => updateConsent({ portrait: !consent.portrait })} />
-                <CheckboxRow inset label={supplierCopy.form.sec5.usage} tag={required} checked={consent.usage} onToggle={() => updateConsent({ usage: !consent.usage })} />
-                <CheckboxRow inset label={supplierCopy.form.sec5.silent} tag={required} checked={consent.silent} onToggle={() => updateConsent({ silent: !consent.silent })} />
-                <CheckboxRow inset label={supplierCopy.form.sec5.training} note={supplierCopy.form.sec5.trainingNote} tag={{ text: supplierCopy.form.sec5.tagOptional, required: false }} checked={consent.training} onToggle={() => updateConsent({ training: !consent.training })} onChevron={() => router.push({ pathname: '/supplier/guide', params: { section: 's5' } })} chevronLabel={supplierCopy.common.guideLink} />
+                <CheckboxRow inset label={supplierCopy.form.sec5.portrait} tag={required} checked={consent.portrait} onToggle={() => updateConsent({ portrait: !consent.portrait })} onChevron={openConsentGuide} linkText={supplierCopy.form.sec5.view} />
+                <CheckboxRow inset label={supplierCopy.form.sec5.usage} tag={required} checked={consent.usage} onToggle={() => updateConsent({ usage: !consent.usage })} onChevron={openConsentGuide} linkText={supplierCopy.form.sec5.view} />
               </View>
               <FieldError message={showErrors && !allRequired ? supplierCopy.form.sec5.error : null} />
-              <View style={styles.mt16}>
-                <WithdrawNote text={supplierCopy.form.sec5.withdraw} />
-              </View>
+              <Text style={[text.aux, styles.mt16]}>{supplierCopy.form.sec5.requiredNote}</Text>
+              {/* w9l 항목 5+11 — 학습은 체크박스가 아니라 공급자 계약 근거. 안내 한 줄(보조 글자). */}
+              <Text style={[text.caption13, styles.mt8]}>{supplierCopy.form.sec5.trainingNotice}</Text>
             </View>
             {inlineError ? (
               <View style={styles.mt24}>
@@ -557,8 +542,8 @@ export default function SupplierUpload() {
   const bottomHint =
     count > 0
       ? supplierCopy.form.remaining.replace('{n}', String(count))
-      : blocked
-        ? supplierCopy.form.sec3.stand.blocked
+      : nameBlocked
+        ? supplierCopy.form.sec2.athlete.missing
         : null;
 
   return (
@@ -572,10 +557,11 @@ export default function SupplierUpload() {
             current={1}
           />
 
-          {/* ① 촬영 전 체크 5 + 확인 1 — 가이드 링크는 체크 행 안(38-DESIGN A-4 ①, Decisions 11 세션 유지) */}
+          {/* ① 촬영 전 체크 4 + 확인 1 — 가이드 링크는 체크 행 안(38-DESIGN A-4 ①, Decisions 11 세션 유지) */}
           <View style={styles.mt32}>
             <CheckCard
               title={supplierCopy.form.sec1.title}
+              requiredMark={requiredMark}
               items={supplierCopy.form.sec1.items}
               confirmLabel={supplierCopy.form.sec1.confirm}
               checked={step1.checkConfirmed}
@@ -590,6 +576,7 @@ export default function SupplierUpload() {
           <View style={styles.mt40}>
             <SelectField
               label={supplierCopy.form.sec2.name.label}
+              requiredMark={requiredMark}
               placeholder={supplierCopy.form.sec2.name.placeholder}
               options={nameOptions}
               value={selectValue}
@@ -607,30 +594,20 @@ export default function SupplierUpload() {
                 />
               </View>
             ) : null}
-            {/* 리뷰 R7 — 이름·선언은 등록 정보로 보관, 채점은 지금 기본 비교 방식(techniqueRefId 소비 배선 없음) */}
+            {/* 리뷰 R7 — 이름은 등록 정보로 보관, 채점은 지금 기본 비교 방식(techniqueRefId 소비 배선 없음) */}
             <Helper>{supplierCopy.form.sec2.name.helper}</Helper>
-            <View style={styles.mt4}>
-              <CheckboxRow
-                label={supplierCopy.form.sec2.combo.label}
-                tag={{ text: supplierCopy.form.sec5.tagOptional, required: false }}
-                checked={step1.isCombo}
-                onToggle={onToggleCombo}
-              />
-            </View>
-            <View style={styles.mt16}>
-              <TextInput54
+            {/* w9l 항목 10 — 선수 이름은 초대 때 이름(읽기 전용). 없으면 안내 + '다음' 차단. */}
+            <View style={styles.mt24}>
+              <ReadOnlyField
                 label={supplierCopy.form.sec2.athlete.label}
-                value={step1.athleteName}
-                onChangeText={(v) => {
-                  athleteTouched.current = true;
-                  update({ athleteName: v });
-                }}
-                error={err(step1.athleteName.trim().length === 0, supplierCopy.form.sec2.athlete.error)}
+                value={supplierName.kind === 'ok' ? supplierName.name : null}
+                pending={supplierName.kind !== 'ok'}
+                missingMessage={supplierCopy.form.sec2.athlete.missing}
               />
-              <Helper>{supplierCopy.form.sec2.athlete.helper}</Helper>
+              {nameBlocked ? null : <Helper>{supplierCopy.form.sec2.athlete.helper}</Helper>}
             </View>
             <View style={styles.mt24}>
-              <Text style={[text.labelBold, styles.mb8]}>{supplierCopy.form.sec2.level.label}</Text>
+              <FieldLabel label={supplierCopy.form.sec2.level.label} requiredMark={requiredMark} />
               <Segment
                 label={supplierCopy.form.sec2.level.label}
                 options={levelOptions}
@@ -642,31 +619,14 @@ export default function SupplierUpload() {
             </View>
           </View>
 
-          {/* ③ 선언 3 — 질문마다 카드(38-DESIGN A-4 ③, D-07 · D-09 서 있는 시작 아니오 = 제출 차단) */}
-          <View style={styles.mt40}>
-            <Text style={text.heading} accessibilityRole="header">
-              {supplierCopy.form.sec3.title}
-            </Text>
-            <View style={styles.cards}>
-              {declarations.map(({ key, copy }) => (
-                <Card key={key}>
-                  <Text style={[text.labelBold, styles.mb12]}>{copy.q}</Text>
-                  <Segment label={copy.q} options={yesNo} value={step1[key]} onChange={(v) => update({ [key]: v } as Partial<Step1State>)} />
-                  <FieldError message={err(step1[key] == null, supplierCopy.form.sec3.error)} />
-                  <Helper>{copy.helper}</Helper>
-                  {key === 'standingStart' && step1.standingStart === 'no' ? (
-                    <FieldError message={supplierCopy.form.sec3.stand.blocked} />
-                  ) : null}
-                </Card>
-              ))}
-            </View>
-          </View>
-
           {/* ④ 영상 파일 — 안내 알약이 파일 카드 위(38-DESIGN A-4 ④) */}
           <View style={styles.mt40}>
-            <Text style={text.heading} accessibilityRole="header">
-              {supplierCopy.form.sec4.title}
-            </Text>
+            <View style={styles.titleRow}>
+              <Text style={text.heading} accessibilityRole="header">
+                {supplierCopy.form.sec4.title}
+              </Text>
+              <RequiredMark label={requiredMark} />
+            </View>
             <View style={styles.mt16}>
               <NoticePill lines={supplierCopy.form.sec4.pill} />
             </View>
@@ -699,7 +659,7 @@ export default function SupplierUpload() {
           <PrimaryCta
             label={supplierCopy.form.next}
             onPress={onNext}
-            disabled={count > 0 || blocked}
+            disabled={count > 0 || nameBlocked}
             onDisabledPress={() => setShowErrors(true)}
           />
         </BottomBar>
@@ -728,8 +688,6 @@ const styles = StyleSheet.create({
   mt24: { marginTop: space.lg },
   mt32: { marginTop: space.xl },
   mt40: { marginTop: space.s40 },
-  mb8: { marginBottom: space.sm },
-  mb12: { marginBottom: space.row },
-  cards: { marginTop: space.md, gap: space.row },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.s6 },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: space.sm },
 });

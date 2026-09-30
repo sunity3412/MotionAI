@@ -12,6 +12,8 @@
 // 색·반경은 theme 토큰 → SupplierUi 프리미티브. 브라우저는 Firestore 를 쓰지 않는다(T-38-10-4).
 // 2026-09-30 배치 = 38-DESIGN.md(Figma 282:506) A-1 · A-3b · A-3c + 38-DESIGN-v2 A-2 · A-3 · 크게 보기
 // (quick-260930-lfw — 코드 카드·빌드 라벨 삭제).
+// 2026-09-30 quick-260930-w9l — 다시 올리기 프리필 = name · level · techniqueRefId, A-3c 정보 표의
+// 스플릿·유지·서 있는 시작 행 삭제, 목록 행 썸네일(thumbnailS3Key → referenceThumbs.ts).
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
@@ -52,6 +54,8 @@ import { supplierCopy } from '../../constants/supplierCopy';
 import { ApiError, probeSupplier } from '../../lib/api';
 import { displayNameOf, useAuthUser } from '../../lib/authUser';
 import { auth } from '../../lib/firebase';
+import { useReferenceThumbUri } from '../../lib/referenceThumbs';
+import { toPrefillParams } from '../../lib/supplierForm';
 import { signInWithGoogle } from '../../lib/socialAuth';
 import { useSupplierMotions, useSupplierRegistrationPrivate } from '../../lib/supplierMotions';
 import {
@@ -118,10 +122,34 @@ function rowTrailing(m: SupplierMotion): RowTrailing {
   return hasDetail(m) ? 'chevron' : null;
 }
 
-// 38-11 올리기 폼이 읽는 프리필 파라미터 계약 — 이름 그대로(name · athleteName · level ·
-// isSplit · hasHold · standingStart). 선언 3 은 비공개 doc 에서(R13) — 아직 못 읽었으면 뺀다.
-function yesNoParam(v: boolean | undefined): '1' | '0' | undefined {
-  return v == null ? undefined : v ? '1' : '0';
+// 목록 행 — 썸네일 훅을 행마다 부르려고 작은 컴포넌트로 뗐다(w9l 항목 3). 키가 없거나
+// 요청이 실패하면 thumbUri null = 종전 아이콘.
+function SupplierListRow({
+  motion,
+  isLast,
+  highlighted,
+  onPress,
+  onLayout,
+}: {
+  motion: SupplierMotion;
+  isLast: boolean;
+  highlighted: boolean;
+  onPress?: () => void;
+  onLayout: (y: number) => void;
+}) {
+  const thumbUri = useReferenceThumbUri(motion.motionId, motion.thumbnailS3Key);
+  return (
+    <ListRow
+      title={motion.name}
+      subtitle={rowSubtitle(motion)}
+      trailing={rowTrailing(motion)}
+      onPress={onPress}
+      highlighted={highlighted}
+      isLast={isLast}
+      onLayout={onLayout}
+      thumbUri={thumbUri}
+    />
+  );
 }
 
 function errorStatus(e: unknown): { status: number; code: string | null } {
@@ -287,17 +315,12 @@ export default function SupplierHome() {
     else router.replace('/supplier');
   };
 
+  // 다시 올리기 프리필 = name · level · techniqueRefId(supplierForm.toPrefillParams — 폼이 같은 규칙으로
+  // 읽는다). 선수 이름은 폼이 probe displayName 으로 보여 주고, 선언은 w9l 에서 지웠다.
   const reupload = (m: SupplierMotion, p: SupplierMotionPrivate | null) => {
     router.push({
       pathname: '/supplier/upload',
-      params: {
-        name: m.name,
-        athleteName: m.athleteName,
-        level: m.level,
-        isSplit: yesNoParam(p?.isSplit),
-        hasHold: yesNoParam(p?.hasHold),
-        standingStart: yesNoParam(p?.standingStart),
-      },
+      params: toPrefillParams({ name: m.name, level: m.level, techniqueRefId: p?.techniqueRefId ?? null }),
     });
   };
 
@@ -483,8 +506,6 @@ export default function SupplierHome() {
       // 표시와 분기가 같은 숫자 — 카드의 `{score}점` 과 낮음 분기(TIP + 다시 올리기) 모두 view.score.
       const view = selfCheckView(m);
       const info = supplierCopy.row.done.info;
-      const yn = (v: boolean | undefined) =>
-        privLoading || v == null ? EMPTY_VALUE : v ? supplierCopy.form.sec3.yes : supplierCopy.form.sec3.no;
       panel = (
         <DonePanel
           title={supplierCopy.row.done.title}
@@ -504,9 +525,6 @@ export default function SupplierHome() {
             { label: info.athlete, value: m.athleteName },
             { label: info.level, value: LEVEL_LABEL_KO[m.level] },
             { label: info.registeredAt, value: formatDate(m.createdAt) },
-            { label: info.split, value: yn(priv?.isSplit) },
-            { label: info.hold, value: yn(priv?.hasHold) },
-            { label: info.stand, value: yn(priv?.standingStart) },
           ]}
           low={view.score != null && view.score < SELF_SCORE_OK_MIN}
           tip={tip}
@@ -606,11 +624,9 @@ export default function SupplierHome() {
                           onLayout={(e) => (offsets.current.list = e.nativeEvent.layout.y)}
                         >
                           {visible.map((m, i) => (
-                            <ListRow
+                            <SupplierListRow
                               key={m.motionId}
-                              title={m.name}
-                              subtitle={rowSubtitle(m)}
-                              trailing={rowTrailing(m)}
+                              motion={m}
                               onPress={hasDetail(m) ? () => openDetail(m.motionId) : undefined}
                               highlighted={m.motionId === highlightId}
                               isLast={i === visible.length - 1}

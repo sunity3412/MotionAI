@@ -1,12 +1,12 @@
 # quick-260930-lfw 배포 기록 — 공급자 메일 초대 (Lambda layer+코드 · SSM v1 되돌림 · 이관)
 
-> **상태: 멈춤 (F 라이브 확인 중 체크포인트).** 콜드 호출이 함수 타임아웃 10초를 넘는다(아래 F).
-> 고치려면 함수 설정(Timeout·Memory)을 바꿔야 한다. 이 값은 CFN 템플릿이 관리한다 → belle 결정 대기.
-> G(웹 재배포)·F 7~8행은 아직 하지 않았다.
+> **상태: Task 4 끝 — Task 5(belle 폰 확인) 대기.**
+> 1차(07:14~07:21Z)에 콜드 호출이 10초 타임아웃으로 500 → belle "A 올리기" → Timeout 30 · Memory 512 로 올림(F2)
+> → 라이브 1~9행 전부 다시 돌려 통과(F3) → 웹 재배포(G).
 
-- 실행: 2026-09-30 07:14~07:21 UTC (16:14~16:21 KST), 실행자 = gsd-executor (opus)
+- 실행: 2026-09-30 07:14~07:21 UTC (16:14~16:21 KST) 1차 · 07:49~07:56 UTC (16:49~16:56 KST) 재개, 실행자 = gsd-executor (opus)
 - `AWS_PROFILE=sunity-motion`, 계정 976369350031, 리전 ap-northeast-2
-- 코드 기준: Task 1 `f433b6a3` · Task 2 `24c28248` · Task 3 `eaef58f3`
+- 코드 기준: Task 1 `f433b6a3` · Task 2 `24c28248` · Task 3 `eaef58f3` · 템플릿 Timeout/Memory `c376ae02`
 - 메일은 전부 가려 적는다. uid 는 앞 4자 + `…`. 롤백 보존물은 리포 밖 `/Users/Shared/sunity-motion-rollback/lfw/` 한 곳(폴더 700).
 
 ## 리소스
@@ -15,10 +15,10 @@
 |---|---|---|
 | 함수 `sunity-motion-pilot-reference-upload-url` layer | `sunity-motion-pilot-shared:21` | `sunity-motion-pilot-shared:22` |
 | 함수 CodeSha256 | `q89ZcGTr5g/U8xaP2gVGNwTOF3y0Dnto+7loTuOKl8I=` | `an9JJEbDfzBHG7AzNk/tSGpRf5n3bM3suQiP4takjcw=` |
-| 함수 Timeout / Memory | 10 s / 256 MB | 그대로 (바꾸지 않았다) |
+| 함수 Timeout / Memory | 10 s / 256 MB | **30 s / 512 MB** (07:49:47Z, F2) |
 | SSM `/sunity/motion/supplier-uids` | v2 `FDJr…:BELLE, UmH3…` | v3 = v1 값 `FDJr…:BELLE` |
 | Firestore `suppliers` · `supplierCodes` · `supplierInvites` | 없음 | `suppliers/FDJr…` 1건 · `supplierCodes/BELLE` 1건 · 초대 0건 |
-| 웹 버킷 `sunity-motion-pilot-supplier-web` | 38-13 번들 | 그대로 (G 안 함) |
+| 웹 버킷 `sunity-motion-pilot-supplier-web` | 38-13 번들 `entry-768b3ad2…js` | 빌드 `c376ae02` 번들 `entry-6e396622…js` (07:55Z, G) |
 
 전 값 원본: `lambda-before.json`(env 는 키 이름만).
 
@@ -97,7 +97,7 @@ aws lambda wait function-updated --function-name $F          # 07:16:19Z
 - `UmH3…`: provider `google.com`, 메일 `c***@gmail.com`, 마지막 로그인 2026-09-30 05:28Z [확인].
 - 진단(재검증 대상): FDJr… 는 익명(게스트) 계정으로 보인다 [추정 — provider 0]. `/supplier` 는 익명 세션을 로그인 전(A-1)으로 다룬다. 그러면 Task 5 4) "본 계정으로 로그인 → 홈 BELLE" 는 Google 로그인으로는 FDJr… 에 닿지 않을 수 있다 [미확인 — belle 의 다른 Google 계정 uid 는 모른다].
 
-## F. 라이브 확인 (일회용 계정 — 멈춤)
+## F. 라이브 확인 1차 (일회용 계정 — 멈춤. 아래 F2·F3 로 대체)
 
 - 계정: Admin SDK `lfwtest-a`(검증) · `lfwtest-b`(미검증) · `lfwtest-c`(검증), 메일 `lfw-{a,b,c}@sunity-test.invalid`. custom token → Identity Toolkit `signInWithCustomToken` → ID 토큰.
 - ID 토큰 payload 에 `email`·`email_verified` 클레임이 있다(a/c true, b false) [확인].
@@ -130,13 +130,91 @@ aws lambda wait function-updated --function-name $F          # 07:16:19Z
 
 뒤처리 [확인 07:20:31Z]: 일회용 Auth 사용자 3개 삭제 · `suppliers/lfwtest-*` · `supplierCodes/QZTEST|QZTSTB|QZTSTC` · `supplierInvites/lfw-*` 삭제 → 재조회 전부 0건. 남은 것 = suppliers `FDJr…` 1건 · supplierCodes `BELLE` 1건 · 초대 0건(이관 결과).
 
-## G. 웹 재배포 — 안 함 (F 멈춤)
+## F2. 함수 Timeout·Memory 올림 (belle 결정 2026-09-30 "A 올리기")
 
-재개 때 순서: 먼저 보존 `aws s3 sync s3://sunity-motion-pilot-supplier-web /Users/Shared/sunity-motion-rollback/lfw/web-before/` → 빌드 → sync `--delete` → 무효화.
+- 전 값 [확인 07:49:15Z `get-function-configuration`]: Timeout **10 s** · MemorySize **256 MB** · Layers `:22` · CodeSha256 `an9JJEbD…` · LastModified 2026-09-30T07:16:12Z.
+- 선례: playback-url Timeout 30 · Memory 512 (`template-38-09-deploy.yaml` 주석 "32-16 실측: cold auth 7.7s + Firestore 첫 init ~6s > 10s").
+- 롤백 명령(원문):
+
+```bash
+AWS_PROFILE=sunity-motion aws lambda update-function-configuration \
+  --function-name sunity-motion-pilot-reference-upload-url --timeout 10 --memory-size 256
+AWS_PROFILE=sunity-motion aws lambda wait function-updated --function-name sunity-motion-pilot-reference-upload-url
+```
+
+- 적용:
+
+```bash
+AWS_PROFILE=sunity-motion aws lambda update-function-configuration \
+  --function-name sunity-motion-pilot-reference-upload-url --timeout 30 --memory-size 512   # 07:49:47Z
+AWS_PROFILE=sunity-motion aws lambda wait function-updated --function-name sunity-motion-pilot-reference-upload-url  # 07:49:53Z
+```
+
+- 재읽기 [확인]: Timeout 30 · MemorySize 512 · LastUpdateStatus Successful · Layers `:22` 그대로 · CodeSha256 `an9JJEbD…` 그대로 · LastModified 07:49:47Z.
+- 템플릿(CFN 이 다음 배포에서 10 s 로 되돌리지 않게): `backend/template-38-09-deploy.yaml` 과 정본 `backend/template.yaml` 의 `ReferenceUploadUrlFunction` 에만 `Timeout: 30` · `MemorySize: 512` + 이유 주석 → 커밋 `c376ae02`. 다른 함수 무변경.
+- 이 설정 변경이 컨테이너를 새로 띄운다 → F3 의 첫 인증 호출(행 2)이 콜드다.
+
+## F3. 라이브 확인 재실행 (07:50:39Z ~ 07:54:09Z)
+
+같은 일회용 계정 3개(`lfwtest-a/b/c`, `lfw-{a,b,c}@sunity-test.invalid`)를 새로 만들어 돌렸다. 스크립트는 scratchpad(커밋 안 함). ID 토큰 클레임 a/c verified true · b false [확인].
+행 순서: **2 먼저**(설정 변경 뒤 첫 인증 호출 = 콜드) → 1 → 3 → … → 8.
+
+| 행 | 기대 | 결과 (클라이언트 왕복 ms) | 표식 |
+|---|---|---|---|
+| 1 무토큰 | 401 + ACAO `*` | 401 `unauthorized` · ACAO `*` · 69 ms | [확인] |
+| 2 a 초대 없음 (**콜드**) | 403 not_invited + a 메일 | 403 `not_invited` · `error.email` = a 메일 · ACAO `*` · **6,832 ms** | [확인] |
+| 3 create QZTEST → a probe (2행 뒤 약 1 s — 음성 캐시 안) | 200 QZTEST `시험` | create 두 줄(링크 + 안내, 만료 2026-10-14) · probe 200 `supplierCode QZTEST` `displayName 시험` · 176 ms · `suppliers/lfwtest-a` active true · `supplierCodes/QZTEST` supplierUid lfwtest-a · 초대 accepted · acceptedUid lfwtest-a | [확인] |
+| 4 a 다시 | 200 | 200 QZTEST · 60 ms | [확인] |
+| 5 b(미검증) + 초대 QZTSTB | 403, 초대 pending | 403 `not_invited` · email = b 메일 · 77 ms · 초대 pending · acceptedUid null | [확인] |
+| 6 c 초대 QZTSTC → revoke → probe | 403 | revoke `status=revoked` · probe 403 `not_invited` · 151 ms · 초대 revoked · acceptedUid null | [확인] |
+| 7 deactivate a → 65 s → a | 403, 초대 revoked, 코드 off | 출력 `code=QZTEST revokedInvite=l***@sunity-test.invalid` · 초대 status revoked(acceptedUid·acceptedAt 남음, revokedAt 있음) · `supplierCodes/QZTEST` active false · 65 s 뒤 probe 403 `not_invited` · 267 ms | [확인] |
+| 8 reactivate a → 65 s → a / 같은 메일 재초대 | 200 / exit 1 | 출력 `reactivate uid=lfwtest-a code=QZTEST` · 65 s 뒤 probe 200 QZTEST · 203 ms · create 같은 메일 → exit 1, stderr "이미 수락된 메일이에요 — … reactivate --uid 를 쓰세요." | [확인] |
+| 9 CloudWatch 원문 메일 | 원문 0 | 07:49Z 이후 로그에서 `lfw-[abc]@` 원문 0건 · `not_invited … email=l***@sunity-test.invalid` 만 (a verified=True · b verified=False · c verified=True) | [확인] |
+
+CloudWatch REPORT (Memory Size 512 MB 줄 = 설정 변경 뒤) [확인]:
+
+| 호출 | Init | Duration | Max Memory |
+|---|---|---|---|
+| 콜드 첫 인증 호출(행 2) | 928.51 ms | 5,309.78 ms | 195 MB / 512 |
+| 그 뒤 warm 호출 7건 | — | 1.64 ~ 184.35 ms | 195~199 MB |
+
+- 콜드 총 약 6.2 s(함수) · 6.8 s(클라이언트 왕복) → 새 한도 30 s 의 약 1/5 [확인 숫자].
+- 행 2 는 검증 메일이라 수락 트랜잭션(초대 없음 → None)까지 탔다 — 1차에서 타임아웃 난 경로와 같은 경로다 [확인 코드 경로: 명단 밖 + email_verified → accept 호출].
+- 수락 쓰기(행 3)는 warm 컨테이너에서 돌았다. **콜드 컨테이너에서 수락 쓰기까지 하는 경우의 시간은 따로 재지 않았다** [미확인].
+
+진단(재검증 대상):
+- 1차 10 s 초과 → 이번 콜드 약 6.2 s 로 준 것은 메모리 256 → 512 로 CPU 몫이 커진 효과로 보인다 [추정 — Lambda 는 메모리에 비례해 CPU 를 준다는 일반 사실. 구간별 시간은 재지 않았다].
+
+뒤처리 [확인 07:54:09Z]: 일회용 Auth 사용자 3개 · `suppliers/lfwtest-*` · `supplierCodes/QZTEST|QZTSTB|QZTSTC|QZTSTD` · `supplierInvites/lfw-*` 삭제 → 재조회 전부 0건. 남은 것 = suppliers `FDJr…` 1건 · supplierCodes `BELLE` 1건 · 초대 0건.
+
+## G. 웹 재배포 (07:54:22Z ~ 07:55:31Z)
+
+```bash
+export AWS_PROFILE=sunity-motion
+# 보존 (07:54:22Z) — 파일 60개 · 20 MB · entry-768b3ad2388b38b80c0cc9e841589d53.js
+aws s3 sync s3://sunity-motion-pilot-supplier-web /Users/Shared/sunity-motion-rollback/lfw/web-before/ --only-show-errors
+# 빌드 — 기준 코드 git rev-parse --short HEAD = c376ae02 (app/ 작업 트리 변경 0)
+cd app && rm -rf dist && CI=1 npx expo export --platform web --output-dir dist     # exit 0, 파일 60개
+aws s3 sync app/dist s3://sunity-motion-pilot-supplier-web --delete --only-show-errors   # 07:55:06Z
+aws cloudfront create-invalidation --distribution-id E16SR4IPFYH46Q --paths "/*"         # Id I5S7XJ3VU7K1HHWV41SKLG4BFR
+aws cloudfront wait invalidation-completed --distribution-id E16SR4IPFYH46Q --id I5S7XJ3VU7K1HHWV41SKLG4BFR  # 07:55:31Z
+```
+
+확인 [확인]:
+
+| 검사 | 결과 |
+|---|---|
+| `curl https://d2ivnoigym2xlu.cloudfront.net/supplier` | 200 `text/html` |
+| index.html 이 가리키는 entry | `entry-6e396622d568674228399e603f700cc0.js` = 이번 export 와 같음 |
+| 그 번들에 `pf.kakao.com/_CyNxkn` | 1 (있음) |
+| 그 번들에 `CodeCard`·`IdBox`·`BUILD_SHA` | 0 |
+| 옛 entry `entry-768b3ad2…js` | S3 에 없음(`s3 ls` exit 1). CloudFront 는 SPA 대체로 200 `text/html` 1221 B(index.html)를 준다 — 옛 JS 가 아니다 |
+| API 무토큰 `POST /reference/upload-url` | 401 |
+| headless Chrome 390×844 A-1 | 워드마크 · `강사·선수 전용` · `시작해 볼까요?` · `Google로 시작하기` · 안내 한 줄 — 아래 `빌드` 글자 없음 (scratchpad `lfw-a1.png`, 눈으로 봄) |
 
 ## H. 규칙 무접촉
 
-- `firestore.rules` git diff 0 (이 플랜 커밋 3개에 없음) [확인 — 재개 때 verify 로 다시 본다].
+- `firestore.rules` git diff 0 [확인 07:55Z `git diff --quiet HEAD -- firestore.rules`]. SSM supplier-uids 한 항목·UmH3 없음(SSM_V1_OK) · 롤백 파일 있음 [확인 같은 시각].
 
 ## 롤백
 
@@ -158,9 +236,14 @@ aws lambda wait function-updated --function-name $F
 #    aws ssm put-parameter --name /sunity/motion/supplier-uids --type String --overwrite --value 'FDJr…:BELLE, UmH3…'
 sh /Users/Shared/sunity-motion-rollback/lfw/ssm-supplier-uids-rollback.sh
 
-# 4) 웹 (G 를 한 뒤에만) — 보존본으로 되돌리고 무효화
+# 4) 웹 — 보존본(38-13 번들)으로 되돌리고 무효화
 aws s3 sync /Users/Shared/sunity-motion-rollback/lfw/web-before/ s3://sunity-motion-pilot-supplier-web --delete --only-show-errors
 aws cloudfront create-invalidation --distribution-id E16SR4IPFYH46Q --paths "/*"
+
+# 5) 함수 Timeout/Memory 를 전 값으로 (F2) — 되돌리면 콜드 probe 가 다시 10 s 를 넘을 수 있다(1차 관측)
+aws lambda update-function-configuration --function-name $F --timeout 10 --memory-size 256
+aws lambda wait function-updated --function-name $F
+#    템플릿도 같이: git revert c376ae02
 ```
 
 - Firestore `suppliers/FDJr…` · `supplierCodes/BELLE` 는 옛 코드가 읽지 않는다 — 롤백 때 남겨도 동작 영향 0. 지우려면 Admin SDK 로 두 doc delete.
@@ -170,3 +253,5 @@ aws cloudfront create-invalidation --distribution-id E16SR4IPFYH46Q --paths "/*"
 ## 폰 확인 (Task 5)
 
 (오케스트레이터가 적는 자리 — TESTB 초대·회수: 두 번째 계정 uid 앞 4자 · 가린 메일 · 시각)
+
+순서 변경(오케스트레이터 2026-09-30): 본 계정 BELLE(`FDJr…`)은 Google 로그인 수단이 없는 익명 계정이라(E 관측) 코드 줄·복사·크게 보기 확인은 **두 번째 계정이 TESTB 로 수락된 뒤 그 계정으로** 한다. 두 번째 계정 deactivate 는 그 확인 뒤에 한다.

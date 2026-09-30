@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { supplierCopy } from '../constants/supplierCopy.ts';
 import { supplierFixtures } from './supplierFixtures.ts';
 import {
+  bigCodeFontSize,
   expiredCopy,
   failCopy,
   hasDetail,
@@ -224,21 +225,32 @@ test('sortNewestFirst — createdAt 내림차순, 입력 배열은 그대로', (
   assert.notEqual(sorted, input);
 });
 
-test('mapPresignFailure — 401 sessionExpired · 403 forbidden · 0 offline(unauthenticated 는 sessionExpired) · 그 외 presignFail', () => {
+test('mapPresignFailure — 401 sessionExpired · 403 notInvited · 0 offline(unauthenticated 는 sessionExpired) · 그 외 presignFail', () => {
   for (const f of supplierFixtures.apiFailures) {
     assert.equal(mapPresignFailure(f), f.expect, `${f.status}/${f.code}`);
   }
+  // 판정은 상태코드 기준 — 옛 서버(forbidden)·모르는 코드도 403 이면 A-2.
+  assert.equal(mapPresignFailure({ status: 403, code: 'unknown' }), 'notInvited');
+  assert.equal(mapPresignFailure({ status: 403, code: 'forbidden' }), 'notInvited');
 });
 
-test('presignFailureMessage — 분기별 문구 단일점, forbidden 은 문구 없이 A-2 로', () => {
+test('presignFailureMessage — 분기별 문구 단일점, notInvited 는 문구 없이 A-2 로', () => {
   assert.equal(presignFailureMessage('sessionExpired'), supplierCopy.form.sessionExpired);
   assert.equal(presignFailureMessage('offline'), supplierCopy.common.offline);
   assert.equal(presignFailureMessage('presignFail'), supplierCopy.form.presignFail);
-  assert.equal(presignFailureMessage('forbidden'), null);
+  assert.equal(presignFailureMessage('notInvited'), null);
 });
 
 test('uploadOutcomeNext — ok→home · aborted→step2(입력 유지) · failed→failPanel', () => {
   for (const o of supplierFixtures.uploadOutcomes) {
     assert.equal(uploadOutcomeNext(o.outcome), o.next);
   }
+});
+
+test('bigCodeFontSize — min(72, max(32, floor(maxWidth / (len * 0.78))))', () => {
+  assert.equal(bigCodeFontSize(5, 350), 72);
+  assert.equal(bigCodeFontSize(8, 350), 56);
+  assert.equal(bigCodeFontSize(8, 200), 32); // 하한
+  assert.equal(bigCodeFontSize(8, 100), 32);
+  assert.equal(bigCodeFontSize(0, 350), 72); // 빈 코드는 상한(0 나눗셈 없음)
 });

@@ -4,37 +4,40 @@
 // 폰 브라우저에서 열린다. 상태기계:
 //   boot     — Firebase 가 세션을 복원하는 중(깜빡임 방지, authUser.ts ready)
 //   login    — A-1: 로그인 전 또는 익명(게스트) 세션. Google 팝업 1개(socialAuth.web.ts)
-//   checking — 로그인 직후 화이트리스트 확인(`POST /reference/upload-url {probe:true}`)
-//   noAccess — A-2: 403 forbidden. 내 ID(uid)를 보여주고 복사·재확인(닭-달걀 절차, D-03)
-//   home     — A-3: 내 동작(where supplierUid 단일 구독) + 내 코드(표시·복사만, D-12/D-13)
+//   checking — 로그인 직후 명단 확인 + 메일 초대 수락(`POST /reference/upload-url {probe:true}`)
+//   noAccess — A-2 v2: 403 not_invited — 로그인 메일 + 다른 계정 + 문의 2(38-DESIGN-v2)
+//   home     — A-3: 내 동작(where supplierUid 단일 구독) + 강사 코드 줄 + 크게 보기(38-DESIGN-v2)
 //
 // 문구는 전부 supplierCopy(화면 리터럴 0), 규칙은 전부 supplierRules import(리뷰 R14),
 // 색·반경은 theme 토큰 → SupplierUi 프리미티브. 브라우저는 Firestore 를 쓰지 않는다(T-38-10-4).
-// 2026-09-30 배치 = 38-DESIGN.md(Figma 282:506) A-1 · A-2 · A-3 · A-3b · A-3c.
+// 2026-09-30 배치 = 38-DESIGN.md(Figma 282:506) A-1 · A-3b · A-3c + 38-DESIGN-v2 A-2 · A-3 · 크게 보기
+// (quick-260930-lfw — 코드 카드·빌드 라벨 삭제).
 
-import Constants from 'expo-constants';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertIcon } from '../../components/PickErrorDialog';
 import {
+  AccountBox,
+  BigCodeModal,
   BrandMark,
   Card,
   Chip,
-  CodeCard,
+  CodeRow,
+  ContactRow,
   DonePanel,
   FailurePanel,
   GoogleButton,
   GradientHeader,
   GrayCard,
-  IdBox,
   ListRow,
   NoticePill,
   OutlineButton,
   PageFrame,
   PillCta,
+  PrimaryCta,
   SectionHeader,
   Sheet,
   space,
@@ -71,24 +74,17 @@ import { colors, layout } from '../../theme';
 // 목록 카드에 한 번에 보이는 행 수 — 넘으면 `전체보기`(UI-SPEC A-3 "행 6개 초과").
 const ROWS_BEFORE_SEE_ALL = 6;
 const TOAST_MS = 3000;
-const COPIED_LABEL_MS = 2000;
 const HIGHLIGHT_MS = 3000;
 
+// notInvited.email = 403 not_invited 의 error.email(로그인 메일). 옛 서버 응답엔 없어 null 일 수 있다.
 type Probe =
   | { kind: 'idle' }
   | { kind: 'checking' }
-  | { kind: 'ok'; code: string | null }
-  | { kind: 'forbidden' }
+  | { kind: 'ok'; code: string | null; displayName: string | null }
+  | { kind: 'notInvited'; email: string | null }
   | { kind: 'error'; message: string };
 
 type Phase = 'boot' | 'login' | 'checking' | 'noAccess' | 'home' | 'error';
-
-const BUILD_SHA: string =
-  (Constants.expoConfig?.extra as { commitSha?: string } | undefined)?.commitSha ?? 'dev';
-
-function buildLabel(): string {
-  return supplierCopy.common.build.replace('{sha}', BUILD_SHA);
-}
 
 // 웹 클립보드. 네이티브·권한 거부·비보안 컨텍스트면 false → 호출부가 copyFallback 문구.
 async function copyText(value: string): Promise<boolean> {
@@ -171,18 +167,18 @@ export default function SupplierHome() {
     void signOut(auth);
   };
 
-  // ── 화이트리스트 확인(probe) ──
+  // ── 명단 확인(probe) — 서버가 같은 호출에서 메일 초대를 수락한다(38-DESIGN-v2) ──
   const [probe, setProbe] = useState<Probe>({ kind: 'idle' });
-  const [recheckBusy, setRecheckBusy] = useState(false);
-  const [stillNo, setStillNo] = useState(false);
 
   const runProbe = useCallback(async (): Promise<Probe> => {
     try {
       const res = await probeSupplier();
-      return { kind: 'ok', code: res.supplierCode };
+      return { kind: 'ok', code: res.supplierCode, displayName: res.displayName ?? null };
     } catch (e) {
       const kind = mapPresignFailure(errorStatus(e));
-      if (kind === 'forbidden') return { kind: 'forbidden' };
+      if (kind === 'notInvited') {
+        return { kind: 'notInvited', email: e instanceof ApiError ? e.email : null };
+      }
       if (kind === 'sessionExpired') {
         // 401 → A-1 + 세션 만료 문구(UI-SPEC A-7).
         setLoginNotice(supplierCopy.form.sessionExpired);
@@ -196,7 +192,6 @@ export default function SupplierHome() {
   useEffect(() => {
     if (!uid) {
       setProbe({ kind: 'idle' });
-      setStillNo(false);
       return;
     }
     let cancelled = false;
@@ -209,44 +204,34 @@ export default function SupplierHome() {
     };
   }, [uid, runProbe]);
 
-  const onRecheck = async () => {
-    setRecheckBusy(true);
-    setStillNo(false);
-    const p = await runProbe();
-    setRecheckBusy(false);
-    if (p.kind === 'forbidden') setStillNo(true);
-    setProbe(p);
-  };
-
   const onRetryProbe = async () => {
     setProbe({ kind: 'checking' });
     setProbe(await runProbe());
   };
 
-  // ── 토스트 · 복사 ──
+  // ── 토스트 · 복사 · 크게 보기 ──
   const [toast, setToast] = useState<string | null>(null);
-  const [codeCopied, setCodeCopied] = useState(false);
   const [copyFallback, setCopyFallback] = useState(false);
+  const [bigOpen, setBigOpen] = useState(false);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), TOAST_MS);
     return () => clearTimeout(t);
   }, [toast]);
-  useEffect(() => {
-    if (!codeCopied) return;
-    const t = setTimeout(() => setCodeCopied(false), COPIED_LABEL_MS);
-    return () => clearTimeout(t);
-  }, [codeCopied]);
 
-  const onCopy = async (value: string, isCode: boolean) => {
+  const onCopy = async (value: string) => {
     const ok = await copyText(value);
     if (ok) {
       setCopyFallback(false);
       setToast(supplierCopy.common.copied);
-      if (isCode) setCodeCopied(true);
     } else {
       setCopyFallback(true);
     }
+  };
+
+  // 문의 행 — react-native-web 은 새 창(카카오 채널) · 메일 앱(mailto)으로 연다.
+  const openLink = (url: string) => {
+    void Linking.openURL(url).catch(() => undefined);
   };
 
   // ── 내 동작(A-3 카드 1) ──
@@ -320,7 +305,7 @@ export default function SupplierHome() {
   let phase: Phase;
   if (!ready) phase = 'boot';
   else if (!signedIn) phase = 'login';
-  else if (probe.kind === 'forbidden') phase = 'noAccess';
+  else if (probe.kind === 'notInvited') phase = 'noAccess';
   else if (probe.kind === 'ok') phase = 'home';
   else if (probe.kind === 'error') phase = 'error';
   else phase = 'checking';
@@ -331,7 +316,7 @@ export default function SupplierHome() {
 
   if (phase === 'login') {
     // 38-DESIGN A-1 — 워드마크(safe-area 위 40) → 48 → 칩 → 12 → 제목 → 8 → 본문 → 48 → Google 54 →
-    // 12 → 힌트 → (알림) → 아래 빌드, 하단 여백 34.
+    // 12 → 힌트 → (알림), 하단 여백 34. 빌드 라벨은 38-DESIGN-v2 가 지웠다(38-SCENARIOS §4).
     return (
       <SafeAreaView style={styles.page} edges={['top']}>
         <PageFrame>
@@ -366,8 +351,6 @@ export default function SupplierHome() {
                 {loginNotice}
               </Text>
             ) : null}
-            <View style={styles.flex} />
-            <Text style={[text.caption, text.center, styles.mt24]}>{buildLabel()}</Text>
           </View>
         </PageFrame>
       </SafeAreaView>
@@ -414,60 +397,45 @@ export default function SupplierHome() {
   }
 
   if (phase === 'noAccess') {
-    // 38-DESIGN A-2 — 카드 하나(아이콘 · 제목 · 본문 · 내 ID · ID 복사) + 카드 밖 `등록 확인하기` ·
-    // 힌트(확인 중 · 여전히 없음 문구도 이 자리) · 다른 계정 링크. 카드 안은 왼쪽 정렬.
-    const recheckHint = recheckBusy
-      ? supplierCopy.noAccess.checking
-      : stillNo
-        ? supplierCopy.noAccess.stillNo
-        : supplierCopy.noAccess.refreshHint;
+    // 38-DESIGN-v2 A-2 — 워드마크(40) → 32 → 알림 44 → 16 → 제목 → 8 → 본문 → 24 → 지금 로그인한 계정 →
+    // 12 → 다른 계정으로 로그인(CTA 54) → 40 → 도움 제목 → 4 → 도움 본문 → 12 → 카카오 · 8 · 메일.
+    const na = supplierCopy.noAccess;
+    const email = (probe.kind === 'notInvited' ? probe.email : null) ?? user?.email ?? EMPTY_VALUE;
     return (
       <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
-        <Toast message={toast} />
         <PageFrame>
           <ScrollView contentContainerStyle={styles.pad}>
             <View style={styles.mt40}>
               <BrandMark variant="brand" />
             </View>
-            <Text style={[text.display, styles.mt32]} accessibilityRole="header">
-              {supplierCopy.home.title}
-            </Text>
-            <Text style={[text.label, text.mid, styles.mt4]}>{identity}</Text>
-            <Card style={styles.mt32}>
+            <View style={styles.mt32}>
               <AlertIcon size={44} />
-              <Text style={[text.title, styles.mt16]}>{supplierCopy.noAccess.title}</Text>
-              <Text style={[text.label, text.mid, styles.mt8]}>{supplierCopy.noAccess.body}</Text>
-              <Text style={[text.body15Bold, text.mid, styles.mt16]}>
-                {supplierCopy.noAccess.idLabel}
-              </Text>
-              <View style={styles.mt6}>
-                <IdBox value={user?.uid ?? ''} />
-              </View>
-              <View style={styles.mt8}>
-                <OutlineButton
-                  label={supplierCopy.noAccess.copyId}
-                  onPress={() => onCopy(user?.uid ?? '', false)}
-                />
-              </View>
-              {copyFallback ? (
-                <Text style={[text.aux, styles.mt8]}>{supplierCopy.common.copyFallback}</Text>
-              ) : null}
-            </Card>
-            <View style={styles.mt16}>
-              <OutlineButton
-                label={supplierCopy.noAccess.refresh}
-                onPress={onRecheck}
-                disabled={recheckBusy}
-              />
             </View>
-            <Text
-              style={[text.auxFaint, text.center, styles.mt8]}
-              accessibilityLiveRegion="polite"
-            >
-              {recheckHint}
+            <Text style={[text.display, styles.mt16]} accessibilityRole="header">
+              {na.title}
             </Text>
+            <Text style={[text.label, text.mid, styles.mt8]}>{na.body}</Text>
             <View style={styles.mt24}>
-              <TextLink label={supplierCopy.common.signOut} onPress={onSignOut} tone="signOut" />
+              <AccountBox label={na.accountLabel} email={email} />
+            </View>
+            <View style={styles.mt12}>
+              <PrimaryCta label={supplierCopy.common.signOut} onPress={onSignOut} />
+            </View>
+            <Text style={[text.labelBold, styles.mt40]}>{na.helpTitle}</Text>
+            <Text style={[text.aux, styles.mt4]}>{na.helpBody}</Text>
+            <View style={[styles.mt12, styles.gap8]}>
+              <ContactRow
+                kind="kakao"
+                title={na.kakaoTitle}
+                sub={na.kakaoSub}
+                onPress={() => openLink(na.kakaoUrl)}
+              />
+              <ContactRow
+                kind="mail"
+                title={na.mailTitle}
+                sub={na.mailSub}
+                onPress={() => openLink(na.mailUrl)}
+              />
             </View>
           </ScrollView>
         </PageFrame>
@@ -564,7 +532,10 @@ export default function SupplierHome() {
 
   // ── A-3 홈 ──
   const supplierCode = probe.kind === 'ok' ? probe.code : null;
-  const athleteName = displayNameOf(user) ?? '';
+  const supplierName = probe.kind === 'ok' ? probe.displayName : null;
+  const bigTitle = supplierName
+    ? supplierCopy.bigCode.title.replace('{name}', supplierName)
+    : supplierCopy.bigCode.titleNoName;
   const uploadCta = (
     <PillCta label={supplierCopy.home.upload} onPress={() => router.push('/supplier/upload')} />
   );
@@ -588,6 +559,23 @@ export default function SupplierHome() {
           />
           <View onLayout={(e) => (offsets.current.sheet = e.nativeEvent.layout.y)}>
             <Sheet>
+              {/* 38-DESIGN-v2 A-3 강사 코드 줄 — 코드가 있을 때만, 내 동작 카드 위 12. */}
+              {/* 카드 y 는 시트 안 상대값이라 이 줄이 생겨도 방금 올린 행 스크롤 계산이 그대로 맞다. */}
+              {supplierCode ? (
+                <View style={styles.mb12}>
+                  <CodeRow
+                    label={supplierCopy.home.codeRow.label}
+                    code={supplierCode}
+                    copyLabel={supplierCopy.home.codeRow.copy}
+                    onCopy={() => onCopy(supplierCode)}
+                    bigLabel={supplierCopy.home.codeRow.big}
+                    onBig={() => setBigOpen(true)}
+                  />
+                  {copyFallback ? (
+                    <Text style={[text.aux, styles.mt8]}>{supplierCopy.common.copyFallback}</Text>
+                  ) : null}
+                </View>
+              ) : null}
               {/* 카드 1 — 내 동작. 비었으면 점선 STEP 카드 하나가 그 자리(38-DESIGN 빈 상태) */}
               {showEmpty ? (
                 <StepCard
@@ -646,44 +634,32 @@ export default function SupplierHome() {
                 </View>
               )}
 
-              {/* 카드 2 — 내 코드 (표시·복사만, D-12/D-13) */}
-              <View style={styles.mt16}>
-                <CodeCard
-                  photoUrl={user?.photoURL ?? null}
-                  sportLabel={supplierCopy.home.sport}
-                  athleteLine={supplierCopy.home.athlete.replace('{name}', athleteName)}
-                  codeTitle={supplierCopy.home.codeTitle}
-                  code={supplierCode}
-                  pendingTitle={supplierCopy.home.codePendingTitle}
-                  pendingBody={supplierCopy.home.codePendingBody}
-                  copyLabel={codeCopied ? supplierCopy.common.copiedShort : supplierCopy.common.copy}
-                  onCopy={() => supplierCode && onCopy(supplierCode, true)}
-                  howText={supplierCopy.home.codeHow}
-                />
-                {copyFallback ? (
-                  <Text style={[text.aux, styles.mt8]}>{supplierCopy.common.copyFallback}</Text>
-                ) : null}
-              </View>
-
               <View style={styles.mt24}>
                 <TextLink label={supplierCopy.common.signOut} onPress={onSignOut} tone="signOut" />
               </View>
-              <Text style={[text.caption, styles.mt8]}>{buildLabel()}</Text>
             </Sheet>
           </View>
         </ScrollView>
       </PageFrame>
+      {supplierCode ? (
+        <BigCodeModal
+          visible={bigOpen}
+          title={bigTitle}
+          code={supplierCode}
+          how={supplierCopy.bigCode.how}
+          closeLabel={supplierCopy.common.close}
+          onClose={() => setBigOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
-  flex: { flex: 1 },
   pad: { flexGrow: 1, paddingHorizontal: space.screen, paddingBottom: space.lg },
   homeScroll: { flexGrow: 1 },
   mt4: { marginTop: space.xs },
-  mt6: { marginTop: space.s6 },
   mt8: { marginTop: space.sm },
   mt12: { marginTop: space.row },
   mt16: { marginTop: space.md },
@@ -691,6 +667,7 @@ const styles = StyleSheet.create({
   mt32: { marginTop: space.xl },
   mt40: { marginTop: space.s40 },
   mt48: { marginTop: space.xxl },
+  mb12: { marginBottom: space.row },
   gap8: { gap: space.sm },
   teal: { color: colors.infoTeal },
   // 38-DESIGN A-3 내 동작 카드 패딩 16 16 8.

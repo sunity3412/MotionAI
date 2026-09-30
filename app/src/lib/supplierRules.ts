@@ -66,7 +66,8 @@ export interface SupplierMotionPrivate {
   standingStart: boolean;
 }
 
-export type PresignFailureKind = 'sessionExpired' | 'forbidden' | 'offline' | 'presignFail';
+// notInvited = 403(quick-260930-lfw not_invited — 옛 서버의 forbidden 도 상태코드로 같이 받는다).
+export type PresignFailureKind = 'sessionExpired' | 'notInvited' | 'offline' | 'presignFail';
 export type UploadOutcome = 'ok' | 'aborted' | 'failed';
 export type UploadNext = 'home' | 'step2' | 'failPanel';
 
@@ -264,14 +265,14 @@ export function mapPresignFailure(failure: {
   code?: string | null;
 }): PresignFailureKind {
   if (failure.status === 401) return 'sessionExpired';
-  if (failure.status === 403) return 'forbidden';
+  if (failure.status === 403) return 'notInvited';
   if (failure.status === 0) {
     return failure.code === 'unauthenticated' ? 'sessionExpired' : 'offline';
   }
   return 'presignFail';
 }
 
-// 분기별 문구(단일점). forbidden 은 문구가 아니라 A-2 화면 전환이라 null.
+// 분기별 문구(단일점). notInvited 는 문구가 아니라 A-2 화면 전환이라 null.
 export function presignFailureMessage(kind: PresignFailureKind): string | null {
   switch (kind) {
     case 'sessionExpired':
@@ -280,7 +281,7 @@ export function presignFailureMessage(kind: PresignFailureKind): string | null {
       return supplierCopy.common.offline;
     case 'presignFail':
       return supplierCopy.form.presignFail;
-    case 'forbidden':
+    case 'notInvited':
       return null;
     default:
       return assertNever(kind);
@@ -300,4 +301,16 @@ export function uploadOutcomeNext(outcome: UploadOutcome): UploadNext {
     default:
       return assertNever(outcome);
   }
+}
+
+// 크게 보기(38-DESIGN-v2 299:666) 코드 글자 크기 — 72pt 가 기본, 긴 코드(8자)가 좁은 폰(390 폭)에서
+// 넘치지 않게 줄인다. 글자 폭 ≈ 0.78em(굵은 대문자 + 자간 8%). 하한 32pt.
+export const BIG_CODE_MAX_PT = 72;
+export const BIG_CODE_MIN_PT = 32;
+export const BIG_CODE_CHAR_EM = 0.78;
+
+export function bigCodeFontSize(codeLength: number, maxWidth: number): number {
+  if (!(codeLength > 0)) return BIG_CODE_MAX_PT;
+  const fit = Math.floor(maxWidth / (codeLength * BIG_CODE_CHAR_EM));
+  return Math.min(BIG_CODE_MAX_PT, Math.max(BIG_CODE_MIN_PT, fit));
 }

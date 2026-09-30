@@ -30,24 +30,32 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  // 403 not_invited 의 error.email(로그인 메일, contract.md §2 · quick-260930-lfw). 그 밖은 null.
+  readonly email: string | null;
 
-  constructor(message: string, status: number, code: string) {
+  constructor(message: string, status: number, code: string, email: string | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.email = email;
   }
 }
 
-// 오류 응답 본문에서 계약상 code 를 추출. 파싱 실패(비-JSON 5xx, 게이트웨이 HTML 등)
-// 는 'unknown' — 던지지 않는다. 오류 처리 경로가 다시 던지면 원인이 가려진다.
-function parseErrorCode(text: string): string {
+// 오류 응답 본문에서 계약상 code 와 error.email(문자열일 때만)을 추출. 파싱 실패(비-JSON 5xx,
+// 게이트웨이 HTML 등)는 code 'unknown' · email null — 던지지 않는다. 오류 처리 경로가 다시
+// 던지면 원인이 가려진다.
+function parseErrorBody(text: string): { code: string; email: string | null } {
   try {
-    const body = JSON.parse(text) as { error?: { code?: unknown } };
+    const body = JSON.parse(text) as { error?: { code?: unknown; email?: unknown } };
     const code = body?.error?.code;
-    return typeof code === 'string' && code.length > 0 ? code : 'unknown';
+    const email = body?.error?.email;
+    return {
+      code: typeof code === 'string' && code.length > 0 ? code : 'unknown',
+      email: typeof email === 'string' && email.length > 0 ? email : null,
+    };
   } catch {
-    return 'unknown';
+    return { code: 'unknown', email: null };
   }
 }
 
@@ -75,11 +83,13 @@ async function authedJson<T>(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    // 메시지 포맷 불변 (기존 소비처 무회귀) — 분기용 code 만 추가로 실어 보낸다.
+    // 메시지 포맷 불변 (기존 소비처 무회귀) — 분기용 code 와 not_invited 메일만 추가로 싣는다.
+    const parsed = parseErrorBody(text);
     throw new ApiError(
       `${init.method} ${path} ${res.status}: ${text.slice(0, 200)}`,
       res.status,
-      parseErrorCode(text),
+      parsed.code,
+      parsed.email,
     );
   }
   return res.json() as Promise<T>;
@@ -347,8 +357,9 @@ export async function uploadToS3(
 
 // ── Phase 38 공급자 경로 (38-10) ─────────────────────────────────────────────
 //
-// POST /reference/upload-url `{probe:true}` — 화이트리스트 확인만(페이지 진입 게이트, D-12).
-// 403 forbidden = 화이트리스트 밖(A-2), 401 = 세션 만료. 분기는 ApiError.status/code 로.
+// POST /reference/upload-url `{probe:true}` — 명단 확인 + 메일 초대 수락(페이지 진입 게이트, D-12).
+// 403 not_invited(error.email = 로그인 메일 → ApiError.email) = 명단 밖(A-2), 401 = 세션 만료.
+// 분기는 ApiError.status/code 로.
 export function probeSupplier(): Promise<SupplierProbeResponse> {
   return authedJson<SupplierProbeResponse>('/reference/upload-url', {
     method: 'POST',

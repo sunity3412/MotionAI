@@ -19,6 +19,7 @@
 //   9) R7/R11 정직 문구 — 선언은 보관만, 자기 점수는 일관성 진단.
 //  10) Figma 1:499 확정 다이얼로그 2종이 pickerFailure.ts 와 같은 원문이다.
 //  11) 38-DESIGN.md(Figma 282:506, 2026-09-30) 새/바뀐 문구 키 값 잠금 + 지운 키가 없다.
+//  12) 38-DESIGN-v2(quick-260930-lfw) A-2 초대받은 분만 · 강사 코드 줄 · 크게 보기 문구 + 지운 키.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -176,10 +177,9 @@ test('form.sec5 동의 문안 4건이 기획안 §6 원문과 같다 (D-08)', ()
 
 // ── 6) ui-checker flags 적용값 ─────────────────────────────────────────────
 
-test('ui-checker flags #1 #2 #3 적용값 (§Decisions 표가 §Copywriting 원문보다 우선)', () => {
-  assert.equal(supplierCopy.common.copy, '코드 복사');
+test('ui-checker flags #2 적용값 (§Decisions 표가 §Copywriting 원문보다 우선)', () => {
+  // #1(common.copy)·#3(codePending*) 은 38-DESIGN-v2 가 코드 카드를 지우며 키째 빠졌다 — 12) 가 잠근다.
   assert.equal(supplierCopy.common.cancel, '올리기 취소');
-  assert.ok(supplierCopy.home.codePendingBody.includes('운영팀'));
   // 38-DESIGN A-3: '>' 대신 쉐브론 아이콘
   assert.equal(supplierCopy.home.upload, '동작 올리기');
   assert.ok(!supplierCopy.home.upload.includes('>'));
@@ -262,11 +262,8 @@ test('dialog.format · dialog.tooLarge 가 pickerFailure.ts 의 Figma 확정 문
 test('38-DESIGN.md 새/바뀐 문구 키', () => {
   const c = supplierCopy;
   assert.equal(c.login.chip, '강사·선수 전용');
-  assert.equal(c.noAccess.refreshHint, '등록이 끝나면 눌러서 바로 확인할 수 있어요.');
   assert.equal(c.home.count, '{n}개');
   assert.equal(c.home.upload, '동작 올리기');
-  assert.equal(c.home.codePendingTitle, '코드 준비 중');
-  assert.equal(c.home.codePendingBody, '운영팀이 코드를 넣으면 여기에 보여요.');
   assert.equal(c.form.sec5.allHint, '필수 3개');
   assert.equal(c.row.done.sub, '{name} · {athlete} 선수');
   assert.equal(c.row.self.title, '자기 영상 재분석');
@@ -284,4 +281,48 @@ test('38-DESIGN.md 새/바뀐 문구 키', () => {
   assert.equal('codePending' in c.home, false);
   assert.equal('ok' in c.row.self, false);
   assert.equal('low' in c.row.self, false);
+});
+
+// ── 12) 38-DESIGN-v2 (quick-260930-lfw) ─────────────────────────────────────
+
+test('38-DESIGN-v2 A-2 초대받은 분만 — 문구 글자 단위', () => {
+  const n = supplierCopy.noAccess;
+  assert.equal(n.title, '초대받은 분만 쓸 수 있어요');
+  assert.equal(
+    n.body,
+    '공급자 페이지는 Sunity 가 초대한 강사·선수만 쓸 수 있어요. 초대받으셨다면 초대받은 Google 계정으로 로그인해 주세요.',
+  );
+  assert.equal(n.accountLabel, '지금 로그인한 계정');
+  assert.equal(n.helpTitle, '초대가 필요하거나 계정이 헷갈리면');
+  assert.equal(n.helpBody, '아래로 알려 주세요. 운영팀이 확인해 드려요.');
+  assert.equal(n.kakaoTitle, '카카오톡 채널로 문의');
+  assert.equal(n.kakaoSub, 'pf.kakao.com/_CyNxkn');
+  assert.equal(n.kakaoUrl, 'http://pf.kakao.com/_CyNxkn');
+  assert.equal(n.mailTitle, '메일로 문의');
+  assert.equal(n.mailSub, 'cs@sunity.ai');
+  assert.equal(n.mailUrl, 'mailto:cs@sunity.ai');
+  assert.equal(n.checking, '확인하는 중...');
+});
+
+test('38-DESIGN-v2 A-3 강사 코드 줄 · 크게 보기 문구', () => {
+  assert.deepEqual(supplierCopy.home.codeRow, { label: '내 강사 코드', copy: '복사', big: '크게 보기' });
+  assert.deepEqual(supplierCopy.bigCode, {
+    title: '{name} 강사님의 코드',
+    titleNoName: '내 강사 코드',
+    how: 'Sunity 앱 → 마이 → 강사 코드에\n이 코드를 넣어 주세요',
+  });
+  assert.equal(supplierCopy.common.copied, '복사됐어요');
+});
+
+test('38-DESIGN-v2 가 지운 키가 없다 (옛 ID 닭-달걀 절차 · 코드 카드 · 빌드 라벨)', () => {
+  const c = supplierCopy as unknown as Record<string, Record<string, unknown>>;
+  for (const k of ['idLabel', 'copyId', 'refresh', 'stillNo', 'refreshHint']) {
+    assert.equal(k in c.noAccess, false, `noAccess.${k}`);
+  }
+  for (const k of ['codeTitle', 'athlete', 'sport', 'codeHow', 'codePendingTitle', 'codePendingBody']) {
+    assert.equal(k in c.home, false, `home.${k}`);
+  }
+  for (const k of ['build', 'copy', 'copiedShort']) {
+    assert.equal(k in c.common, false, `common.${k}`);
+  }
 });

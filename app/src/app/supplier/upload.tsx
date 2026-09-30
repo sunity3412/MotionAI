@@ -173,7 +173,7 @@ export default function SupplierUpload() {
     probeSupplier().catch((e: unknown) => {
       if (cancelled) return;
       const kind = mapPresignFailure(errorStatus(e));
-      if (kind === 'forbidden' || kind === 'sessionExpired') router.replace('/supplier');
+      if (kind === 'notInvited' || kind === 'sessionExpired') router.replace('/supplier');
     });
     return () => {
       cancelled = true;
@@ -339,7 +339,7 @@ export default function SupplierUpload() {
         void signOut(auth);
         return;
       }
-      if (kind === 'forbidden') {
+      if (kind === 'notInvited') {
         router.replace('/supplier'); // 403 → A-2 는 홈의 probe 가 보여준다.
         return;
       }

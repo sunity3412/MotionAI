@@ -12,7 +12,7 @@
 //     no_human 만 D-09 예외(기존 ERROR_MESSAGE.no_human 재사용, 여기 문구는 Figma 1:479).
 //   · UI-SPEC §Decisions "ui-checker flags (2026-09-26)" 표의 적용값이 §Copywriting 원문보다
 //     우선한다 — 해당 키에 `// ui-checker flag #n` 을 달았다.
-//   · `{score}` `{joints}` `{name}` `{email}` `{n}` `{durationSec}` `{sizeMB}` `{pct}` `{sha}`
+//   · `{score}` `{joints}` `{name}` `{email}` `{n}` `{durationSec}` `{sizeMB}` `{pct}`
 //     `{athlete}` `{level}` `{file}` `{meta}`
 //     는 치환 자리 — 소비처가 String.replace 만 한다(HTML/JSX 로 해석하지 않는다, T-38-03-2).
 //   · 숫자 상수(재현성 문턱 SELF_SCORE_OK_MIN 등)는 여기 두지 않는다 — lib/supplierRules.ts.
@@ -21,15 +21,15 @@
 //     재량 판단 2건: (a) form.uploading.summaryTitle/summaryMeta/pct · row.self.scoreText 는
 //     38-DESIGN 키 요약에 없지만 A-5·A-3c 화면 파일에 ` · `·'점'·'%' 리터럴을 두지 않으려고 추가.
 //     (b) form.sec1.guideLink 는 키 요약에서 빠졌으나 A-4 본문이 '자세한 가이드' 를 명시해 따른다.
+//   · 2026-09-30 38-DESIGN-v2(quick-260930-lfw)가 A-2 를 메일 초대판으로 바꾸고 홈 코드 카드·빌드
+//     라벨을 지웠다 — noAccess 는 v2 문구, home.codeRow · bigCode 는 새 키, 옛 ID·코드 카드 키는 삭제.
 
 export const supplierCopy = {
   common: {
     guideLink: '촬영 가이드',
     back: '뒤로',
     retry: '다시 시도',
-    copy: '코드 복사', // ui-checker flag #1 — 무엇을 복사하는지 말한다(A-2 는 noAccess.copyId)
-    copied: '복사됐어요',
-    copiedShort: '복사됨',
+    copied: '복사됐어요', // 38-DESIGN-v2 A-3 강사 코드 줄 복사 토스트
     copyFallback: '길게 눌러 복사하세요',
     signOut: '다른 계정으로 로그인',
     cancel: '올리기 취소', // ui-checker flag #2 — A-5 진행 패널의 링크가 업로드 중단임을 말한다
@@ -37,7 +37,6 @@ export const supplierCopy = {
     toList: '목록으로',
     seeAll: '전체보기',
     offline: '연결이 안 돼요. 인터넷을 확인한 뒤 다시 시도해주세요.',
-    build: '빌드 {sha}',
   },
 
   // A-1 로그인 전 (Figma 1:960 + 1:977)
@@ -52,16 +51,21 @@ export const supplierCopy = {
     failed: '로그인에 실패했어요. 잠시 후 다시 시도해주세요.',
   },
 
-  // A-2 로그인했지만 화이트리스트 밖 (Figma 1:419~1:424 자리)
+  // 38-DESIGN-v2 A-2 초대받은 분만 (Figma 283:543 v2) — 로그인했는데 403 not_invited.
+  // 만료·없음·취소·메일 미인증을 나누지 않는 화면 하나(리서치 권고). 내 ID·ID 복사·등록 확인하기는 없다.
   noAccess: {
-    title: '아직 등록된 공급자가 아니에요',
-    body: '운영팀이 회원님의 ID를 등록하면 이 페이지를 쓸 수 있어요. 아래 ID를 운영팀에 알려주세요.',
-    idLabel: '내 ID',
-    copyId: 'ID 복사',
-    refresh: '등록 확인하기',
+    title: '초대받은 분만 쓸 수 있어요',
+    body: '공급자 페이지는 Sunity 가 초대한 강사·선수만 쓸 수 있어요. 초대받으셨다면 초대받은 Google 계정으로 로그인해 주세요.',
+    accountLabel: '지금 로그인한 계정',
+    helpTitle: '초대가 필요하거나 계정이 헷갈리면',
+    helpBody: '아래로 알려 주세요. 운영팀이 확인해 드려요.',
+    kakaoTitle: '카카오톡 채널로 문의',
+    kakaoSub: 'pf.kakao.com/_CyNxkn',
+    kakaoUrl: 'http://pf.kakao.com/_CyNxkn',
+    mailTitle: '메일로 문의',
+    mailSub: 'cs@sunity.ai',
+    mailUrl: 'mailto:cs@sunity.ai',
     checking: '확인하는 중...',
-    stillNo: '아직 등록 전이에요. 등록이 끝나면 다시 눌러주세요.',
-    refreshHint: '등록이 끝나면 눌러서 바로 확인할 수 있어요.', // 38-DESIGN A-2
   },
 
   // A-3 메인 (Figma 1:717 · 1:743 · 1:646)
@@ -78,14 +82,15 @@ export const supplierCopy = {
     // 안내 알약 2줄(Figma 1:399 문법 재사용 — Decisions 21)
     podDown: ['분석 서버가 꺼져 있어요.', '켜지면 대기 중인 동작을 이어서 처리해요.'],
     listError: '목록을 불러오지 못했어요.',
-    codeTitle: '내 코드',
-    athlete: '{name} 선수',
-    sport: '폴스포츠',
-    codeHow:
-      "수업 때 수강생에게 이 코드를 알려주세요. 수강생이 앱 마이 탭 '강사 코드' 칸에 넣으면 회원님과 연결돼요. (입력 칸은 다음 업데이트에서 열려요)",
-    // ui-checker flag #3 의 한 줄을 38-DESIGN A-3 에서 둘로 나눔(코드 자리 제목 + 안내 자리 본문).
-    codePendingTitle: '코드 준비 중',
-    codePendingBody: '운영팀이 코드를 넣으면 여기에 보여요.',
+    // 38-DESIGN-v2 A-3 — 시트 맨 위 강사 코드 한 줄(코드가 있을 때만). 옛 '내 코드' 카드는 지웠다.
+    codeRow: { label: '내 강사 코드', copy: '복사', big: '크게 보기' },
+  },
+
+  // 38-DESIGN-v2 크게 보기 (Figma 299:666) — 흰 전체 화면 모달, 투명도로만 열고 닫는다.
+  bigCode: {
+    title: '{name} 강사님의 코드',
+    titleNoName: '내 강사 코드',
+    how: 'Sunity 앱 → 마이 → 강사 코드에\n이 코드를 넣어 주세요',
   },
 
   // A-3 행 · A-3b 실패 상세 · A-3c 완료 상세. 부제 = `{레벨} · {상태어}`(38-DESIGN A-3, 레벨 라벨은

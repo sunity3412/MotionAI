@@ -239,7 +239,7 @@ export const supplierFixtures = {
   // ── presign 실패 → 화면 분기 (api.ts ApiError.status/code 형상) ─────────────
   apiFailures: [
     { status: 401, code: 'unauthorized', expect: 'sessionExpired' },
-    { status: 403, code: 'forbidden', expect: 'forbidden' },
+    { status: 403, code: 'not_invited', expect: 'notInvited' }, // quick-260930-lfw — 옛 forbidden 대체
     { status: 0, code: null, expect: 'offline' },
     { status: 0, code: 'unauthenticated', expect: 'sessionExpired' }, // api.ts: currentUser 없음
     { status: 500, code: 'server_error', expect: 'presignFail' },

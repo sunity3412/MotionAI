@@ -8,26 +8,30 @@
 //
 // 규칙: 색은 전부 theme 토큰(리터럴 색 0) · 문구는 호출부가 supplierCopy 에서 넘긴다(여기 한국어
 // 리터럴 0) · 라이트 전용 · 이모지 0. 간격은 이 파일의 선언값만(`space`).
-// 눌림 피드백 = Pressable `pressed` 스타일(apple-design press-down). 새 애니메이션 0 — reduced
-// motion 을 따로 고려할 움직임을 만들지 않는다.
+// 눌림 피드백 = Pressable `pressed` 스타일(apple-design press-down). 움직임은 크게 보기 모달 fade
+// 하나(투명도만) — 미끄러짐·확대가 없어 reduced-motion 과 같은 모습이다(38-DESIGN-v2).
+// 2026-09-30 38-DESIGN-v2(quick-260930-lfw): IdBox·CodeCard 삭제 → AccountBox · ContactRow ·
+// CodeRow · BigCodeModal.
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useState, type ReactNode } from 'react';
 import {
-  Image,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fontFamily, gradients, layout, radius, spacing, typography } from '../theme';
+import { bigCodeFontSize } from '../lib/supplierRules';
+import { colors, fontFamily, gradients, layout, radius, sns, spacing, typography } from '../theme';
 import { AlertIcon } from './PickErrorDialog';
 import SocialIcon from './SocialIcon';
 import SunityWordmark from './SunityWordmark';
@@ -60,8 +64,9 @@ const H = {
   touch: 44,
   thumb: 48, // 1:717 썸네일
   rowMin: 72,
-  photo: 180, // 38-DESIGN A-3 내 코드 사진
   ring: 72, // 38-DESIGN X 링 · 체크 링
+  chipBtn: 36, // 38-DESIGN-v2 강사 코드 줄 알약 버튼
+  contactIcon: 32, // 38-DESIGN-v2 A-2 문의 행 아이콘 사각
 } as const;
 
 // 반경 — theme 토큰 + 박제값(시트 17 · 알약 22 · 칩 8 · 토스트 12).
@@ -75,6 +80,9 @@ const R = {
   toast: 12,
   noticePill: 15, // 38-DESIGN A-4 ④ 안내 알약 15
 } as const;
+
+// 페이지 최대 폭(UI-SPEC Page frame). 크게 보기 코드 크기도 이 폭 기준.
+const FRAME_MAX_W = 430;
 
 // 시트가 헤더 위로 겹치는 높이 — 시안 헤더 ≈300, 시트가 216 에서 시작(38-DESIGN A-3).
 const SHEET_OVERLAP = 84;
@@ -112,8 +120,8 @@ export const text = StyleSheet.create({
   num13: { ...BOLD, fontSize: 13, lineHeight: 18, color: colors.brand },
   // 38-DESIGN §0 칩 글자.
   chipText: { ...BOLD, fontSize: 13, lineHeight: 18, color: colors.textMid },
-  // 38-DESIGN A-3 코드 30/700 brand, 자간 +4%(양수라 모든 플랫폼).
-  code: { ...BOLD, fontSize: 30, lineHeight: 39, letterSpacing: 1.2, color: colors.brand },
+  // 38-DESIGN-v2 A-3 강사 코드 줄 코드 20/700 brand, 자간 +6%(양수라 모든 플랫폼).
+  code: { ...BOLD, fontSize: 20, lineHeight: 26, letterSpacing: 1.2, color: colors.brand },
   // 38-DESIGN §0 STEP 라벨 15/700 brand(38-10 의 13.8 폐기).
   step: { ...BOLD, fontSize: 15, lineHeight: 20, color: colors.brand },
 });
@@ -507,14 +515,51 @@ export function StepCard({
   );
 }
 
-// 38-DESIGN A-2 ID 상자 — softBg · 반경 13 · 패딩 12 16 · 17/700 · 줄바꿈 허용 · 선택 가능.
-export function IdBox({ value }: { value: string }) {
+// 38-DESIGN-v2 A-2 지금 로그인한 계정 — softBg · 반경 13 · 패딩 14 16 · 라벨 15 textMid / 메일 17/700.
+export function AccountBox({ label, email }: { label: string; email: string }) {
   return (
-    <View style={s.idBox}>
-      <Text style={text.labelBold} selectable>
-        {value}
+    <View style={s.accountBox}>
+      <Text style={text.aux}>{label}</Text>
+      <Text style={[text.labelBold, s.mt2]} selectable>
+        {email}
       </Text>
     </View>
+  );
+}
+
+// 38-DESIGN-v2 A-2 문의 행 — 1px divider · 반경 13 · 패딩 12 16. 아이콘 32(반경 8) + 제목 17/700 /
+// 부제 15 textMid + 쉐브론 20 inputBorder. 카카오 노랑은 외부 서비스 식별 예외(기존 토큰 sns.kakao).
+export function ContactRow({
+  kind,
+  title,
+  sub,
+  onPress,
+}: {
+  kind: 'kakao' | 'mail';
+  title: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [s.contactRow, pressed && s.pressed]}
+      accessibilityRole="link"
+      accessibilityLabel={title}
+    >
+      <View style={[s.contactIcon, kind === 'kakao' ? s.contactIconKakao : s.contactIconMail]}>
+        {kind === 'kakao' ? (
+          <SocialIcon id="kakao" width={18} height={16} />
+        ) : (
+          <Ionicons name="mail-outline" size={18} color={colors.textMid} />
+        )}
+      </View>
+      <View style={s.contactText}>
+        <Text style={text.labelBold}>{title}</Text>
+        <Text style={text.aux}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={colors.inputBorder} />
+    </Pressable>
   );
 }
 
@@ -534,72 +579,106 @@ export function Toast({ message }: { message: string | null }) {
   );
 }
 
-// 38-DESIGN A-3 내 코드 카드 — 1px divider · 반경 15 · 내용 잘림 · 패딩 0.
-// 사진 있음: 높이 180 cover + 아래로 어두워지는 음영(gradients.supplierPhotoShade) + 왼쪽·아래 16 에
-// `폴스포츠`(15/700 흰, 2px brand 밑줄) → `{name} 선수`(18/700 흰). 사진 없음: 이름 블록.
-// 본문(패딩 16 가운데): `내 코드` 15/700 textMid → 4 → 코드 30/700 brand(+4%) 또는 `코드 준비 중`
-// 20/700 resultTextSub → 12 → `코드 복사`(준비 중이면 비활성) → 12 → 안내 보조 문구.
-export function CodeCard({
-  photoUrl,
-  sportLabel,
-  athleteLine,
-  codeTitle,
+// 38-DESIGN-v2 A-3 강사 코드 줄 — 흰 면 · 1px divider · 반경 15 · 패딩 12 12 12 16 · 가로.
+// 왼쪽 `내 강사 코드` 13 textMid / 코드 20/700 brand(+6%). 오른쪽 알약 2개(36 · 반경 18 · 1px
+// inputBorder · 15/700 · 좌우 14 · 간격 8). 알약은 36 이라 hitSlop 4 로 터치 44 를 채운다.
+export function CodeRow({
+  label,
   code,
-  pendingTitle,
-  pendingBody,
   copyLabel,
   onCopy,
-  howText,
+  bigLabel,
+  onBig,
 }: {
-  photoUrl: string | null;
-  sportLabel: string;
-  athleteLine: string;
-  codeTitle: string;
-  code: string | null;
-  pendingTitle: string;
-  pendingBody: string;
+  label: string;
+  code: string;
   copyLabel: string;
   onCopy: () => void;
-  howText: string;
+  bigLabel: string;
+  onBig: () => void;
 }) {
   return (
-    <View style={[s.card, s.codeCard]}>
-      {photoUrl ? (
-        <View style={s.photo}>
-          <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          <LinearGradient
-            colors={gradients.supplierPhotoShade.colors}
-            locations={gradients.supplierPhotoShade.locations}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={s.photoText}>
-            <Text style={[text.body15Bold, s.onBrand, s.sportUnderline]}>{sportLabel}</Text>
-            <Text style={[text.title, s.onBrand]}>{athleteLine}</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={s.codeNameOnly}>
-          <Text style={[text.body15Bold, s.sportUnderline]}>{sportLabel}</Text>
-          <Text style={text.title}>{athleteLine}</Text>
-        </View>
-      )}
-      <View style={s.codeBody}>
-        <Text style={[text.body15Bold, text.mid]}>{codeTitle}</Text>
-        {code ? (
-          <Text style={[text.code, text.center, s.mt4]} selectable>
-            {code}
-          </Text>
-        ) : (
-          <Text style={[text.heading, text.sub, text.center, s.mt4]}>{pendingTitle}</Text>
-        )}
-        <View style={[s.mt12, s.stretch]}>
-          <OutlineButton label={copyLabel} onPress={onCopy} disabled={!code} />
-        </View>
-        <Text style={[text.aux, text.center, s.mt12]}>{code ? howText : pendingBody}</Text>
+    <View style={s.codeRow}>
+      <View style={s.codeRowText}>
+        <Text style={text.caption13}>{label}</Text>
+        <Text style={text.code} selectable>
+          {code}
+        </Text>
+      </View>
+      <View style={s.codeRowBtns}>
+        <ChipButton label={copyLabel} onPress={onCopy} />
+        <ChipButton label={bigLabel} onPress={onBig} />
       </View>
     </View>
+  );
+}
+
+function ChipButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const slop = (H.touch - H.chipBtn) / 2;
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={{ top: slop, bottom: slop, left: space.xs, right: space.xs }}
+      style={({ pressed }) => [s.chipBtn, pressed && s.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Text style={text.body15Bold}>{label}</Text>
+    </Pressable>
+  );
+}
+
+// 38-DESIGN-v2 크게 보기(299:666) — 흰 전체 화면 모달. 오른쪽 위 X 28(터치 44). 세로 가운데:
+// 제목 20/700 textMid → 16 → 코드 700 brand(자간 +8%, 크기 = bigCodeFontSize — 72 기본, 긴 코드는
+// 폭에 맞춰 줄인다) → 24 → 안내 17 textMid 가운데. 열고 닫기는 fade(투명도만). 웹 ESC 는
+// react-native-web ModalContent 가 onRequestClose 를 부른다.
+export function BigCodeModal({
+  visible,
+  title,
+  code,
+  how,
+  closeLabel,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  code: string;
+  how: string;
+  closeLabel: string;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const size = bigCodeFontSize(code.length, Math.min(width, FRAME_MAX_W) - space.screen * 2);
+  return (
+    <Modal visible={visible} animationType="fade" transparent={false} onRequestClose={onClose}>
+      <View style={[s.bigPage, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={s.bigTop}>
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [s.bigClose, pressed && s.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={closeLabel}
+          >
+            <Ionicons name="close" size={28} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+        <View style={s.bigBody}>
+          <Text style={[text.heading, text.mid, text.center]}>{title}</Text>
+          <Text
+            style={[
+              s.bigCode,
+              { fontSize: size, lineHeight: Math.round(size * 1.2), letterSpacing: size * 0.08 },
+            ]}
+            numberOfLines={1}
+            selectable
+          >
+            {code}
+          </Text>
+          <Text style={[text.label, text.mid, text.center, s.mt24]}>{how}</Text>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -746,10 +825,11 @@ export function DonePanel({
 const s = StyleSheet.create({
   flex: { flex: 1 },
   stretch: { alignSelf: 'stretch' },
-  frame: { flex: 1, width: '100%', maxWidth: 430, alignSelf: 'center', backgroundColor: colors.bg },
+  frame: { flex: 1, width: '100%', maxWidth: FRAME_MAX_W, alignSelf: 'center', backgroundColor: colors.bg },
   pressed: { opacity: 0.7 },
   busy: { opacity: 0.6 },
   cardPressed: { opacity: 0.4 },
+  mt2: { marginTop: space.xxs },
   mt4: { marginTop: space.xs },
   mt8: { marginTop: space.sm },
   mt12: { marginTop: space.row },
@@ -918,12 +998,33 @@ const s = StyleSheet.create({
     paddingHorizontal: space.md,
     alignItems: 'center',
   },
-  idBox: {
+  accountBox: {
+    alignSelf: 'stretch',
     backgroundColor: colors.softBg,
+    borderRadius: R.button,
+    paddingVertical: space.s14,
+    paddingHorizontal: space.md,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.row,
+    borderWidth: BORDER,
+    borderColor: colors.divider,
     borderRadius: R.button,
     paddingVertical: space.row,
     paddingHorizontal: space.md,
   },
+  contactIcon: {
+    width: H.contactIcon,
+    height: H.contactIcon,
+    borderRadius: R.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactIconKakao: { backgroundColor: sns.kakao.bg },
+  contactIconMail: { backgroundColor: colors.softBg },
+  contactText: { flex: 1, gap: space.xxs },
   toast: {
     position: 'absolute',
     left: space.screen,
@@ -935,20 +1036,40 @@ const s = StyleSheet.create({
     zIndex: 10,
   },
 
-  codeCard: { padding: 0, overflow: 'hidden' },
-  photo: { height: H.photo, justifyContent: 'flex-end' },
-  photoText: { padding: spacing.cardPadding, gap: space.xs },
-  sportUnderline: {
-    alignSelf: 'flex-start',
-    borderBottomWidth: 2,
-    borderBottomColor: colors.brand,
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bg,
+    borderWidth: BORDER,
+    borderColor: colors.divider,
+    borderRadius: R.card,
+    paddingTop: space.row,
+    paddingBottom: space.row,
+    paddingRight: space.row,
+    paddingLeft: space.md,
   },
-  codeNameOnly: {
-    paddingTop: spacing.cardPadding,
-    paddingHorizontal: spacing.cardPadding,
-    gap: space.xs,
+  codeRowText: { flex: 1, gap: space.xxs },
+  codeRowBtns: { flexDirection: 'row', gap: space.sm },
+  chipBtn: {
+    height: H.chipBtn,
+    borderRadius: H.chipBtn / 2,
+    borderWidth: BORDER,
+    borderColor: colors.inputBorder,
+    paddingHorizontal: space.s14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bg,
   },
-  codeBody: { padding: spacing.cardPadding, alignItems: 'center' },
+  bigPage: { flex: 1, backgroundColor: colors.bg },
+  bigTop: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: space.sm },
+  bigClose: { width: H.touch, height: H.touch, alignItems: 'center', justifyContent: 'center' },
+  bigBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.screen,
+  },
+  bigCode: { ...BOLD, color: colors.brand, textAlign: 'center', marginTop: space.md },
 
   panel: { alignItems: 'center' },
   panelFail: { paddingTop: space.lg },

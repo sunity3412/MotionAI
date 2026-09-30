@@ -183,7 +183,11 @@ Resources:
       FunctionName: !Sub sunity-motion-${Stage}-reference-upload-url
       CodeUri: functions/reference-upload-url/
       Handler: app.lambda_handler
-      Timeout: 10
+      # quick-260930-lfw 실측: probe 경로에 Firestore(명단 doc 읽기 + 초대 수락 트랜잭션)가
+      # 들어와 콜드 호출 3건이 10s 타임아웃(REPORT Status: timeout, 메모리 187~189/256MB).
+      # playback-url(32-16)과 같은 수리 — 정본 template.yaml 과 lockstep.
+      Timeout: 30
+      MemorySize: 512
       Environment:
         Variables:
           # auto-register 와 같은 어법 — belle uid 는 배포 시점 값이면 충분하다(바뀌지 않는다).

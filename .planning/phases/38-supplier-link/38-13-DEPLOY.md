@@ -207,3 +207,5 @@ belle 수정 요청 원문(순서대로):
 - 한도: 공급자·수강생 공용 `MAX_VIDEO_BYTES` 100MB, 콤보 60초 — 앱 `supplierForm.ts:20-23` · `models.py:717,973-975` · `validation.py:242` · `pipeline/app.py:10551`.
 
 시험 doc: belle 이 올린 `클라임 · 기본기 · 대기 중` 1건이 TESTB(UmH3…) 소유로 남아 있다 — 정리 대상.
+
+수정 반영 = quick-260930-w9l (2026-10-01 00:20~00:24 KST · layer `sunity-motion-pilot-shared:23` → reference-upload-url · playback-url · 웹 재배포 무효화 `IA83OV9SRXLSAVLLUPILU2U5Q9` · OTA preview ios group `62eb42e4-afa8-443d-8afa-ff55757bbd59`), belle 폰 재확인 대기 — 목록은 `.planning/quick/260930-w9l-supplier-form-revisions-belle-phone-chec/260930-w9l-SUMMARY.md` 끝. TESTB 는 아직 켜져 있다(재확인용).

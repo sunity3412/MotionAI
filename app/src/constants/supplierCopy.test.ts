@@ -417,6 +417,9 @@ test('w9l — 가이드 s2 · s3 · s5 · s7 새 문구', () => {
   );
   assert.equal(g.s5.items[4], '필수 항목(초상·성명 사용, 영상 이용)에 동의하지 않으면 등록할 수 없어요.');
   assert.equal(g.s7.items.length, 4);
+  // belle 10-01 — 강사 코드 입력은 quick-260930-o0u 로 나갔다. 옛 '다음 업데이트' 안내 삭제.
+  assert.equal(g.s6.items[1], "수강생은 앱 마이 탭 '강사 코드' 칸에 넣어요. 그러면 회원님 수강생으로 연결돼요.");
+  assert.ok(!GUIDE_MD.includes('다음 업데이트에서 열려요'));
   for (const it of g.s7.items) {
     assert.ok(!it.startsWith('음악'), it);
     assert.ok(!it.startsWith('여러 동작을 이어 찍기'), it);

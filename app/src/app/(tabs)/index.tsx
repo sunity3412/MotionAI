@@ -49,12 +49,13 @@ const LEVEL_LABEL: Record<SkillLevel, string> = {
   advanced: '고급',
 };
 
-// 도전 리스트 컨텍스트 카피 (Figma 1:719: "고급 새로 추가됨" / "중급 도전 추천" / "입문 기본기").
-// 같은 레벨 2번째 이상은 단순 레벨명만.
+// 도전 리스트 컨텍스트 카피 (Figma 1:719: "고급 새로 추가됨" / "중급 도전 추천" / 초급은 레벨명만).
+// Figma 원문 '입문 기본기' 는 라벨이 '초급' 이 되며 '입문 초급' 이 돼 belle 10-01 결정으로 접두어를 뺐다
+// (quick-260930-w9l). 같은 레벨 2번째 이상은 단순 레벨명만.
 function challengeCopy(motion: ReferenceMotion, isFirstOfLevel: boolean): string {
   const lv = LEVEL_LABEL[motion.level];
   if (!isFirstOfLevel) return lv;
-  if (motion.level === 'basic') return `입문 ${lv}`;
+  if (motion.level === 'basic') return lv;
   if (motion.level === 'intermediate') return `${lv} 도전 추천`;
   return `${lv} 새로 추가됨`;
 }

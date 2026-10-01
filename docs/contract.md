@@ -1101,7 +1101,7 @@ too_short           영상이 너무 짧아요. 기준 동작은 5초 이상이�
 too_long            영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.
 too_large           용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.
 server_error        등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.
-rejected            검수에서 반려됐어요. 사유: {reason}. 고쳐서 다시 올려 주세요.
+rejected            운영팀 확인에서 등록되지 않았어요. 이유: {reason}. 고쳐서 다시 올려 주세요.
 ```
 
 `no_human` 은 기존 `ERROR_MESSAGE.no_human` 재사용(D-09) — 공급자 페이지 `row.fail.no_human` 제목/본문(Figma `1:479`)과 다르다, 의도된 예외. 나머지 8개 = UI-SPEC `row.fail.<code>.title + '. ' + body`(38-03 `supplierCopy.test.ts` 가 이 규칙으로 대조). `low_confidence` 의 `{joints}` 는 파이프라인이 `str.replace` 로 치환한다(`str.format` 금지). `too_large` 는 실제 객체 크기를 다운로드 전 `head_object` 로 거른 결과(리뷰 R9). 2026-10-01(quick-261001-thx) 부터 파이프라인이 내는 코드는 분석 불가뿐(`no_human` · `too_*` · `server_error`) — `multiple_people` · `no_standing_start` · `low_confidence` 는 진단(`registrationDiagnostics`)으로 내려가 더 나오지 않지만 옛 실패 doc 용으로 남는다. `rejected` = 사람 검수 반려(`firestore_admin.reject_reference_registration`), `{reason}` 은 서버가 `str.replace` 로 치환해 message 에 싣고 사유 원문은 `registrationError.reason` 에도 둔다.

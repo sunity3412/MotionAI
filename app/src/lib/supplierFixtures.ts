@@ -255,7 +255,7 @@ export const supplierFixtures = {
       },
       registrationError: {
         code: 'rejected',
-        message: '검수에서 반려됐어요. 사유: 화면이 어두워요. 고쳐서 다시 올려 주세요.',
+        message: '운영팀 확인에서 등록되지 않았어요. 이유: 화면이 어두워요. 고쳐서 다시 올려 주세요.',
         reason: '화면이 어두워요',
       },
       review: { decision: 'rejected', by: 'ops:belle', at: T0 + 9_500, reason: '화면이 어두워요' },

@@ -979,7 +979,7 @@ REGISTRATION_ERROR_MESSAGE = {
     REG_ERR_TOO_LONG: "영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.",
     REG_ERR_TOO_LARGE: "용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.",
     REG_ERR_SERVER_ERROR: "등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.",
-    REG_ERR_REJECTED: "검수에서 반려됐어요. 사유: {reason}. 고쳐서 다시 올려 주세요.",
+    REG_ERR_REJECTED: "운영팀 확인에서 등록되지 않았어요. 이유: {reason}. 고쳐서 다시 올려 주세요.",
 }
 
 # 폼 레벨 — 앱 `SkillLevel` 미러. picker `referenceMotions.normalize()` 가 버리지 않는

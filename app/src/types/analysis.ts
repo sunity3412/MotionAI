@@ -2456,7 +2456,7 @@ export const REGISTRATION_ERROR_MESSAGE: Record<ReferenceRegistrationErrorCode, 
   too_long: '영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.',
   too_large: '용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.',
   server_error: '등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.',
-  rejected: '검수에서 반려됐어요. 사유: {reason}. 고쳐서 다시 올려 주세요.',
+  rejected: '운영팀 확인에서 등록되지 않았어요. 이유: {reason}. 고쳐서 다시 올려 주세요.',
 };
 
 // 로딩 화면 단계 진행 순서 (design.md §5-9). failed 는 별도 처리.

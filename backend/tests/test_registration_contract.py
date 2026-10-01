@@ -84,7 +84,7 @@ def test_too_long_and_too_large_messages_w9l():
 def test_rejected_placeholder_is_replace_style():
     # 반려 사유는 운영자 입력 — str.replace("{reason}", ...) 로만 치환(중괄호가 든 사유도 KeyError 없음).
     msg = models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_REJECTED]
-    assert msg == "검수에서 반려됐어요. 사유: {reason}. 고쳐서 다시 올려 주세요."
+    assert msg == "운영팀 확인에서 등록되지 않았어요. 이유: {reason}. 고쳐서 다시 올려 주세요."
     assert msg.count("{reason}") == 1
     assert msg.count("{") == 1 and msg.count("}") == 1
 

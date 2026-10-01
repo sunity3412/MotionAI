@@ -100,10 +100,11 @@ test('guide 섹션 7개 = D-18 7항목 제목 그대로', () => {
   assert.equal(supplierCopy.guide.s3.h, '올릴 때 무엇을 적나요');
   assert.equal(supplierCopy.guide.s4.h, '올리면 무엇이 보이나요');
   assert.equal(supplierCopy.guide.s5.h, '권리와 동의');
-  assert.equal(supplierCopy.guide.s6.h, '내 코드를 수강생에게 알려주는 법');
   assert.equal(supplierCopy.guide.s7.h, '자주 틀리는 것');
-  assert.equal(supplierCopy.guide.s4.tip.length, 4);
-  assert.equal(supplierCopy.guide.s4.tipHead, '등록이 안 되는 4가지');
+  // 261001-thx — 등록 = 자동 읽기 + 운영팀 확인. 옛 '등록이 안 되는 4가지' → '잘 찍는 팁' 3줄.
+  assert.equal(supplierCopy.guide.s4.tip.length, 3);
+  assert.equal(supplierCopy.guide.s4.tipHead, '잘 찍는 팁');
+  assert.equal(supplierCopy.guide.s6.h, '내 강사 코드를 수강생에게 알려 주는 법');
 });
 
 // ── 2) 고정 각도·거리·이모지 없음 ───────────────────────────────────────────
@@ -234,11 +235,28 @@ test('row.fail 8코드의 title + ". " + body 가 analysis.ts REGISTRATION_ERROR
 // ── 14) quick-261001-thx — 검수 중 · 반려 ───────────────────────────────────
 
 test('thx — row.status.review · row.fail.rejected 글자 단위', () => {
-  assert.equal(supplierCopy.row.status.review, '검수 중 · 확인 뒤 수강생에게 보여요');
+  assert.equal(supplierCopy.row.status.review, '운영팀 확인 중 · 끝나면 수강생에게 보여요');
   assert.deepEqual(supplierCopy.row.fail.rejected, {
-    title: '검수에서 반려됐어요',
-    body: '사유: {reason}. 고쳐서 다시 올려 주세요.',
+    title: '운영팀 확인에서 등록되지 않았어요',
+    body: '이유: {reason}. 고쳐서 다시 올려 주세요.',
   });
+});
+
+test('thx — 공급자 문구에 서 있는 시작 요구 · 내부어 검수 · 느낌표가 없다', () => {
+  // 실패 패널의 no_standing_start 는 2026-10-01 이전 doc 용이라 예외(서버가 더 내지 않는다).
+  for (const [p, s] of ALL_STRINGS) {
+    if (p.startsWith('row.fail.no_standing_start')) continue;
+    assert.ok(!s.includes('서 있는 자세에서 시작했'), `${p}: ${s}`);
+    assert.ok(!s.includes('서 있는 시작이 없'), `${p}: ${s}`);
+    assert.ok(!s.includes('검수'), `${p}: ${s}`);
+    assert.ok(!s.includes('!'), `${p}: ${s}`);
+  }
+  assert.ok(!GUIDE_MD.includes('등록이 안 되는 4가지'));
+  assert.deepEqual([...supplierCopy.guide.s4.items], [
+    '올리면 관절을 자동으로 읽은 뒤, 운영팀이 확인하고 기준 동작으로 올려요. 확인 전에는 수강생에게 보이지 않아요.',
+    "분석 서버가 꺼져 있으면 '대기 중'으로 있다가, 켜지면 이어서 처리돼요.",
+    '확인이 끝나면 앱의 기준 동작 목록에 올라가요. 다시 올려야 하면 이유를 함께 알려 드려요.',
+  ]);
 });
 
 // ── 9) R7/R11 정직 문구 ────────────────────────────────────────────────────
@@ -255,7 +273,7 @@ test('R7 — 선언은 등록 정보로 보관, 채점 규칙 약속 문구 없�
 });
 
 test('R11 — 자기 점수는 일관성 진단, 고지 문장 고정, low 는 다시 찍기 유지', () => {
-  assert.ok(supplierCopy.row.self.okBody.includes('추출·저장이 일관돼요'));
+  assert.ok(supplierCopy.row.self.okBody.includes('저장이 일관돼요'));
   assert.equal(supplierCopy.row.self.title, '자기 영상 재분석');
   for (const [p, s] of ALL_STRINGS) {
     assert.ok(!s.includes('기준으로 쓸 수 있어요'), `${p}: 옛 R11 문구`);
@@ -276,8 +294,8 @@ test('dialog.format 은 pickerFailure.ts 와 같고 dialog.tooLarge 는 제목�
   // 경로(pickerFailure.ts)는 100MB 그대로라 본문 첫 줄이 다르고, 제목은 같다.
   assert.equal(supplierCopy.dialog.tooLarge.title, tooLarge.title);
   assert.deepEqual([...supplierCopy.dialog.tooLarge.lines], [
-    '1GB 이하 영상만 업로드 할 수 있어요.',
-    '영상을 잘라서 다시 시도해주세요.',
+    '1GB 이하 영상만 올릴 수 있어요.',
+    '영상을 잘라서 다시 시도해 주세요.',
   ]);
   assert.notDeepEqual([...supplierCopy.dialog.tooLarge.lines], tooLarge.lines);
   assert.deepEqual([...supplierCopy.dialog.tooLong.lines], [
@@ -300,8 +318,9 @@ test('38-DESIGN.md 새/바뀐 문구 키', () => {
   assert.equal(c.form.sec5.allHint, '필수 2개'); // w9l — 필수 동의 3 → 2
   assert.equal(c.row.done.sub, '{name} · {athlete} 선수');
   assert.equal(c.row.self.title, '자기 영상 재분석');
-  assert.equal(c.row.self.okBody, '추출·저장이 일관돼요.');
-  assert.equal(c.row.self.lowBody, '낮아요. 다시 찍어 주세요.');
+  // 261001-thx 문구 다듬기 — '추출' 기술어 · '낮아요.' 단독 문장을 풀었다(Figma 282:506 원문과 다름).
+  assert.equal(c.row.self.okBody, '관절 읽기와 저장이 일관돼요.');
+  assert.equal(c.row.self.lowBody, '점수가 낮아요. 관절을 잘못 읽었을 수 있으니 다시 찍어 주세요.');
   assert.equal(c.row.self.scoreText, '{score}점');
   assert.equal(c.form.uploading.progressLabel, '올리는 중');
   assert.equal(c.form.uploading.pct, '{pct}%');
@@ -323,7 +342,7 @@ test('38-DESIGN-v2 A-2 초대받은 분만 — 문구 글자 단위', () => {
   assert.equal(n.title, '초대받은 분만 쓸 수 있어요');
   assert.equal(
     n.body,
-    '공급자 페이지는 Sunity 가 초대한 강사·선수만 쓸 수 있어요. 초대받으셨다면 초대받은 Google 계정으로 로그인해 주세요.',
+    '공급자 페이지는 Sunity가 초대한 강사·선수만 쓸 수 있어요. 초대 메일을 받은 Google 계정으로 로그인해 주세요.',
   );
   assert.equal(n.accountLabel, '지금 로그인한 계정');
   assert.equal(n.helpTitle, '초대가 필요하거나 계정이 헷갈리면');
@@ -370,16 +389,16 @@ test('w9l — 필수 표시 · 촬영 전 체크 4 · 선수 이름 고정 · �
     '· 세로로, 삼각대나 거치대에 고정해서 찍었어요. 손으로 들고 찍지 않았어요.',
     '· 폴 전체(천장~바닥)와 몸 전체가 동작 내내 화면 안에 있어요. 카메라는 약 4~5m 떨어져 있어요.',
     '· 한 사람만 나오고, 밝은 실내예요. 창을 등지지 않았어요.',
-    '· 서 있는 자세에서 시작했어요.',
   ]);
-  assert.equal(f.sec1.confirm, '위 4가지를 확인했어요');
+  // 261001-thx — 서 있는 시작은 더 이상 등록 조건이 아니라 체크 항목에서 뺐다(4 → 3).
+  assert.equal(f.sec1.confirm, '위 3가지를 확인했어요');
   assert.equal(
     supplierCopy.home.emptyBody,
-    '올린 동작은 앱의 기준 동작 목록에 올라가요. 촬영 전 체크 4가지를 먼저 확인해요.',
+    '올린 동작은 운영팀 확인 뒤 앱의 기준 동작 목록에 올라가요. 올리기 전에 촬영 전 체크 3가지를 확인해 주세요.',
   );
   assert.equal(
     f.sec2.name.helper,
-    '동작 이름은 등록 정보로 보관해요. 채점은 지금은 정은지 기준과 같은 기본 비교 방식으로만 해요. 동작별 채점 규칙은 다음 단계에서 붙어요.',
+    '동작 이름은 등록 정보로 보관해요. 지금은 정은지 선수 기준 영상과 같은 기본 비교 방식으로 채점해요. 동작별 채점 규칙은 다음 단계에서 더해요.',
   );
   assert.equal(
     f.sec2.athlete.helper,
@@ -389,9 +408,9 @@ test('w9l — 필수 표시 · 촬영 전 체크 4 · 선수 이름 고정 · �
   assert.deepEqual(f.sec2.level.options, { basic: '초급', intermediate: '중급', advanced: '고급' });
   assert.deepEqual([...f.sec4.pill], [
     '기준 영상처럼 찍으세요(폴 전체와 전신이 들어오는 거리, 세로, 고정)',
-    '5초~2분 · 1GB 이하 · 서 있는 자세에서 시작 · 소리는 자동으로 지워요',
+    '5초~2분 · 1GB 이하 · 소리는 자동으로 지워요',
   ]);
-  assert.equal(supplierCopy.row.tip[2], '· 5초~2분, 서 있는 자세에서 시작');
+  assert.equal(supplierCopy.row.tip[2], '· 길이는 5초~2분');
 });
 
 test('w9l — 지운 키가 없다 (콤보 · 선언 3 · 선수 이름 오류 · 상세 표 선언 행)', () => {
@@ -415,13 +434,12 @@ test('w9l — 가이드 s2 · s3 · s5 · s7 새 문구', () => {
   const g = supplierCopy.guide;
   assert.deepEqual([...g.s2.items], [
     '길이는 5초~2분이에요. 동작 하나도, 여러 동작을 이은 콤보도 올릴 수 있어요.',
-    '폴 옆에 서서 1초쯤 있다가 시작해요. 서 있는 순간이 발 높이를 재는 기준이 돼요.',
+    '가능하면 폴 옆에 서서 1초쯤 있다가 시작해 주세요. 서 있는 순간이 발 높이를 재는 기준이 돼요.',
     '소리는 신경 쓰지 않아도 돼요. 등록할 때 영상의 소리를 지워서 저장해요.',
     '영상 파일은 1GB까지 올릴 수 있어요.',
   ]);
-  assert.equal(g.s3.items.length, 4);
+  assert.equal(g.s3.items.length, 3);
   assert.ok(g.s3.items[2].startsWith('선수 이름: 초대할 때 확인한 실명으로 정해져 있어요.'));
-  assert.ok(g.s3.items[3].startsWith('서 있는 자세에서 시작했는지는 따로 묻지 않아요.'));
   assert.equal(g.s5.items.length, 5);
   assert.equal(
     g.s5.items[2],

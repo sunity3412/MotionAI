@@ -298,7 +298,7 @@ test('failCopy — rejected 는 운영자 사유를 본문에 넣고, 사유가 
   for (const none of [undefined, '', '   ']) {
     const noReason = failCopy('rejected', undefined, none);
     assert.ok(!noReason.body.includes('{reason}'), String(none));
-    assert.ok(!noReason.body.includes('사유'), String(none));
+    assert.ok(!noReason.body.includes('이유'), String(none));
     assert.ok(noReason.body.length > 0 && noReason.body.endsWith('.'), noReason.body);
   }
   // 다른 코드는 reason 인자를 무시한다.

@@ -227,3 +227,20 @@ Figma 원문을 바꾼 키(D-22 "Figma 문자열은 그대로" 예외 — 문구
 - FOUND: 커밋 `79977722` · `2989c191` · `656c9c99` (origin/main 포함) [확인 git log]
 - FOUND: 보존 폴더 `/Users/Shared/sunity-motion-rollback/thx/` (700) · layer :24 · playback-url Successful [확인 — DEPLOY.md R-0~R-2]
 - STATE.md 는 갱신하지 않았다 — quick 작업이라 오케스트레이터가 문서 커밋과 함께 처리(지시). ROADMAP 무접촉.
+
+## 보완(belle 답 3건) — 커밋 `e1a74f51`, 웹 무효화 `I417VO9JEK2NZQZXH2OHWZZEJ2`
+
+belle 10-01: *"1. 회원님으로 일단 진행하자 2. 올리는거에 실패가 있으려나? 두개는 겹치느거 같은데 3. 승인을 했는데 내려야할 일이 뭐가 있을까? 아주 심플하게 만들면 돼"*
+
+1. **'회원님' 유지** — 변경 없음.
+2. **승인 전 한 문구** — registering · queued · processing · review 를 `row.status.checking` = '확인 중 · 끝나면 수강생에게 보여요' 하나로(진행 점 그대로) [확인 테스트]. 옛 키 registering · queued · processing · review 는 supplierCopy 에서 지웠다(테스트가 잠금). 가이드 §4 '대기 중' 줄 삭제(supplierCopy · docs/supplier-guide.md 같이). 백엔드 상태는 그대로 — 행 문구 매핑만.
+   - 같이 고친 것 1줄: 서버 꺼짐 알약 `home.podDown[1]` '켜지면 대기 중인 동작을 이어서 처리해요.' → '켜지면 올린 동작을 이어서 처리해요.' — 행에서 '대기 중' 이 사라져 그 말이 가리킬 곳이 없어졌다.
+3. **내리기 명령 하나** — `review_reference_registrations.py deactivate <refId> [--reason] [--by] [--dry-run]` + `firestore_admin.deactivate_reference_registration`.
+   - active ∧ isActive True → isActive False(picker `referenceMotions.ts:79` 가 숨김) · 상태는 active 그대로 · 누가/언제/사유는 비공개 doc `deactivation` 에만 · 이미 내렸으면 already_inactive 쓰기 0 · ref-* 는 CLI 종료 2 + writer ValueError · active 아니면 ValueError(종료 1) [확인 테스트].
+   - 계약: analysis.ts `ReferenceRegistrationPrivate.deactivation?` · contract.md §3 비공개 doc 줄 추가(테스트 대조).
+   - **공급자 행 문구 판단**: 내린 doc 은 registrationStatus 가 active 그대로라 승인 뒤 문구('재현성 N점' / '새로 추가됨')가 그대로 보인다 — 새 공급자 문구를 만들지 않았다(가장 단순한 기존 매핑, 테스트로 잠금). 공급자 홈 썸네일은 playback-url 가드상 404(아이콘 자리)가 된다 [확인 코드 `_visible_to` — isActive false ∧ review 아님]. 공급자가 "내려졌다" 는 걸 화면으로 알 길은 없다 — 운영팀이 따로 알린다는 전제. **오케스트레이터 확인 필요.**
+   - 되살리기 명령 없음(범위 밖). 내린 doc 에 approve 를 다시 부르면 비공개 review.decision 이 approved 라 'already_approved' 만 나오고 isActive 는 False 그대로다 [확인 코드] — 되살리려면 다시 올려 새 refId.
+   - **layer 재게시 안 함** — 새 writer 의 호출자는 로컬 CLI 뿐(Lambda · Pod 호출 0 [확인 grep]), CLI 는 리포 코드를 직접 import. models.py 무변경. 상세 = DEPLOY.md '배포 기록 2'.
+
+게이트 [확인]: backend 전체 **5855 passed, 20 skipped**(5833 → +22: writer 10 + 가드 parametrize 2 + CLI 10) · node **89/89**(88 → +1) · typecheck 0 · 웹 export 성공.
+배포 [확인]: 웹만 — 보존 `/Users/Shared/sunity-motion-rollback/thx/web-before-2/`(60개, 700) → s3 sync → 무효화 `I417VO9JEK2NZQZXH2OHWZZEJ2` 완료 → `/supplier` 200 · entry `entry-394e74ae…` · 새 문구 '확인 중 · 끝나면 수강생에게 보여요' 1 · 옛 '올린 영상 확인 중' · '운영팀 확인 중' 0.

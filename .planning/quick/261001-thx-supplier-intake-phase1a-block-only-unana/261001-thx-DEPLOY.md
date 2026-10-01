@@ -292,3 +292,42 @@ playback-url — TESTB 커스텀 토큰(uid `UmH3…`) → signInWithCustomToken
 - `review_reference_registrations.py list` → `검수 대기 0건`, exit 0 [확인] — 실 Firestore 에서 `registrationStatus == 'review'` 단일 등가 쿼리가 돈다.
 
 남은 확인 = 위 '배포 뒤 확인' 1~7(Pod 새 코드 → 대역 재업로드 → review → list/show → belle OK → approve → picker). Pod 는 38-14 재개 때.
+
+## 배포 기록 2 (2026-10-01) — 승인 전 한 문구 · deactivate 명령
+
+> belle 10-01 답 3건 반영("아주 심플하게 만들면 돼"). 코드 커밋 `e1a74f51`(push `4a0ff2c1..e1a74f51`). **웹만** 배포했다.
+
+### 무엇을, 왜 이것만 배포했나
+
+- 웹: 공급자 행의 승인 전 네 상태(registering · queued · processing · review)를 한 문구 '확인 중 · 끝나면 수강생에게 보여요' 로, 가이드 §4 '대기 중' 줄 삭제, 서버 꺼짐 알약 둘째 줄 '켜지면 올린 동작을 이어서 처리해요.'.
+- **layer 재게시 안 함.** 바뀐 서버 쪽 코드 = `firestore_admin.deactivate_reference_registration` 추가뿐이고, 호출자는 로컬 운영 CLI(`review_reference_registrations.py deactivate`) 하나다. `backend/functions` · `backend/runpod_inference` 에서 이 함수를 부르는 곳 0 [확인 grep]. CLI 는 리포의 `backend/shared/python` 을 직접 import 하므로 layer 와 무관하다 [확인 — 스크립트 `_LAYER` sys.path]. models.py 는 이번에 안 바뀌었다 [확인 git diff 656c9c99..e1a74f51 -- models.py 0줄].
+  → layer :24 의 firestore_admin.py 는 이제 리포 HEAD 보다 함수 하나가 적다(쓰는 Lambda 없음). 다음 layer 게시 때 자연히 들어간다.
+- Pod 는 38-14 재개 때 HEAD 를 받으므로 그때 같이 들어간다(Pod 도 이 함수를 쓰지 않는다).
+
+### W-0. 보존 (13:25Z 직전) — `/Users/Shared/sunity-motion-rollback/thx/web-before-2/` (drwx------)
+
+- 버킷 객체 60개 [확인] · 배포 전 라이브 entry = `entry-b11437910972ee1a184af30fb929b4b5.js`(배포 기록 1 의 웹) → `web-before-2-entry.txt` [확인].
+
+### W-1. 웹 (13:25:33Z ~ 13:25:59Z)
+
+```bash
+cd app && rm -rf dist && CI=1 npx expo export --platform web --output-dir dist     # entry-394e74aeb945c1696825abb05949fe17.js 2.97 MB
+aws s3 sync app/dist s3://sunity-motion-pilot-supplier-web --delete --only-show-errors
+aws cloudfront create-invalidation --distribution-id E16SR4IPFYH46Q --paths "/*"   # I417VO9JEK2NZQZXH2OHWZZEJ2
+aws cloudfront wait invalidation-completed --distribution-id E16SR4IPFYH46Q --id I417VO9JEK2NZQZXH2OHWZZEJ2
+```
+
+### W-2. 배포 뒤 확인 (curl + 번들 텍스트 검색) [확인]
+
+- `/supplier` **200**, index.html → `entry-394e74aeb945c1696825abb05949fe17.js` = 새 dist.
+- 새 문구: '확인 중 · 끝나면 수강생에게 보여요' 1 · '켜지면 올린 동작을 이어서 처리해요.' 1.
+- 옛 문구 0: '올린 영상 확인 중' · '운영팀 확인 중' · "'대기 중'으로 있다가" · '켜지면 대기 중인 동작' · '등록 중 · 몇 분 걸려요'.
+
+### 롤백 (웹만)
+
+```bash
+export AWS_PROFILE=sunity-motion
+aws s3 sync /Users/Shared/sunity-motion-rollback/thx/web-before-2 s3://sunity-motion-pilot-supplier-web --delete --only-show-errors
+aws cloudfront create-invalidation --distribution-id E16SR4IPFYH46Q --paths "/*"
+```
+(배포 기록 1 이전으로까지 되돌리려면 `web-before/` 를 같은 방식으로.)

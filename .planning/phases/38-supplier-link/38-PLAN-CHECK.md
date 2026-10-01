@@ -60,6 +60,12 @@ belle 지시: *"재계획은 하지 않고, 차단 3건만 플래너 1회와 검
 
 belle: *"이건 지금 테스트하기전 뭘 기능부터 넣어야할거 같은데"*. 상세 원문·로그 = `38-14-E2E.md` 끝 두 절.
 
+### 10-01 오후 추가 — 서 있는 시작 수리 대신 입구 재설계 1단계-가 완료
+
+belle: *"하나씩 고치면 절대 안돼"* → 메모리 `supplier-intake-redesign-20261001`. quick **261001-thx** 완료·배포(layer :24 · playback-url · 웹). 등록은 분석 불가만 막고, 성공하면 'review'(수강생 비노출) → `backend/scripts/review_reference_registrations.py` list/show/approve/reject 로 belle OK 뒤 승인. **Pod 코드는 아직 옛 판정** — 38-14 재개 때 git reset 으로 올린다.
+**38-14 재개 순서(갱신):** Pod 기동(securePrice 확인 후 pod:go) → `/health` commitSha → 대역 재업로드 → 공급자 홈 '운영팀 확인 중' → `list` → `show`(사진) → belle OK → `approve` → 수강생 picker → mode1 → selfScore → Task 4(대역 동작 내리기는 승인 뒤 내리기 기능이 없으니 [미확인 — 방법 정할 것] · TESTB deactivate · 실패 doc 2건).
+다음 후보: 검수 사진에 뼈대 겹치기(belle 질문 중) · 1단계-나 `/admin` 웹(관리자 sunity3412@gmail.com) · 2단계 Gemini A 측정.
+
 ### 오늘 한 것 [확인]
 
 - push 78커밋(origin/main = HEAD). Pod RTX 4090 SECURE **$0.74/h**(동의 때 내가 커뮤니티 단가 $0.34 를 보여 줬다 — 정정 보고함, 메모리 demo-only-pod 에 securePrice 규칙 추가) 10:18~12:45 ≈ $1.8, teardown 완료 · pod-expected=down.

@@ -56,6 +56,45 @@ belle 지시: *"재계획은 하지 않고, 차단 3건만 플래너 1회와 검
 - 38-04 T3 · VALIDATION 범례의 `⏭` → ASCII `[skipped-by-decision]`(CLAUDE.md §7 이모지 금지). `★` 는 그대로.
 - 그 밖(rtk 접두 없음 · PATTERNS 행 누락 · low_confidence 가 multiple_people 보다 먼저) 변경 없음.
 
+## 다음 (2026-10-01 저녁 마감 — belle "인계서 작성하고 내일 하자고")
+
+### 착수 = 38-14 재개 (Task 3 재시도) — 새 등록 흐름 첫 실물 확인
+
+오늘 배포한 공급자 입구 1단계-가(quick 261001-thx)는 **라이브 Lambda·웹에만 있고 Pod 코드엔 없다** → 등록은 아직 옛 판정. 순서:
+1. RunPod `securePrice` 로 4090 단가 재조회(오늘 실제 $0.74/h — 커뮤니티 $0.34 를 보여 준 실수 있었음) → belle `pod:go` → 기동(networkVolume a5z753defc, SECURE, `RUNPOD_POD_ID` export, start_server.sh md5) → `/health` commitSha = origin/main.
+2. 대역(catharina0415 · TESTB, active 상태 그대로) 이 `정은지님 영상/ref-sideway-spin.mp4` 재업로드 → 공급자 홈 '확인 중 · 끝나면 수강생에게 보여요'.
+3. `AWS_PROFILE=sunity-motion backend/.venv/bin/python backend/scripts/review_reference_registrations.py list` → `show <refId>`(썸네일 + 10·50·90% 프레임) → belle 에게 사진 → OK 면 `approve`.
+4. 수강생 앱 picker 에 '테스트 공급자' 동작 → mode1 분석 → selfScore(재분석 일관성) belle 판정.
+5. Task 4: Pod 로그 scp → 증거(E2E.md) → 대역 동작 `deactivate` · TESTB `supplier_invite.py deactivate` · 실패 doc 2건(`dc7812c6…` · `fc4a393d…`) 정리 방법 결정 → baseline 재diff → `pod_teardown.py <podId>` → SUMMARY.
+
+### 오늘 한 것 [확인]
+
+- push 78커밋. 38-14 Task 1·2(`87774773` · `7b547507`). Pod 10:18~12:45 ≈ $1.8, 내림(pod-expected=down, 잔액 $17.24).
+- 대역 등록 2회 실패 → **화분 오검출**(multiple_people, 기존 11개 중 9개도 걸림) · **대각선 출발 거절**(no_standing_start). belle: *"하나씩 고치면 절대 안돼"* → 입구 재설계(메모리 `supplier-intake-redesign-20261001`).
+- quick **261001-thx** 완료·배포: 등록은 분석 불가(사람 없음·포즈 0·파일)만 막고 나머지는 진단 기록 · 성공 = 'review'(수강생 비노출) · 운영 CLI list/show/approve/reject/deactivate · 공급자 승인 전 문구 하나('확인 중') · 문구 다듬기 · '회원님' 유지. layer :24 → playback-url · 웹 `I417VO9JEK2NZQZXH2OHWZZEJ2`. pytest 5855/20 · node 89/89 · typecheck 0. 커밋 `79977722` `2989c191` `656c9c99` `e1a74f51`.
+
+### belle 결정 (10-01)
+
+- 1단계(분석 불가만 막기 + 검수 뒤 공개) ○ · 2단계(Gemini A 동작·구간 자동 도출 + **콤보 = 공급자 동작 목록, 그 동작에 한해 측정**)는 실증과 나란히/뒤.
+- 관리자 = 웹(`/admin`, 공급자 웹과 같은 Expo 웹, 대시보드 여러 개 전제) · **관리자 계정 sunity3412@gmail.com**.
+- **검수 사진 뼈대 겹치기 기각** — *"이따위로 저급한 퀄로할거면 오히려 혼돈만"* (메모리 `skeleton-overlay-review-photo-rejected`, 재제안 금지).
+- 정은지 데이터 100건 논의: 건수는 학습을 막는 게 아니다(400/60 이미 넘음, 막는 건 게이트 2~7·서빙 배선 0). 가치 = 동작별 정타+실수 짝 · 학생 영상 동반 · 학습 조항 — belle 에게 설명함.
+
+### 남은 후보 (belle 순서 결정)
+
+1. 38-14 재개(위 착수, 권장).
+2. 1단계-나 `/admin` 웹.
+3. 2단계: Gemini A(`extract_reference_metadata`)를 legacy 11개(콤보 3개는 목록 주고)에 돌려 정확도 측정 → discuss. 09-29 정은지 콤보는 시험 영상이라 쓰지 않는다.
+4. 분석 정확도 조사: 화분만 검출된 프레임이 **운영 경로**(15fps · rot180 · conf 게이트)에서 실제 점수에 닿았나 [미확인] — elbow-twist 127/220 · pdshape 105/159 (9fps 원본 검출 기준).
+
+### 결정 대기 · 알려진 것
+
+- BELLE 강사 코드 = 옛 게스트 uid FDJr(SSM `belle-uid`, Google 로그인 없음) — 관리자 계정 정리 때 같이 정할 것.
+- 정은지 초대 전제: 공급자 계약서 AI 학습 조항 서명 + 서류 실명 [미해소].
+- low_confidence 등 진단값의 정상 범위 미측정 — 검수 몇 건 쌓이면 본다.
+- 내린(deactivate) 동작은 공급자 화면에 그대로 보임(썸네일만 아이콘) · 되살리기 없음(재업로드).
+- `.planning/TRAINING-DUE.md` 는 09-28 플라이휠 덮어쓰기 그대로(미커밋, 손대지 말 것).
+
 ## 다음 (2026-10-01 낮 갱신 — 38-14 일시 중단, 서 있는 시작 판정 수리가 먼저)
 
 belle: *"이건 지금 테스트하기전 뭘 기능부터 넣어야할거 같은데"*. 상세 원문·로그 = `38-14-E2E.md` 끝 두 절.

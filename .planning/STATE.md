@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-10-01 낮 — Phase 38 13/14, 38-14 일시 중단. Task 1·2 완료(대역 TESTB · 4090 Pod · baseline 재diff 0), Task 3 대역 업로드 2회 실패: multiple_people(화분 오검출 → 기록만 8c237bd8) · no_standing_start(대각선→폴 시작을 막음 — belle: 지우지 말고 고쳐라). Pod 내림. 다음 = 서 있는 시작 판정 수리(기존 11개 측정 먼저) → 38-14 Task 3 재시도. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절"
+stopped_at: "2026-10-01 저녁 마감 — Phase 38 13/14, 38-14 일시 중단(Task 1·2 완료). 대역 등록 2회 실패(화분 오검출 · 대각선 출발) → belle "하나씩 고치면 절대 안돼" → 공급자 입구 1단계-가 quick 261001-thx 완료·배포(분석 불가만 막기 · review 상태 · 검수 CLI · layer :24 · 웹). Pod 코드는 아직 옛 판정. 다음 = 38-14 재개(Pod 기동 → 대역 재업로드 → list/show/approve → picker → mode1). 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절"
 last_updated: "2026-09-30T01:02:33.985Z"
 last_activity: 2026-10-01
 progress:
@@ -1112,7 +1112,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-09-29T16:28:11.952Z
 
-Stopped at: 2026-10-01 낮 — Phase 38 13/14, 38-14 일시 중단. Task 1·2 완료, Task 3 대역 업로드 2회 실패(multiple_people 화분 오검출 → 기록만 8c237bd8 · no_standing_start 대각선→폴 시작을 막음 → 고친다). Pod 내림. 다음 = 서 있는 시작 판정 수리(기존 11개 측정 먼저) → 38-14 Task 3 재시도. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절
+Stopped at: 2026-10-01 저녁 마감 — Phase 38 13/14, 38-14 일시 중단(Task 1·2 완료). 대역 등록 2회 실패(화분 오검출 · 대각선 출발) → belle "하나씩 고치면 절대 안돼" → 공급자 입구 1단계-가 quick 261001-thx 완료·배포(분석 불가만 막기 · review 상태 · 검수 CLI · layer :24 · 웹). Pod 코드는 아직 옛 판정. 다음 = 38-14 재개(Pod 기동 → 대역 재업로드 → list/show/approve → picker → mode1). 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

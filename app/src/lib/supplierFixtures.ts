@@ -128,6 +128,19 @@ export const supplierFixtures = {
       videoS3Key: 'reference/uid-eunji/r-active-self-failed/v1.mp4',
       createdAt: T0 + 2_500,
     },
+    // quick-261001-thx — 기계 판정 통과 뒤 사람 검수 대기. isActive false(수강생 비노출), 자기 재현성은 돈다.
+    review: {
+      ...PUBLIC_BASE,
+      name: 'ayesha',
+      level: 'advanced',
+      isActive: false,
+      registrationStatus: 'review',
+      selfCheckStatus: 'done',
+      selfScore: 94,
+      videoS3Key: 'reference/uid-eunji/r-review/v1.mp4',
+      thumbnailS3Key: 'reference/uid-eunji/r-review/thumb.jpg',
+      createdAt: T0 + 9_000,
+    },
     failedLowConfidence: {
       ...PUBLIC_BASE,
       name: 'elbow-twist',
@@ -228,6 +241,33 @@ export const supplierFixtures = {
       },
       techniqueRefId: null,
       updatedAt: T0 + 600,
+    },
+    // quick-261001-thx — 운영자가 검수에서 반려(review → failed). 사유는 reason 에 원문으로.
+    rejected: {
+      supplierUid: UID,
+      consent: {
+        ...CONSENT_REQUIRED,
+        training: true,
+        trainingBasis: 'supplier_contract',
+        version: '2026-09-30',
+        at: T0 + 9_000,
+        uid: UID,
+      },
+      registrationError: {
+        code: 'rejected',
+        message: '검수에서 반려됐어요. 사유: 화면이 어두워요. 고쳐서 다시 올려 주세요.',
+        reason: '화면이 어두워요',
+      },
+      review: { decision: 'rejected', by: 'ops:belle', at: T0 + 9_500, reason: '화면이 어두워요' },
+      techniqueRefId: null,
+      updatedAt: T0 + 9_500,
+    },
+    // reason 이 문자열이 아닌 이상 doc — 페이지는 사유를 버리고 사유 없는 문장으로 보인다.
+    rejectedBadReason: {
+      supplierUid: UID,
+      registrationError: { code: 'rejected', message: 'x', reason: 42 },
+      techniqueRefId: null,
+      updatedAt: T0 + 9_600,
     },
     // 서버가 새 코드를 먼저 붙인 경우 — 페이지는 server_error 문구로 받는다(미지 코드 규칙)
     unknownCode: {

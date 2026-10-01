@@ -12,6 +12,7 @@
 //   3) selfCheckView / selfCheckNote — 재현성 카드 점수·본문 분리(38-DESIGN A-3c), 반올림, 문턱 경계.
 //   4) failCopy / expiredCopy / normalizePrivate — {joints} 치환, too_large, 미지 코드 → server_error.
 //   5) hasDetail / sortNewestFirst / mapPresignFailure / uploadOutcomeNext — 두 트랙 공용 전이표.
+//   6) quick-261001-thx — review(검수 중) 상태어 · 진행 점 · 상세 없음, 반려 사유 보존과 치환.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,6 +23,7 @@ import {
   expiredCopy,
   failCopy,
   hasDetail,
+  isInProgress,
   LEVEL_LABEL_KO,
   mapPresignFailure,
   normalizePrivate,
@@ -249,6 +251,58 @@ test('uploadOutcomeNext — ok→home · aborted→step2(입력 유지) · faile
   for (const o of supplierFixtures.uploadOutcomes) {
     assert.equal(uploadOutcomeNext(o.outcome), o.next);
   }
+});
+
+// ── 6) quick-261001-thx — 검수 중 · 반려 사유 ──────────────────────────────
+
+test('review — 상태 보존 · 행 부제 = 검수 중 문구 · 진행 점 · 상세 없음 · 썸네일 키 유지', () => {
+  const m = motion('review');
+  assert.equal(m.registrationStatus, 'review'); // registering 으로 떨어지지 않는다
+  assert.equal(m.isActive, false);
+  assert.equal(m.thumbnailS3Key, rawDocs.review.thumbnailS3Key);
+  assert.equal(rowSubtitle(m), `${LEVEL_LABEL_KO.advanced} · ${supplierCopy.row.status.review}`);
+  assert.equal(hasDetail(m), false);
+  assert.equal(isInProgress(m), true);
+});
+
+test('isInProgress — registering/queued/processing/review 만 진행 점', () => {
+  for (const key of ['registering', 'queued', 'processing', 'review'] as const) {
+    assert.equal(isInProgress(motion(key)), true, key);
+  }
+  for (const key of ['activeOk', 'activePending', 'failedLowConfidence', 'expired'] as const) {
+    assert.equal(isInProgress(motion(key)), false, key);
+  }
+});
+
+test('normalizePrivate — rejected 사유(reason)는 문자열일 때만 보존', () => {
+  const r = normalizePrivate(supplierFixtures.privateDocs.rejected);
+  assert.equal(r?.registrationError?.code, 'rejected');
+  assert.equal(r?.registrationError?.reason, '화면이 어두워요');
+  const bad = normalizePrivate(supplierFixtures.privateDocs.rejectedBadReason);
+  assert.equal(bad?.registrationError?.code, 'rejected');
+  assert.equal(bad?.registrationError?.reason, undefined);
+  assert.equal('reason' in (bad?.registrationError ?? {}), false);
+});
+
+test('failCopy — rejected 는 운영자 사유를 본문에 넣고, 사유가 없으면 사유 문장을 뺀다', () => {
+  const c = supplierCopy.row.fail.rejected;
+  const withReason = failCopy('rejected', undefined, '화면이 어두워요');
+  assert.equal(withReason.title, c.title);
+  assert.ok(withReason.body.includes('화면이 어두워요'));
+  assert.ok(!withReason.body.includes('{reason}'));
+  // 서버 message(REGISTRATION_ERROR_MESSAGE 치환본)와 같은 글자 — 조인 규칙.
+  assert.equal(
+    `${withReason.title}. ${withReason.body}`,
+    supplierFixtures.privateDocs.rejected.registrationError.message,
+  );
+  for (const none of [undefined, '', '   ']) {
+    const noReason = failCopy('rejected', undefined, none);
+    assert.ok(!noReason.body.includes('{reason}'), String(none));
+    assert.ok(!noReason.body.includes('사유'), String(none));
+    assert.ok(noReason.body.length > 0 && noReason.body.endsWith('.'), noReason.body);
+  }
+  // 다른 코드는 reason 인자를 무시한다.
+  assert.deepEqual(failCopy('too_large', undefined, '무시'), failCopy('too_large'));
 });
 
 test('bigCodeFontSize — min(72, max(32, floor(maxWidth / (len * 0.78))))', () => {

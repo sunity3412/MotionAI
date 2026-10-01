@@ -7,7 +7,7 @@
 //   · Figma 문자열은 그대로(CONTEXT D-22) — 출처 노드는 UI-SPEC 표의 `[1:xxx]` 열.
 //   · `guide.*` 는 docs/supplier-guide.md 와 글자 단위로 같다 — supplierCopy.test.ts 가
 //     md 를 읽어 대조한다. 한쪽을 고치면 다른 쪽도 같이.
-//   · `row.fail.<code>` 7개(no_human 제외)는 `title + '. ' + body` 가 analysis.ts
+//   · `row.fail.<code>` 8개(no_human 제외)는 `title + '. ' + body` 가 analysis.ts
 //     REGISTRATION_ERROR_MESSAGE(= models.py = contract.md §5)와 같다 — 같은 테스트가 잠근다.
 //     no_human 만 D-09 예외(기존 ERROR_MESSAGE.no_human 재사용, 여기 문구는 Figma 1:479).
 //   · UI-SPEC §Decisions "ui-checker flags (2026-09-26)" 표의 적용값이 §Copywriting 원문보다
@@ -106,6 +106,8 @@ export const supplierCopy = {
       selfLow: '재현성 {score}점 · 다시 찍어 주세요',
       failed: '실패 · 눌러서 확인',
       expired: '업로드가 끝나지 않았어요 · 다시 올리기', // 리뷰 R4
+      // quick-261001-thx(belle 2026-10-01) — 기계 판정 통과 뒤 사람 검수 대기. 승인 전 수강생 목록에 안 뜬다.
+      review: '검수 중 · 확인 뒤 수강생에게 보여요',
     },
     // 만료 패널(리뷰 R4) — 코드 칩·TIP 없이 제목·본문 + 다시 올리기
     expired: {
@@ -147,8 +149,11 @@ export const supplierCopy = {
       '· 5초~2분, 서 있는 자세에서 시작',
     ],
     // 등록 실패 문구(D-09 + 리뷰 R9). no_human 만 Figma 1:479 원문(계약 문구와 다른 의도된
-    // 예외). 나머지 7개는 title + '. ' + body = REGISTRATION_ERROR_MESSAGE[code].
+    // 예외). 나머지 8개는 title + '. ' + body = REGISTRATION_ERROR_MESSAGE[code].
     // low_confidence 의 {joints} 는 부위명을 ' · ' 로 이은 문자열로 치환한다(supplierRules.failCopy).
+    // rejected(quick-261001-thx) 의 {reason} 은 운영자가 적은 반려 사유 — 사유가 없으면 그 문장을 뺀다.
+    // multiple_people · no_standing_start · low_confidence 는 2026-10-01 부터 서버가 더 내지 않는다
+    // (진단으로 내림) — 그 전 실패 doc 을 보여 주려고 남긴다.
     fail: {
       no_human: {
         title: '영상 안에 사람이 보이지 않아요',
@@ -181,6 +186,10 @@ export const supplierCopy = {
       server_error: {
         title: '등록 중 문제가 생겼어요',
         body: '잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.',
+      },
+      rejected: {
+        title: '검수에서 반려됐어요',
+        body: '사유: {reason}. 고쳐서 다시 올려 주세요.',
       },
     },
   },

@@ -9,7 +9,7 @@
 //   1) docs/supplier-guide.md(정본)와 guide.* 가 글자 단위로 같다 — md 를 fs 로 읽어 verbatim 포함.
 //   2) 고정 각도·거리 문구(45°·2~3 미터·측면)·이모지가 값 어디에도 없다(D-15·D-16).
 //   3) D-15 문장이 TIP 첫 줄(row.tip[0])과 파일 알약(form.sec4.pill[0])에 있다.
-//   4) 실패 8코드·만료·고지 문구가 비어 있지 않다(D-09, R4, R11).
+//   4) 실패 9코드(rejected 포함)·만료·고지 문구가 비어 있지 않다(D-09, R4, R11, quick-261001-thx).
 //   5) 동의 문안 4건 = 기획안 §6 원문(D-08).
 //   6) ui-checker flags 적용값(#1 #2 #3)이 §Copywriting 원문 대신 들어갔다.
 //   7) 크레딧·결제 문구 없음(D-13).
@@ -145,9 +145,10 @@ const FAIL_CODES = [
   'too_long',
   'too_large',
   'server_error',
+  'rejected',
 ] as const;
 
-test('row.fail 8코드 각각 title·body 비공백 (D-09 + R9 too_large)', () => {
+test('row.fail 9코드 각각 title·body 비공백 (D-09 + R9 too_large + thx rejected)', () => {
   for (const code of FAIL_CODES) {
     const c = supplierCopy.row.fail[code];
     assert.ok(c.title.trim().length > 0, `${code}.title`);
@@ -210,7 +211,7 @@ test('크레딧·결제·금액 문구가 값 어디에도 없다 (D-13)', () =>
 
 // ── 8) 실패 문구 3원 일치 (no_human 제외) ──────────────────────────────────
 
-test('row.fail 7코드의 title + ". " + body 가 analysis.ts REGISTRATION_ERROR_MESSAGE 에 verbatim 존재', () => {
+test('row.fail 8코드의 title + ". " + body 가 analysis.ts REGISTRATION_ERROR_MESSAGE 에 verbatim 존재', () => {
   // no_human 은 D-09 예외 — 계약(models.py·analysis.ts)은 기존 ERROR_MESSAGE.no_human
   // ('영상에서 사람을 찾지 못했어요. …')을 객체 참조로 재사용하고, 페이지는 Figma 1:479
   // 원문('영상 안에 사람이 보이지 않아요')을 쓴다. 두 문구가 다른 것이 의도된 상태라
@@ -225,8 +226,19 @@ test('row.fail 7코드의 title + ". " + body 가 analysis.ts REGISTRATION_ERROR
     assert.ok(body.includes(joined), `analysis.ts 에 없음: ${code} = ${joined}`);
     assert.ok(body.includes(`${code}:`), `analysis.ts 키 없음: ${code}`);
   }
-  // {joints} 자리는 치환 전 원문 그대로 대조된다.
+  // {joints} · {reason} 자리는 치환 전 원문 그대로 대조된다.
   assert.ok(supplierCopy.row.fail.low_confidence.body.includes('{joints}'));
+  assert.ok(supplierCopy.row.fail.rejected.body.includes('{reason}'));
+});
+
+// ── 14) quick-261001-thx — 검수 중 · 반려 ───────────────────────────────────
+
+test('thx — row.status.review · row.fail.rejected 글자 단위', () => {
+  assert.equal(supplierCopy.row.status.review, '검수 중 · 확인 뒤 수강생에게 보여요');
+  assert.deepEqual(supplierCopy.row.fail.rejected, {
+    title: '검수에서 반려됐어요',
+    body: '사유: {reason}. 고쳐서 다시 올려 주세요.',
+  });
 });
 
 // ── 9) R7/R11 정직 문구 ────────────────────────────────────────────────────

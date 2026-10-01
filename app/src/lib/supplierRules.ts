@@ -7,7 +7,7 @@
 // 값 import 는 supplierCopy 하나, 타입은 전부 `import type` — 38-12 의 type-strip → ESM 변환이
 // 값 import 만 남기고 specifier 를 './copy.js' 로 바꾸는 전제(플랜 38-03 T3).
 //
-// 문자열은 전부 supplierCopy 참조 + String.replace(`{score}` `{joints}`) — HTML/JSX 로 해석하지
+// 문자열은 전부 supplierCopy 참조 + String.replace(`{score}` `{joints}` `{reason}`) — HTML/JSX 로 해석하지
 // 않는다(위협 T-38-03-2). 소비처(38-10/38-12)는 textContent / <Text> 로만 그린다.
 
 import type {
@@ -35,6 +35,7 @@ const REGISTRATION_STATUSES: readonly ReferenceRegistrationStatus[] = [
   'failed',
   'active',
   'expired',
+  'review',
 ];
 const SELF_CHECK_STATUSES: readonly SelfCheckStatus[] = ['pending', 'queued', 'done', 'failed'];
 const FAIL_CODES = Object.keys(supplierCopy.row.fail) as ReferenceRegistrationErrorCode[];
@@ -111,7 +112,7 @@ export function normalizeRegistration(
     name,
     athleteName,
     level: raw.level,
-    // 등록 doc 은 38-06 이 false 로 선작성하고 active 전이 때 true — 명시된 true 만 참.
+    // 등록 doc 은 38-06 이 false 로 선작성하고 승인(active) 때 true — review 는 false. 명시된 true 만 참.
     isActive: raw.isActive === true,
     registrationStatus: isRegistrationStatus(raw.registrationStatus)
       ? raw.registrationStatus
@@ -138,10 +139,13 @@ export function normalizePrivate(raw: unknown): SupplierMotionPrivate | null {
     const joints = Array.isArray(er.joints)
       ? er.joints.filter((j): j is string => typeof j === 'string')
       : null;
+    // quick-261001-thx — 반려 사유(운영자 원문). 문자열이 아니면 버린다.
+    const reason = str(er.reason);
     registrationError = {
       code: isRegistrationErrorCode(er.code) ? er.code : 'server_error',
       message: str(er.message) ?? '',
       ...(joints ? { joints } : {}),
+      ...(reason ? { reason } : {}),
     };
   }
   return {
@@ -183,6 +187,8 @@ export function rowStatusWord(m: SupplierMotion): string {
       return s.failed;
     case 'expired':
       return s.expired;
+    case 'review':
+      return s.review;
     case 'active': {
       const score = doneScore(m);
       if (score == null) return s.newlyAdded;
@@ -220,19 +226,29 @@ export function selfCheckNote(): string {
   return supplierCopy.row.self.note;
 }
 
+// `{reason}` 이 든 문장(마침표까지)을 통째로 뺀다 — 사유 없는 rejected(데이터 이상)가 '사유: .' 로
+// 보이지 않게. 문구 조각을 여기 다시 쓰지 않으려고 문장 단위로 지운다.
+const REASON_SENTENCE = /[^.]*\{reason\}[^.]*\.\s*/;
+
 // 실패 패널 문구(D-09 + R9). 미지 코드 → server_error. low_confidence 의 {joints} 는 부위명을
-// ' · ' 로 잇는다(UI-SPEC §Copywriting) — 38-05 가 registrationError.joints 를 채운다.
+// ' · ' 로 잇는다(UI-SPEC §Copywriting) — 2026-10-01 이전 doc 의 registrationError.joints.
+// rejected(quick-261001-thx) 의 {reason} 은 registrationError.reason(운영자 사유)으로 치환하고,
+// 사유가 없거나 공백이면 그 문장을 뺀다.
 export function failCopy(
   code: string,
   joints?: readonly string[],
+  reason?: string,
 ): { title: string; body: string } {
   const key = isRegistrationErrorCode(code) ? code : 'server_error';
   const c = supplierCopy.row.fail[key];
   const joined = joints && joints.length > 0 ? joints.join(' · ') : '';
-  return {
-    title: c.title.replace('{joints}', joined),
-    body: c.body.replace('{joints}', joined),
+  const why = typeof reason === 'string' ? reason.trim() : '';
+  const fill = (t: string): string => {
+    const withJoints = t.replace('{joints}', joined);
+    if (!withJoints.includes('{reason}')) return withJoints;
+    return why ? withJoints.replace('{reason}', why) : withJoints.replace(REASON_SENTENCE, '');
   };
+  return { title: fill(c.title), body: fill(c.body) };
 }
 
 // 만료 패널(리뷰 R4) — 코드 칩·TIP 없이 제목·본문 + 다시 올리기(같은 프리필).
@@ -240,7 +256,15 @@ export function expiredCopy(): { title: string; body: string } {
   return { title: supplierCopy.row.expired.title, body: supplierCopy.row.expired.body };
 }
 
+// 행 오른쪽 진행 점(38-DESIGN A-3) — 아직 끝나지 않은 상태. review(검수 중, quick-261001-thx)도
+// 공급자에게는 기다리는 중이라 같은 점을 쓴다(상세 패널 없음).
+export function isInProgress(m: SupplierMotion): boolean {
+  const st = m.registrationStatus;
+  return st === 'registering' || st === 'processing' || st === 'queued' || st === 'review';
+}
+
 // chevron → 상세 패널이 있는 상태(A-3 표): active(A-3c) · failed(A-3b) · expired(만료 패널).
+// review 는 상세가 없다(검수 결과가 나면 active 또는 failed 로 바뀐다).
 export function hasDetail(m: SupplierMotion): boolean {
   return (
     m.registrationStatus === 'active' ||

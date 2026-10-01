@@ -62,6 +62,7 @@ import {
   expiredCopy,
   failCopy,
   hasDetail,
+  isInProgress,
   LEVEL_LABEL_KO,
   mapPresignFailure,
   presignFailureMessage,
@@ -115,10 +116,10 @@ function formatDate(epochMs: number): string {
 // 비공개 doc 로딩 중·값 없음 표시.
 const EMPTY_VALUE = '–';
 
-// 38-DESIGN A-3 행 오른쪽 — 진행 중(registering/processing/queued)은 8px 점, 상세가 있으면 쉐브론.
+// 38-DESIGN A-3 행 오른쪽 — 진행 중(registering/processing/queued/review)은 8px 점, 상세가 있으면 쉐브론.
+// 진행 판정은 supplierRules.isInProgress 한 곳(quick-261001-thx 가 review 를 더했다).
 function rowTrailing(m: SupplierMotion): RowTrailing {
-  const st = m.registrationStatus;
-  if (st === 'registering' || st === 'processing' || st === 'queued') return 'progress';
+  if (isInProgress(m)) return 'progress';
   return hasDetail(m) ? 'chevron' : null;
 }
 
@@ -475,7 +476,7 @@ export default function SupplierHome() {
         panel = <View style={styles.skeleton} accessibilityLabel={supplierCopy.noAccess.checking} />;
       } else {
         const err = priv?.registrationError;
-        const copy = failCopy(err?.code ?? 'server_error', err?.joints);
+        const copy = failCopy(err?.code ?? 'server_error', err?.joints, err?.reason);
         panel = (
           <FailurePanel
             title={copy.title}

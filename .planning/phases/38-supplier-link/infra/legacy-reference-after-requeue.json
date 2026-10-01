@@ -1,0 +1,434 @@
+{
+  "bucket": "sunity-motion-pilot-videos",
+  "references": {
+    "_release": {
+      "anglesFrames": null,
+      "anglesJointKeys": null,
+      "anglesLen": null,
+      "anglesSha256": null,
+      "anglesUpdatedAt": null,
+      "clipRange": null,
+      "docSha256": "2ff676f151206a8262d4445bf25e72fd0a859d20b7fd381153a47e2dcf90323f",
+      "exists": true,
+      "isActive": null,
+      "pointer:activeCandidate": "rot180_v1",
+      "updatedAt": null
+    },
+    "ref-climb": {
+      "anglesFrames": 120,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 960,
+      "anglesSha256": "2c8f1fc04be6eb3bfa97dd729beeab4eb982f917ef4b4c4e9291d940e7cad195",
+      "anglesUpdatedAt": "2026-06-06 14:27:30.679000+00:00",
+      "clipRange": {
+        "execPeakS": 5,
+        "execStartS": 1.5,
+        "landEndS": 15,
+        "prepStartS": 0,
+        "recommendedRecordS": 18
+      },
+      "docSha256": "7ba43e44e78c20b485627f88e21440b5330617097eecd8eb873fb6eafc7d1fd8",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": 1781189590924
+    },
+    "ref-combo": {
+      "anglesFrames": 931,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 7448,
+      "anglesSha256": "d7bb65d2204d6eb8e74aa34b35c015d0ff59ec54f0fb0ce98794a88f3904802f",
+      "anglesUpdatedAt": 1781189594465,
+      "clipRange": {
+        "execPeakS": 33,
+        "execStartS": 1.5,
+        "landEndS": 57.5,
+        "prepStartS": 0,
+        "recommendedRecordS": 65
+      },
+      "docSha256": "86a3862f4c3cd85d4742cca817c6f0a24f8567b2be5875817ba9b4e6b886561a",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": "2026-06-11 15:06:10.797000+00:00"
+    },
+    "ref-elbow-twist-sister": {
+      "anglesFrames": 329,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 2632,
+      "anglesSha256": "d5df3436577e2578f022b972d721568deea623204b7caa050b8cc3c1d2e7a3e5",
+      "anglesUpdatedAt": 1781189593667,
+      "clipRange": {
+        "execPeakS": 13,
+        "execStartS": 5.5,
+        "landEndS": 21.9,
+        "prepStartS": 0,
+        "recommendedRecordS": 25
+      },
+      "docSha256": "b5664c4e4adc72bfd101f06c90b62e4105108f17475f97ceae757f00d9efaf4a",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": "2026-06-11 15:06:10.670000+00:00"
+    },
+    "ref-foxtop": {
+      "anglesFrames": 426,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 3408,
+      "anglesSha256": "c858e9cbd91d5515e52cebe723ecb2a1d13778c79accd08480cea943e1d9cc71",
+      "anglesUpdatedAt": "2026-06-06 14:28:39.181000+00:00",
+      "clipRange": {
+        "execPeakS": 18,
+        "execStartS": 1,
+        "landEndS": 27,
+        "prepStartS": 0,
+        "recommendedRecordS": 30
+      },
+      "docSha256": "e0ca5b6a718b44a25a2bba845f156bcd138a340e02a77140edb8ed283b8f75fd",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": 1781189591690
+    },
+    "ref-foxtop-split": {
+      "anglesFrames": 485,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 3880,
+      "anglesSha256": "3955eb879708605425ae01abd177be2650a0c5dac7456eb780fd7ed147e3d387",
+      "anglesUpdatedAt": "2026-06-06 14:29:16.186000+00:00",
+      "clipRange": {
+        "execPeakS": 12,
+        "execStartS": 1,
+        "landEndS": 30,
+        "prepStartS": 0,
+        "recommendedRecordS": 35
+      },
+      "docSha256": "b3a6a8f55963041d6123c8d28d49c5656ea41538b59ac5d425d5ad3ec92c5791",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": 1781189592072
+    },
+    "ref-invert": {
+      "anglesFrames": 260,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 2080,
+      "anglesSha256": "3710016ba189c52dcd11fe7f270ab0c43cf0c99cd1904e2aa474937c08706e1b",
+      "anglesUpdatedAt": "2026-06-06 14:28:00.156000+00:00",
+      "clipRange": {
+        "execPeakS": 7,
+        "execStartS": 1,
+        "landEndS": 15,
+        "prepStartS": 0,
+        "recommendedRecordS": 18
+      },
+      "docSha256": "3fa19d8f6000b7459016ebc05ae084e5d932a33c8a03ab3cf79330ebffe787db",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": 1781189591303
+    },
+    "ref-kip-up": {
+      "anglesFrames": 118,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 944,
+      "anglesSha256": "5b6266d9bf9df427e6822c00dfc7993b5714f7683956604e56b16a1a3bd7fadd",
+      "anglesUpdatedAt": 1781189592469,
+      "clipRange": {
+        "execPeakS": 4,
+        "execStartS": 1,
+        "landEndS": 7.2,
+        "prepStartS": 0,
+        "recommendedRecordS": 10
+      },
+      "docSha256": "23336448c087ab73fd4d8babbd988feb18db14ad7761e2039fb9429bab565436",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": "2026-06-11 15:06:10.495000+00:00"
+    },
+    "ref-pdshape": {
+      "anglesFrames": 237,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 1896,
+      "anglesSha256": "89c79fe440d8ffb685e87165a3b82580a7860c8917389b09c44e1132aa1a772c",
+      "anglesUpdatedAt": 1781189594055,
+      "clipRange": {
+        "execPeakS": 8,
+        "execStartS": 3.5,
+        "landEndS": 15,
+        "prepStartS": 0,
+        "recommendedRecordS": 18
+      },
+      "docSha256": "f919e012a01b9606aa62a1bc29c3b6461473aa96bd4999866d9bc8becf446c05",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": "2026-06-11 15:06:10.746000+00:00"
+    },
+    "ref-peter-pan": {
+      "anglesFrames": 130,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 1040,
+      "anglesSha256": "28ecd63334fe2c46d5b6d5c24a3b9750c66a251659062a874fa0ab5697be04c9",
+      "anglesUpdatedAt": 1781189592901,
+      "clipRange": {
+        "execPeakS": 4,
+        "execStartS": 0.7,
+        "landEndS": 7.4,
+        "prepStartS": 0,
+        "recommendedRecordS": 10
+      },
+      "docSha256": "67862f69ad89e25d56d7fe11a06b0c182ea51a1cee351ba7d630c85037b84677",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": "2026-06-11 15:06:10.567000+00:00"
+    },
+    "ref-power-spin": {
+      "anglesFrames": 159,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 1272,
+      "anglesSha256": "1c32a7cdac981f82cab05dd6673e065f0ce37221fd18e3d37ab786fda953e3ed",
+      "anglesUpdatedAt": 1781189593288,
+      "clipRange": {
+        "execPeakS": 7,
+        "execStartS": 0.5,
+        "landEndS": 9.9,
+        "prepStartS": 0,
+        "recommendedRecordS": 12
+      },
+      "docSha256": "49f5394f347d95efdba00ce0dc1496e1c7212de3fc99585ab828e8ce960165e3",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": "2026-06-11 15:06:10.618000+00:00"
+    },
+    "ref-sideway-spin": {
+      "anglesFrames": 298,
+      "anglesJointKeys": [
+        "left_elbow",
+        "right_elbow",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "anglesLen": 2384,
+      "anglesSha256": "93a2e7069724bd48be29d1ae996ae8cda0936056fe3928ccb47a78821b96063c",
+      "anglesUpdatedAt": "2026-06-06 14:27:05.550000+00:00",
+      "clipRange": {
+        "execPeakS": 9,
+        "execStartS": 2,
+        "landEndS": 18,
+        "prepStartS": 0,
+        "recommendedRecordS": 22
+      },
+      "docSha256": "cbf0446204d0cc755c02eecf29338422621641e007198121102b3f647fdfda6a",
+      "exists": true,
+      "isActive": true,
+      "pointer:activeVersion": "rot180_v1",
+      "pointer:pipelineVersion": "rot180_v1",
+      "updatedAt": 1781189590533
+    }
+  },
+  "regressionSamples": [
+    {
+      "analysisId": "d023d584779348a8922464486090b50a",
+      "docSha256": "5164df850f14dc09445741e0a40f40b0cc2766392c11729addd40a2917798754",
+      "exists": true,
+      "mode": "mode1",
+      "referenceMotionId": "ref-peter-pan",
+      "result.deductionBreakdown.final": 85,
+      "result.overallScore": 85,
+      "status": "done",
+      "uid": "0Vab2WWwRIUtACG2q802xbogOb02",
+      "updatedAt": 1790045922314
+    },
+    {
+      "analysisId": "d725ee6ae7934c938a9beb19851dc9d2",
+      "docSha256": "e3bdecfa6bd671e5768b0b9eacd3481add6cd557a36eb6d1552c25671c52f225",
+      "exists": true,
+      "mode": "mode1",
+      "referenceMotionId": "ref-power-spin",
+      "result.deductionBreakdown.final": 100,
+      "result.overallScore": 100,
+      "status": "done",
+      "uid": "0WjioR7KwRZJO2brGt4LCJ2sZO92",
+      "updatedAt": 1790325200660
+    },
+    {
+      "analysisId": "dad0638a51734ac3ad67f4627c71d3ed",
+      "docSha256": "7f772d5688482c8fd37788266f14ff3a3c028b28f1c31d3c0f2a092cb648e8de",
+      "exists": true,
+      "mode": "mode1",
+      "referenceMotionId": "ref-pdshape",
+      "result.deductionBreakdown.final": 80,
+      "result.overallScore": 80,
+      "status": "done",
+      "uid": "0iNx6YaUnxe24iGUokNZIsu97Uc2",
+      "updatedAt": 1790261732735
+    }
+  ],
+  "s3ReferenceObjects": [
+    {
+      "ETag": "\"cb6cf3f8609f41815e53e1c037c05381-5\"",
+      "Key": "reference/ref-climb.mp4",
+      "Size": 40928589
+    },
+    {
+      "ETag": "\"48b39ee5a9611e9ee4e8a2cbec145dd3-3\"",
+      "Key": "reference/ref-combo.mp4",
+      "Size": 18402631
+    },
+    {
+      "ETag": "\"e73a1d30ab68a39edc47844315bd81ae\"",
+      "Key": "reference/ref-elbow-twist-sister.mp4",
+      "Size": 6372808
+    },
+    {
+      "ETag": "\"79f9a50bef7be8f5586aa34426964bca-2\"",
+      "Key": "reference/ref-foxtop-split.mp4",
+      "Size": 8514993
+    },
+    {
+      "ETag": "\"816f11be1ed24bf27019795642781a68\"",
+      "Key": "reference/ref-foxtop.mp4",
+      "Size": 7601801
+    },
+    {
+      "ETag": "\"c9e893311ae5a3a5f5ce81ef9317dd0e\"",
+      "Key": "reference/ref-invert.mp4",
+      "Size": 4483834
+    },
+    {
+      "ETag": "\"468c25d1685a5494a8db6edf1999c847\"",
+      "Key": "reference/ref-kip-up.mp4",
+      "Size": 2252863
+    },
+    {
+      "ETag": "\"389a309e52af5a760005234e3f6ae2cb\"",
+      "Key": "reference/ref-pdshape.mp4",
+      "Size": 4517365
+    },
+    {
+      "ETag": "\"3617e2cd9a6e428b1bdb4c9dfb4c2ac9\"",
+      "Key": "reference/ref-peter-pan.mp4",
+      "Size": 2287963
+    },
+    {
+      "ETag": "\"43aeef816bd38d93afb7a87b77f7904e\"",
+      "Key": "reference/ref-power-spin.mp4",
+      "Size": 3127706
+    },
+    {
+      "ETag": "\"c487db05fdc17afdc8b409d7a8184eb6\"",
+      "Key": "reference/ref-sideway-spin.mp4",
+      "Size": 5032882
+    }
+  ],
+  "source": "raw top-level doc (no version overlay)",
+  "takenAtMs": 1790817820658
+}

@@ -4458,7 +4458,7 @@ def update_analysis_visual(
 # 공급자 링크(38-06 T1)가 만드는 기준 doc 의 생명주기 writer 13 + 순수 가드 1. 이 블록의
 # `set_reference_angles` 는 :2252-2261 "angles 절대 금지" 규칙의 **유일한 예외**이며 legacy
 # `ref-*` id 를 거부한다 — 손 등록 11개(D-19, Success ④)는 구조적으로 못 건드린다(선작성은
-# `create()` 라 존재하면 실패, `reference/{refId}` 를 쓰는 11함수는 `_require_registration_ref_id`
+# `create()` 라 존재하면 실패, `reference/{refId}` 를 쓰는 12함수는 `_require_registration_ref_id`
 # 가드가 첫 줄).
 #
 # 핵심 불변식 3개(visual job 어법 :2898-2907 미러):
@@ -4491,7 +4491,7 @@ _reg_log = logging.getLogger(__name__)
 
 
 def _require_registration_ref_id(ref_id) -> None:
-    """`reference/{refId}` 를 **쓰는** 11함수의 첫 줄 가드(D-19, Success ④).
+    """`reference/{refId}` 를 **쓰는** 12함수의 첫 줄 가드(D-19, Success ④).
 
     빈 값 또는 legacy `ref-*`(손 등록 11개) 면 ValueError — 어떤 Firestore 호출보다 먼저.
     읽기 함수에는 두지 않는다(38-09 baseline · 38-14 재diff 가 legacy 를 raw 로 읽는다).
@@ -5223,6 +5223,51 @@ def reject_reference_registration(
     if result == "bad_state":
         raise ValueError(f"reject needs registrationStatus 'review' (got {status!r})")
     _reg_log.info("reject_reference_registration %s ref_id=%s by=%s", result, ref_id, who)
+    return result
+
+
+def deactivate_reference_registration(
+    ref_id: str, *, by: str, reason: str | None = None, now_ms: int | None = None
+) -> str:
+    """승인된 공급자 기준 내리기 — active ∧ isActive True → isActive False (수강생 picker 에서 빠진다).
+
+    quick-261001-thx(belle 10-01 "아주 심플하게"): 승인 뒤에도 운영자가 기준을 내릴 수 있어야 한다.
+    registrationStatus 는 active 그대로 두고 isActive 만 내린다(상태 머신을 늘리지 않는다). 누가/언제/사유는
+    비공개 doc `deactivation` 에만(R13). 반환: 'deactivated'(쓰기 1) · 'already_inactive'(이미 isActive False,
+    쓰기 0). 문서 없음 · active 아님(review 는 approve/reject 로) · 201자 이상 사유 = ValueError.
+    되살리기 명령은 없다(범위 밖) — 다시 올리면 새 refId.
+    """
+    _require_registration_ref_id(ref_id)
+    who = _require_review_by(by)
+    why = reason.strip() if isinstance(reason, str) else ""
+    if len(why) > REJECT_REASON_MAX_LEN:
+        raise ValueError(f"reason too long (> {REJECT_REASON_MAX_LEN})")
+    ref = _registration_ref(ref_id)
+    private_ref = _doc(models.reference_private_path(ref_id))
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None:
+            return "missing", None
+        status = data.get("registrationStatus")
+        if status != models.REGISTRATION_STATUS_ACTIVE:
+            return "bad_state", status
+        if data.get("isActive") is False:
+            return "already_inactive", status
+        at = now_ms if now_ms is not None else _now_ms()
+        transaction.update(ref, {"isActive": False, "updatedAt": at})
+        record: dict = {"by": who, "at": at}
+        if why:
+            record["reason"] = why
+        transaction.set(private_ref, {"deactivation": record, "updatedAt": at}, merge=True)
+        return "deactivated", status
+
+    result, status = _run_in_transaction(_tx)
+    if result == "missing":
+        raise ValueError(f"reference/{ref_id} not found")
+    if result == "bad_state":
+        raise ValueError(f"deactivate needs registrationStatus 'active' (got {status!r})")
+    _reg_log.info("deactivate_reference_registration %s ref_id=%s by=%s", result, ref_id, who)
     return result
 
 

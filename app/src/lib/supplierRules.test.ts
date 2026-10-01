@@ -29,6 +29,7 @@ import {
   normalizePrivate,
   normalizeRegistration,
   presignFailureMessage,
+  rowStatusWord,
   rowSubtitle,
   SELF_SCORE_OK_MIN,
   selfCheckView,
@@ -98,9 +99,10 @@ test('registrationStatus 가 없거나 미지 값이면 registering 기본', () 
 test('rowSubtitle — A-3 상태 표 8행 = `{레벨} · {상태어}` (expired 포함, R4)', () => {
   const s = supplierCopy.row.status;
   // w9l 항목 1 — 레벨 라벨 basic = '초급'(키 'basic' 불변, belle 09-30).
-  assert.equal(rowSubtitle(motion('registering')), '초급 · 올린 영상 확인 중');
-  assert.equal(rowSubtitle(motion('queued')), `${LEVEL_LABEL_KO.intermediate} · ${s.queued}`);
-  assert.equal(rowSubtitle(motion('processing')), `${LEVEL_LABEL_KO.advanced} · ${s.processing}`);
+  // 261001-thx — 승인 전 상태는 한 문구(belle "아주 심플하게").
+  assert.equal(rowSubtitle(motion('registering')), '초급 · 확인 중 · 끝나면 수강생에게 보여요');
+  assert.equal(rowSubtitle(motion('queued')), `${LEVEL_LABEL_KO.intermediate} · ${s.checking}`);
+  assert.equal(rowSubtitle(motion('processing')), `${LEVEL_LABEL_KO.advanced} · ${s.checking}`);
   assert.equal(rowSubtitle(motion('activePending')), `${LEVEL_LABEL_KO.intermediate} · ${s.newlyAdded}`);
   assert.equal(rowSubtitle(motion('activeSelfQueued')), `${LEVEL_LABEL_KO.advanced} · ${s.newlyAdded}`);
   assert.equal(rowSubtitle(motion('activeOk')), '초급 · 재현성 97점');
@@ -260,9 +262,18 @@ test('review — 상태 보존 · 행 부제 = 검수 중 문구 · 진행 점 �
   assert.equal(m.registrationStatus, 'review'); // registering 으로 떨어지지 않는다
   assert.equal(m.isActive, false);
   assert.equal(m.thumbnailS3Key, rawDocs.review.thumbnailS3Key);
-  assert.equal(rowSubtitle(m), `${LEVEL_LABEL_KO.advanced} · ${supplierCopy.row.status.review}`);
+  assert.equal(rowSubtitle(m), `${LEVEL_LABEL_KO.advanced} · ${supplierCopy.row.status.checking}`);
   assert.equal(hasDetail(m), false);
   assert.equal(isInProgress(m), true);
+});
+
+test('승인 전 네 상태는 같은 문구, 승인 뒤 내린 doc(active · isActive false)은 승인 뒤 문구 그대로', () => {
+  const words = (['registering', 'queued', 'processing', 'review'] as const).map((k) => rowStatusWord(motion(k)));
+  assert.deepEqual(new Set(words), new Set([supplierCopy.row.status.checking]));
+  const hidden = normalizeRegistration('h', { ...rawDocs.activeOk, isActive: false });
+  assert.ok(hidden);
+  assert.equal(hidden.isActive, false);
+  assert.equal(rowStatusWord(hidden), rowStatusWord(motion('activeOk')));
 });
 
 test('isInProgress — registering/queued/processing/review 만 진행 점', () => {

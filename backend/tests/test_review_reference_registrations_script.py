@@ -275,6 +275,59 @@ def test_end_to_end_with_real_writers_on_fake_firestore(script, fake_firestore, 
     assert "already_approved" in capsys.readouterr().out.splitlines()[-1]
 
 
+# ─────────────────────── deactivate ───────────────────────
+
+
+@pytest.mark.parametrize("result", ["deactivated", "already_inactive"])
+def test_deactivate_prints_writer_result(script, monkeypatch, capsys, result):
+    rec = _Rec(result)
+    monkeypatch.setattr(fa, "deactivate_reference_registration", rec)
+    assert script.main(["deactivate", REF, "--reason", " 다른 영상으로 바꿈. ", "--by", "ops:belle"]) == 0
+    assert rec.calls == [((REF,), {"by": "ops:belle", "reason": "다른 영상으로 바꿈"})]
+    assert capsys.readouterr().out.startswith(f"{result} ref={REF}")
+
+
+def test_deactivate_reason_is_optional(script, monkeypatch):
+    rec = _Rec("deactivated")
+    monkeypatch.setattr(fa, "deactivate_reference_registration", rec)
+    assert script.main(["deactivate", REF]) == 0
+    assert rec.calls[0][1]["reason"] is None
+
+
+def test_deactivate_value_error_exit_1(script, monkeypatch, capsys):
+    monkeypatch.setattr(fa, "deactivate_reference_registration", _Rec(ValueError("deactivate needs active")))
+    assert script.main(["deactivate", REF]) == 1
+    assert "deactivate needs active" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("cmd", [["deactivate", "ref-kip-up"], ["deactivate", "nothex"],
+                                 ["deactivate", REF, "--reason", "가" * 201], ["deactivate", REF, "--by", " "]])
+def test_deactivate_input_rule_violations_exit_2(script, monkeypatch, cmd):
+    rec = _Rec("deactivated")
+    monkeypatch.setattr(fa, "deactivate_reference_registration", rec)
+    assert script.main(cmd) == 2
+    assert rec.calls == [] and script._init_calls == []
+
+
+def test_deactivate_dry_run_writes_nothing(script, fake_firestore, monkeypatch, capsys):
+    _seed_review(fake_firestore, registrationStatus="active", isActive=True)
+    rec = _Rec("deactivated")
+    monkeypatch.setattr(fa, "deactivate_reference_registration", rec)
+    commits = fake_firestore.commit_count
+    assert script.main(["deactivate", REF, "--dry-run"]) == 0
+    assert rec.calls == [] and fake_firestore.commit_count == commits
+    assert "isActive=False (쓰기 없음)" in capsys.readouterr().out
+
+
+def test_deactivate_end_to_end_on_fake_firestore(script, fake_firestore, monkeypatch, capsys):
+    monkeypatch.setattr(fa, "_now_ms", lambda: T0)
+    _seed_review(fake_firestore, registrationStatus="active", isActive=True)
+    assert script.main(["deactivate", REF, "--by", "ops:belle"]) == 0
+    assert fake_firestore.store[f"reference/{REF}"]["isActive"] is False
+    assert script.main(["deactivate", REF, "--by", "ops:belle"]) == 0
+    assert "already_inactive" in capsys.readouterr().out.splitlines()[-1]
+
+
 # ─────────────────────── --help ───────────────────────
 
 
@@ -283,6 +336,6 @@ def test_help_needs_no_credentials(script, capsys):
         script.main(["--help"])
     assert ei.value.code == 0
     out = capsys.readouterr().out
-    for cmd in ("list", "show", "approve", "reject"):
+    for cmd in ("list", "show", "approve", "reject", "deactivate"):
         assert cmd in out
     assert script._init_calls == []

@@ -189,6 +189,7 @@ def test_ts_mirror_has_codes_statuses_and_messages():
     priv_block = _ts_interface_body(text, "ReferenceRegistrationPrivate")
     assert "registrationDiagnostics?:" in priv_block
     assert "review?:" in priv_block
+    assert "deactivation?:" in priv_block
 
     self_body = _ts_type_body(text, "SelfCheckStatus")
     for status in models.SELF_CHECK_STATUSES:
@@ -230,6 +231,7 @@ def test_contract_md_has_endpoint_messages_and_private_doc():
     # quick-261001-thx — review 상태 · rejected 코드 · 비공개 진단/검수 기록이 §3/§5 에 있다.
     assert "'review'" in text
     assert "registrationDiagnostics" in text
+    assert "deactivation?" in text
     assert "review_reference_registrations.py" in text
 
 

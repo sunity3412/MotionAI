@@ -492,6 +492,9 @@ registrationDiagnostics? { personRatio, lowConfidenceJoints, standMaterialUnread
                                           'ok'|'floor_violation'|'no_floor_reference'|'stand_window_too_short'
 review?            { decision, by, at, reason? }   quick-261001-thx — 사람 검수 기록. decision ∈ 'approved'|'rejected',
                                           by = 운영자 id('ops:<계정>'), at = epoch ms, reason = rejected 때
+deactivation?      { by, at, reason? }    quick-261001-thx — 승인 뒤 운영자가 내림(`review_reference_registrations.py
+                                          deactivate`). 공개 doc 은 registrationStatus 'active' 그대로 + isActive false
+                                          (picker 에서 빠짐). 되살리기 경로 없음 — 다시 올리면 새 refId
 techniqueRefId     string | null          사전 선택한 기존 motionId — 등록 정보로만 보관 (R7)
 isCombo?           boolean                2026-09-30 이전 doc 에만 (옛 선언 — 소비처 0, 새 등록은 쓰지 않는다)
 isSplit?           boolean                2026-09-30 이전 doc 에만
@@ -515,7 +518,7 @@ firestore.rules 는 38-06 T3 가 기존 `reference/{document=**}` 재귀 와일�
                                             selfCheckAnalysisId · selfCheckJobId · angles* · anglesRealFps ·
                                             referenceKeypointReport · referenceSplitAngle · createdAt · updatedAt
 비공개 reference/{refId}/private/registration  supplierUid · consent · registrationError · registrationDiagnostics ·
-                                            review · techniqueRefId · clipRange · updatedAt (+ 2026-09-30 이전 doc 에만
+                                            review · deactivation · techniqueRefId · clipRange · updatedAt (+ 2026-09-30 이전 doc 에만
                                             isCombo · isSplit · hasHold · standingStart)
 ```
 

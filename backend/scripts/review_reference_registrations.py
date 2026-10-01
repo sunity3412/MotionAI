@@ -4,7 +4,7 @@
 `registrationStatus: 'review'` + `isActive: false` 로 수강생 picker 에 안 보인 채 기다린다.
 운영자(Claude)가 이 CLI 로 사진을 뽑아 belle 에게 보여 주고, belle OK 뒤에 승인한다.
 
-서브커맨드 네 개:
+서브커맨드 다섯 개:
   list                                        검수 대기(review) 표 — refId 앞 8자 · 강사 코드 · 동작 이름 ·
                                               선수 · 레벨 · 자기 재현성(점수, 없으면 상태) · 진단 요약
                                               (여러 명 비율 · 저신뢰 관절 수와 이름 · 서 있는 시작).
@@ -17,8 +17,13 @@
   reject <refId> --reason "<한국어>" [--by] [--dry-run]
                                               review → failed + 사유(공급자 실패 패널에 그대로 보인다).
                                               사유는 앞뒤 공백과 끝 마침표를 떼고 200자 이하.
+  deactivate <refId> [--reason] [--by] [--dry-run]
+                                              승인된(active) 기준 내리기 — isActive false(수강생 picker 에서 빠진다).
+                                              상태는 active 그대로, 누가/언제/사유는 비공개 doc `deactivation` 에만.
+                                              되살리기 명령은 없다(belle 10-01 "아주 심플하게" — 다시 올리면 새 refId).
 
-반복 실행 무해 — 두 번째 approve/reject 는 'already_approved' / 'already_rejected' 를 출력하고 쓰기 0.
+반복 실행 무해 — 두 번째 approve/reject/deactivate 는 'already_approved' / 'already_rejected' /
+'already_inactive' 를 출력하고 쓰기 0.
 legacy `ref-*`(손 등록 11개)는 입력 단계에서 거부(종료 2) — writer 도 같은 가드를 첫 줄에 둔다.
 --dry-run 은 현재 상태와 바뀔 상태만 출력하고 writer 를 부르지 않는다(읽기 1).
 --by 기본값 = "ops:" + 로컬 계정 이름. 누가/언제는 비공개 doc `review` 에만 남는다.
@@ -282,6 +287,43 @@ def _cmd_reject(args) -> int:
     return 0
 
 
+def _cmd_deactivate(args) -> int:
+    problem = _check_ref_id(args.ref_id)
+    if problem:
+        _err(problem)
+        return 2
+    reason = _clean_reason(args.reason) if args.reason is not None else None
+    if reason is not None and len(reason) > firestore_admin.REJECT_REASON_MAX_LEN:
+        _err(f"--reason 은 {firestore_admin.REJECT_REASON_MAX_LEN}자 이하로 적어주세요.")
+        return 2
+    by = (args.by or _default_by()).strip()
+    if not by:
+        _err("--by 가 비었어요.")
+        return 2
+    _ensure_credentials()
+    if args.dry_run:
+        doc = firestore_admin.get_reference_registration(args.ref_id)
+        if doc is None:
+            _err(f"reference/{args.ref_id} 가 없어요.")
+            return 1
+        status, active = doc.get("registrationStatus"), doc.get("isActive")
+        if status == models.REGISTRATION_STATUS_ACTIVE and active is not False:
+            print(f"dry-run deactivate ref={args.ref_id} 현재=active isActive={active} → isActive=False (쓰기 없음)")
+        else:
+            print(
+                f"dry-run deactivate ref={args.ref_id} 현재={status} isActive={active} — 실제 실행은 "
+                "already_inactive 이거나 거부(종료 1)예요 (쓰기 없음)"
+            )
+        return 0
+    try:
+        result = firestore_admin.deactivate_reference_registration(args.ref_id, by=by, reason=reason or None)
+    except ValueError as e:
+        _err(str(e))
+        return 1
+    print(f"{result} ref={args.ref_id} by={by}" + (f" reason={reason}" if reason else ""))
+    return 0
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="review_reference_registrations.py",
@@ -306,6 +348,12 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--reason", required=True, help="공급자 실패 패널에 그대로 보이는 한국어 사유, 200자 이하")
     r.add_argument("--by", default=None, help="운영자 id (기본 ops:<로컬 계정>)")
     r.add_argument("--dry-run", action="store_true")
+
+    d = sub.add_parser("deactivate", help="승인된 기준 내리기 (isActive false, 수강생 picker 에서 빠짐)")
+    d.add_argument("ref_id")
+    d.add_argument("--reason", default=None, help="내린 이유(운영 기록용, 공급자에게 안 보인다), 200자 이하")
+    d.add_argument("--by", default=None, help="운영자 id (기본 ops:<로컬 계정>)")
+    d.add_argument("--dry-run", action="store_true")
     return p
 
 
@@ -317,6 +365,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_show(args)
     if args.cmd == "approve":
         return _cmd_approve(args)
+    if args.cmd == "deactivate":
+        return _cmd_deactivate(args)
     return _cmd_reject(args)
 
 

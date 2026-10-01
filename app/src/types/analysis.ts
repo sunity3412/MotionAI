@@ -1575,6 +1575,7 @@ export interface ReferenceRegistrationPrivate {
   registrationError?: ReferenceRegistrationError | null; // registrationStatus==='failed'
   registrationDiagnostics?: ReferenceRegistrationDiagnostics; // review 전이 때 서버가 씀 (quick-261001-thx)
   review?: ReferenceRegistrationReview; // 승인/반려 뒤 (quick-261001-thx)
+  deactivation?: { by: string; at: number; reason?: string }; // 승인 뒤 운영자가 내림(isActive false) — 261001-thx
   techniqueRefId: string | null; // 등록 정보로 보관 — 채점 소비 배선 없음(R7)
   // 옛 선언 4 — 2026-09-30 이전 doc 에만(소비처 0, 새 등록은 쓰지 않는다 — quick-260930-w9l).
   isCombo?: boolean;

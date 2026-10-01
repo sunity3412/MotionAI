@@ -289,6 +289,7 @@ _WRITERS = {
     "reject_reference_registration": lambda rid: fa.reject_reference_registration(
         rid, reason="화면이 어두워요", by="ops:t",
     ),
+    "deactivate_reference_registration": lambda rid: fa.deactivate_reference_registration(rid, by="ops:t"),
     "set_registration_failed": lambda rid: fa.set_registration_failed(
         rid, "A", error={"code": "low_confidence", "message": "m", "joints": ["왼쪽 발목"]},
     ),
@@ -332,12 +333,13 @@ def test_writers_reject_legacy_ref_id(firestore_call_log, writer, bad_id):
     assert firestore_call_log == []
 
 
-def test_exactly_eleven_writers_are_guarded_and_readers_are_not():
+def test_exactly_twelve_writers_are_guarded_and_readers_are_not():
     assert set(_WRITERS) == {
         "create_reference_registration", "claim_registration", "set_registration_queued",
         "set_registration_expired", "set_registration_review", "set_registration_failed",
         "set_reference_angles", "begin_self_check", "set_reference_self_check",
         "approve_reference_registration", "reject_reference_registration",
+        "deactivate_reference_registration",
     }
     assert not hasattr(fa, "set_registration_active")  # 운영 호출자(파이프라인) 하나뿐이라 대체
     for name in _WRITERS:
@@ -869,6 +871,54 @@ def test_approve_reject_require_by(reg_db, fn):
             fa.approve_reference_registration(REF, by="")
         else:
             fa.reject_reference_registration(REF, reason="사유", by="")
+
+
+def test_deactivate_active_sets_is_active_false_and_private_record(reg_db):
+    """승인 뒤 내리기 — 상태는 active 그대로, isActive False(picker 에서 빠짐), 누가/언제/사유는 비공개에만."""
+    _seed_review(reg_db)
+    assert fa.approve_reference_registration(REF, by="ops:belle") == "approved"
+    assert fa.deactivate_reference_registration(REF, by="ops:belle", reason="  다른 영상으로 바꿈 ") == "deactivated"
+    pub = reg_db.store[PUBLIC]
+    assert pub["registrationStatus"] == "active" and pub["isActive"] is False
+    assert "deactivation" not in pub
+    prv = reg_db.store[PRIVATE]
+    assert prv["deactivation"] == {"by": "ops:belle", "at": T0, "reason": "다른 영상으로 바꿈"}
+    assert prv["review"]["decision"] == "approved"  # merge — 승인 기록 보존
+    assert reg_db.read_after_write_seen is False
+
+
+def test_deactivate_without_reason_has_no_reason_key(reg_db):
+    _seed(reg_db, "active", job_id="A")
+    assert fa.deactivate_reference_registration(REF, by="ops:belle") == "deactivated"
+    assert reg_db.store[PRIVATE]["deactivation"] == {"by": "ops:belle", "at": T0}
+
+
+def test_deactivate_is_idempotent_already_inactive_writes_nothing(reg_db):
+    _seed(reg_db, "active", job_id="A")
+    assert fa.deactivate_reference_registration(REF, by="ops:belle") == "deactivated"
+    pub, prv = copy.deepcopy(reg_db.store[PUBLIC]), copy.deepcopy(reg_db.store[PRIVATE])
+    assert fa.deactivate_reference_registration(REF, by="ops:x", reason="또") == "already_inactive"
+    assert reg_db.store[PUBLIC] == pub and reg_db.store[PRIVATE] == prv
+
+
+@pytest.mark.parametrize("status", ["review", "processing", "failed", "registering", "queued", "expired"])
+def test_deactivate_non_active_raises(reg_db, status):
+    before = _seed(reg_db, status, job_id="A")
+    with pytest.raises(ValueError):
+        fa.deactivate_reference_registration(REF, by="ops:belle")
+    assert reg_db.store[PUBLIC] == before
+    assert PRIVATE not in reg_db.store
+
+
+def test_deactivate_missing_doc_and_long_reason_raise(reg_db):
+    with pytest.raises(ValueError):
+        fa.deactivate_reference_registration(REF, by="ops:belle")
+    before = _seed(reg_db, "active", job_id="A")
+    with pytest.raises(ValueError):
+        fa.deactivate_reference_registration(REF, by="ops:belle", reason="가" * 201)
+    with pytest.raises(ValueError):
+        fa.deactivate_reference_registration(REF, by="")
+    assert reg_db.store[PUBLIC] == before
 
 
 # ─────────────────────── set_reference_self_check (R2 · R8) ───────────────────────

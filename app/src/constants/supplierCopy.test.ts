@@ -234,8 +234,17 @@ test('row.fail 8코드의 title + ". " + body 가 analysis.ts REGISTRATION_ERROR
 
 // ── 14) quick-261001-thx — 검수 중 · 반려 ───────────────────────────────────
 
-test('thx — row.status.review · row.fail.rejected 글자 단위', () => {
-  assert.equal(supplierCopy.row.status.review, '운영팀 확인 중 · 끝나면 수강생에게 보여요');
+test('thx — 승인 전 한 문구 · row.fail.rejected 글자 단위', () => {
+  // belle 10-01 "아주 심플하게" — registering/queued/processing/review 를 한 문구로. 옛 키는 없다.
+  assert.equal(supplierCopy.row.status.checking, '확인 중 · 끝나면 수강생에게 보여요');
+  const st = supplierCopy.row.status as unknown as Record<string, unknown>;
+  for (const gone of ['registering', 'queued', 'processing', 'review']) {
+    assert.equal(gone in st, false, `row.status.${gone}`);
+  }
+  for (const [p, s] of ALL_STRINGS) {
+    assert.ok(!s.includes('올린 영상 확인 중'), `${p}: ${s}`);
+    assert.ok(!s.includes('운영팀 확인 중'), `${p}: ${s}`);
+  }
   assert.deepEqual(supplierCopy.row.fail.rejected, {
     title: '운영팀 확인에서 등록되지 않았어요',
     body: '이유: {reason}. 고쳐서 다시 올려 주세요.',
@@ -254,7 +263,6 @@ test('thx — 공급자 문구에 서 있는 시작 요구 · 내부어 검수 �
   assert.ok(!GUIDE_MD.includes('등록이 안 되는 4가지'));
   assert.deepEqual([...supplierCopy.guide.s4.items], [
     '올리면 관절을 자동으로 읽은 뒤, 운영팀이 확인하고 기준 동작으로 올려요. 확인 전에는 수강생에게 보이지 않아요.',
-    "분석 서버가 꺼져 있으면 '대기 중'으로 있다가, 켜지면 이어서 처리돼요.",
     '확인이 끝나면 앱의 기준 동작 목록에 올라가요. 다시 올려야 하면 이유를 함께 알려 드려요.',
   ]);
 });

@@ -174,21 +174,21 @@ function assertNever(x: never): never {
 // A-3 행 부제의 상태어(UI-SPEC A-3 상태 표 8행). active 는 자기 점수로 3분기 —
 // 점수 없음(pending/queued/failed selfCheck)은 Figma `새로 추가됨`; selfCheck failed 의 사연은
 // 상세 패널의 selfCheckView 가 말한다.
+// quick-261001-thx(belle "아주 심플하게"): 승인 전 네 상태(registering · queued · processing · review)는
+// 한 문구 `checking`. 운영자가 승인 뒤 내린(isActive false) doc 은 registrationStatus 가 active 그대로라
+// 승인 뒤 문구를 그대로 쓴다(새 공급자 문구를 만들지 않는다 — 운영 예외 경로).
 export function rowStatusWord(m: SupplierMotion): string {
   const s = supplierCopy.row.status;
   switch (m.registrationStatus) {
     case 'registering':
-      return s.registering;
     case 'queued':
-      return s.queued;
     case 'processing':
-      return s.processing;
+    case 'review':
+      return s.checking;
     case 'failed':
       return s.failed;
     case 'expired':
       return s.expired;
-    case 'review':
-      return s.review;
     case 'active': {
       const score = doneScore(m);
       if (score == null) return s.newlyAdded;

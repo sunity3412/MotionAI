@@ -10457,13 +10457,22 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
 # 순서(리뷰 반영, 2026-09-26 · plan-checker 2026-09-28):
 #   R9   head_object 크기(다운로드 전) → probe_duration_sec 길이(디코딩 전) → extract(end_s=상한+1) 프레임 캡 → T/fps 재검사
 #   R5   upload → v1 `copy_object(CopySourceIfMatch)` 불변 확정 — angles · 재생 · 자기 재현성 전부 v1 바이트
-#   R6   no_human(엔진 예외) → check_registration(low_confidence → multiple_people → no_standing_start, 38-05 소유)
+#   R6   no_human(엔진 예외) → check_registration(low_confidence → no_standing_start, 38-05 소유)
+#   38-14 multiple_people = 기록만(2026-10-01 belle 결정 — 정적 화분이 사람으로 잡혀 legacy 11개 중 9개가 0.30 을 넘음).
+#        verdict.person_ratio 를 verdict/ok 로그에 key=value 로 남긴다. Firestore 에는 쓰지 않는다 — 성공 경로의
+#        등록 진단을 담는 기존 자리(공개 doc·비공개 registration doc)가 없어 계약 3벌을 늘리지 않았다.
+#        models.REG_ERR_MULTIPLE_PEOPLE 은 앱 문구 매핑이 읽으므로 남지만 이 경로에서는 더 나오지 않는다.
 #   차단1 KeypointReport dataclass → `_dataclass_to_camel_case_dict` **한 번** → 같은 dict 를 판정과 writer 에
 #   R3   입구 jobId 대조 + 모든 writer 가 job 가드(38-06) — stale 작업은 쓰기 0
 #   R8   자기 재현성 = begin_self_check(선기록) → create_analysis_doc → copy_object(v1 → uploads/)
 #   w9l  판정 통과 뒤 · set_reference_angles 앞: 오디오 있으면 무음본(스트림 복사)을 같은 v1 키로 upload_file
 #        → head ETag 를 videoETag 로(실패 = server_error, fail-closed). 서 있는 창 가운데 프레임 썸네일 →
 #        thumb.jpg(실패는 경고만, thumbnailS3Key 없음). 크기 상한 1GB · 길이 상한 120초(콤보 구분 없음).
+
+
+def _fmt_ratio(ratio) -> str:
+    """verdict.person_ratio 로그 표기 — None(low_confidence 경로)은 '-', 나머지는 소수 3자리(38-14 기록만)."""
+    return "-" if ratio is None else f"{float(ratio):.3f}"
 
 
 def _fail_registration(
@@ -10682,11 +10691,12 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
                     real_fps,
                 )
             log.info(
-                "register-reference verdict ref_id=%s reason=%s detail=%s joints=%s",
+                "register-reference verdict ref_id=%s reason=%s detail=%s joints=%s person_ratio=%s",
                 ref_id,
                 verdict.reason,
                 verdict.detail,
                 labels,
+                _fmt_ratio(verdict.person_ratio),
             )
             _fail_registration(ref_id, job_id, verdict.reason, message=message, joints=labels or None)
             return
@@ -10767,7 +10777,7 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
             return
         log.info(
             "register-reference ok ref_id=%s job_id=%s frames=%s fps=%.3f dur=%.1f split=%s peak_idx=%s etag=%s "
-            "audio_stripped=%s thumb=%s",
+            "audio_stripped=%s thumb=%s person_ratio=%s",
             ref_id,
             job_id,
             int(angles.shape[0]),
@@ -10778,6 +10788,7 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
             final_etag,
             audio_stripped,
             thumb_key,
+            _fmt_ratio(verdict.person_ratio),
         )
     finally:
         Path(path).unlink(missing_ok=True)

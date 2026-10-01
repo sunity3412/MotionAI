@@ -8,7 +8,8 @@ test_rtmw_engine.py 가 맡는다. Pod · Firestore · S3 호출 0.
   (1) 여러 명 비율은 순서 무관 — 2/10 통과 · 3/10 실패(>= 경계) · 4/10 실패, 섞어도 같다 (리뷰 R15b)
   (2) 저신뢰는 관절별 신뢰도 중앙값 < 문턱인 관절을 report joints 순서로 낸다 (12관절 한국어 라벨)
   (3) 서 있는 시작의 "측정 불가"(재료 신뢰도 미달) 와 "측정 결과 위반"(바닥 아래) 이 분리된다 (리뷰 R6)
-  (4) check_registration 순서 = low_confidence → multiple_people → no_standing_start → ok (리뷰 R6)
+  (4) check_registration 순서 = low_confidence → no_standing_start → ok (리뷰 R6). 여러 명은 2026-10-01 부터
+      기록만(38-14 실물: 정적 화분이 사람으로 잡혀 legacy 11개 중 9개가 0.30 을 넘음, belle 결정) — verdict.person_ratio
   (5) 입력 계약(plan-checker 차단 1): report 는 keypointReport dict — 비Mapping 은 TypeError(fail-loud),
       형상 불량 dict 는 예외 없이 fail-closed(T-38-05-1)
   (6) 바닥 규칙은 서 있음의 PROXY — 웅크린 합성 좌표도 통과한다는 반례 박제 (리뷰 R6)
@@ -232,7 +233,7 @@ def test_floor_rule_is_a_proxy_crouch_passes():
     assert rc.check_registration([1] * T, _crouch_report(), n_stand=STAND).ok is True
 
 
-# ── (4) check_registration — 순서 low_confidence → multiple_people → no_standing_start → ok ─────────
+# ── (4) check_registration — 순서 low_confidence → no_standing_start → ok · 여러 명은 기록만(38-14) ─────────
 
 
 def test_check_registration_low_confidence_beats_multiple_people_and_floor_violation():
@@ -264,21 +265,44 @@ def test_check_registration_floor_violation_is_no_standing_start():
     assert v.joints == ()
 
 
-def test_check_registration_multiple_people_after_confidence():
+def test_check_registration_multiple_people_is_recorded_not_failed():
+    """38-14 (belle 2026-10-01): N>=2 프레임 40% 여도 등록은 통과 — 비율만 person_ratio 로 실린다.
+    실물 근거: ref-sideway-spin 원본의 둘째 상자 = 매 프레임 같은 자리의 화분(ratio 0.538)."""
     v = rc.check_registration(COUNTS_4_OF_10, _standing_report(), n_stand=STAND)
-    assert v.ok is False
-    assert v.reason == models.REG_ERR_MULTIPLE_PEOPLE
+    assert v.ok is True
+    assert v.reason is None
+    assert v.person_ratio == pytest.approx(0.4)
 
 
-def test_check_registration_multiple_people_beats_no_standing_start():
-    """순서 ②→③: 신뢰도는 괜찮고 여러 명이면서 바닥도 위반이면 multiple_people 이 먼저."""
+def test_check_registration_ratio_at_old_boundary_does_not_fail():
+    """옛 경계 3/10 = 0.30(>= 라 실패였다) 도 이제 실패가 아니다 — 판정은 바닥 규칙만 본다."""
+    v = rc.check_registration(COUNTS_3_OF_10, _standing_report(), n_stand=STAND)
+    assert v.ok is True
+    assert v.person_ratio == pytest.approx(0.3)
+
+
+def test_check_registration_no_standing_start_carries_person_ratio():
+    """여러 명이면서 바닥 위반이면 no_standing_start — 비율은 그 verdict 에도 기록으로 실린다."""
     v = rc.check_registration(COUNTS_3_OF_10, _floor_violation_report(), n_stand=STAND)
-    assert v.reason == models.REG_ERR_MULTIPLE_PEOPLE
+    assert v.reason == models.REG_ERR_NO_STANDING_START
+    assert v.person_ratio == pytest.approx(0.3)
+
+
+def test_check_registration_never_returns_multiple_people():
+    """REG_ERR_MULTIPLE_PEOPLE 상수는 앱 문구 매핑 때문에 남지만 판정에서는 나오지 않는다."""
+    for counts in (COUNTS_4_OF_10, [2] * T, [3] * T):
+        for rep in (_standing_report(), _floor_violation_report()):
+            assert rc.check_registration(counts, rep, n_stand=STAND).reason != models.REG_ERR_MULTIPLE_PEOPLE
+
+
+def test_check_registration_low_confidence_has_no_person_ratio():
+    rep = _standing_report(conf={n: 0.1 for n in _JOINTS})
+    assert rc.check_registration([2] * T, rep, n_stand=STAND).person_ratio is None
 
 
 def test_check_registration_ok():
     v = rc.check_registration(COUNTS_2_OF_10, _standing_report(), n_stand=STAND)
-    assert v == rc.RegistrationVerdict(ok=True, reason=None)
+    assert v == rc.RegistrationVerdict(ok=True, reason=None, person_ratio=pytest.approx(0.2))
     assert v.joints == () and v.detail == ""
 
 
@@ -302,7 +326,6 @@ def test_verdict_reasons_are_models_constants():
     assert models.REG_ERR_NO_STANDING_START == "no_standing_start"
     for reason in (
         rc.check_registration([1] * T, _floor_violation_report(conf={"left_knee": 0.1}), n_stand=STAND).reason,
-        rc.check_registration(COUNTS_4_OF_10, _standing_report(), n_stand=STAND).reason,
         rc.check_registration([1] * T, _floor_violation_report(), n_stand=STAND).reason,
     ):
         assert reason in models.REGISTRATION_ERROR_MESSAGE

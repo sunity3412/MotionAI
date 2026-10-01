@@ -477,14 +477,17 @@ def test_low_confidence_ankles_with_korean_labels_beats_floor_violation(h, app):
     assert h.calls["angles"] == [] and h.calls["active"] == []
 
 
-def test_multiple_people(h, app):
+def test_multiple_people_is_recorded_not_failed(h, caplog):
+    """38-14 (belle 2026-10-01): 매 프레임 둘이 잡혀도(실물 = 정적 화분) 등록은 active 로 간다.
+    비율은 ok 로그에 key=value 로만 남는다(Firestore 무기록 — 계약 3벌 무변경)."""
+    caplog.set_level(logging.INFO)
     h.outputs = _frames_133(60, n_people=2)
     h.run()
-    assert h.failed_error() == {
-        "code": "multiple_people",
-        "message": app.models.REGISTRATION_ERROR_MESSAGE["multiple_people"],
-    }
+    assert h.failed_codes == []
     assert h.calls["check"][0][0] == [2] * 60
+    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    ok_lines = [r.getMessage() for r in caplog.records if "register-reference ok" in r.getMessage()]
+    assert len(ok_lines) == 1 and "person_ratio=1.000" in ok_lines[0]
 
 
 def test_no_standing_start_floor_violation(h, app):
@@ -791,9 +794,9 @@ def test_thumbnail_failure_does_not_block_registration(h, caplog, where):
 
 def test_verdict_failure_skips_audio_and_thumbnail(h):
     h.media.audio = True
-    h.outputs = _frames_133(60, n_people=2)
+    h.outputs = _frames_133(60, ankle_stand_y=0.6, ankle_window_y=0.85)   # 38-14: 여러 명은 실패가 아니라 바닥 위반으로
     h.run()
-    assert h.failed_codes == ["multiple_people"]
+    assert h.failed_codes == ["no_standing_start"]
     assert h.media.has_audio == [] and h.media.strip == [] and h.media.thumb == []
     assert _uploads(h) == []
 

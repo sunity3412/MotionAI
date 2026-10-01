@@ -89,7 +89,9 @@ referenceMotionId 변형 경계 가드 4종 — 하나라도 실패 시 동일 `
 (inactive/부재/무영상 케이스가 응답으로 구분되지 않음 — 숨김 doc 존재 leak 0,
 29-PLAN-REVIEW HIGH-2):
 1. doc 존재
-2. `isActive`가 false 아님 (미승인/reject 자동등록 doc 재서명 거부)
+2. `isActive`가 false 아님 (미승인/reject 자동등록 doc 재서명 거부) — **예외 하나**(quick-261001-thx):
+   `registrationStatus == 'review'` 이고 `supplierUid == ID 토큰 uid` 면 통과(공급자 본인의 자기 재현성
+   결과 화면 기준 영상). 다른 uid 에게 review doc 은 부재와 같은 404
 3. `videoS3Key` 존재
 4. `videoS3Key`가 `reference/` prefix (allowlist — 그 외 키는 doc 에 있어도 거부)
 
@@ -114,13 +116,14 @@ asset              'thumbnail'   referenceMotionId 와 함께 쓸 수 있는 ass
 
 - 서버가 `s3keys.build_reference_thumb_key(doc.supplierUid, referenceMotionId)`
   (= `reference/{supplierUid}/{refId}/thumb.jpg`) 를 **구성**하고 공개 doc `thumbnailS3Key` 와
-  **전체 문자열 exact 비교** 후에만 서명한다. 가드 = doc 존재 · `isActive` 가 false 아님 ·
+  **전체 문자열 exact 비교** 후에만 서명한다. 가드 = doc 존재 · `isActive` 가 false 아님(또는 review ∧
+  호출자 uid == supplierUid — 공급자 홈의 검수 중 행 썸네일, quick-261001-thx) ·
   `supplierUid` 문자열 · exact 일치 · `reference/` prefix. 하나라도 어기면 **동일 `404 not_found`**
   (숨김 doc leak 0). 손 등록 11개(legacy `ref-*`)는 `thumbnailS3Key` 가 없어 404 — 앱은 번들 썸네일을 먼저 쓴다.
 - 응답 `{playbackUrl, expiresInSec: 3600}` (`ResponseContentType: image/jpeg`).
 - `asset` 없는 `referenceMotionId` 요청(영상 재서명, 7일)은 바이트 그대로.
 - 썸네일 생성 = Pod 등록 경로(`pipeline._register_reference`) — 서 있는 시작 창 가운데 프레임,
-  실패하면 `thumbnailS3Key` 없이 active(등록은 막지 않는다).
+  실패하면 `thumbnailS3Key` 없이 review(등록은 막지 않는다).
 
 #### POST /playback-url — `asset` 확장 (Phase 31, 리뷰 H-02)
 
@@ -428,16 +431,21 @@ captureViews?      number                 단일시점 v1 = 1 (D-03/SC#4). 다�
 updatedAt?         number (epoch ms)
 
 # ── Phase 38 공급자 링크 등록 필드 (공개 doc — 인증자 전체 읽기; picker·상태·점수·작업 필드만) ──
-isActive?          boolean                등록 중 false, active 전이 때 true — picker normalize 가 false 를 거른다
+isActive?          boolean                등록 중·검수 대기(review) false, 승인(active) 때 true — picker normalize 가 false 를 거른다
 supplierUid?       string                 올린 공급자 uid (페이지 목록 조회 조건 — 접근 제어 아님)
 supplierCode?      string                 SUPPLIER_UIDS 의 강사 코드(D-12). 없으면 필드 없음
 source?            'supplier-link'        손 등록 11개(seed)와 구분
-registrationStatus? 'registering'|'queued'|'processing'|'failed'|'active'|'expired'
+registrationStatus? 'registering'|'queued'|'processing'|'failed'|'active'|'expired'|'review'
                                           **AnalysisStatus 와 별개 enum** (models.py REGISTRATION_STATUSES,
                                           analysis.ts ReferenceRegistrationStatus). 전이: registering →
                                           queued|processing|expired · queued → processing · processing →
-                                          active|failed|processing(lease 재claim) · active/failed/expired 종결
-                                          (failed 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(R4)
+                                          review|failed|processing(lease 재claim) · review → active(승인)|
+                                          failed(반려, code rejected) · active/failed/expired 종결
+                                          (failed 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(R4).
+                                          review(quick-261001-thx, belle 2026-10-01) = 기계 판정은 분석 불가
+                                          (no_human · too_* · server_error)만 막고, 통과한 등록은 사람 검수 대기.
+                                          isActive false(수강생 비노출) · 자기 재현성은 이 상태에서도 돈다 ·
+                                          claim/requeue 대상 아님. 승인/반려 = backend/scripts/review_reference_registrations.py
 queuedReason?      string | null          queued 사유(Pod 부재 등) — 페이지 안내 알약
 registrationUpdatedAt? number (epoch ms)  상태 전이 시각
 uploadKey?         string                 reference/{uid}/{refId}/upload.{ext} — 재개 스크립트 전용, 재생 금지
@@ -474,9 +482,16 @@ consent            { portrait, usage, training, trainingBasis?, silent?, version
                                           학습 근거는 공급자 계약), silent 없음. version = models.CONSENT_VERSION
                                           ('2026-09-30'), at/uid 는 서버가 붙인다 (본문 값 무시).
                                           이전 doc(version '2026-09-26'): silent true, training = 공급자가 고른 값, trainingBasis 없음
-registrationError? { code, message, joints? } | null   registrationStatus='failed' 일 때.
+registrationError? { code, message, joints?, reason? } | null   registrationStatus='failed' 일 때.
                                           code ∈ REGISTRATION_ERROR_CODES, message = REGISTRATION_ERROR_MESSAGE[code]
-                                          ({joints} 치환 뒤), joints = KEYPOINT_LABEL_KO 부위명 (low_confidence)
+                                          ({joints} · {reason} 치환 뒤), joints = KEYPOINT_LABEL_KO 부위명 (low_confidence,
+                                          2026-10-01 이전 doc), reason = 운영자 반려 사유 (rejected, 앞뒤 공백 제거 · 200자 이하)
+registrationDiagnostics? { personRatio, lowConfidenceJoints, standMaterialUnreadable, standingStart, nStand }
+                                          quick-261001-thx — review 전이 때 서버(set_registration_review)가 같은 트랜잭션에 쓴다.
+                                          등록을 막지 않는 진단(검수 재료). 관절 이름 = 영문 키, standingStart ∈
+                                          'ok'|'floor_violation'|'no_floor_reference'|'stand_window_too_short'
+review?            { decision, by, at, reason? }   quick-261001-thx — 사람 검수 기록. decision ∈ 'approved'|'rejected',
+                                          by = 운영자 id('ops:<계정>'), at = epoch ms, reason = rejected 때
 techniqueRefId     string | null          사전 선택한 기존 motionId — 등록 정보로만 보관 (R7)
 isCombo?           boolean                2026-09-30 이전 doc 에만 (옛 선언 — 소비처 0, 새 등록은 쓰지 않는다)
 isSplit?           boolean                2026-09-30 이전 doc 에만
@@ -499,9 +514,9 @@ firestore.rules 는 38-06 T3 가 기존 `reference/{document=**}` 재귀 와일�
                                             videoETag · thumbnailS3Key · jobId · leaseUntil · selfScore · selfCheckStatus ·
                                             selfCheckAnalysisId · selfCheckJobId · angles* · anglesRealFps ·
                                             referenceKeypointReport · referenceSplitAngle · createdAt · updatedAt
-비공개 reference/{refId}/private/registration  supplierUid · consent · registrationError · techniqueRefId ·
-                                            clipRange · updatedAt (+ 2026-09-30 이전 doc 에만 isCombo · isSplit ·
-                                            hasHold · standingStart)
+비공개 reference/{refId}/private/registration  supplierUid · consent · registrationError · registrationDiagnostics ·
+                                            review · techniqueRefId · clipRange · updatedAt (+ 2026-09-30 이전 doc 에만
+                                            isCombo · isSplit · hasHold · standingStart)
 ```
 
 ### 공급자 명단 · 강사 코드 · 메일 초대 (quick-260930-lfw, 38-DESIGN-v2 §W1)
@@ -1086,9 +1101,10 @@ too_short           영상이 너무 짧아요. 기준 동작은 5초 이상이�
 too_long            영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.
 too_large           용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.
 server_error        등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.
+rejected            검수에서 반려됐어요. 사유: {reason}. 고쳐서 다시 올려 주세요.
 ```
 
-`no_human` 은 기존 `ERROR_MESSAGE.no_human` 재사용(D-09) — 공급자 페이지 `row.fail.no_human` 제목/본문(Figma `1:479`)과 다르다, 의도된 예외. 나머지 7개 = UI-SPEC `row.fail.<code>.title + '. ' + body`(38-03 `supplierCopy.test.ts` 가 이 규칙으로 대조). `low_confidence` 의 `{joints}` 는 파이프라인이 `str.replace` 로 치환한다(`str.format` 금지). `too_large` 는 실제 객체 크기를 다운로드 전 `head_object` 로 거른 결과(리뷰 R9).
+`no_human` 은 기존 `ERROR_MESSAGE.no_human` 재사용(D-09) — 공급자 페이지 `row.fail.no_human` 제목/본문(Figma `1:479`)과 다르다, 의도된 예외. 나머지 8개 = UI-SPEC `row.fail.<code>.title + '. ' + body`(38-03 `supplierCopy.test.ts` 가 이 규칙으로 대조). `low_confidence` 의 `{joints}` 는 파이프라인이 `str.replace` 로 치환한다(`str.format` 금지). `too_large` 는 실제 객체 크기를 다운로드 전 `head_object` 로 거른 결과(리뷰 R9). 2026-10-01(quick-261001-thx) 부터 파이프라인이 내는 코드는 분석 불가뿐(`no_human` · `too_*` · `server_error`) — `multiple_people` · `no_standing_start` · `low_confidence` 는 진단(`registrationDiagnostics`)으로 내려가 더 나오지 않지만 옛 실패 doc 용으로 남는다. `rejected` = 사람 검수 반려(`firestore_admin.reject_reference_registration`), `{reason}` 은 서버가 `str.replace` 로 치환해 message 에 싣고 사유 원문은 `registrationError.reason` 에도 둔다.
 
 ---
 

@@ -279,3 +279,60 @@ def test_reference_without_asset_still_signs_video(patched, monkeypatch):
     assert json.loads(resp["body"])["expiresInSec"] == 7 * 24 * 60 * 60
     assert fake_s3.calls[0]["params"]["Key"] == f"reference/sup1/{_THUMB_REF}/v1.mp4"
     assert "ResponseContentType" not in fake_s3.calls[0]["params"]
+
+
+# ── quick-261001-thx — 검수 대기(review) 소유자 예외 ─────────────────────────────────────
+# review doc 은 isActive False 라 수강생에게 숨는다. 공급자 본인(supplierUid == ID 토큰 uid)만 썸네일·영상을
+# 받는다 — 공급자 홈 썸네일과 자기 재현성 결과의 기준 영상이 검수 중 404 가 되지 않게(T-thx-02).
+
+_OWNER = "uid-001"  # patched 픽스처의 verify_request 반환값
+_REVIEW_DOC = {
+    "motionId": _THUMB_REF,
+    "isActive": False,
+    "registrationStatus": "review",
+    "supplierUid": _OWNER,
+    "videoS3Key": f"reference/{_OWNER}/{_THUMB_REF}/v1.mp4",
+    "thumbnailS3Key": f"reference/{_OWNER}/{_THUMB_REF}/thumb.jpg",
+}
+
+
+def test_review_doc_owner_gets_thumbnail_and_video(patched, monkeypatch):
+    app, fake_s3 = patched
+    _set_ref_doc(monkeypatch, app, dict(_REVIEW_DOC))
+    thumb = app.lambda_handler(_thumb_event(), None)
+    video = app.lambda_handler(_event({"referenceMotionId": _THUMB_REF}), None)
+    assert thumb["statusCode"] == 200 and video["statusCode"] == 200
+    assert [c["params"]["Key"] for c in fake_s3.calls] == [
+        _REVIEW_DOC["thumbnailS3Key"],
+        _REVIEW_DOC["videoS3Key"],
+    ]
+
+
+@pytest.mark.parametrize("asset", ["thumbnail", None])
+def test_review_doc_other_uid_is_same_404(patched, monkeypatch, asset):
+    """수강생(다른 uid)에게는 review doc 이 부재와 구분되지 않는 404."""
+    app, fake_s3 = patched
+    _set_ref_doc(monkeypatch, app, dict(_REVIEW_DOC, supplierUid="someone-else",
+                                        thumbnailS3Key=f"reference/someone-else/{_THUMB_REF}/thumb.jpg",
+                                        videoS3Key=f"reference/someone-else/{_THUMB_REF}/v1.mp4"))
+    body = {"referenceMotionId": _THUMB_REF, **({"asset": asset} if asset else {})}
+    resp = app.lambda_handler(_event(body), None)
+    _set_ref_doc(monkeypatch, app, None)
+    absent = app.lambda_handler(_event(body), None)
+    assert resp["statusCode"] == 404
+    assert json.loads(resp["body"]) == json.loads(absent["body"])
+    assert fake_s3.calls == []
+
+
+@pytest.mark.parametrize("status", ["failed", "processing", "registering", None])
+@pytest.mark.parametrize("asset", ["thumbnail", None])
+def test_inactive_non_review_doc_is_404_even_for_owner(patched, monkeypatch, status, asset):
+    """예외는 review 하나뿐 — 반려(failed) · 처리 중 doc 은 소유자여도 기존 가드대로 404."""
+    app, fake_s3 = patched
+    doc = dict(_REVIEW_DOC, registrationStatus=status)
+    doc = {k: v for k, v in doc.items() if v is not None}
+    _set_ref_doc(monkeypatch, app, doc)
+    body = {"referenceMotionId": _THUMB_REF, **({"asset": asset} if asset else {})}
+    resp = app.lambda_handler(_event(body), None)
+    assert resp["statusCode"] == 404
+    assert fake_s3.calls == []

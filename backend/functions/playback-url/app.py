@@ -348,12 +348,31 @@ def _handle_fault_zoom(uid: str, analysis_id: str) -> dict:
     return responses.ok({"items": out, "expiresInSec": _ASSET_EXPIRES})
 
 
+def _visible_to(doc: dict, uid: str) -> bool:
+    """isActive 가드 — False 가 아니면 통과. 예외 하나: 검수 대기(review) doc 은 공급자 본인에게만.
+
+    quick-261001-thx(T-thx-02): review doc 은 isActive False 라 수강생 picker 에 안 뜬다. 공급자 홈의
+    '검수 중' 행 썸네일과 공급자 본인 자기 재현성 결과의 기준 영상이 404 가 되지 않게
+    `registrationStatus == review ∧ supplierUid == uid`(uid 는 verify_request 가 검증한 ID 토큰 값)일 때만
+    통과시킨다. 다른 uid · 반려(failed) · 처리 중 doc 은 기존과 같은 404.
+    """
+    if doc.get("isActive") is not False:
+        return True
+    supplier_uid = doc.get("supplierUid")
+    return (
+        doc.get("registrationStatus") == models.REGISTRATION_STATUS_REVIEW
+        and isinstance(supplier_uid, str)
+        and bool(supplier_uid)
+        and supplier_uid == uid
+    )
+
+
 def _handle_reference(uid: str, reference_motion_id: str) -> dict:
     """referenceMotionId 재서명 — Firestore doc videoS3Key 화이트리스트 경유만.
 
     경계 가드 4종 전부 통과해야 서명 (하나라도 실패 → 동일 404 not_found —
     inactive/부재/무영상 케이스가 응답으로 구분되지 않게, 숨김 doc leak 0):
-      (a) doc 존재  (b) isActive is not False  (c) videoS3Key 존재
+      (a) doc 존재  (b) isActive is not False (예외: review ∧ 본인 — `_visible_to`)  (c) videoS3Key 존재
       (d) videoS3Key 가 reference/ prefix (allowlist)
     """
     if not _REF_ID_RE.match(reference_motion_id):
@@ -365,7 +384,7 @@ def _handle_reference(uid: str, reference_motion_id: str) -> dict:
     key = (doc or {}).get("videoS3Key")
     guards_ok = (
         doc is not None
-        and doc.get("isActive") is not False  # 29-PLAN-REVIEW HIGH-2 — EoP 차단
+        and _visible_to(doc, uid)  # 29-PLAN-REVIEW HIGH-2 — EoP 차단 (review 는 본인만)
         and isinstance(key, str)
         and key.startswith(_REF_KEY_PREFIX)  # 29-PLAN-REVIEW HIGH-2 — prefix 가드
     )
@@ -386,7 +405,8 @@ def _handle_reference_thumbnail(uid: str, reference_motion_id: str) -> dict:
     doc 에 서명 URL 을 박지 않는다(Pod IAM 키 서명은 최대 7일이면 만료 — motionThumbs.ts 주석의 함정).
     공개 doc 의 `thumbnailS3Key` 를 서버가 `build_reference_thumb_key(doc.supplierUid, refId)` 로
     **구성해 exact 비교**한 뒤에만 1시간 서명한다. 가드(하나라도 어기면 동일 404 — 숨김 doc leak 0,
-    T-w9l-04): doc 존재 · isActive 가 False 아님 · supplierUid 문자열 · 저장 키 == 구성 키 ·
+    T-w9l-04): doc 존재 · isActive 가 False 아님(review ∧ 본인 예외 — `_visible_to`) · supplierUid 문자열 ·
+    저장 키 == 구성 키 ·
     reference/ 접두사. 번들 썸네일 11개(legacy ref-*)는 thumbnailS3Key 가 없어 404 — 앱이 번들을 먼저 쓴다.
     """
     if not _REF_ID_RE.match(reference_motion_id):
@@ -403,7 +423,7 @@ def _handle_reference_thumbnail(uid: str, reference_motion_id: str) -> dict:
     )
     guards_ok = (
         doc is not None
-        and doc.get("isActive") is not False
+        and _visible_to(doc, uid)
         and expected is not None
         and isinstance(stored, str)
         and stored == expected  # exact equality — 다른 uid·영상 키 위장 불가

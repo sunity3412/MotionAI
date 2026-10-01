@@ -10446,7 +10446,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         _safe_unlink_local_video(reference_local_video_path)
 
 
-# ── Phase 38 (38-07 T2) — 공급자 링크 등록 서비스: reference/{uid}/{refId}/upload.{ext} → angles + active ──
+# ── Phase 38 (38-07 T2) — 공급자 링크 등록 서비스: reference/{uid}/{refId}/upload.{ext} → angles + review ──
 #
 # Pod `/register-reference`(38-08)와 Lambda 폴백이 같은 함수를 부른다 — "분기 0, 코드 1벌". 채점 경로
 # (`_process` · recognizer · `dimensions` · assemble 의 mode1 조립)는 **호출하지 않는다** — 어댑터(추출기 ·
@@ -10457,22 +10457,18 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
 # 순서(리뷰 반영, 2026-09-26 · plan-checker 2026-09-28):
 #   R9   head_object 크기(다운로드 전) → probe_duration_sec 길이(디코딩 전) → extract(end_s=상한+1) 프레임 캡 → T/fps 재검사
 #   R5   upload → v1 `copy_object(CopySourceIfMatch)` 불변 확정 — angles · 재생 · 자기 재현성 전부 v1 바이트
-#   R6   no_human(엔진 예외) → check_registration(low_confidence → no_standing_start, 38-05 소유)
-#   38-14 multiple_people = 기록만(2026-10-01 belle 결정 — 정적 화분이 사람으로 잡혀 legacy 11개 중 9개가 0.30 을 넘음).
-#        verdict.person_ratio 를 verdict/ok 로그에 key=value 로 남긴다. Firestore 에는 쓰지 않는다 — 성공 경로의
-#        등록 진단을 담는 기존 자리(공개 doc·비공개 registration doc)가 없어 계약 3벌을 늘리지 않았다.
-#        models.REG_ERR_MULTIPLE_PEOPLE 은 앱 문구 매핑이 읽으므로 남지만 이 경로에서는 더 나오지 않는다.
-#   차단1 KeypointReport dataclass → `_dataclass_to_camel_case_dict` **한 번** → 같은 dict 를 판정과 writer 에
+#   thx  막는 것 = 분석 불가만(quick-261001-thx, belle 2026-10-01 "하나씩 고치면 절대 안돼"):
+#        no_human(엔진 예외) · server_error(0 프레임/fps 무효 · keypointReport 없음 · 복사·ETag·소리 제거 실패) ·
+#        too_large · too_short · too_long. 저신뢰 · 서 있는 시작 · 여러 명은 `registration_checks.diagnose_registration`
+#        이 한 번에 진단으로 내린다 — 로그 `register-reference diagnostics` key=value + 비공개 registrationDiagnostics.
+#        판정 통과 = `set_registration_review`(isActive false, 수강생 비노출) → 사람 승인(운영 CLI) 뒤 active.
+#        (이력: 38-14 에서 multiple_people 을 먼저 기록만으로 내렸다 — 8c237bd8. 이번에 나머지 둘을 같은 구조로.)
+#   차단1 KeypointReport dataclass → `_dataclass_to_camel_case_dict` **한 번** → 같은 dict 를 진단과 writer 에
 #   R3   입구 jobId 대조 + 모든 writer 가 job 가드(38-06) — stale 작업은 쓰기 0
 #   R8   자기 재현성 = begin_self_check(선기록) → create_analysis_doc → copy_object(v1 → uploads/)
-#   w9l  판정 통과 뒤 · set_reference_angles 앞: 오디오 있으면 무음본(스트림 복사)을 같은 v1 키로 upload_file
+#   w9l  진단 뒤 · set_reference_angles 앞: 오디오 있으면 무음본(스트림 복사)을 같은 v1 키로 upload_file
 #        → head ETag 를 videoETag 로(실패 = server_error, fail-closed). 서 있는 창 가운데 프레임 썸네일 →
 #        thumb.jpg(실패는 경고만, thumbnailS3Key 없음). 크기 상한 1GB · 길이 상한 120초(콤보 구분 없음).
-
-
-def _fmt_ratio(ratio) -> str:
-    """verdict.person_ratio 로그 표기 — None(low_confidence 경로)은 '-', 나머지는 소수 3자리(38-14 기록만)."""
-    return "-" if ratio is None else f"{float(ratio):.3f}"
 
 
 def _fail_registration(
@@ -10551,12 +10547,13 @@ def _tmp_path(suffix: str) -> str:
 
 
 def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: str) -> None:
-    """공급자 링크 기준 영상 등록 — upload 키 → 불변 v1 → 판정 → angles → active → 자기 재현성(REQ-38-2, D-05·D-09·D-10).
+    """공급자 링크 기준 영상 등록 — upload 키 → 불변 v1 → 진단 → angles → review → 자기 재현성(REQ-38-2, D-05·D-09·D-10).
 
     `key` 는 **upload 키**(`reference/{uid}/{refId}/upload.{ext}`). 호출측(Pod `/register-reference` · 전달자)이
     `claim_registration` 으로 `job_id` 를 이미 얻었다 — 입구에서 doc.jobId 를 대조해 stale 이면 쓰기 0 으로 끝낸다.
-    실패는 `_fail_registration` 이 doc 에 남기고 정상 반환한다(no_human · low_confidence · multiple_people ·
-    no_standing_start · too_short · too_long · too_large · server_error). 등록 doc 이 없거나 키가 upload 형이
+    실패는 분석 불가만 — `_fail_registration` 이 doc 에 남기고 정상 반환한다(no_human · too_short · too_long ·
+    too_large · server_error, quick-261001-thx). 저신뢰 · 서 있는 시작 · 여러 명은 진단으로만 남고 등록은
+    review(isActive false)로 끝난다 — 공개는 사람 승인 뒤. 등록 doc 이 없거나 키가 upload 형이
     아니면 RuntimeError(호출측 라우트가 server_error 로 기록). 채점 경로(`_process` · recognizer · dimensions ·
     assemble 의 mode1 조립) 호출 0 — 어댑터만 빌린다. 임시 파일은 성공·실패 모두 finally 에서 지운다.
     """
@@ -10648,7 +10645,7 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
             _fail_registration(ref_id, job_id, code)
             return
 
-        # 포즈 + 프레임별 사람 수 — no_human 은 엔진 예외(D-09 재사용, 판정 순서의 첫째 R6).
+        # 포즈 + 프레임별 사람 수 — no_human 은 엔진 예외(D-09 재사용, 분석 불가).
         try:
             pose_frames, counts = _POSE_ESTIMATOR._engine.estimate_with_person_counts(  # type: ignore[attr-defined]
                 frames, _POSE_ESTIMATOR._default_pole  # type: ignore[attr-defined]
@@ -10665,9 +10662,10 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
         keypoints = to_coco17_array(pose_frames)
 
         # keypointReport — `KeypointReport` frozen dataclass 를 camelCase dict 로 **한 번** 바꾸고(기존 11개 legacy
-        # `referenceKeypointReport` 와 같은 형상 = D-05, `axis_data → axisData`) 같은 객체를 판정과 writer 에 넘긴다.
-        # dataclass 그대로면 `hold_height._arrays` 가 None 을 내 정상 영상도 no_standing_start 로 끝난다(차단 1,
-        # 2026-09-28) — 38-05 는 비Mapping 을 TypeError 로 막는다.
+        # `referenceKeypointReport` 와 같은 형상 = D-05, `axis_data → axisData`) 같은 객체를 진단과 writer 에 넘긴다.
+        # dataclass 그대로면 `hold_height._arrays` 가 None 을 내 진단이 no_floor_reference 로 위장된다(차단 1,
+        # 2026-09-28) — registration_checks 는 비Mapping 을 TypeError 로 막는다. report 가 None 이면(포즈 재료 없음)
+        # 분석 불가 → server_error.
         report_obj = build_keypoint_report(pose_frames, fps=real_fps)
         if report_obj is None:
             log.warning("register-reference keypointReport 없음 ref_id=%s frames=%s", ref_id, n_frames)
@@ -10675,33 +10673,24 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
             return
         report = _dataclass_to_camel_case_dict(report_obj)
         n_stand = _stand_frames(clip_range, real_fps)
-        verdict = registration_checks.check_registration(counts, report, n_stand=n_stand)
-        if not verdict.ok:
-            labels = registration_checks.joint_labels_ko(verdict.joints)
-            message = models.REGISTRATION_ERROR_MESSAGE[verdict.reason]
-            if "{joints}" in message:
-                message = message.replace("{joints}", " · ".join(labels))
-            if verdict.detail == registration_checks.DETAIL_NO_FLOOR_REFERENCE:
-                # 38-05 권장 — 형상 불량/바닥 못 세움은 파이프라인 버그 신호일 수 있다(38-14 실물 관측이 가른다).
-                log.warning(
-                    "register-reference no_floor_reference ref_id=%s frames=%s n_stand=%s fps=%.3f",
-                    ref_id,
-                    n_frames,
-                    n_stand,
-                    real_fps,
-                )
-            log.info(
-                "register-reference verdict ref_id=%s reason=%s detail=%s joints=%s person_ratio=%s",
+        # 진단만 — 등록을 막지 않는다(quick-261001-thx, belle 2026-10-01). 세 지표를 한 번에 계산해 로그와
+        # 비공개 doc 에 남기고, 공개 여부는 사람 검수(review → approve)가 정한다.
+        diag = registration_checks.diagnose_registration(counts, report, n_stand=n_stand)
+        log.info("register-reference diagnostics ref_id=%s %s", ref_id, diag.as_log_fields())
+        if (
+            diag.standing_start == registration_checks.DETAIL_NO_FLOOR_REFERENCE
+            and not diag.stand_material_unreadable
+        ):
+            # 재료(발목·어깨) 신뢰도가 충분한데도 바닥을 못 세웠다 — 형상 불량 등 파이프라인 버그 신호일 수 있다.
+            log.warning(
+                "register-reference no_floor_reference ref_id=%s frames=%s n_stand=%s fps=%.3f",
                 ref_id,
-                verdict.reason,
-                verdict.detail,
-                labels,
-                _fmt_ratio(verdict.person_ratio),
+                n_frames,
+                n_stand,
+                real_fps,
             )
-            _fail_registration(ref_id, job_id, verdict.reason, message=message, joints=labels or None)
-            return
 
-        # w9l 항목 8 — 소리 제거(판정 통과 뒤 · angles 앞: 실패 영상은 1GB 재업로드 비용을 치르지 않는다).
+        # w9l 항목 8 — 소리 제거(분석 불가 검사 뒤 · angles 앞: 막힌 영상은 1GB 재업로드 비용을 치르지 않는다).
         # 오디오가 있으면 스트림 복사 무음본을 같은 v1 키에 다시 올리고 그 ETag 를 videoETag 로. 실패는
         # 등록 실패 — 무음 동의를 없앴으므로 저장본에 소리가 남지 않는다는 보장은 여기 하나뿐(fail-closed).
         thumb_src = path
@@ -10769,15 +10758,20 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
         if not ok:
             log.warning("register-reference stale job(angles) ref_id=%s job_id=%s", ref_id, job_id)
             return
-        ok = firestore_admin.set_registration_active(
-            ref_id, job_id, video_s3_key=final_key, video_etag=final_etag, thumbnail_s3_key=thumb_key
+        ok = firestore_admin.set_registration_review(
+            ref_id,
+            job_id,
+            video_s3_key=final_key,
+            video_etag=final_etag,
+            thumbnail_s3_key=thumb_key,
+            diagnostics=diag.as_firestore_dict(),
         )
         if not ok:
-            log.warning("register-reference stale job(active) ref_id=%s job_id=%s", ref_id, job_id)
+            log.warning("register-reference stale job(review) ref_id=%s job_id=%s", ref_id, job_id)
             return
         log.info(
-            "register-reference ok ref_id=%s job_id=%s frames=%s fps=%.3f dur=%.1f split=%s peak_idx=%s etag=%s "
-            "audio_stripped=%s thumb=%s person_ratio=%s",
+            "register-reference review ref_id=%s job_id=%s frames=%s fps=%.3f dur=%.1f split=%s peak_idx=%s etag=%s "
+            "audio_stripped=%s thumb=%s %s",
             ref_id,
             job_id,
             int(angles.shape[0]),
@@ -10788,7 +10782,7 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
             final_etag,
             audio_stripped,
             thumb_key,
-            _fmt_ratio(verdict.person_ratio),
+            diag.as_log_fields(),
         )
     finally:
         Path(path).unlink(missing_ok=True)
@@ -10796,7 +10790,7 @@ def _register_reference(bucket: str, key: str, uid: str, ref_id: str, job_id: st
             if extra:
                 Path(extra).unlink(missing_ok=True)
 
-    # D-10 자기 재현성 — active 뒤에만(위 return 들은 여기 오지 않는다).
+    # D-10 자기 재현성 — review 기록 뒤에만(위 return 들은 여기 오지 않는다). 검수자가 selfScore 를 재료로 본다.
     _trigger_self_check(bucket, final_key, uid, ref_id, ref.ext, training_opt_in, job_id)
 
 
@@ -10809,9 +10803,11 @@ def _trigger_self_check(
     training_opt_in: bool,
     job_id: str,
 ) -> None:
-    """등록 `active` 직후 같은 영상(v1)을 공급자 uid 의 mode1 분석으로 기존 경로에 태운다(D-10, 리뷰 R8 순서).
+    """등록 `review` 직후 같은 영상(v1)을 공급자 uid 의 mode1 분석으로 기존 경로에 태운다(D-10, 리뷰 R8 순서).
 
-    ① `begin_self_check` — 기준 doc 에 analysisId · pending · jobId 를 **먼저** 영속(가드 실패면 여기서 끝, 등록은 active).
+    quick-261001-thx: 등록은 review(isActive false)로 끝나지만 채점 경로(`get_reference_motion`)는 isActive 를
+    보지 않으므로 mode1 자기 분석이 그대로 돈다 — 상태 의존은 `begin_self_check`(review ∨ active 허용) 하나.
+    ① `begin_self_check` — 기준 doc 에 analysisId · pending · jobId 를 **먼저** 영속(가드 실패면 여기서 끝, 등록은 review).
     ② `create_analysis_doc` — 앱 loading.tsx 형상 + 표식 2개(`models.ANALYSIS_FIELD_SELF_CHECK_*` 상수만).
     ③ `copy_object` v1 → `uploads/{uid}/{newId}.{ext}` — ObjectCreated 가 SQS → 기존 학생 경로를 깨운다.
     ②·③ 어느 쪽이든 실패면 `set_reference_self_check(failed)`(권위 가드 통과 시). uid = 공급자 uid
@@ -10819,7 +10815,7 @@ def _trigger_self_check(
     """
     new_id = uuid.uuid4().hex
     if not firestore_admin.begin_self_check(ref_id, job_id=job_id, analysis_id=new_id):
-        log.warning("self-check 선기록 실패(가드) ref_id=%s job_id=%s — 등록은 active 그대로", ref_id, job_id)
+        log.warning("self-check 선기록 실패(가드) ref_id=%s job_id=%s — 등록은 review 그대로", ref_id, job_id)
         return
     now_ms = int(time.time() * 1000)
     payload = {
@@ -10838,7 +10834,7 @@ def _trigger_self_check(
     try:
         firestore_admin.create_analysis_doc(uid, new_id, payload)
         _s3.copy_object(Bucket=bucket, CopySource={"Bucket": bucket, "Key": final_key}, Key=dest_key)
-    except Exception:  # noqa: BLE001 - 자기 재현성 실패는 등록을 깨지 않는다(등록은 이미 active)
+    except Exception:  # noqa: BLE001 - 자기 재현성 실패는 등록을 깨지 않는다(등록은 이미 review)
         log.exception("self-check 트리거 실패 ref_id=%s analysis_id=%s", ref_id, new_id)
         try:
             firestore_admin.set_reference_self_check(

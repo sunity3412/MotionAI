@@ -2,15 +2,18 @@
 
 Pod · S3 · Firestore · GPU 0. 가짜: `_s3`(객체 저장소 — ETag 조건부 복사), `_FRAME_EXTRACTOR`(probe/extract/fps),
 `_POSE_ESTIMATOR`(실제 `RTMWPoseEngine.create_with_inferencer` + 프레임별 mock 추론), `firestore_admin` writer(기록).
-판정(`registration_checks.check_registration`) · 각도(`compute_joint_angles` · `temporal_fill`) · `max_split` ·
+진단(`registration_checks.diagnose_registration`) · 각도(`compute_joint_angles` · `temporal_fill`) · `max_split` ·
 `build_keypoint_report` · `_dataclass_to_camel_case_dict` 는 **실제 함수**다 — 리뷰 R1 / plan-checker 차단 1 을
 mock 으로 우회하지 않는다.
 
 잠그는 것:
   · R9 크기·길이가 다운로드/디코딩 **전**에 거른다(too_large · too_short · too_long, probe None 이면 extract end_s 캡).
   · R5 upload → v1 `copy_object(CopySourceIfMatch=ETag)` — angles·재생·자기 재현성 전부 v1, 처리 중 교체는 server_error.
-  · 실패 7코드가 각각 `set_registration_failed(error={code,message[,joints]})` 로 남는다(순서는 38-05 소유).
-  · 차단 1: `check_registration` 과 `set_reference_angles` 가 받는 keypointReport 는 **같은 camelCase dict**.
+  · 막는 것 = 분석 불가만(quick-261001-thx, belle 2026-10-01): no_human · server_error(0 프레임 · report 없음 ·
+    복사·ETag·소리 제거 실패) · too_large · too_short · too_long. 저신뢰 · 서 있는 시작 · 여러 명은 어떤 조합이어도
+    failed 0 → `set_registration_review`(isActive false) + 진단 로그 + 비공개 registrationDiagnostics.
+  · 구조 잠금: `_register_reference` 코드 식별자에 세 옛 실패 상수가 없다(ast).
+  · 차단 1: `diagnose_registration` 과 `set_reference_angles` 가 받는 keypointReport 는 **같은 camelCase dict**.
   · R8 자기 재현성 = begin_self_check → create_analysis_doc → copy_object(v1 → uploads/).
   · stale job 은 쓰기 0 · 활성화 뒤 재PUT 은 스킵되고 v1·angles 불변.
   · quick-260930-w9l: 크기 상한 1GB · 길이 상한 120초(isCombo 무시) · 판정 통과 뒤·angles 앞에 소리 제거
@@ -208,8 +211,8 @@ class _Harness:
         }
         self.priv: dict | None = {"isCombo": False, "consent": {"training": False, "version": "2026-09-26"}}
         self.calls: dict[str, list] = {
-            "angles": [], "active": [], "failed": [], "begin": [], "create_doc": [], "self_check": [], "check": [],
-            "active_thumb": [],
+            "angles": [], "review": [], "failed": [], "begin": [], "create_doc": [], "self_check": [], "check": [],
+            "review_thumb": [], "review_diag": [],
         }
         # reference_media 가짜 — 기본 = 소리 없음 · 썸네일 성공.
         self.media = SimpleNamespace(
@@ -217,7 +220,7 @@ class _Harness:
             has_audio=[], strip=[], thumb=[],
         )
         self.angles_ok = True
-        self.active_ok = True
+        self.review_ok = True
         self.begin_ok = True
         self.create_exc: Exception | None = None
         self.outputs = _frames_133(60)
@@ -267,11 +270,12 @@ def h(app, monkeypatch) -> _Harness:
         h.events.append(("set_reference_angles", ref_id))
         return h.angles_ok
 
-    def set_active(ref_id, job_id, *, video_s3_key, video_etag, thumbnail_s3_key=None):
-        h.calls["active"].append((ref_id, job_id, video_s3_key, video_etag))
-        h.calls["active_thumb"].append(thumbnail_s3_key)
-        h.events.append(("set_registration_active", ref_id))
-        return h.active_ok
+    def set_review(ref_id, job_id, *, video_s3_key, video_etag, diagnostics, thumbnail_s3_key=None):
+        h.calls["review"].append((ref_id, job_id, video_s3_key, video_etag))
+        h.calls["review_thumb"].append(thumbnail_s3_key)
+        h.calls["review_diag"].append(diagnostics)
+        h.events.append(("set_registration_review", ref_id))
+        return h.review_ok
 
     def set_failed(ref_id, job_id, *, error):
         h.calls["failed"].append((ref_id, job_id, error))
@@ -295,20 +299,20 @@ def h(app, monkeypatch) -> _Harness:
         return True
 
     monkeypatch.setattr(fa, "set_reference_angles", set_angles)
-    monkeypatch.setattr(fa, "set_registration_active", set_active)
+    monkeypatch.setattr(fa, "set_registration_review", set_review)
     monkeypatch.setattr(fa, "set_registration_failed", set_failed)
     monkeypatch.setattr(fa, "begin_self_check", begin)
     monkeypatch.setattr(fa, "create_analysis_doc", create_doc)
     monkeypatch.setattr(fa, "set_reference_self_check", set_self)
 
-    real_check = app.registration_checks.check_registration
+    real_diagnose = app.registration_checks.diagnose_registration
 
     def spy(person_counts, report, *, n_stand):
         counts = list(person_counts)
         h.calls["check"].append((counts, report, n_stand))
-        return real_check(counts, report, n_stand=n_stand)
+        return real_diagnose(counts, report, n_stand=n_stand)
 
-    monkeypatch.setattr(app.registration_checks, "check_registration", spy)
+    monkeypatch.setattr(app.registration_checks, "diagnose_registration", spy)
 
     rm = app.reference_media
 
@@ -360,7 +364,7 @@ def test_too_large_is_rejected_before_download(h, app):
     err = h.failed_error()
     assert err == {"code": "too_large", "message": app.models.REGISTRATION_ERROR_MESSAGE["too_large"]}
     assert _ops(h, "download_file") == [] and _ops(h, "copy_object") == []
-    assert h.calls["angles"] == [] and h.calls["active"] == []
+    assert h.calls["angles"] == [] and h.calls["review"] == []
 
 
 def test_copy_to_v1_with_etag_then_download_from_v1(h):
@@ -393,7 +397,7 @@ def test_source_replaced_during_processing_is_server_error(h, app):
     assert h.failed_error()["message"] == app.models.REGISTRATION_ERROR_MESSAGE["server_error"]
     assert V1_KEY not in h.s3.objects
     assert _ops(h, "download_file") == []
-    assert h.calls["angles"] == [] and h.calls["active"] == []
+    assert h.calls["angles"] == [] and h.calls["review"] == []
 
 
 def test_v1_copy_access_denied_is_server_error(h):
@@ -418,7 +422,7 @@ def test_length_limit_is_120_and_combo_flag_is_ignored(h):
     h.priv = {"isCombo": True, "consent": {"training": True}}
     h.ext.duration = 119.0
     h.run()
-    assert h.failed_codes == [] and len(h.calls["active"]) == 1
+    assert h.failed_codes == [] and len(h.calls["review"]) == 1
     h.ext.duration = 121.0
     h.calls["failed"].clear()
     h.run()
@@ -465,40 +469,89 @@ def test_no_human_maps_engine_error(h, app):
     assert h.calls["check"] == [] and h.calls["angles"] == []
 
 
-def test_low_confidence_ankles_with_korean_labels_beats_floor_violation(h, app):
-    """R6 — 발목 conf 0.2 면 바닥 위반 형상이어도 low_confidence 이고 joints 는 한국어 라벨."""
-    h.outputs = _frames_133(60, ankle_conf=0.2, ankle_stand_y=0.6, ankle_window_y=0.85)
+def _diag_lines(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records if "register-reference diagnostics" in r.getMessage()]
+
+
+def _assert_review_not_failed(h) -> dict:
+    """failed 0 · review 1회 · 자기 재현성 선기록 · 비공개 진단 dict 반환."""
+    assert h.failed_codes == []
+    assert h.calls["review"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    assert len(h.calls["begin"]) == 1
+    assert len(h.calls["review_diag"]) == 1
+    return h.calls["review_diag"][0]
+
+
+def test_low_confidence_is_diagnosed_not_failed(h, caplog):
+    """belle 2026-10-01 — 발목 conf 0.2 여도 등록은 review 로 간다. 저신뢰 관절은 로그와 비공개 진단에만."""
+    caplog.set_level(logging.INFO)
+    h.outputs = _frames_133(60, ankle_conf=0.2)
     h.run()
-    err = h.failed_error()
-    assert err["code"] == "low_confidence"
-    assert err["joints"] == ["왼쪽 발목", "오른쪽 발목"]
-    assert "잘 안 보인 부위: 왼쪽 발목 · 오른쪽 발목" in err["message"]
-    assert "{joints}" not in err["message"]
-    assert h.calls["angles"] == [] and h.calls["active"] == []
+    diag = _assert_review_not_failed(h)
+    assert diag["lowConfidenceJoints"] == ["left_ankle", "right_ankle"]
+    lines = _diag_lines(caplog)
+    assert len(lines) == 1 and "low_conf=left_ankle,right_ankle" in lines[0]
+    assert len(h.calls["angles"]) == 1
 
 
-def test_multiple_people_is_recorded_not_failed(h, caplog):
-    """38-14 (belle 2026-10-01): 매 프레임 둘이 잡혀도(실물 = 정적 화분) 등록은 active 로 간다.
-    비율은 ok 로그에 key=value 로만 남는다(Firestore 무기록 — 계약 3벌 무변경)."""
+def test_multiple_people_is_diagnosed_not_failed(h, caplog):
+    """38-14 실물 = 정적 화분이 둘째 사람으로. 매 프레임 둘이어도 review, 비율은 로그·비공개 진단에."""
     caplog.set_level(logging.INFO)
     h.outputs = _frames_133(60, n_people=2)
     h.run()
-    assert h.failed_codes == []
+    diag = _assert_review_not_failed(h)
     assert h.calls["check"][0][0] == [2] * 60
-    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
-    ok_lines = [r.getMessage() for r in caplog.records if "register-reference ok" in r.getMessage()]
-    assert len(ok_lines) == 1 and "person_ratio=1.000" in ok_lines[0]
+    assert diag["personRatio"] == pytest.approx(1.0)
+    lines = _diag_lines(caplog)
+    assert len(lines) == 1 and "person_ratio=1.000" in lines[0]
+    review_lines = [r.getMessage() for r in caplog.records if "register-reference review" in r.getMessage()]
+    assert len(review_lines) == 1
 
 
-def test_no_standing_start_floor_violation(h, app):
-    """서 있는 10프레임 발목이 창 발목보다 위(바닥이 공중에서 잡힘) → no_standing_start."""
+def test_floor_violation_is_diagnosed_not_failed(h, caplog):
+    """38-14 실물 = 대각선에서 폴로 출발. 서 있는 창 발목이 창 발목보다 위여도 review, 토큰은 진단에만."""
+    caplog.set_level(logging.INFO)
     h.outputs = _frames_133(60, ankle_stand_y=0.6, ankle_window_y=0.85)
     h.run()
-    assert h.failed_error() == {
-        "code": "no_standing_start",
-        "message": app.models.REGISTRATION_ERROR_MESSAGE["no_standing_start"],
-    }
-    assert h.calls["angles"] == []
+    diag = _assert_review_not_failed(h)
+    assert diag["standingStart"] == "floor_violation"
+    assert "standing_start=floor_violation" in _diag_lines(caplog)[0]
+
+
+def test_all_three_at_once_is_still_review(h, caplog):
+    """저신뢰 + 바닥 위반 + 여러 명 동시 — 옛 판정이 하나라도 걸리던 조합 전부가 review."""
+    caplog.set_level(logging.INFO)
+    h.outputs = _frames_133(60, n_people=2, ankle_conf=0.2, ankle_stand_y=0.6, ankle_window_y=0.85)
+    h.run()
+    diag = _assert_review_not_failed(h)
+    assert diag["personRatio"] == pytest.approx(1.0)
+    assert diag["lowConfidenceJoints"] == ["left_ankle", "right_ankle"]
+    assert diag["standingStart"] != "ok"
+    line = _diag_lines(caplog)[0]
+    for key in ("person_ratio=", "low_conf=", "stand_unreadable=", "standing_start=", "n_stand=10"):
+        assert key in line, key
+    assert line.startswith(f"register-reference diagnostics ref_id={REF_ID} ")
+
+
+def test_register_reference_code_cannot_emit_the_three_old_failure_codes(app):
+    """구조 잠금(ast) — `_register_reference` 코드 식별자에 세 옛 실패 상수가 없다. 주석·docstring 의 이력 언급은 세지 않는다."""
+    import ast
+    import inspect
+    import textwrap
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(app._register_reference)))
+    idents: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            idents.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            idents.add(node.attr)
+        elif isinstance(node, ast.alias):
+            idents.add(node.asname or node.name)
+    for name in ("REG_ERR_LOW_CONFIDENCE", "REG_ERR_NO_STANDING_START", "REG_ERR_MULTIPLE_PEOPLE"):
+        assert name not in idents, name
+    assert "diagnose_registration" in idents and "set_registration_review" in idents
+    assert "set_registration_active" not in idents
 
 
 # ── happy path — R1 · 차단 1 · 순서 · 자기 재현성 R8 ─────────────────────────────────────
@@ -510,7 +563,7 @@ def test_max_split_unpacking_contract():
     assert max_split(np.array([20.0, 90.0, 70.0])) == (90.0, 1)
 
 
-def test_happy_path_writes_angles_active_and_triggers_self_check(h, app):
+def test_happy_path_writes_angles_review_and_triggers_self_check(h, app):
     from sunity_shared.analysis import skeleton
     from sunity_shared.s3keys import build_upload_key
 
@@ -537,11 +590,11 @@ def test_happy_path_writes_angles_active_and_triggers_self_check(h, app):
     assert all(np.isfinite(a["angles_flat"]))
     assert all(round(v, 2) == v for v in a["angles_flat"])
     assert a["split_angle"] is None or isinstance(a["split_angle"], float)
-    # 차단 1 — check_registration 이 본 것과 같은 객체가 doc 의 referenceKeypointReport 가 된다.
+    # 차단 1 — diagnose_registration 이 본 것과 같은 객체가 doc 의 referenceKeypointReport 가 된다.
     assert a["keypoint_report"] is report
 
-    # active — v1 키 + upload ETag.
-    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    # review — v1 키 + upload ETag (공개는 검수 승인 뒤, quick-261001-thx).
+    assert h.calls["review"] == [(REF_ID, JOB, V1_KEY, ETAG)]
 
     # 자기 재현성 R8 — 선기록 → 분석 doc → v1 에서 uploads/ 로 복사.
     assert len(h.calls["begin"]) == 1
@@ -565,7 +618,7 @@ def test_happy_path_writes_angles_active_and_triggers_self_check(h, app):
 
     names = [e[0] for e in h.events]
     order = [
-        "set_reference_angles", "set_registration_active", "begin_self_check", "create_analysis_doc",
+        "set_reference_angles", "set_registration_review", "begin_self_check", "create_analysis_doc",
     ]
     idx = [names.index(n) for n in order]
     assert idx == sorted(idx)
@@ -581,7 +634,7 @@ def test_training_consent_flows_to_learning_opt_in(h):
 
 
 def test_keypoint_report_none_is_server_error_without_verdict(h, app, monkeypatch):
-    """차단 1 — build_keypoint_report 가 None 이면 판정을 부르지 않고 server_error."""
+    """차단 1 — build_keypoint_report 가 None 이면 진단을 부르지 않고 server_error(포즈 재료 없음 = 분석 불가)."""
     monkeypatch.setattr(app, "build_keypoint_report", lambda *a, **k: None)
     h.run()
     assert h.failed_error() == {
@@ -589,14 +642,14 @@ def test_keypoint_report_none_is_server_error_without_verdict(h, app, monkeypatc
         "message": app.models.REGISTRATION_ERROR_MESSAGE["server_error"],
     }
     assert h.calls["check"] == []
-    assert h.calls["angles"] == [] and h.calls["active"] == []
+    assert h.calls["angles"] == [] and h.calls["review"] == []
 
 
 def test_begin_self_check_false_skips_doc_and_copy(h, caplog):
     caplog.set_level(logging.WARNING)
     h.begin_ok = False
     h.run()
-    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    assert h.calls["review"] == [(REF_ID, JOB, V1_KEY, ETAG)]
     assert h.calls["create_doc"] == []
     assert [c for c in _ops(h, "copy_object") if c["Key"].startswith("uploads/")] == []
     assert h.calls["self_check"] == []
@@ -606,11 +659,11 @@ def test_begin_self_check_false_skips_doc_and_copy(h, caplog):
 def test_uploads_copy_failure_marks_self_check_failed(h):
     h.s3.deny_copy_prefix = "uploads/"
     h.run()
-    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    assert h.calls["review"] == [(REF_ID, JOB, V1_KEY, ETAG)]
     assert len(h.calls["create_doc"]) == 1
     new_id = h.calls["create_doc"][0][1]
     assert h.calls["self_check"] == [(REF_ID, "failed", UID, new_id, JOB, None)]
-    assert h.failed_codes == []  # 등록 자체는 active 그대로
+    assert h.failed_codes == []  # 등록 자체는 review 그대로
 
 
 def test_analysis_doc_create_failure_marks_self_check_failed(h):
@@ -627,7 +680,7 @@ def test_stale_job_writes_nothing(h, caplog):
     h.doc = dict(h.doc, jobId="B")
     h.run(job_id=JOB)
     assert h.s3.calls == []
-    for name in ("angles", "active", "failed", "begin", "create_doc", "self_check", "check"):
+    for name in ("angles", "review", "failed", "begin", "create_doc", "self_check", "check"):
         assert h.calls[name] == [], name
     assert any("stale" in r.getMessage().lower() for r in caplog.records)
 
@@ -639,15 +692,16 @@ def test_missing_doc_raises(h):
     assert h.s3.calls == []
 
 
-def test_reput_after_active_is_skipped_and_v1_immutable(h, app, monkeypatch):
-    """R5 — 활성화 뒤 같은 URL 로 두 번째 PUT: 파이프라인 입구가 스킵하고 v1 ETag·angles 호출 수 불변."""
+@pytest.mark.parametrize("status", ["review", "active"])
+def test_reput_after_registration_is_skipped_and_v1_immutable(h, app, monkeypatch, status):
+    """R5 — 등록(review, 승인 뒤 active) 뒤 같은 URL 로 두 번째 PUT: 입구가 스킵하고 v1 ETag·angles 호출 수 불변."""
     from sunity_shared.s3keys import parse_reference_key
 
     h.run()
     assert h.s3.objects[V1_KEY]["ETag"] == ETAG and len(h.calls["angles"]) == 1
     # 두 번째 PUT — 새 ETag.
     h.s3.objects[UPLOAD_KEY] = {"ETag": '"e2"', "ContentLength": 7_000_000}
-    h.doc = dict(h.doc, registrationStatus="active")
+    h.doc = dict(h.doc, registrationStatus=status)
     monkeypatch.setattr(app, "_pod_available", lambda: pytest.fail("스킵 전에 Pod 을 보면 안 된다"))
     monkeypatch.setattr(app.firestore_admin, "set_registration_queued", lambda *a, **k: pytest.fail("writer 0"))
     monkeypatch.setattr(app.firestore_admin, "claim_registration", lambda *a, **k: pytest.fail("writer 0"))
@@ -675,7 +729,7 @@ def test_no_scoring_path_called(h, app, monkeypatch):
     monkeypatch.setattr(app, "_process", lambda *a, **k: pytest.fail("_process 호출 금지"))
     monkeypatch.setattr(app.assemble, "build_mode1", lambda *a, **k: pytest.fail("build_mode1 호출 금지"))
     h.run()
-    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    assert h.calls["review"] == [(REF_ID, JOB, V1_KEY, ETAG)]
 
 
 
@@ -697,10 +751,10 @@ def test_audio_present_strips_and_reuploads_v1_with_new_etag(h):
     assert len(v1_up) == 1
     assert v1_up[0]["Bucket"] == BUCKET
     assert v1_up[0]["ExtraArgs"] == {"ContentType": "video/mp4"}
-    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, SILENT_ETAG)]
-    # 순서 — 판정 → 소리 확인 → 제거 → 업로드 → angles → active.
+    assert h.calls["review"] == [(REF_ID, JOB, V1_KEY, SILENT_ETAG)]
+    # 순서 — 진단 → 소리 확인 → 제거 → 업로드 → angles → review.
     names = [e[0] for e in h.events]
-    order = ["has_audio", "strip_audio", "upload_file", "set_reference_angles", "set_registration_active"]
+    order = ["has_audio", "strip_audio", "upload_file", "set_reference_angles", "set_registration_review"]
     idx = [names.index(n) for n in order]
     assert idx == sorted(idx)
     assert len(h.calls["check"]) == 1
@@ -715,7 +769,7 @@ def test_audio_absent_does_not_reupload(h):
     h.run()
     assert h.media.strip == []
     assert [u for u in _uploads(h) if u["Key"] == V1_KEY] == []
-    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    assert h.calls["review"] == [(REF_ID, JOB, V1_KEY, ETAG)]
     assert h.media.thumb[0][0] == h.s3.downloads[0][1]
 
 
@@ -749,12 +803,12 @@ def test_audio_removal_failure_is_server_error_fail_closed(h, app, where):
         "code": "server_error",
         "message": app.models.REGISTRATION_ERROR_MESSAGE["server_error"],
     }
-    assert h.calls["angles"] == [] and h.calls["active"] == []
+    assert h.calls["angles"] == [] and h.calls["review"] == []
     assert h.calls["begin"] == []
 
 
 def test_thumbnail_from_standing_window_middle(h):
-    """기본 서 있는 창 1.0초(10프레임 @10fps) → t = 0.5초. thumb 키에 image/jpeg, active 에 키."""
+    """기본 서 있는 창 1.0초(10프레임 @10fps) → t = 0.5초. thumb 키에 image/jpeg, review 에 키."""
     h.run()
     assert h.failed_codes == []
     assert len(h.media.thumb) == 1
@@ -763,7 +817,7 @@ def test_thumbnail_from_standing_window_middle(h):
     assert width == 360
     th = [u for u in _uploads(h) if u["Key"] == THUMB_KEY]
     assert len(th) == 1 and th[0]["ExtraArgs"] == {"ContentType": "image/jpeg"}
-    assert h.calls["active_thumb"] == [THUMB_KEY]
+    assert h.calls["review_thumb"] == [THUMB_KEY]
     names = [e[0] for e in h.events]
     assert names.index("extract_thumbnail") < names.index("set_reference_angles")
 
@@ -787,16 +841,17 @@ def test_thumbnail_failure_does_not_block_registration(h, caplog, where):
         h.s3.deny_upload_prefix = THUMB_KEY
     h.run()
     assert h.failed_codes == []
-    assert h.calls["active"] == [(REF_ID, JOB, V1_KEY, ETAG)]
-    assert h.calls["active_thumb"] == [None]
+    assert h.calls["review"] == [(REF_ID, JOB, V1_KEY, ETAG)]
+    assert h.calls["review_thumb"] == [None]
     assert any("thumb" in r.getMessage().lower() for r in caplog.records)
 
 
-def test_verdict_failure_skips_audio_and_thumbnail(h):
+def test_blocked_registration_skips_audio_and_thumbnail(h):
+    """여전히 막히는 사유(no_human — 분석 불가)면 소리 제거·썸네일·업로드 0."""
     h.media.audio = True
-    h.outputs = _frames_133(60, ankle_stand_y=0.6, ankle_window_y=0.85)   # 38-14: 여러 명은 실패가 아니라 바닥 위반으로
+    h.outputs = _frames_133(60, n_people=0)
     h.run()
-    assert h.failed_codes == ["no_standing_start"]
+    assert h.failed_codes == ["no_human"]
     assert h.media.has_audio == [] and h.media.strip == [] and h.media.thumb == []
     assert _uploads(h) == []
 

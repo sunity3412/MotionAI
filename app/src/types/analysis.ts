@@ -1312,21 +1312,27 @@ export interface Checkpoint {
 // 아래 상태를 거쳐 picker 에 뜬다. AnalysisStatus/AnalysisErrorCode 와 **별개 enum** —
 // 분석 doc 의 status 머신에 절대 섞지 않는다(models.py COACH_STATUSES 선례).
 // 전이: registering → queued|processing|expired · queued → processing ·
-//       processing → active|failed|processing(lease 재claim) · active/failed/expired 종결
-//       (failed 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(리뷰 R4).
+//       processing → review|failed|processing(lease 재claim) · review → active(승인)|failed(반려) ·
+//       active/failed/expired 종결 (failed 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(리뷰 R4).
+// review(quick-261001-thx, belle 2026-10-01) = 기계 판정(분석 불가만 막음) 통과 뒤 사람 검수 대기 —
+//       isActive false 라 수강생 picker 에 안 뜬다. 승인/반려 = 운영 CLI(review_reference_registrations.py).
 export type ReferenceRegistrationStatus =
   | 'registering'
   | 'queued'
   | 'processing'
   | 'failed'
   | 'active'
-  | 'expired';
+  | 'expired'
+  | 'review';
 
 // 자기 재현성 분석(D-10) 진행 — 기준 doc `selfCheckStatus`. 등록 상태와 독립.
 export type SelfCheckStatus = 'pending' | 'queued' | 'done' | 'failed';
 
 // 등록 실패 코드 — models.py REGISTRATION_ERROR_CODES 와 같은 문자열·같은 순서.
-// too_large = 실제 객체 크기(head_object)가 100MB 초과(리뷰 R9), 클라이언트 메타와 별개.
+// too_large = 실제 객체 크기(head_object)가 1GB 초과(리뷰 R9 · w9l), 클라이언트 메타와 별개.
+// 2026-10-01 부터 파이프라인이 내는 코드 = 분석 불가뿐(no_human · too_* · server_error).
+// multiple_people · no_standing_start · low_confidence 는 옛 실패 doc 용으로 남는다.
+// rejected = 사람 검수 반려(review → failed), 사유는 ReferenceRegistrationError.reason.
 export type ReferenceRegistrationErrorCode =
   | 'no_human'
   | 'multiple_people'
@@ -1335,12 +1341,33 @@ export type ReferenceRegistrationErrorCode =
   | 'too_short'
   | 'too_long'
   | 'too_large'
-  | 'server_error';
+  | 'server_error'
+  | 'rejected';
 
 export interface ReferenceRegistrationError {
   code: ReferenceRegistrationErrorCode;
-  message: string; // REGISTRATION_ERROR_MESSAGE[code] ({joints} 치환 뒤)
-  joints?: string[]; // low_confidence — KEYPOINT_LABEL_KO 한국어 부위명 목록 (38-05 가 채움)
+  message: string; // REGISTRATION_ERROR_MESSAGE[code] ({joints} · {reason} 치환 뒤)
+  joints?: string[]; // low_confidence — KEYPOINT_LABEL_KO 한국어 부위명 목록 (2026-10-01 이전 doc)
+  reason?: string; // rejected — 운영자가 적은 반려 사유 (quick-261001-thx)
+}
+
+// 등록 진단 (quick-261001-thx) — 비공개 doc registrationDiagnostics. 등록을 막지 않고 검수 재료로만 남는다.
+// 관절 이름은 영문 키(registration_checks 원시 함수 결과). standingStart = 'ok' | 'floor_violation' |
+// 'no_floor_reference' | 'stand_window_too_short'.
+export interface ReferenceRegistrationDiagnostics {
+  personRatio: number; // N>=2 프레임 비율 (정적 물체도 사람으로 센다)
+  lowConfidenceJoints: string[];
+  standMaterialUnreadable: string[];
+  standingStart: string;
+  nStand: number;
+}
+
+// 사람 검수 기록 (quick-261001-thx) — 비공개 doc review. 누가/언제는 공개 doc 에 두지 않는다(R13).
+export interface ReferenceRegistrationReview {
+  decision: 'approved' | 'rejected';
+  by: string; // 운영자 id (예: ops:belle)
+  at: number; // epoch ms
+  reason?: string; // rejected 때
 }
 
 // 동의 기록(비공개 doc). quick-260930-w9l(2026-09-30) 부터: 필수 2(portrait·usage) true,
@@ -1513,7 +1540,7 @@ export interface ReferenceMotion {
   // 공개 doc 은 인증자 전체가 읽는다(firestore.rules) — picker·상태·점수·작업 필드만.
   // 동의·실패 상세·선언·techniqueRefId 는 **여기 두지 않고** 비공개 서브문서
   // `ReferenceRegistrationPrivate` 로(리뷰 R13). AnalysisStatus/ERROR_MESSAGE 무접촉.
-  isActive?: boolean; // seed · register — 등록 중 false, active 전이 때 true (picker 가 거른다)
+  isActive?: boolean; // seed · register — 등록 중·검수 대기(review) false, 승인(active) 때 true (picker 가 거른다)
   supplierUid?: string; // register — 올린 공급자 uid (페이지 목록 조회 조건)
   supplierCode?: string; // register — SUPPLIER_UIDS 의 강사 코드(D-12), 없으면 필드 없음
   source?: 'supplier-link'; // register — 손 등록 11개(seed)와 구분
@@ -1546,6 +1573,8 @@ export interface ReferenceRegistrationPrivate {
   supplierUid: string;
   consent: ReferenceConsent;
   registrationError?: ReferenceRegistrationError | null; // registrationStatus==='failed'
+  registrationDiagnostics?: ReferenceRegistrationDiagnostics; // review 전이 때 서버가 씀 (quick-261001-thx)
+  review?: ReferenceRegistrationReview; // 승인/반려 뒤 (quick-261001-thx)
   techniqueRefId: string | null; // 등록 정보로 보관 — 채점 소비 배선 없음(R7)
   // 옛 선언 4 — 2026-09-30 이전 doc 에만(소비처 0, 새 등록은 쓰지 않는다 — quick-260930-w9l).
   isCombo?: boolean;
@@ -2413,8 +2442,9 @@ export const ERROR_MESSAGE: Record<AnalysisErrorCode, string> = {
 // Phase 38 — 기준 등록 실패 문구. models.py REGISTRATION_ERROR_MESSAGE 와 글자 단위 동일
 // (contract.md §5; tests/test_registration_contract.py 가 이 파일 텍스트를 대조한다).
 // no_human 만 기존 ERROR_MESSAGE.no_human 참조(D-09) — 공급자 페이지 `row.fail.no_human`
-// 문구와 다른 것이 의도된 예외. 나머지 7개 = UI-SPEC `row.fail.<code>.title + '. ' + body`.
+// 문구와 다른 것이 의도된 예외. 나머지 8개 = UI-SPEC `row.fail.<code>.title + '. ' + body`.
 // low_confidence 의 `{joints}` 는 서버가 치환한 message 로 도착한다(페이지는 치환하지 않는다).
+// rejected 의 `{reason}` 은 페이지가 registrationError.reason 으로 supplierRules.failCopy 에서 치환한다.
 export const REGISTRATION_ERROR_MESSAGE: Record<ReferenceRegistrationErrorCode, string> = {
   no_human: ERROR_MESSAGE.no_human,
   multiple_people: '영상에 여러 사람이 나와요. 한 사람만 나오게 다시 촬영해 주세요.',
@@ -2426,6 +2456,7 @@ export const REGISTRATION_ERROR_MESSAGE: Record<ReferenceRegistrationErrorCode, 
   too_long: '영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.',
   too_large: '용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.',
   server_error: '등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.',
+  rejected: '검수에서 반려됐어요. 사유: {reason}. 고쳐서 다시 올려 주세요.',
 };
 
 // 로딩 화면 단계 진행 순서 (design.md §5-9). failed 는 별도 처리.

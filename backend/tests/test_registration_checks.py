@@ -1,17 +1,17 @@
-"""Phase 38 (38-05) — 등록 실패 판정 순수 함수(registration_checks) + hold_height.floor_reference_valid.
+"""Phase 38 (38-05) — 등록 진단 순수 함수(registration_checks) + hold_height.floor_reference_valid.
 
-Phase 38 D-09 / Success ②: 실패 4형(사람 미검출 · 여러 명 · 서 있는 시작 없음 · 저신뢰) 이 각각 **합성 입력**으로
-강제된다 — 이 파일은 그중 셋(저신뢰 · 여러 명 · 서 있는 시작 없음)을, 사람 미검출은 엔진 예외라
-test_rtmw_engine.py 가 맡는다. Pod · Firestore · S3 호출 0.
+2026-10-01 belle 결정(quick-261001-thx): 등록은 **분석 불가만** 막는다 — 저신뢰 · 서 있는 시작 · 여러 명은
+어떤 조합이어도 등록을 막지 않고 진단으로만 남는다("하나씩 고치면 절대 안돼"). 사람 미검출은 엔진 예외라
+test_rtmw_engine.py 와 test_register_reference_pipeline.py 가 맡는다. Pod · Firestore · S3 호출 0.
 
-이 테스트가 단언하는 것 (수치 채우기 아님 — 구조와 판정):
-  (1) 여러 명 비율은 순서 무관 — 2/10 통과 · 3/10 실패(>= 경계) · 4/10 실패, 섞어도 같다 (리뷰 R15b)
+이 테스트가 단언하는 것 (수치 채우기 아님 — 구조와 진단 값):
+  (1) 여러 명 비율은 순서 무관 — 2/10 · 3/10(>= 경계) · 4/10, 섞어도 같다 (리뷰 R15b, 원시 함수 유지)
   (2) 저신뢰는 관절별 신뢰도 중앙값 < 문턱인 관절을 report joints 순서로 낸다 (12관절 한국어 라벨)
   (3) 서 있는 시작의 "측정 불가"(재료 신뢰도 미달) 와 "측정 결과 위반"(바닥 아래) 이 분리된다 (리뷰 R6)
-  (4) check_registration 순서 = low_confidence → no_standing_start → ok (리뷰 R6). 여러 명은 2026-10-01 부터
-      기록만(38-14 실물: 정적 화분이 사람으로 잡혀 legacy 11개 중 9개가 0.30 을 넘음, belle 결정) — verdict.person_ratio
+  (4) diagnose_registration — 세 진단을 동시에 정확히 싣고, 실패 사유 필드 자체가 없다. 구조 잠금:
+      모듈 코드 식별자에 세 실패 상수(low_confidence · no_standing_start · multiple_people)가 없다
   (5) 입력 계약(plan-checker 차단 1): report 는 keypointReport dict — 비Mapping 은 TypeError(fail-loud),
-      형상 불량 dict 는 예외 없이 fail-closed(T-38-05-1)
+      형상 불량 dict 는 예외 없이 no_floor_reference 진단
   (6) 바닥 규칙은 서 있음의 PROXY — 웅크린 합성 좌표도 통과한다는 반례 박제 (리뷰 R6)
   (7) hold_height.floor_reference_valid 공개 함수 True / False / None
 합성 헬퍼 `_report`/`_pose` 는 test_hold_height.py 의 것을 그대로 복제 (같은 형상 = 38-07 이 만드는 dict).
@@ -19,6 +19,9 @@ test_rtmw_engine.py 가 맡는다. Pod · Firestore · S3 호출 0.
 
 from __future__ import annotations
 
+import ast
+import dataclasses
+import inspect
 import math
 import random
 import sys
@@ -216,7 +219,7 @@ def test_standing_start_ok_false_when_stand_window_too_short():
 
 
 def test_standing_start_ok_false_when_everything_is_unreadable():
-    """신뢰도 전부 0.1 → 바닥을 못 세워 False(fail-closed). check_registration 은 이 입력을 먼저 low_confidence 로 잡는다."""
+    """신뢰도 전부 0.1 → 바닥을 못 세워 False. 진단에서는 저신뢰 관절 전부 + no_floor_reference 로 함께 남는다."""
     rep = _standing_report(conf={n: 0.1 for n in _JOINTS})
     assert rc.standing_start_ok(rep, n_stand=STAND) is False
 
@@ -230,105 +233,122 @@ def test_floor_rule_is_a_proxy_crouch_passes():
     사람이 확인해 주세요") 로 한계를 남긴다.
     """
     assert rc.standing_start_ok(_crouch_report(), n_stand=STAND) is True
-    assert rc.check_registration([1] * T, _crouch_report(), n_stand=STAND).ok is True
+    assert rc.diagnose_registration([1] * T, _crouch_report(), n_stand=STAND).standing_start == rc.STANDING_START_OK
 
 
-# ── (4) check_registration — 순서 low_confidence → no_standing_start → ok · 여러 명은 기록만(38-14) ─────────
+# ── (4) diagnose_registration — 진단만, 실패 사유 없음 (belle 2026-10-01, quick-261001-thx) ─────────────
 
 
-def test_check_registration_low_confidence_beats_multiple_people_and_floor_violation():
-    """발목 0.2 + 바닥 위반 형상 + N=2 30% → low_confidence(발목 2개) — 다른 두 사유보다 먼저 (리뷰 R6)."""
+def test_diagnosis_carries_all_three_at_once_without_raising():
+    """저신뢰(발목 0.2) + 바닥 위반 형상 + N=2 30% — 옛 판정이면 low_confidence 하나로 끝났다.
+    진단은 셋을 동시에 싣는다(하나만 고치는 수리가 아니라 사유를 낼 길 자체를 지웠다)."""
     rep = _floor_violation_report(conf={"left_ankle": 0.2, "right_ankle": 0.2})
-    v = rc.check_registration(COUNTS_3_OF_10, rep, n_stand=STAND)
-    assert v.ok is False
-    assert v.reason == models.REG_ERR_LOW_CONFIDENCE
-    assert v.joints == ("left_ankle", "right_ankle")
+    d = rc.diagnose_registration(COUNTS_3_OF_10, rep, n_stand=STAND)
+    assert d.person_ratio == pytest.approx(0.3)
+    assert d.low_confidence_joints == ("left_ankle", "right_ankle")
+    assert d.stand_material_unreadable == ("left_ankle", "right_ankle")
+    # 발목 재료가 MIN_CONF 미만이라 바닥을 못 세운다 — 기존 _standing_start_detail 과 같은 값.
+    assert d.standing_start == rc._standing_start_detail(rep, STAND) == rc.DETAIL_NO_FLOOR_REFERENCE
+    assert d.n_stand == STAND
 
 
-def test_check_registration_stand_material_below_min_conf_is_low_confidence_not_no_standing_start():
-    """관절 중앙값은 문턱 위(0.9)지만 서 있는 창의 발목만 MIN_CONF 미만 — 옛 순서라면 바닥을 못 구해
-    no_standing_start 로 오분류됐다(리뷰 R6 로컬 재현). 지금은 low_confidence + 발목 목록."""
+def test_diagnosis_has_no_failure_field():
+    """ok / reason / joints / detail 같은 실패 필드가 없다 — 호출측이 실패로 분기할 재료가 없다."""
+    names = {f.name for f in dataclasses.fields(rc.RegistrationDiagnostics)}
+    assert names == {"person_ratio", "low_confidence_joints", "stand_material_unreadable", "standing_start", "n_stand"}
+    assert not hasattr(rc, "check_registration")
+    assert not hasattr(rc, "RegistrationVerdict")
+
+
+def test_diagnosis_values_equal_the_raw_functions():
+    """진단 값 = 기존 원시 함수 결과 그대로(문턱 숫자 무변경)."""
     rep = _standing_report()
     _set_conf(rep, "left_ankle", hh.MIN_CONF - 0.01, slice(0, STAND))
-    _set_conf(rep, "right_ankle", hh.MIN_CONF - 0.01, slice(0, STAND))
-    assert rc.low_confidence_joints(rep) == []            # 전체 중앙값은 0.9 — 이 검사만으로는 안 잡힌다
-    v = rc.check_registration([1] * T, rep, n_stand=STAND)
-    assert v.reason == models.REG_ERR_LOW_CONFIDENCE
-    assert v.joints == ("left_ankle", "right_ankle")
+    d = rc.diagnose_registration(COUNTS_4_OF_10, rep, n_stand=STAND)
+    assert d.person_ratio == pytest.approx(rc.multiple_people_ratio(COUNTS_4_OF_10))
+    assert list(d.low_confidence_joints) == rc.low_confidence_joints(rep) == []
+    assert list(d.stand_material_unreadable) == rc.standing_start_measurable(rep, STAND)[1] == ["left_ankle"]
 
 
-def test_check_registration_floor_violation_is_no_standing_start():
-    v = rc.check_registration([1] * T, _floor_violation_report(), n_stand=STAND)
-    assert v.ok is False
-    assert v.reason == models.REG_ERR_NO_STANDING_START
-    assert v.detail == "floor_violation"
-    assert v.joints == ()
+def test_diagnosis_floor_violation_token():
+    d = rc.diagnose_registration([1] * T, _floor_violation_report(), n_stand=STAND)
+    assert d.standing_start == rc.DETAIL_FLOOR_VIOLATION == "floor_violation"
+    assert d.low_confidence_joints == () and d.stand_material_unreadable == ()
 
 
-def test_check_registration_multiple_people_is_recorded_not_failed():
-    """38-14 (belle 2026-10-01): N>=2 프레임 40% 여도 등록은 통과 — 비율만 person_ratio 로 실린다.
-    실물 근거: ref-sideway-spin 원본의 둘째 상자 = 매 프레임 같은 자리의 화분(ratio 0.538)."""
-    v = rc.check_registration(COUNTS_4_OF_10, _standing_report(), n_stand=STAND)
-    assert v.ok is True
-    assert v.reason is None
-    assert v.person_ratio == pytest.approx(0.4)
+def test_diagnosis_ok_token_for_standing_start():
+    d = rc.diagnose_registration(COUNTS_2_OF_10, _standing_report(), n_stand=STAND)
+    assert d.standing_start == rc.STANDING_START_OK == "ok"
+    assert d.person_ratio == pytest.approx(0.2)
 
 
-def test_check_registration_ratio_at_old_boundary_does_not_fail():
-    """옛 경계 3/10 = 0.30(>= 라 실패였다) 도 이제 실패가 아니다 — 판정은 바닥 규칙만 본다."""
-    v = rc.check_registration(COUNTS_3_OF_10, _standing_report(), n_stand=STAND)
-    assert v.ok is True
-    assert v.person_ratio == pytest.approx(0.3)
+def test_diagnosis_short_stand_window_token():
+    d = rc.diagnose_registration([1] * T, _standing_report(), n_stand=2)
+    assert d.standing_start == rc.DETAIL_STAND_WINDOW_TOO_SHORT
 
 
-def test_check_registration_no_standing_start_carries_person_ratio():
-    """여러 명이면서 바닥 위반이면 no_standing_start — 비율은 그 verdict 에도 기록으로 실린다."""
-    v = rc.check_registration(COUNTS_3_OF_10, _floor_violation_report(), n_stand=STAND)
-    assert v.reason == models.REG_ERR_NO_STANDING_START
-    assert v.person_ratio == pytest.approx(0.3)
-
-
-def test_check_registration_never_returns_multiple_people():
-    """REG_ERR_MULTIPLE_PEOPLE 상수는 앱 문구 매핑 때문에 남지만 판정에서는 나오지 않는다."""
-    for counts in (COUNTS_4_OF_10, [2] * T, [3] * T):
-        for rep in (_standing_report(), _floor_violation_report()):
-            assert rc.check_registration(counts, rep, n_stand=STAND).reason != models.REG_ERR_MULTIPLE_PEOPLE
-
-
-def test_check_registration_low_confidence_has_no_person_ratio():
+def test_diagnosis_all_unreadable_lists_all_joints():
     rep = _standing_report(conf={n: 0.1 for n in _JOINTS})
-    assert rc.check_registration([2] * T, rep, n_stand=STAND).person_ratio is None
+    d = rc.diagnose_registration([2] * T, rep, n_stand=STAND)
+    assert d.low_confidence_joints == tuple(_JOINTS)
+    assert d.person_ratio == pytest.approx(1.0)
 
 
-def test_check_registration_ok():
-    v = rc.check_registration(COUNTS_2_OF_10, _standing_report(), n_stand=STAND)
-    assert v == rc.RegistrationVerdict(ok=True, reason=None, person_ratio=pytest.approx(0.2))
-    assert v.joints == () and v.detail == ""
+def test_diagnosis_log_fields_and_firestore_dict():
+    rep = _floor_violation_report(conf={"left_ankle": 0.2})
+    d = rc.diagnose_registration(COUNTS_3_OF_10, rep, n_stand=STAND)
+    line = d.as_log_fields()
+    for key in ("person_ratio=0.300", "low_conf=left_ankle", "stand_unreadable=left_ankle",
+                "standing_start=", "n_stand=10"):
+        assert key in line, (key, line)
+    clean = rc.diagnose_registration([1] * T, _standing_report(), n_stand=STAND).as_log_fields()
+    assert "low_conf=- " in clean and "stand_unreadable=- " in clean and "standing_start=ok" in clean
+
+    fd = d.as_firestore_dict()
+    assert fd == {
+        "personRatio": pytest.approx(0.3),
+        "lowConfidenceJoints": ["left_ankle"],
+        "standMaterialUnreadable": ["left_ankle"],
+        "standingStart": d.standing_start,
+        "nStand": STAND,
+    }
+    # 중첩 배열 없음 — 리스트 원소는 전부 문자열(Firestore nested-array 금지).
+    for v in fd.values():
+        if isinstance(v, list):
+            assert all(isinstance(x, str) for x in v)
 
 
-def test_check_registration_short_stand_window_detail():
-    v = rc.check_registration([1] * T, _standing_report(), n_stand=2)
-    assert v.reason == models.REG_ERR_NO_STANDING_START
-    assert v.detail == "stand_window_too_short"
+def _code_identifiers(source: str) -> set[str]:
+    """코드 식별자만 — ast.Name · ast.Attribute · import 이름. docstring · 주석의 이력 언급은 세지 않는다."""
+    out: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Name):
+            out.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            out.add(node.attr)
+        elif isinstance(node, ast.alias):
+            out.add(node.name)
+            if node.asname:
+                out.add(node.asname)
+    return out
 
 
-def test_check_registration_all_unreadable_is_low_confidence_with_all_joints():
-    rep = _standing_report(conf={n: 0.1 for n in _JOINTS})
-    v = rc.check_registration([1] * T, rep, n_stand=STAND)
-    assert v.reason == models.REG_ERR_LOW_CONFIDENCE
-    assert v.joints == tuple(_JOINTS)
+_BLOCK_CODES = ("REG_ERR_LOW_CONFIDENCE", "REG_ERR_NO_STANDING_START", "REG_ERR_MULTIPLE_PEOPLE")
 
 
-def test_verdict_reasons_are_models_constants():
-    """reason 문자열은 models.REG_ERR_* 그대로 — 38-07 이 REGISTRATION_ERROR_MESSAGE 키로 바로 쓴다."""
-    assert models.REG_ERR_LOW_CONFIDENCE == "low_confidence"
-    assert models.REG_ERR_MULTIPLE_PEOPLE == "multiple_people"
-    assert models.REG_ERR_NO_STANDING_START == "no_standing_start"
-    for reason in (
-        rc.check_registration([1] * T, _floor_violation_report(conf={"left_knee": 0.1}), n_stand=STAND).reason,
-        rc.check_registration([1] * T, _floor_violation_report(), n_stand=STAND).reason,
-    ):
-        assert reason in models.REGISTRATION_ERROR_MESSAGE
+def test_module_code_cannot_emit_the_three_old_failure_codes():
+    """구조 잠금 — 진단 모듈은 세 실패 상수를 코드에서 참조하지 않는다(사유를 낼 길 자체가 없다)."""
+    idents = _code_identifiers(inspect.getsource(rc))
+    for name in _BLOCK_CODES:
+        assert name not in idents, name
+
+
+def test_three_codes_stay_in_models_for_app_copy_and_old_docs():
+    """상수와 문구는 지우지 않는다 — 앱 문구 매핑과 2026-10-01 이전 실패 doc 이 읽는다."""
+    for name in _BLOCK_CODES:
+        code = getattr(models, name)
+        assert code in models.REGISTRATION_ERROR_CODES
+        assert code in models.REGISTRATION_ERROR_MESSAGE
 
 
 # ── (5) 입력 계약 — 비Mapping 은 TypeError(fail-loud), 형상 불량 dict 는 fail-closed (차단 1 · T-38-05-1) ──
@@ -345,7 +365,7 @@ def _real_keypoint_report() -> KeypointReport:
 def test_non_mapping_report_raises_type_error():
     kr = _real_keypoint_report()
     calls = (
-        lambda r: rc.check_registration([1], r, n_stand=STAND),
+        lambda r: rc.diagnose_registration([1], r, n_stand=STAND),
         lambda r: rc.low_confidence_joints(r),
         lambda r: rc.standing_start_measurable(r, n_stand=STAND),
         lambda r: rc.standing_start_ok(r, n_stand=STAND),
@@ -361,19 +381,18 @@ def test_non_mapping_report_raises_type_error():
     assert hh.floor_reference_valid(None, (STAND, T)) is None
 
 
-def test_malformed_dict_is_fail_closed_without_raising():
-    """형상 불량 dict 는 예외 없이 ok=False (T-38-05-1). low_confidence 가 아니다 — 38-03 문구의 {joints} 가 비지 않게."""
+def test_malformed_dict_is_diagnosed_without_raising():
+    """형상 불량 dict 는 예외 없이 no_floor_reference 진단 (T-38-05-1). 부위를 댈 수 없으니 저신뢰 목록은 비어 있다."""
     bad = {"joints": [], "frames": 0}
     assert rc.low_confidence_joints(bad) == []
     assert rc.standing_start_measurable(bad, n_stand=STAND) == (True, [])
     assert rc.standing_start_ok(bad, n_stand=STAND) is False
-    v = rc.check_registration([1, 1, 1], bad, n_stand=STAND)
-    assert v.ok is False
-    assert v.reason == models.REG_ERR_NO_STANDING_START
-    assert v.detail == "no_floor_reference"
+    d = rc.diagnose_registration([1, 1, 1], bad, n_stand=STAND)
+    assert d.standing_start == rc.DETAIL_NO_FLOOR_REFERENCE
+    assert d.low_confidence_joints == () and d.stand_material_unreadable == ()
     truncated = _standing_report()
     truncated["data"] = truncated["data"][:-2]
-    assert rc.check_registration([1] * T, truncated, n_stand=STAND).ok is False
+    assert rc.diagnose_registration([1] * T, truncated, n_stand=STAND).standing_start != rc.STANDING_START_OK
 
 
 @pytest.mark.parametrize(
@@ -389,21 +408,22 @@ def test_malformed_dict_is_fail_closed_without_raising():
     ],
     ids=["normal", "ankles-low", "all-low", "one-shoulder-stand-low", "floor-violation", "crouch", "malformed"],
 )
-def test_low_confidence_verdict_always_names_at_least_one_joint(report):
-    """low_confidence 는 항상 부위 목록이 있다 — 38-03 페이지가 "잘 안 보인 부위: {joints}" 를 그대로 찍는다."""
-    for counts in ([1] * T, COUNTS_3_OF_10):
-        v = rc.check_registration(counts, report, n_stand=STAND)
-        if v.reason == models.REG_ERR_LOW_CONFIDENCE:
-            assert len(v.joints) >= 1
-        else:
-            assert v.joints == ()
+def test_diagnosis_never_raises_on_any_mapping(report):
+    """어떤 dict 입력·사람 수 조합에서도 진단이 나온다 — 판정이 등록을 막을 예외 경로가 없다."""
+    for counts in ([1] * T, COUNTS_3_OF_10, [], [3] * T):
+        d = rc.diagnose_registration(counts, report, n_stand=STAND)
+        assert d.standing_start in (
+            rc.STANDING_START_OK, rc.DETAIL_FLOOR_VIOLATION, rc.DETAIL_NO_FLOOR_REFERENCE,
+            rc.DETAIL_STAND_WINDOW_TOO_SHORT,
+        )
+        assert 0.0 <= d.person_ratio <= 1.0
 
 
 # ── (6) 문턱·창 상수 — [ASSUMED] 이지만 이웃 값과의 관계는 잠근다 ────────────────────────────────
 
 
 def test_thresholds_are_coherent_with_hold_height():
-    """저신뢰 중앙값 문턱이 측정 신뢰 하한보다 낮으면 "측정 불가를 먼저" 순서가 무너진다."""
+    """저신뢰 중앙값 문턱이 측정 신뢰 하한보다 낮으면 두 저신뢰 진단(중앙값 · 서 있는 창 재료)의 뜻이 뒤집힌다."""
     assert rc.LOW_CONFIDENCE_MEDIAN_MIN >= hh.MIN_CONF
     assert 0.0 < rc.MULTI_PERSON_FRAME_RATIO <= 1.0
     assert rc.STANDING_START_DEFAULT_SEC > 0.0
@@ -418,9 +438,9 @@ def test_default_stand_frames_from_fps(fps, expected):
     assert rc.default_stand_frames(fps) == expected
 
 
-def test_zero_stand_frames_fails_closed_as_stand_window_too_short():
-    v = rc.check_registration([1] * T, _standing_report(), n_stand=rc.default_stand_frames(0.0))
-    assert v.reason == models.REG_ERR_NO_STANDING_START and v.detail == "stand_window_too_short"
+def test_zero_stand_frames_is_diagnosed_as_stand_window_too_short():
+    d = rc.diagnose_registration([1] * T, _standing_report(), n_stand=rc.default_stand_frames(0.0))
+    assert d.standing_start == rc.DETAIL_STAND_WINDOW_TOO_SHORT and d.n_stand == 0
 
 
 # ── (7) hold_height.floor_reference_valid — 공개 함수 True / False / None ──────────────────────────

@@ -807,17 +807,23 @@ COACH_STATUSES = (
 #   전이 규칙(38-06 claim/writer · 38-07 파이프라인 · 38-08 requeue 가 이 표를 따른다):
 #     registering → queued | processing | expired
 #     queued      → processing
-#     processing  → active | failed | processing(lease 만료 뒤 재claim, 리뷰 R3)
+#     processing  → review | failed | processing(lease 만료 뒤 재claim, 리뷰 R3)
+#     review      → active(사람 승인) | failed(사람 반려, 코드 rejected)
 #     active · failed · expired = 종결 (단 `failed` 는 사람이 다시 올리면 **새 refId** —
 #                                    같은 doc 재사용 없음)
 #   expired(리뷰 R4) = presign 만료(`uploadExpiresAt`) 뒤에도 객체가 없는 `registering`
 #   을 requeue 스윕이 닫는 종결 상태. 페이지 문구 `row.status.expired`.
+#   review(quick-261001-thx, belle 2026-10-01 "1단계 오케이") = 기계 판정(분석 불가만 막음)을
+#   통과했지만 사람이 아직 안 본 등록. isActive False 라 수강생 picker 에 안 뜨고, 자기 재현성은
+#   이 상태에서도 돈다. 승인/반려 = backend/scripts/review_reference_registrations.py.
+#   claim·requeue 대상이 아니다(중복 S3 이벤트가 review doc 을 다시 돌리지 않는다).
 REGISTRATION_STATUS_REGISTERING = "registering"
 REGISTRATION_STATUS_QUEUED = "queued"
 REGISTRATION_STATUS_PROCESSING = "processing"
 REGISTRATION_STATUS_FAILED = "failed"
 REGISTRATION_STATUS_ACTIVE = "active"
 REGISTRATION_STATUS_EXPIRED = "expired"
+REGISTRATION_STATUS_REVIEW = "review"
 REGISTRATION_STATUSES = (
     REGISTRATION_STATUS_REGISTERING,
     REGISTRATION_STATUS_QUEUED,
@@ -825,6 +831,7 @@ REGISTRATION_STATUSES = (
     REGISTRATION_STATUS_FAILED,
     REGISTRATION_STATUS_ACTIVE,
     REGISTRATION_STATUS_EXPIRED,
+    REGISTRATION_STATUS_REVIEW,
 )
 
 # 자기 재현성 분석(D-10) 진행 상태 — 기준 doc 의 `selfCheckStatus`. 등록 상태와 독립.
@@ -925,7 +932,10 @@ REFERENCE_MOTIONS_COLLECTION = "reference"
 # tests/test_registration_contract.py 가 세 벌 텍스트를 대조한다.
 
 # 등록 실패 코드 — 분석 doc 의 ANALYSIS_ERROR_CODES 와 **별개 enum**(D-05·D-09).
-# 판정 순서(리뷰 R6, 38-05): no_human → low_confidence → multiple_people → no_standing_start.
+# quick-261001-thx(belle 2026-10-01 "하나씩 고치면 절대 안돼"): 파이프라인이 내는 코드는 분석 불가뿐 —
+# no_human · too_short · too_long · too_large · server_error. multiple_people · no_standing_start ·
+# low_confidence 는 더 나오지 않지만(진단으로 내림) 앱 문구 매핑과 2026-10-01 이전 실패 doc 이 읽으므로
+# 상수·문구를 남긴다. rejected = 사람 검수 반려(review → failed), 사유는 registrationError.reason.
 REG_ERR_NO_HUMAN = "no_human"
 REG_ERR_MULTIPLE_PEOPLE = "multiple_people"
 REG_ERR_NO_STANDING_START = "no_standing_start"
@@ -936,6 +946,7 @@ REG_ERR_TOO_LONG = "too_long"
 # `head_object` 로 거른 결과(w9l 부터 폼 검증도 같은 코드·문구로 답한다). 클라이언트 `fileSizeBytes` 는 메타일 뿐이라 server_error 로 위장하지 않는다.
 REG_ERR_TOO_LARGE = "too_large"
 REG_ERR_SERVER_ERROR = "server_error"
+REG_ERR_REJECTED = "rejected"
 REGISTRATION_ERROR_CODES = (
     REG_ERR_NO_HUMAN,
     REG_ERR_MULTIPLE_PEOPLE,
@@ -945,6 +956,7 @@ REGISTRATION_ERROR_CODES = (
     REG_ERR_TOO_LONG,
     REG_ERR_TOO_LARGE,
     REG_ERR_SERVER_ERROR,
+    REG_ERR_REJECTED,
 )
 
 # UI 고정 문구 — 글자 단위 정본. app/src/types/analysis.ts REGISTRATION_ERROR_MESSAGE 와
@@ -956,6 +968,8 @@ REGISTRATION_ERROR_CODES = (
 #   공급자 페이지 `row.fail.no_human`(Figma 1:479) 문구와 다른 것이 의도된 예외다.
 # low_confidence 의 `{joints}` 는 파이프라인이 `str.replace("{joints}", ...)` 로 치환한다 —
 #   `str.format` 금지(문구에 중괄호가 더 생기면 KeyError 로 등록이 죽는다).
+# rejected 의 `{reason}` 도 같은 규율 — firestore_admin.reject_reference_registration 이 운영자 사유로
+#   str.replace 한다(사유에 중괄호가 들어 있어도 안전).
 REGISTRATION_ERROR_MESSAGE = {
     REG_ERR_NO_HUMAN: ERROR_MESSAGE[ERR_NO_HUMAN],
     REG_ERR_MULTIPLE_PEOPLE: "영상에 여러 사람이 나와요. 한 사람만 나오게 다시 촬영해 주세요.",
@@ -965,6 +979,7 @@ REGISTRATION_ERROR_MESSAGE = {
     REG_ERR_TOO_LONG: "영상이 너무 길어요. 기준 동작은 2분 이내로 올려주세요.",
     REG_ERR_TOO_LARGE: "용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요.",
     REG_ERR_SERVER_ERROR: "등록 중 문제가 생겼어요. 잠시 후 다시 올려주세요. 계속 그러면 운영팀에 알려주세요.",
+    REG_ERR_REJECTED: "검수에서 반려됐어요. 사유: {reason}. 고쳐서 다시 올려 주세요.",
 }
 
 # 폼 레벨 — 앱 `SkillLevel` 미러. picker `referenceMotions.normalize()` 가 버리지 않는

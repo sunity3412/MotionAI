@@ -4458,7 +4458,7 @@ def update_analysis_visual(
 # 공급자 링크(38-06 T1)가 만드는 기준 doc 의 생명주기 writer 13 + 순수 가드 1. 이 블록의
 # `set_reference_angles` 는 :2252-2261 "angles 절대 금지" 규칙의 **유일한 예외**이며 legacy
 # `ref-*` id 를 거부한다 — 손 등록 11개(D-19, Success ④)는 구조적으로 못 건드린다(선작성은
-# `create()` 라 존재하면 실패, `reference/{refId}` 를 쓰는 9함수는 `_require_registration_ref_id`
+# `create()` 라 존재하면 실패, `reference/{refId}` 를 쓰는 11함수는 `_require_registration_ref_id`
 # 가드가 첫 줄).
 #
 # 핵심 불변식 3개(visual job 어법 :2898-2907 미러):
@@ -4475,19 +4475,23 @@ def update_analysis_visual(
 #
 # 상태 전이 표는 models.py REGISTRATION_STATUSES 블록 주석이 정본:
 #   registering → queued | processing | expired · queued → processing
-#   processing  → active | failed | processing(lease 만료 재claim)
+#   processing  → review | failed | processing(lease 만료 재claim)
+#   review      → active(approve) | failed(reject, code rejected)   ← quick-261001-thx, 사람 결정
 
 _REGISTRATION_SOURCE = "supplier-link"
+# review 는 엄밀히 종결이 아니지만(사람이 active/failed 로 옮긴다) 기계 경로(claim · requeue · 파이프라인
+# writer)에게는 종결처럼 보인다 — 문서 일관성용 목록(소비처 0, quick-261001-thx).
 _REGISTRATION_TERMINAL = (
     models.REGISTRATION_STATUS_ACTIVE,
     models.REGISTRATION_STATUS_FAILED,
     models.REGISTRATION_STATUS_EXPIRED,
+    models.REGISTRATION_STATUS_REVIEW,
 )
 _reg_log = logging.getLogger(__name__)
 
 
 def _require_registration_ref_id(ref_id) -> None:
-    """`reference/{refId}` 를 **쓰는** 9함수의 첫 줄 가드(D-19, Success ④).
+    """`reference/{refId}` 를 **쓰는** 11함수의 첫 줄 가드(D-19, Success ④).
 
     빈 값 또는 legacy `ref-*`(손 등록 11개) 면 ValueError — 어떤 Firestore 호출보다 먼저.
     읽기 함수에는 두지 않는다(38-09 baseline · 38-14 재diff 가 legacy 를 raw 로 읽는다).
@@ -4767,35 +4771,43 @@ def _guarded_update(ref_id: str, job_id: str, mutate):
     return _tx
 
 
-def set_registration_active(
+def set_registration_review(
     ref_id: str,
     job_id: str,
     *,
     video_s3_key: str,
     video_etag: str,
+    diagnostics: dict,
     thumbnail_s3_key: str | None = None,
 ) -> bool:
-    """processing ∧ doc.jobId == job_id 일 때만 active(리뷰 R3·R5).
+    """processing ∧ doc.jobId == job_id 일 때만 review — 검수 대기(quick-261001-thx, 리뷰 R3·R5).
 
-    `videoS3Key` 는 서버가 copy_object 한 확정 키(`v1.{ext}`)만, `videoETag` 는 그 객체의
-    ETag — 등록 산출물과 영상을 묶는다(R5). lease 는 지운다(종결).
+    belle 2026-10-01: 기계 판정은 분석 불가만 막고, 통과한 등록은 사람이 보기 전까지 수강생에게
+    안 보인다. 공개 doc = {registrationStatus 'review', isActive **False 명시**(picker
+    `referenceMotions.ts` normalize 가 거른다, T-thx-01), videoS3Key(v1), videoETag, leaseUntil None,
+    thumbnailS3Key?} · 비공개 doc = {registrationDiagnostics: 진단 평면 dict} 를 **한 트랜잭션**에 쓴다
+    (`set_registration_failed` 의 private_ref 패턴). 진단은 공개 doc 에 두지 않는다(R13).
 
-    quick-260930-w9l: v1 이 무음본으로 다시 올라갔으면 `video_etag` 는 그 새 ETag 다.
-    `thumbnail_s3_key`(선택) = `s3keys.build_reference_thumb_key` 로 만든 키 — 있으면 같은
-    트랜잭션 update 에 `thumbnailS3Key` 로, None 이면 키를 쓰지 않는다(썸네일 실패는 등록을
-    막지 않는다). 앱은 이 키로 POST /playback-url asset 'thumbnail' 을 부른다.
+    `videoS3Key` 는 서버가 copy_object 한 확정 키(`v1.{ext}`)만, `videoETag` 는 그 객체의 ETag(R5) —
+    w9l: v1 이 무음본으로 다시 올라갔으면 그 새 ETag. `thumbnail_s3_key` None 이면 키를 쓰지 않는다
+    (썸네일 실패는 등록을 막지 않는다). 승인 = `approve_reference_registration`(운영 CLI).
+    옛 `set_registration_active`(processing → active)를 대체한다 — 운영 호출자는 파이프라인 하나였다.
     """
     _require_registration_ref_id(ref_id)
     if not video_s3_key:
         raise ValueError("video_s3_key required")
     if not video_etag:
         raise ValueError("video_etag required")
+    if not isinstance(diagnostics, dict):
+        raise TypeError("diagnostics must be a dict (flat, camelCase)")
+    _validate_flat_dict_no_nested_array(diagnostics, path="registrationDiagnostics")  # TypeError 전파
+    private_ref = _doc(models.reference_private_path(ref_id))
 
     def _mutate(transaction, ref, data) -> bool:
         status = data.get("registrationStatus")
         if status != models.REGISTRATION_STATUS_PROCESSING:
             _reg_log.warning(
-                "set_registration_active skipped ref_id=%s job_id=%s status=%s",
+                "set_registration_review skipped ref_id=%s job_id=%s status=%s",
                 ref_id,
                 job_id,
                 status,
@@ -4805,8 +4817,8 @@ def set_registration_active(
         transaction.update(
             ref,
             {
-                "registrationStatus": models.REGISTRATION_STATUS_ACTIVE,
-                "isActive": True,
+                "registrationStatus": models.REGISTRATION_STATUS_REVIEW,
+                "isActive": False,
                 "videoS3Key": video_s3_key,
                 "videoETag": video_etag,
                 "leaseUntil": None,
@@ -4815,12 +4827,17 @@ def set_registration_active(
                 **({"thumbnailS3Key": thumbnail_s3_key} if thumbnail_s3_key else {}),
             },
         )
+        transaction.set(
+            private_ref,
+            {"registrationDiagnostics": dict(diagnostics), "updatedAt": now},
+            merge=True,
+        )
         return True
 
     _tx = _guarded_update(ref_id, job_id, _mutate)
     done = _run_in_transaction(_tx)
     if done:
-        _reg_log.info("set_registration_active ok ref_id=%s job_id=%s key=%s", ref_id, job_id, video_s3_key)
+        _reg_log.info("set_registration_review ok ref_id=%s job_id=%s key=%s", ref_id, job_id, video_s3_key)
     return done
 
 
@@ -4960,7 +4977,11 @@ def set_reference_angles(
 
 
 def begin_self_check(ref_id: str, *, job_id: str, analysis_id: str) -> bool:
-    """자기 재현성 표식 **선기록**(리뷰 R8) — active ∧ doc.jobId == job_id 일 때만.
+    """자기 재현성 표식 **선기록**(리뷰 R8) — (review ∨ active) ∧ doc.jobId == job_id 일 때만.
+
+    quick-261001-thx: 등록은 이제 review 로 끝나므로 review 를 허용한다 — 검수자가 selfScore 를 재료로
+    본다. 이 상태 검사가 자기 재현성의 유일한 상태 의존이다(채점 경로 `get_reference_motion` 은 isActive
+    를 보지 않는다).
 
     분석 doc 을 만들고 S3 복사로 이벤트를 내기 **전에** `selfCheckAnalysisId·selfCheckStatus=
     pending·selfCheckJobId` 를 먼저 영속한다. 완료/실패 훅은 `self_check_authorized` 로 이
@@ -4972,7 +4993,7 @@ def begin_self_check(ref_id: str, *, job_id: str, analysis_id: str) -> bool:
 
     def _mutate(transaction, ref, data) -> bool:
         status = data.get("registrationStatus")
-        if status != models.REGISTRATION_STATUS_ACTIVE:
+        if status not in (models.REGISTRATION_STATUS_REVIEW, models.REGISTRATION_STATUS_ACTIVE):
             _reg_log.warning(
                 "begin_self_check skipped ref_id=%s job_id=%s status=%s", ref_id, job_id, status
             )
@@ -5077,6 +5098,132 @@ def set_reference_self_check(
             self_score,
         )
     return done
+
+
+# ── quick-261001-thx — 사람 검수: review → active(승인) | failed(반려) ──
+#
+# 호출자 = backend/scripts/review_reference_registrations.py(Admin SA 를 가진 로컬 CLI 만, T-thx-03).
+# job 가드를 쓰지 않는다 — 사람 결정이라 jobId 와 무관하고 상태 검사만 한다. 트랜잭션은 공개·비공개
+# doc 을 **먼저 읽고** 쓴다(read-before-write). 누가/언제는 비공개 doc `review` 에만(공개 doc 은 인증자
+# 전체가 읽는다, R13). 반복 실행은 already_* 를 돌려주고 쓰기 0. 승인 뒤 내리기는 범위 밖(ValueError).
+
+_REVIEW_APPROVED = "approved"
+_REVIEW_REJECTED = "rejected"
+REJECT_REASON_MAX_LEN = 200
+
+
+def _require_review_by(by) -> str:
+    if not isinstance(by, str) or not by.strip():
+        raise ValueError("by required (operator id)")
+    return by.strip()
+
+
+def approve_reference_registration(ref_id: str, *, by: str, now_ms: int | None = None) -> str:
+    """review → active + isActive True + 비공개 review{decision 'approved', by, at}.
+
+    반환: 'approved'(쓰기 1) · 'already_approved'(이미 active 이고 비공개 review.decision == approved, 쓰기 0).
+    그 밖(문서 없음 · registering/queued/processing/failed/expired · 승인 기록 없는 active) = ValueError.
+    """
+    _require_registration_ref_id(ref_id)
+    who = _require_review_by(by)
+    ref = _registration_ref(ref_id)
+    private_ref = _doc(models.reference_private_path(ref_id))
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        priv = _snap_dict(private_ref.get(transaction=transaction)) or {}
+        if data is None:
+            return "missing", None
+        status = data.get("registrationStatus")
+        if status == models.REGISTRATION_STATUS_ACTIVE:
+            decision = (priv.get("review") or {}).get("decision")
+            return ("already_approved", status) if decision == _REVIEW_APPROVED else ("bad_state", status)
+        if status != models.REGISTRATION_STATUS_REVIEW:
+            return "bad_state", status
+        at = now_ms if now_ms is not None else _now_ms()
+        transaction.update(
+            ref,
+            {
+                "registrationStatus": models.REGISTRATION_STATUS_ACTIVE,
+                "isActive": True,
+                "registrationUpdatedAt": at,
+                "updatedAt": at,
+            },
+        )
+        transaction.set(
+            private_ref,
+            {"review": {"decision": _REVIEW_APPROVED, "by": who, "at": at}, "updatedAt": at},
+            merge=True,
+        )
+        return "approved", status
+
+    result, status = _run_in_transaction(_tx)
+    if result == "missing":
+        raise ValueError(f"reference/{ref_id} not found")
+    if result == "bad_state":
+        raise ValueError(f"approve needs registrationStatus 'review' (got {status!r})")
+    _reg_log.info("approve_reference_registration %s ref_id=%s by=%s", result, ref_id, who)
+    return result
+
+
+def reject_reference_registration(
+    ref_id: str, *, reason: str, by: str, now_ms: int | None = None
+) -> str:
+    """review → failed + 비공개 registrationError{code 'rejected', message, reason} + review{decision, by, at, reason}.
+
+    message = REGISTRATION_ERROR_MESSAGE['rejected'] 의 `{reason}` 을 str.replace 로 치환(중괄호가 든 사유도 안전).
+    반환: 'rejected'(쓰기 1) · 'already_rejected'(이미 failed 이고 비공개 review.decision == rejected, 쓰기 0).
+    active(승인 뒤 내리기 — 범위 밖) · 기계 실패로 failed · 그 밖 상태 · 빈 사유 · 200자 초과 = ValueError.
+    """
+    _require_registration_ref_id(ref_id)
+    who = _require_review_by(by)
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("reason required")
+    why = reason.strip()
+    if len(why) > REJECT_REASON_MAX_LEN:
+        raise ValueError(f"reason too long (> {REJECT_REASON_MAX_LEN})")
+    message = models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_REJECTED].replace("{reason}", why)
+    ref = _registration_ref(ref_id)
+    private_ref = _doc(models.reference_private_path(ref_id))
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        priv = _snap_dict(private_ref.get(transaction=transaction)) or {}
+        if data is None:
+            return "missing", None
+        status = data.get("registrationStatus")
+        if status == models.REGISTRATION_STATUS_FAILED:
+            decision = (priv.get("review") or {}).get("decision")
+            return ("already_rejected", status) if decision == _REVIEW_REJECTED else ("bad_state", status)
+        if status != models.REGISTRATION_STATUS_REVIEW:
+            return "bad_state", status
+        at = now_ms if now_ms is not None else _now_ms()
+        transaction.update(
+            ref,
+            {
+                "registrationStatus": models.REGISTRATION_STATUS_FAILED,
+                "registrationUpdatedAt": at,
+                "updatedAt": at,
+            },
+        )
+        transaction.set(
+            private_ref,
+            {
+                "registrationError": {"code": models.REG_ERR_REJECTED, "message": message, "reason": why},
+                "review": {"decision": _REVIEW_REJECTED, "by": who, "at": at, "reason": why},
+                "updatedAt": at,
+            },
+            merge=True,
+        )
+        return "rejected", status
+
+    result, status = _run_in_transaction(_tx)
+    if result == "missing":
+        raise ValueError(f"reference/{ref_id} not found")
+    if result == "bad_state":
+        raise ValueError(f"reject needs registrationStatus 'review' (got {status!r})")
+    _reg_log.info("reject_reference_registration %s ref_id=%s by=%s", result, ref_id, who)
+    return result
 
 
 def create_analysis_doc(uid: str, analysis_id: str, payload: dict) -> None:

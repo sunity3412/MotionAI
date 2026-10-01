@@ -59,8 +59,9 @@ def _ts_interface_body(text: str, name: str) -> str:
 
 def test_error_message_keys_match_codes():
     assert set(models.REGISTRATION_ERROR_MESSAGE) == set(models.REGISTRATION_ERROR_CODES)
-    assert len(models.REGISTRATION_ERROR_CODES) == 8
+    assert len(models.REGISTRATION_ERROR_CODES) == 9
     assert models.REG_ERR_TOO_LARGE in models.REGISTRATION_ERROR_CODES
+    assert models.REG_ERR_REJECTED == "rejected" and models.REG_ERR_REJECTED in models.REGISTRATION_ERROR_CODES
 
 
 def test_no_human_reuses_analysis_error_message_object():
@@ -78,6 +79,14 @@ def test_too_long_and_too_large_messages_w9l():
         models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_TOO_LARGE]
         == "용량이 너무 커요. 1GB 이하 영상으로 다시 올려주세요."
     )
+
+
+def test_rejected_placeholder_is_replace_style():
+    # 반려 사유는 운영자 입력 — str.replace("{reason}", ...) 로만 치환(중괄호가 든 사유도 KeyError 없음).
+    msg = models.REGISTRATION_ERROR_MESSAGE[models.REG_ERR_REJECTED]
+    assert msg == "검수에서 반려됐어요. 사유: {reason}. 고쳐서 다시 올려 주세요."
+    assert msg.count("{reason}") == 1
+    assert msg.count("{") == 1 and msg.count("}") == 1
 
 
 def test_low_confidence_placeholder_is_replace_style():
@@ -114,8 +123,11 @@ def test_registration_states_do_not_leak_into_analysis_status_machine():
         "failed",
         "active",
         "expired",
+        "review",
     )
     assert models.REGISTRATION_STATUS_EXPIRED in models.REGISTRATION_STATUSES
+    assert models.REGISTRATION_STATUS_REVIEW == "review"
+    assert "review" not in models.PIPELINE_SEQUENCE
     assert models.SELF_CHECK_STATUSES == ("pending", "queued", "done", "failed")
 
     # TS 쪽 AnalysisStatus 유니온에도 새지 않았다.
@@ -123,6 +135,7 @@ def test_registration_states_do_not_leak_into_analysis_status_machine():
     assert "'registering'" not in ts_status
     assert "'active'" not in ts_status
     assert "'expired'" not in ts_status
+    assert "'review'" not in ts_status
 
 
 # ── (4) SUPPLIER_UIDS 파서 (D-12) ─────────────────────────────────────────
@@ -168,6 +181,14 @@ def test_ts_mirror_has_codes_statuses_and_messages():
     for status in models.REGISTRATION_STATUSES:
         assert f"'{status}'" in status_body, status
     assert "'expired'" in status_body
+    assert "'review'" in status_body
+    assert "'rejected'" in code_body
+    # 반려 사유 · 비공개 진단 · 검수 기록 (quick-261001-thx)
+    err_block = _ts_interface_body(text, "ReferenceRegistrationError")
+    assert "reason?: string;" in err_block
+    priv_block = _ts_interface_body(text, "ReferenceRegistrationPrivate")
+    assert "registrationDiagnostics?:" in priv_block
+    assert "review?:" in priv_block
 
     self_body = _ts_type_body(text, "SelfCheckStatus")
     for status in models.SELF_CHECK_STATUSES:
@@ -206,6 +227,10 @@ def test_contract_md_has_endpoint_messages_and_private_doc():
         assert msg in text, code
     for code in models.REGISTRATION_ERROR_CODES:
         assert code in text, code
+    # quick-261001-thx — review 상태 · rejected 코드 · 비공개 진단/검수 기록이 §3/§5 에 있다.
+    assert "'review'" in text
+    assert "registrationDiagnostics" in text
+    assert "review_reference_registrations.py" in text
 
 
 def test_reference_motions_md_marks_register_fields():

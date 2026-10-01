@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-10-01 새벽 — Phase 38 13/14. 38-13 완료(belle 실기기 1~9번 다 오케이), quick 260930-w9l 공급자 폼 수정 묶음 배포(layer :23 · 웹 · OTA 62eb42e4), 시험 doc 삭제 · TESTB 끔. belle 지시로 여기서 정리. 다음 = 38-14(Pod 기동 → Pod 코드 배포를 requeue 보다 먼저 → 정은지 초대 전 계약서 학습 조항·실명 확인). push 방식 · BELLE 코드 계정 belle 결정 대기. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절"
+stopped_at: "2026-10-01 낮 — Phase 38 13/14, 38-14 일시 중단. Task 1·2 완료(대역 TESTB · 4090 Pod · baseline 재diff 0), Task 3 대역 업로드 2회 실패: multiple_people(화분 오검출 → 기록만 8c237bd8) · no_standing_start(대각선→폴 시작을 막음 — belle: 지우지 말고 고쳐라). Pod 내림. 다음 = 서 있는 시작 판정 수리(기존 11개 측정 먼저) → 38-14 Task 3 재시도. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절"
 last_updated: "2026-09-30T01:02:33.985Z"
 last_activity: 2026-10-01
 progress:
@@ -1111,7 +1111,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-09-29T16:28:11.952Z
 
-Stopped at: 2026-10-01 새벽 — Phase 38 13/14. 38-13 완료(belle 실기기 1~9번 다 오케이), quick 260930-w9l 공급자 폼 수정 묶음 배포(layer :23 · 웹 · OTA 62eb42e4), 시험 doc 삭제 · TESTB 끔. belle 지시로 여기서 정리. 다음 = 38-14(Pod 기동 → Pod 코드 배포를 requeue 보다 먼저 → 정은지 초대 전 계약서 학습 조항·실명 확인). push 방식 · BELLE 코드 계정 belle 결정 대기. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절
+Stopped at: 2026-10-01 낮 — Phase 38 13/14, 38-14 일시 중단. Task 1·2 완료, Task 3 대역 업로드 2회 실패(multiple_people 화분 오검출 → 기록만 8c237bd8 · no_standing_start 대각선→폴 시작을 막음 → 고친다). Pod 내림. 다음 = 서 있는 시작 판정 수리(기존 11개 측정 먼저) → 38-14 Task 3 재시도. 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

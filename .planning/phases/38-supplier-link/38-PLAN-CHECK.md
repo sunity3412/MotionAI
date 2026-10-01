@@ -56,6 +56,34 @@ belle 지시: *"재계획은 하지 않고, 차단 3건만 플래너 1회와 검
 - 38-04 T3 · VALIDATION 범례의 `⏭` → ASCII `[skipped-by-decision]`(CLAUDE.md §7 이모지 금지). `★` 는 그대로.
 - 그 밖(rtk 접두 없음 · PATTERNS 행 누락 · low_confidence 가 multiple_people 보다 먼저) 변경 없음.
 
+## 다음 (2026-10-01 낮 갱신 — 38-14 일시 중단, 서 있는 시작 판정 수리가 먼저)
+
+belle: *"이건 지금 테스트하기전 뭘 기능부터 넣어야할거 같은데"*. 상세 원문·로그 = `38-14-E2E.md` 끝 두 절.
+
+### 오늘 한 것 [확인]
+
+- push 78커밋(origin/main = HEAD). Pod RTX 4090 SECURE **$0.74/h**(동의 때 내가 커뮤니티 단가 $0.34 를 보여 줬다 — 정정 보고함, 메모리 demo-only-pod 에 securePrice 규칙 추가) 10:18~12:45 ≈ $1.8, teardown 완료 · pod-expected=down.
+- 38-14 Task 1·2 완료(`87774773` · `7b547507`): 대역 = belle 다른 계정 catharina0415(TESTB, reactivate) · IAM probe 두 접두사 OK · requeue 0건 · baseline 재diff 0.
+- Task 3 대역 업로드(ref-sideway-spin.mp4) **2회 실패**:
+  1. `multiple_people` — 학원 왼쪽 **화분을 YOLOX 가 사람으로 검출**. 기존 기준 11개 중 9개가 같은 규칙에 걸림 → belle 승인으로 **기록만**(`8c237bd8`, pytest 5758/20). 메모리 `studio-plant-detected-as-person`.
+  2. `no_standing_start detail=floor_violation` — belle: 서 있는 시작 = 대각선에 서 있다가 반동으로 폴에 오는 것, 그걸 막으면 안 된다 → **검사를 지우지 말고 고친다**.
+
+### 재개 = 서 있는 시작 판정 수리 (quick 또는 페이즈 삽입) → 38-14 Task 3 재시도
+
+1. 먼저 측정: 현 `standing_start` 판정을 기존 기준 11개 원본 + 대역 영상에 돌려 floor_violation 숫자(바닥·낮은발 분위·몸길이)를 본다. 11개는 전부 정상 시작 → 수리 하한 = 11/11 통과.
+2. 기전 확인 [추정]: 대각선 → 폴 접근 때 원근으로 발목 y 가 바뀌어 "바닥 아래" 로 읽힘.
+3. 방법은 belle 확인 뒤(벤치마킹 근거 붙여서). 같은 바닥 규칙을 쓰는 `hold_window_heights` 소비처도 함께 본다.
+4. 그다음 Pod 기동 → 대역 재업로드 → picker → mode1 → selfScore → Task 4(증거·대역 동작 끄기·TESTB deactivate·실패 doc 2건 정리·teardown).
+
+### 함께 볼 것
+
+- **화분이 분석에도 닿는가** [미확인]: 9fps 실측에서 선수가 공중·역립일 때 화분만 검출되는 프레임(elbow-twist 127/220, pdshape 105/159), elbow t=2 는 관절이 화분 위에 찍힘(눈 확인). 운영 경로(15fps · rot180 · conf 게이트) 그대로 재야 결론 — belle 에게 별도 조사로 제안함.
+- low_confidence 검사는 여전히 막는다(실영상 미검증 `[ASSUMED]` 문턱).
+- 라이브 잔여: TESTB active · 실패 doc 2건(`dc7812c6…` · `fc4a393d…`).
+- 공급자 계약서 학습 조항 · 실명 확인 = 정은지 초대 전제(미해소).
+- BELLE 코드 계정 FDJr = SSM `belle-uid` 의 6월 게스트 uid(Google 로그인 없음) — belle "모르는 계정", 실증 전 정리 권장, 결정 대기.
+- `.planning/TRAINING-DUE.md` 를 09-28 플라이휠이 덮어써 게이트 표가 사라짐(미커밋 그대로). 예산 게이트만 봐도 학습 불가($19 < $33).
+
 ## 다음 (2026-10-01 새벽 갱신 — belle "일단 여기까지 하고 정리하자", 38-13 완료 = 13/14)
 
 ### 진행 [확인]

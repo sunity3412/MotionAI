@@ -78,6 +78,13 @@ Plan: 13 of 14
                                        단 Success 0(미검사/판정불가 표시)은 실증 전 자리 — belle 확인 대기.
                                        데이터 규격만 선행: 37-DATA-SPEC.md +
                                        backend/training/data/{subjects,pairs,judgments}.jsonl
+                                       ★재학습 준비 = TRAINING-DUE 게이트 2~5 (2026-10-02 등록 — 09-26 기획안 §10-2
+                                         "게이트 2·3·5 는 지금부터"가 여기 안 올라와 1주 동안 아무도 안 집었다):
+                                         4 평가셋 분리  = 코드 반영 완료(261002-kkt). 다음 시험 영상 봉인 때 켜짐
+                                         5 기준 점수 E0/E1/E2 = 평가셋(시험 영상 2차) 필요 → Phase 38 뒤(belle 09-30)
+                                         2 실패 원인    = kip-up 확정·수리. 학습 실패(v38 4동작 0/4) 원인은 미확정
+                                         3 학습 가설    = 2(학습 실패 원인)·5 뒤
+                                         6·7 돈·GPU    = 2~5 뒤. 학습률 기본값은 1e-4 로 정정(85218208)
 ```
 
 ### 미종결 트랙 판정 원장 (2026-09-18, quick-260918-qm2)
@@ -217,6 +224,7 @@ Last activity: 2026-10-02 - Completed quick task 261002-kkt: 재학습 게이트
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 261002-lr | **SFT 학습률 기본값 1e-5 → 1e-4 + TRAINING-DUE 게이트 2 갱신(gsd-fast).** `run_sft.sh` 기본이 08-26 실측 침묵 설정으로 남아 래퍼 없이 돌리면 결함 0 학습으로 돌아갔다. 게이트 2 = kip-up 국면 단계 09-24 c3m 측정·규칙 수리(belle ○, Pod 83) 반영, 학습 실패 원인은 미확정으로 분리. STATE Phase 37 에 게이트 2~5 할 일·막힌 이유 등록 | 2026-10-02 | 85218208 | — |
 | 261002-kkt | **재학습 게이트 4 — belle 09-26 holdout 정책 코드 반영.** eval_split_check: status≠closed 시험의 rows 만 시험 영상, closed 시험·practice = 연습 영상 → 학습 후보, 짝·세션 확장 규칙 불변. `verdict_code` 0/1/2 — 평가셋 없음 = exit 2(통과 아님). 오늘 데이터 exit 2 · 정은지 실수 fixtures 6편 L1 해소 · 학습 후보 577. 다음 시험 영상(정은지 중급콤보, belle 09-30 Phase 38 뒤) 봉인 전까지 게이트 4 꺼짐. pytest 8/8 · 전체 5860/20 · manifest·sealed_tests 무변경 | 2026-10-02 | 179d1392 | [261002-kkt-gate4-holdout-policy-in-eval-split-check](./quick/261002-kkt-gate4-holdout-policy-in-eval-split-check/) |
 | 261002-fwd | **플라이휠 TRAINING-DUE 덮어쓰기 수리(gsd-fast).** 3-3 절이 `<!-- flywheel:counts -->` 마커 줄만 갱신 · 마커 없는 손판 보존 · 파일 없을 때만 게이트 안내 템플릿 · rows_after=0 이면 삭제 안 함(임시 사본 5경우 통과). TRAINING-DUE 손판 복구 + 10-02 실측: 579/336 · 잔액 $16.93 · eval_split exit 1(L1 6·L3 11) · v38 성적(겨냥 4동작 0/4, svg 0/8). 재학습 판정 = 여전히 불가(게이트 2·3·5 미완, 6·7 미충족) | 2026-10-02 | 4ed805a2 | — |
 | 261001-thx | **공급자 등록 입구 1단계-가 (+보완: 승인 전 한 문구 '확인 중' · CLI deactivate · 웹 I417VO9J…)(belle 10-01 "하나씩 고치면 절대 안돼").** 등록 판정 = 분석 불가만 막음(no_human · 포즈 0 · 파일) — 저신뢰·서 있는 시작·여러 사람은 진단 기록만(private registrationDiagnostics) · 성공 = registrationStatus 'review'(isActive false, 수강생 비노출, 자기 재현성은 계속) · 운영 CLI review_reference_registrations.py list/show/approve/reject · 반려 사유 표시 · playback-url 소유자 review 예외 · 공급자 문구 확인 흐름 + 다듬기 37행. pytest 5833/20 · node 88/88 · layer :24 → playback-url · 웹 무효화 IBUCA5QK6UNO7SLDR7CVATU667. Pod 코드 미반영(38-14 재개 때) | 2026-10-01 | 656c9c99 | [261001-thx-supplier-intake-phase1a-block-only-unana](./quick/261001-thx-supplier-intake-phase1a-block-only-unana/) |

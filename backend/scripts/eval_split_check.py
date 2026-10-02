@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""평가셋 분리 점검 — 봉인 시험지 영상(과 같은 인물·세션의 클립)이 학습 후보(manifest 증류 대상)에 새는지 (quick-260925-nnt).
+"""평가셋 분리 점검 — 시험 영상(과 같은 인물·세션의 클립)이 학습 후보(manifest 증류 대상)에 새는지 (quick-260925-nnt, quick-261002-kkt).
 
 근거: 37-DATA-SPEC 규칙 6 "평가 분할은 인물·세션 단위로 — video hash 분리는 같은 인물·같은 세션·다른 인코딩의 누수를 못 막는다",
 TRAINING-DUE 게이트 4 "인물·세션 분리 평가셋이 있나". 플라이휠은 manifest 의 s3_key 보유 행을 증류 후보로 자동 선택한다
@@ -7,7 +7,8 @@ TRAINING-DUE 게이트 4 "인물·세션 분리 평가셋이 있나". 플라이�
 
 무엇을 점검하나
 ──────────────
-  평가 항목 = sealed_tests.jsonl 의 영상(봉인 정답이 있는 것) + pairs.jsonl 로 묶인 짝 + 같은 (subject_id, session) 의 clips.jsonl 클립.
+  평가 항목 = sealed_tests.jsonl 에서 status != closed 인 시험의 rows(시험 영상) + 짝 + 같은 (subject, session) 클립.
+            closed 시험 영상과 practice 는 연습 영상 → 학습 후보 (belle 09-26)
   학습 후보 = manifest.json rows 중 eligible_for_distill 이 True 인 행.
   L1 (오류) 같은 파일: 학습 후보 s3_key == 평가 클립 s3_key
   L2 (오류) 같은 세션: 학습 후보가 clips.jsonl 에 등록된 클립이고 그 (subject, session) 이 평가 그룹
@@ -16,7 +17,10 @@ TRAINING-DUE 게이트 4 "인물·세션 분리 평가셋이 있나". 플라이�
 
 사용
 ────
-  backend/.venv/bin/python backend/scripts/eval_split_check.py            # 보고서 stdout + .planning/sealed/EVAL-SPLIT.md, 누수(L1/L2)면 exit 1
+  backend/.venv/bin/python backend/scripts/eval_split_check.py            # 보고서 stdout + .planning/sealed/EVAL-SPLIT.md
+      exit 0 = 평가셋 있음 + L1·L2 = 0
+      exit 1 = L1 또는 L2 누수
+      exit 2 = 평가셋 없음(다음 시험 영상 봉인 전 — 통과 아님)
   backend/.venv/bin/python backend/scripts/eval_split_check.py --mark-holdout   # L1/L2 행에 holdout="sealed_eval" 표시(증류 제외). belle 결정 뒤에만.
 """
 from __future__ import annotations
@@ -64,20 +68,28 @@ def group_key(clip: dict) -> tuple[str, str]:
 
 
 def eval_groups(clips: list[dict], pairs: list[dict], sealed: list[dict]) -> dict:
-    """봉인 시험지 → 평가 해시 → (짝 확장) → 평가 그룹 (subject, session) → 그 그룹의 모든 클립. 반환 {hashes, groups, subjects, clips}."""
+    """시험 영상 → 평가 해시 → (짝 확장) → 평가 그룹 (subject, session) → 그 그룹의 모든 클립. 반환 {hashes, groups, subjects, clips, closed}.
+
+    정책(belle 2026-09-26 "시험 영상은 배우지 않는다, 나머지는 전부 배운다", TRAINING-DUE 게이트 4):
+      시험 영상 = 처음 채점하는 영상만 — status 가 sealed/run/graded 인(안 닫힌) 시험의 rows. status 없는 dict 도 안 닫힌 것으로 본다.
+      closed = belle ○× 로 채점이 끝난 시험 → 그 영상은 연습 영상 → 학습 후보.
+      practice = 봉인 때 이미 분석된 영상(정답이 이미 알려진 영상) → 연습 영상 → 학습 후보.
+    단, 안 닫힌 시험과 같은 (subject, session) 에 있는 practice 영상은 아래 세션 규칙(37-DATA-SPEC 규칙 6)으로 여전히 평가 클립이 된다.
+    closed 는 닫힌 시험의 test_id 목록 — 보고서가 평가셋이 왜 비었는지 적는 데만 쓴다."""
     by_hash = {c["video_hash"]: c for c in clips}
     eval_hashes: set[str] = set()
+    closed: list[str] = []
     for t in sealed:
-        for r in t.get("rows") or []:
-            eval_hashes.add(r["video_hash"])
-        for p in t.get("practice") or []:      # 연습 문제로 빠졌어도 정답이 공개된 영상 — 학습에 넣지 않는다
-            eval_hashes.add(p["video_hash"])
+        if t.get("status") != "closed":       # 안 닫힌 시험(sealed/run/graded)의 rows 만 시험 영상. practice 는 어느 쪽이든 안 넣는다
+            eval_hashes.update(r["video_hash"] for r in t.get("rows") or [])
+        else:
+            closed.append(str(t.get("test_id") or "?"))
     for p in pairs:
         if p.get("correct_hash") in eval_hashes or p.get("fault_hash") in eval_hashes:
             eval_hashes.update(h for h in (p.get("correct_hash"), p.get("fault_hash")) if h)
     groups = {group_key(by_hash[h]) for h in eval_hashes if h in by_hash}
     eval_clips = [c for c in clips if group_key(c) in groups or c["video_hash"] in eval_hashes]
-    return {"hashes": eval_hashes, "groups": groups, "subjects": {g[0] for g in groups}, "clips": eval_clips}
+    return {"hashes": eval_hashes, "groups": groups, "subjects": {g[0] for g in groups}, "clips": eval_clips, "closed": closed}
 
 
 def find_leaks(manifest_rows: list[dict], clips: list[dict], ev: dict, *, eligible=_eligible) -> dict:
@@ -99,13 +111,27 @@ def find_leaks(manifest_rows: list[dict], clips: list[dict], ev: dict, *, eligib
     return {"L1_same_file": l1, "L2_same_session": l2, "L3_same_subject": l3}
 
 
+def verdict_code(ev: dict, leaks: dict) -> int:
+    """보고서 판정 줄과 main 의 exit 코드를 같은 값으로 정한다 — 둘이 갈라지지 않게.
+    0 = 평가셋 있음 + L1·L2 = 0 (세션 분리 OK)
+    1 = L1 또는 L2 누수 (학습 전에 막아야 한다)
+    2 = 평가셋 없음 = 통과 아님 — 다음 시험 영상이 봉인되기 전까지 게이트 4 꺼짐 (누수 0 이 '분리됐다'는 뜻이 아니다)"""
+    if not ev["hashes"]:
+        return 2
+    return 1 if (leaks["L1_same_file"] or leaks["L2_same_session"]) else 0
+
+
 def render_report(ev: dict, leaks: dict, n_eligible: int, *, now: str) -> str:
     subjects = sorted(ev["subjects"])
     lines = [
         "# 평가셋 분리 점검 (TRAINING-DUE 게이트 4)", "",
         f"점검 {now} · 학습 후보(증류 대상) {n_eligible}행", "",
-        f"- 평가 영상(봉인 시험지 + 짝): {len(ev['hashes'])}편 · 평가 그룹(인물·세션): {sorted(ev['groups'])} · 평가 인물: {subjects}",
+        f"- 시험 영상(안 닫힌 시험 + 짝): {len(ev['hashes'])}편 · 평가 그룹(인물·세션): {sorted(ev['groups'])} · 평가 인물: {subjects}",
         f"- 평가 그룹에 속한 클립: {len(ev['clips'])}편",
+    ]
+    if ev.get("closed"):
+        lines += [f"- 닫힌 시험 {len(ev['closed'])}건 {ev['closed']} — 채점이 끝난 연습 영상이라 평가에서 빼고 학습 후보로 둔다 (belle 09-26)"]
+    lines += [
         "",
         f"| 누수 | 건수 | 뜻 |", "|---|---|---|",
         f"| L1 같은 파일 | {len(leaks['L1_same_file'])} | 평가 영상 그 자체가 학습 후보 — **오류** |",
@@ -116,11 +142,13 @@ def render_report(ev: dict, leaks: dict, n_eligible: int, *, now: str) -> str:
     for k in ("L1_same_file", "L2_same_session", "L3_same_subject"):
         if leaks[k]:
             lines += [f"{k}:"] + [f"- {s}" for s in leaks[k]] + [""]
-    if len(subjects) <= 1:
-        lines += ["**인물 분리 불가** — 평가 인물이 1명뿐이다(정은지). 다른 사람의 봉인 시험지가 생겨야 게이트 4 가 켜진다. "
+    if len(subjects) == 1:                    # 0명이면 이 단락은 거짓이다 — 그때는 아래 '평가셋 없음' 판정이 말한다
+        lines += ["**인물 분리 불가** — 평가 인물이 1명뿐이다(정은지). 다른 사람의 시험 영상이 생겨야 게이트 4 가 켜진다. "
                   "그 전까지 세션 분리(L1·L2 = 0)만 지킨다.", ""]
-    ok = not leaks["L1_same_file"] and not leaks["L2_same_session"]
-    lines += ["판정: " + ("세션 분리 OK (L1·L2 = 0)" if ok else "**누수 — 학습 전에 `--mark-holdout` 또는 manifest 수정**")]
+    code = verdict_code(ev, leaks)
+    lines += ["판정: " + {0: "세션 분리 OK (L1·L2 = 0)",
+                          1: "**누수 — 학습 전에 `--mark-holdout` 또는 manifest 수정**",
+                          2: "평가셋 없음 — 다음 시험 영상이 봉인되기 전까지 게이트 4 꺼짐"}[code]]
     return "\n".join(lines) + "\n"
 
 
@@ -146,7 +174,7 @@ def main() -> int:
         MANIFEST.write_text(json.dumps(man, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"manifest: {n}행 holdout=sealed_eval")
         return 0
-    return 0 if not (leaks["L1_same_file"] or leaks["L2_same_session"]) else 1
+    return verdict_code(ev, leaks)
 
 
 if __name__ == "__main__":

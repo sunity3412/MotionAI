@@ -174,10 +174,13 @@ PYEOF
 #   명시적으로 낮춰 쓰는 구조여야 "왜 이 값인가"가 추적된다.
 SFT_LORA_RANK="${SFT_LORA_RANK:-64}"
 SFT_LORA_ALPHA="${SFT_LORA_ALPHA:-128}"
-# 학습 강도 축 (v34 실험, 2026-08-26): 기본값은 기존 그대로(무회귀). 근거 —
-# v33 까지 LR 1e-5 는 QLoRA 통상치(1e-4~2e-4)의 1/10 수준인데, 08-23 실측이
-# "train 셋 재현 5/12"(자기 학습 데이터도 못 외움)를 보여 강도 부족이 유력.
-SFT_LR="${SFT_LR:-1e-5}"
+# 학습 강도 축 (v34 실험, 2026-08-26): v33 까지 LR 1e-5 는 QLoRA 통상치(1e-4~2e-4)의
+# 1/10 수준이었고, 08-23 실측이 "train 셋 재현 5/12"(자기 학습 데이터도 못 외움)를 보였다.
+# 같은 데이터에서 LR 만 1e-4 로 올리자 결함 짚기 0/29 → 9리포트·33결함(run1/run2 동일)
+# — 침묵의 진범 (.planning/quick/260826-v34-lr-intensity/SUMMARY.md). 직전 사이클 v38 을 만든
+# 래퍼도 1e-4 를 넘겼다(260828-v34-targeted-data/v34_cycle.sh:45). 그런데 기본값은 1e-5 로 남아
+# 래퍼 없이 문서대로 돌리면 침묵 설정으로 돌아갔다 → 2026-10-02 기본값을 1e-4 로 옮긴다.
+SFT_LR="${SFT_LR:-1e-4}"
 SFT_EPOCHS="${SFT_EPOCHS:-4}"
 SFT_MAX_LENGTH="${SFT_MAX_LENGTH:-32768}"
 SFT_FREEZE_VIT="${SFT_FREEZE_VIT:-false}"

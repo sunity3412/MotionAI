@@ -5,7 +5,7 @@ milestone_name: milestone
 status: executing
 stopped_at: "2026-10-01 저녁 마감 — Phase 38 13/14, 38-14 일시 중단(Task 1·2 완료). 대역 등록 2회 실패(화분 오검출 · 대각선 출발) → belle "하나씩 고치면 절대 안돼" → 공급자 입구 1단계-가 quick 261001-thx 완료·배포(분석 불가만 막기 · review 상태 · 검수 CLI · layer :24 · 웹). Pod 코드는 아직 옛 판정. 다음 = 38-14 재개(Pod 기동 → 대역 재업로드 → list/show/approve → picker → mode1). 인계서 = `.planning/phases/38-supplier-link/38-PLAN-CHECK.md` 맨 위 다음 절"
 last_updated: "2026-09-30T01:02:33.985Z"
-last_activity: 2026-10-01
+last_activity: 2026-10-02
 progress:
   total_phases: 21
   completed_phases: 11
@@ -167,7 +167,7 @@ Status: Ready to execute
 
 > ⚠ Phase 38 Decision-Coverage Gate override (2026-09-28): 21/22 CONTEXT 결정이 plan 에 인용. 미커버 D-06(clipRange 승격은 **선택** — 손 입력 유지 가능, Gemini A 는 붙이거나 미룬다)은 38-01·38-12 `read_first` 에만 인용(리뷰 전 debb86bf 도 같은 줄 — 09-28 차단 수정과 무관). 현 플랜은 D-06 의 허용 갈래: 요청 계약 `clipRange?` 선택 필드(38-01:162) · 공급자 폼은 clipRange 를 보내지 않음(38-03:162) → 없으면 런타임 DTW 폴백, Gemini A 승격은 미룸. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 09-28).
 
-Last activity: 2026-10-01 - Completed quick task 260930-w9l: 공급자 폼 수정 묶음(belle 폰 확인 뒤)
+Last activity: 2026-10-02 - Completed quick task 261002-kkt: 재학습 게이트 4 holdout 정책 코드 반영(평가셋 없음 = exit 2)
 
 이전: 2026-08-31 - **코드리뷰 후속 수리 2건 (belle "고고")** — 리뷰(c2976102..HEAD, high)가 크레딧 소진으로 중단됐으나 확보된 후보를 실측 처분: ①vision tol 우회 소음 감점 위험 = **기각**(정타 6편 전부 vision 결함 보고 0건, N=1→N=6. 대조: kip-up fault 는 20도 보고 — 변별 유지) ②기준 doc joints3d 부재 = **기각**(11/11 보유) ③**신규 발견·수리**: 기준 4/11(foxtop·foxtop-split·invert·sideway-spin)이 y축 회전잔여(1e-13)뿐인 x-z 평면 저장 → 상체각이 상수 90도 = 지어낸 코칭. up축 소실 가드(좌표스케일x eps) 도입, 못 재면 NaN→라인 생략 ④**자세 축 양방향화**: 종전 한 방향 발화는 서 있는 동작(11개 중 3개)에서만 참 — 수평·뒤집힘 8개의 "덜 눕힘" 결함이 영영 안 나왔다. |delta| 판정+문구가 방향 구분, 절대 자세 지시 제거. ★수리 과정 교훈: 최초 가드("정확히 0")가 합성 픽스처만 통과하고 실데이터에서 무력 — 실데이터 검증에서 발각(VERIFY.md 에 FAIL 박제, 픽스처를 실데이터 형태로 교체). 4544 passed/0 failed. 점수 경로 무접촉. 커밋 1aac5b8f. ★미처리: stability 창 자 불일치(점수 이동 있어 belle 예고 후) · 리뷰 미완 각도(앱 result.tsx)
 
@@ -217,6 +217,7 @@ Last activity: 2026-10-01 - Completed quick task 260930-w9l: 공급자 폼 수�
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 261002-kkt | **재학습 게이트 4 — belle 09-26 holdout 정책 코드 반영.** eval_split_check: status≠closed 시험의 rows 만 시험 영상, closed 시험·practice = 연습 영상 → 학습 후보, 짝·세션 확장 규칙 불변. `verdict_code` 0/1/2 — 평가셋 없음 = exit 2(통과 아님). 오늘 데이터 exit 2 · 정은지 실수 fixtures 6편 L1 해소 · 학습 후보 577. 다음 시험 영상(정은지 중급콤보, belle 09-30 Phase 38 뒤) 봉인 전까지 게이트 4 꺼짐. pytest 8/8 · 전체 5860/20 · manifest·sealed_tests 무변경 | 2026-10-02 | 179d1392 | [261002-kkt-gate4-holdout-policy-in-eval-split-check](./quick/261002-kkt-gate4-holdout-policy-in-eval-split-check/) |
 | 261002-fwd | **플라이휠 TRAINING-DUE 덮어쓰기 수리(gsd-fast).** 3-3 절이 `<!-- flywheel:counts -->` 마커 줄만 갱신 · 마커 없는 손판 보존 · 파일 없을 때만 게이트 안내 템플릿 · rows_after=0 이면 삭제 안 함(임시 사본 5경우 통과). TRAINING-DUE 손판 복구 + 10-02 실측: 579/336 · 잔액 $16.93 · eval_split exit 1(L1 6·L3 11) · v38 성적(겨냥 4동작 0/4, svg 0/8). 재학습 판정 = 여전히 불가(게이트 2·3·5 미완, 6·7 미충족) | 2026-10-02 | 4ed805a2 | — |
 | 261001-thx | **공급자 등록 입구 1단계-가 (+보완: 승인 전 한 문구 '확인 중' · CLI deactivate · 웹 I417VO9J…)(belle 10-01 "하나씩 고치면 절대 안돼").** 등록 판정 = 분석 불가만 막음(no_human · 포즈 0 · 파일) — 저신뢰·서 있는 시작·여러 사람은 진단 기록만(private registrationDiagnostics) · 성공 = registrationStatus 'review'(isActive false, 수강생 비노출, 자기 재현성은 계속) · 운영 CLI review_reference_registrations.py list/show/approve/reject · 반려 사유 표시 · playback-url 소유자 review 예외 · 공급자 문구 확인 흐름 + 다듬기 37행. pytest 5833/20 · node 88/88 · layer :24 → playback-url · 웹 무효화 IBUCA5QK6UNO7SLDR7CVATU667. Pod 코드 미반영(38-14 재개 때) | 2026-10-01 | 656c9c99 | [261001-thx-supplier-intake-phase1a-block-only-unana](./quick/261001-thx-supplier-intake-phase1a-block-only-unana/) |
 | 260930-w9l | **공급자 폼 수정 묶음(belle 09-30 저녁 폰 확인 뒤).** 필수 4(체크·동작 이름·레벨·파일) + 필수 표시 · 동의 2('[필수] … · 보기 >' + 거부 시 등록 불가 한 줄) · 학습 체크박스 삭제 → 공급자 계약 근거 기록(trainingBasis supplier_contract, 법률 자문 [미확인]) · 단일/콤보 선택 삭제 → 5초~2분 · 공급자만 1GB · '이 동작에 대해' 3문항 삭제 · 선수 이름 = 초대 실명 고정(서버도 displayName, 없으면 409) · '기본기'→'초급'(앱 탭·홈 카드) · Pod 등록 경로 소리 제거 + 서 있는 시작 썸네일 + playback-url thumbnail(코드만, 배포 38-14). pytest 5755 · node 82/82 · layer :23 → reference-upload-url·playback-url · 웹 재배포 · OTA preview 62eb42e4. belle 폰 재확인 대기 | 2026-10-01 | faf83234 | [260930-w9l-supplier-form-revisions-belle-phone-chec](./quick/260930-w9l-supplier-form-revisions-belle-phone-chec/) |

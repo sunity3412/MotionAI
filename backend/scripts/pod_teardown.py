@@ -80,6 +80,12 @@ def _gql(key: str, query: str) -> dict:
 
 
 def main() -> int:
+    # 2026-10-02: `--help` 를 쳤더니 Pod id 로 받아 terminate("--help") + 주소 되돌림까지 갔다
+    # (38-14 E2E). 아는 플래그는 --urls-only 하나뿐 — 나머지 '-' 시작 인자는 아무것도 안 하고 끝낸다.
+    unknown = [a for a in sys.argv[1:] if a.startswith("-") and a != "--urls-only"]
+    if unknown:
+        print(f"모르는 옵션 {unknown} — 아무것도 하지 않았다. 사용법은 이 파일 머리말(사용:).", file=sys.stderr)
+        return 2
     args = [a for a in sys.argv[1:] if a != "--urls-only"]
     urls_only = "--urls-only" in sys.argv[1:]
     sess = _session()

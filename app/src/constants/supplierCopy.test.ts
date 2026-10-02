@@ -22,6 +22,8 @@
 //  12) 38-DESIGN-v2(quick-260930-lfw) A-2 초대받은 분만 · 강사 코드 줄 · 크게 보기 문구 + 지운 키.
 //  13) quick-260930-w9l(belle 2026-09-30 폰 확인) — 필수 표시 · 체크 4 · 동의 2 + 보기 · 학습 계약
 //      안내 · 5초~2분 · 1GB · 소리 서버 제거 · 선언 3 삭제 · 선수 이름 고정 · 초급 + 지운 키.
+//  15) quick-261002-pa2(belle 2026-10-02 결정 1·3·4·6) — 검토 요청 말(검토 중 · 하루 안 · 검토를 요청했어요),
+//      요청 취소 확인창 · 취소 오류(models.py 와 같은 글자) · 취소됨, 메일 · 기한 약속 없음.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,6 +39,12 @@ const GUIDE_MD = fs.readFileSync(
 );
 const ANALYSIS_TS = fs.readFileSync(
   path.join(HERE, '..', 'types', 'analysis.ts'),
+  'utf8',
+);
+// pa2 — 취소 오류 문구는 서버 models.py 상수와 같은 글자여야 한다(앱은 code 로만 분기하지만 문구가 갈리면
+// belle 이 두 곳을 봐야 한다). 텍스트로 읽어 대조한다.
+const MODELS_PY = fs.readFileSync(
+  path.join(HERE, '..', '..', '..', 'backend', 'shared', 'python', 'sunity_shared', 'models.py'),
   'utf8',
 );
 
@@ -236,7 +244,8 @@ test('row.fail 8코드의 title + ". " + body 가 analysis.ts REGISTRATION_ERROR
 
 test('thx — 승인 전 한 문구 · row.fail.rejected 글자 단위', () => {
   // belle 10-01 "아주 심플하게" — registering/queued/processing/review 를 한 문구로. 옛 키는 없다.
-  assert.equal(supplierCopy.row.status.checking, '확인 중 · 끝나면 수강생에게 보여요');
+  // pa2(belle 10-02 결정 3) — 그 한 문구 = '검토 중'(앱인토스 콘솔 상태어 벤치).
+  assert.equal(supplierCopy.row.status.checking, '검토 중');
   const st = supplierCopy.row.status as unknown as Record<string, unknown>;
   for (const gone of ['registering', 'queued', 'processing', 'review']) {
     assert.equal(gone in st, false, `row.status.${gone}`);
@@ -461,5 +470,68 @@ test('w9l — 가이드 s2 · s3 · s5 · s7 새 문구', () => {
   for (const it of g.s7.items) {
     assert.ok(!it.startsWith('음악'), it);
     assert.ok(!it.startsWith('여러 동작을 이어 찍기'), it);
+  }
+});
+
+// ── 15) quick-261002-pa2 — 검토 요청 · 요청 취소 (belle 2026-10-02 결정 1·3·4·6) ──────────
+
+test('pa2 — 검토 중 · 검토 중 패널 · 확인창 · 취소 오류 · 취소됨 · 업로드 토스트 글자 단위', () => {
+  const r = supplierCopy.row;
+  assert.equal(r.status.checking, '검토 중');
+  assert.equal(r.status.cancelled, '요청 취소됨');
+  assert.equal(r.pending.title, '검토 중이에요');
+  assert.equal(
+    r.pending.body,
+    '검토는 보통 하루 안에 끝나요. 끝나면 바로 수강생에게 공개되고, 결과는 이 화면에서 볼 수 있어요.',
+  );
+  assert.equal(r.pending.cancel, '검토 요청 취소');
+  assert.equal(r.cancelConfirm.title, '검토 요청을 취소할까요?');
+  assert.deepEqual([...r.cancelConfirm.lines], [
+    '취소하면 이 동작은 수강생에게 공개되지 않아요.',
+    '다시 올리려면 새로 올려야 해요.',
+  ]);
+  assert.equal(r.cancelConfirm.confirm, '검토 요청 취소');
+  assert.equal(r.cancelConfirm.busy, '취소하는 중...');
+  assert.equal(r.cancelError.notCancellable, '지금은 취소할 수 없어요. 영상을 처리하는 중이거나 검토가 이미 끝났어요.');
+  assert.equal(r.cancelError.notFound, '이 동작을 찾지 못했어요. 목록에서 다시 확인해 주세요.');
+  assert.equal(r.cancelled.title, '검토 요청을 취소했어요');
+  assert.equal(r.cancelled.body, '다시 올리려면 새로 올려 주세요.');
+  assert.equal(supplierCopy.form.uploaded.toast, '검토를 요청했어요. 보통 하루 안에 끝나요.');
+  // 확인창 닫기 라벨은 새 키 없이 common.close 를 쓴다.
+  assert.equal(supplierCopy.common.close, '닫기');
+});
+
+test('pa2 — 취소 오류 문구 = models.py REFERENCE_* 상수와 같은 글자', () => {
+  const e = supplierCopy.row.cancelError;
+  assert.ok(MODELS_PY.includes(`REFERENCE_NOT_CANCELLABLE_MESSAGE = "${e.notCancellable}"`));
+  assert.ok(MODELS_PY.includes(`REFERENCE_CANCEL_NOT_FOUND_MESSAGE = "${e.notFound}"`));
+});
+
+test('pa2 — 메일 · 기한 약속 없음 (결정 1 · 6 — 메일 인프라 없음, 실제 하루 안)', () => {
+  const r = supplierCopy.row;
+  const reviewTexts = [
+    r.status.checking,
+    r.pending.title,
+    r.pending.body,
+    ...r.cancelConfirm.lines,
+    r.cancelled.title,
+    r.cancelled.body,
+    supplierCopy.form.uploaded.toast,
+  ];
+  for (const t of reviewTexts) {
+    assert.ok(!t.includes('메일'), t);
+    assert.ok(!t.includes('일 이내'), t);
+  }
+  // 공급자 문구 어디에도 '메일로 알려' 약속이 없다(문의 · 초대 메일 안내는 약속이 아니다).
+  for (const [p, s] of ALL_STRINGS) {
+    assert.ok(!s.includes('메일로 알려'), `${p}: ${s}`);
+    assert.ok(!s.includes('출시하기'), `${p}: ${s}`); // 결정 2 — 승인 = 즉시 공개
+  }
+});
+
+test('pa2 — 옛 승인 전 문구 · 옛 업로드 토스트가 없다', () => {
+  for (const [p, s] of ALL_STRINGS) {
+    assert.ok(!s.includes('확인 중 · 끝나면 수강생에게 보여요'), `${p}: ${s}`);
+    assert.ok(!s.includes('운영팀 확인이 끝나면 앱에 보여요'), `${p}: ${s}`);
   }
 });

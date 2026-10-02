@@ -5,6 +5,8 @@
 
 import { auth } from './firebase';
 import type {
+  ReferenceCancelRequest,
+  ReferenceCancelResponse,
   ReferenceUploadUrlRequest,
   ReferenceUploadUrlResponse,
   SupplierProbeResponse,
@@ -402,6 +404,18 @@ export function requestReferenceUploadUrl(
   return authedJson<ReferenceUploadUrlResponse>('/reference/upload-url', {
     method: 'POST',
     body: req,
+  });
+}
+
+// POST /reference/upload-url `{cancel: true, refId}` — 공급자 검토 요청 취소(quick-261002-pa2, belle 2026-10-02
+// 결정 4). 새 라우트 없이 같은 함수의 세 번째 변형. 권한은 서버가 doc.supplierUid == 토큰 uid 로 판정한다
+// (여기서 uid 를 보내지 않는다). 분기는 ApiError.status/code 로 — 409 not_cancellable(queued · review 아님) ·
+// 404 not_found(없는 doc 또는 남의 doc) → supplierRules.cancelFailureMessage. 성공 뒤 행·패널은 Firestore
+// onSnapshot 이 cancelled 로 바꾼다(호출부가 낙관적으로 상태를 쓰지 않는다).
+export function cancelReferenceRegistration(refId: string): Promise<ReferenceCancelResponse> {
+  return authedJson<ReferenceCancelResponse>('/reference/upload-url', {
+    method: 'POST',
+    body: { cancel: true, refId } satisfies ReferenceCancelRequest,
   });
 }
 

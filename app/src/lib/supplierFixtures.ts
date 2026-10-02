@@ -141,6 +141,17 @@ export const supplierFixtures = {
       thumbnailS3Key: 'reference/uid-eunji/r-review/thumb.jpg',
       createdAt: T0 + 9_000,
     },
+    // quick-261002-pa2 — 공급자가 queued 에서 스스로 거둔 검토 요청. isActive false, queuedReason 은 남는다.
+    cancelled: {
+      ...PUBLIC_BASE,
+      name: 'jade',
+      level: 'intermediate',
+      isActive: false,
+      registrationStatus: 'cancelled',
+      queuedReason: 'pod_down',
+      registrationUpdatedAt: T0 + 6_600,
+      createdAt: T0 + 6_500,
+    },
     failedLowConfidence: {
       ...PUBLIC_BASE,
       name: 'elbow-twist',
@@ -296,6 +307,20 @@ export const supplierFixtures = {
     { status: 400, code: 'too_large', expect: 'presignFail' }, // w9l — 1GB 문구지만 분기는 상태코드만 본다
     { status: 409, code: 'supplier_name_missing', expect: 'presignFail' }, // w9l — 화면이 먼저 막는다
     { status: 502, code: 'unknown', expect: 'presignFail' },
+  ],
+
+  // ── 검토 요청 취소 실패 → 문구 (quick-261002-pa2, api.ts ApiError.status/code 형상) ──────────
+  // expect 는 문구 키 이름 — 이 파일은 import 0 이라 문구 자체는 테스트가 supplierCopy 에서 찾는다.
+  cancelFailures: [
+    { status: 409, code: 'not_cancellable', expect: 'notCancellable' },
+    { status: 404, code: 'not_found', expect: 'notFound' },
+    { status: 401, code: 'unauthorized', expect: 'sessionExpired' },
+    { status: 0, code: null, expect: 'offline' },
+    { status: 0, code: 'unauthenticated', expect: 'sessionExpired' }, // api.ts: currentUser 없음
+    { status: 500, code: 'server_error', expect: 'presignFail' },
+    { status: 403, code: 'not_invited', expect: 'presignFail' }, // 명단 회수는 드물다 — 일반 문구
+    { status: 400, code: 'bad_request', expect: 'presignFail' }, // refId 형식 밖(앱은 doc id 만 보낸다)
+    { status: 409, code: 'supplier_name_missing', expect: 'presignFail' }, // 409 라도 취소 코드가 아니면
   ],
 
   // ── S3 PUT 결과 → 다음 화면 (A-5, 두 트랙 같은 전이표) ─────────────────────

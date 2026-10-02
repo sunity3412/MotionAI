@@ -12,7 +12,10 @@
 //   3) selfCheckView / selfCheckNote — 재현성 카드 점수·본문 분리(38-DESIGN A-3c), 반올림, 문턱 경계.
 //   4) failCopy / expiredCopy / normalizePrivate — {joints} 치환, too_large, 미지 코드 → server_error.
 //   5) hasDetail / sortNewestFirst / mapPresignFailure / uploadOutcomeNext — 두 트랙 공용 전이표.
-//   6) quick-261001-thx — review(검수 중) 상태어 · 진행 점 · 상세 없음, 반려 사유 보존과 치환.
+//   6) quick-261001-thx — review(검수 중) 상태어 · 진행 점, 반려 사유 보존과 치환.
+//   7) quick-261002-pa2(belle 2026-10-02 결정 3·4) — 승인 전 넷 = '검토 중' + 검토 중 패널(detailKind
+//      'pending'), queued · review 만 취소(canCancel), 취소 실패 문구(cancelFailureMessage), cancelled =
+//      '요청 취소됨' + 취소됨 패널. hasDetail 은 이제 모든 상태 true.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,6 +23,10 @@ import { supplierCopy } from '../constants/supplierCopy.ts';
 import { supplierFixtures } from './supplierFixtures.ts';
 import {
   bigCodeFontSize,
+  canCancel,
+  cancelFailureMessage,
+  cancelledCopy,
+  detailKind,
   expiredCopy,
   failCopy,
   hasDetail,
@@ -28,6 +35,7 @@ import {
   mapPresignFailure,
   normalizePrivate,
   normalizeRegistration,
+  pendingCopy,
   presignFailureMessage,
   rowStatusWord,
   rowSubtitle,
@@ -85,6 +93,11 @@ test('공개 doc 8상태가 SupplierMotion 으로 — 상태·점수·키 필드
   );
   assert.equal(motion('failedLowConfidence').registrationStatus, 'failed');
   assert.equal(motion('expired').registrationStatus, 'expired');
+  // pa2 — 목록(REGISTRATION_STATUSES)에 없으면 registering 으로 떨어져 '검토 중' 으로 보인다.
+  const cancelled = motion('cancelled');
+  assert.equal(cancelled.registrationStatus, 'cancelled');
+  assert.equal(cancelled.isActive, false);
+  assert.equal(cancelled.queuedReason, 'pod_down');
 });
 
 test('registrationStatus 가 없거나 미지 값이면 registering 기본', () => {
@@ -99,8 +112,8 @@ test('registrationStatus 가 없거나 미지 값이면 registering 기본', () 
 test('rowSubtitle — A-3 상태 표 8행 = `{레벨} · {상태어}` (expired 포함, R4)', () => {
   const s = supplierCopy.row.status;
   // w9l 항목 1 — 레벨 라벨 basic = '초급'(키 'basic' 불변, belle 09-30).
-  // 261001-thx — 승인 전 상태는 한 문구(belle "아주 심플하게").
-  assert.equal(rowSubtitle(motion('registering')), '초급 · 확인 중 · 끝나면 수강생에게 보여요');
+  // 261001-thx — 승인 전 상태는 한 문구(belle "아주 심플하게"). pa2 — 그 문구 = '검토 중'.
+  assert.equal(rowSubtitle(motion('registering')), '초급 · 검토 중');
   assert.equal(rowSubtitle(motion('queued')), `${LEVEL_LABEL_KO.intermediate} · ${s.checking}`);
   assert.equal(rowSubtitle(motion('processing')), `${LEVEL_LABEL_KO.advanced} · ${s.checking}`);
   assert.equal(rowSubtitle(motion('activePending')), `${LEVEL_LABEL_KO.intermediate} · ${s.newlyAdded}`);
@@ -109,6 +122,7 @@ test('rowSubtitle — A-3 상태 표 8행 = `{레벨} · {상태어}` (expired �
   assert.equal(rowSubtitle(motion('activeLow')), '고급 · 재현성 61점 · 다시 찍어 주세요');
   assert.equal(rowSubtitle(motion('failedLowConfidence')), `${LEVEL_LABEL_KO.intermediate} · ${s.failed}`);
   assert.equal(rowSubtitle(motion('expired')), `${LEVEL_LABEL_KO.basic} · ${s.expired}`);
+  assert.equal(rowSubtitle(motion('cancelled')), '중급 · 요청 취소됨');
   assert.deepEqual(LEVEL_LABEL_KO, { basic: '초급', intermediate: '중급', advanced: '고급' });
 });
 
@@ -210,14 +224,25 @@ test('normalizePrivate — 실패 상세·techniqueRefId 만 (R13). 옛 doc 의 
 
 // ── 5) hasDetail / sortNewestFirst / mapPresignFailure / uploadOutcomeNext ──
 
-test('hasDetail — active/failed/expired 만 상세 패널(chevron)', () => {
-  assert.equal(hasDetail(motion('activePending')), true);
-  assert.equal(hasDetail(motion('activeOk')), true);
-  assert.equal(hasDetail(motion('failedLowConfidence')), true);
-  assert.equal(hasDetail(motion('expired')), true);
-  assert.equal(hasDetail(motion('registering')), false);
-  assert.equal(hasDetail(motion('queued')), false);
-  assert.equal(hasDetail(motion('processing')), false);
+// pa2 — 승인 전 행에도 상세(검토 중 패널: 결정 3 안내 · 결정 4 취소 링크)가 생겨 모든 상태가 눌린다.
+test('detailKind 표 · hasDetail 은 모든 상태 true (pa2)', () => {
+  const table = [
+    ['registering', 'pending'],
+    ['queued', 'pending'],
+    ['processing', 'pending'],
+    ['review', 'pending'],
+    ['failedLowConfidence', 'failed'],
+    ['expired', 'expired'],
+    ['cancelled', 'cancelled'],
+    ['activeOk', 'done'],
+    ['activePending', 'done'],
+    ['activeLow', 'done'],
+    ['activeSelfFailed', 'done'],
+  ] as const;
+  for (const [key, kind] of table) {
+    assert.equal(detailKind(motion(key)), kind, key);
+    assert.equal(hasDetail(motion(key)), true, key);
+  }
 });
 
 test('sortNewestFirst — createdAt 내림차순, 입력 배열은 그대로', () => {
@@ -257,13 +282,14 @@ test('uploadOutcomeNext — ok→home · aborted→step2(입력 유지) · faile
 
 // ── 6) quick-261001-thx — 검수 중 · 반려 사유 ──────────────────────────────
 
-test('review — 상태 보존 · 행 부제 = 검수 중 문구 · 진행 점 · 상세 없음 · 썸네일 키 유지', () => {
+test('review — 상태 보존 · 행 부제 = 검토 중 · 진행 점 · 검토 중 패널 · 썸네일 키 유지', () => {
   const m = motion('review');
   assert.equal(m.registrationStatus, 'review'); // registering 으로 떨어지지 않는다
   assert.equal(m.isActive, false);
   assert.equal(m.thumbnailS3Key, rawDocs.review.thumbnailS3Key);
   assert.equal(rowSubtitle(m), `${LEVEL_LABEL_KO.advanced} · ${supplierCopy.row.status.checking}`);
-  assert.equal(hasDetail(m), false);
+  assert.equal(rowSubtitle(m), '고급 · 검토 중');
+  assert.equal(detailKind(m), 'pending'); // pa2 — 승인 전 행도 눌러서 검토 중 패널
   assert.equal(isInProgress(m), true);
 });
 
@@ -280,7 +306,8 @@ test('isInProgress — registering/queued/processing/review 만 진행 점', () 
   for (const key of ['registering', 'queued', 'processing', 'review'] as const) {
     assert.equal(isInProgress(motion(key)), true, key);
   }
-  for (const key of ['activeOk', 'activePending', 'failedLowConfidence', 'expired'] as const) {
+  // pa2 — cancelled 는 진행이 아니다(점 없음 → 쉐브론).
+  for (const key of ['activeOk', 'activePending', 'failedLowConfidence', 'expired', 'cancelled'] as const) {
     assert.equal(isInProgress(motion(key)), false, key);
   }
 });
@@ -314,6 +341,58 @@ test('failCopy — rejected 는 운영자 사유를 본문에 넣고, 사유가 
   }
   // 다른 코드는 reason 인자를 무시한다.
   assert.deepEqual(failCopy('too_large', undefined, '무시'), failCopy('too_large'));
+});
+
+// ── 7) quick-261002-pa2 — 검토 요청 · 요청 취소 ─────────────────────────────
+
+test('pa2 — 승인 전 넷 = 검토 중, cancelled = 요청 취소됨', () => {
+  for (const key of ['registering', 'queued', 'processing', 'review'] as const) {
+    assert.equal(rowStatusWord(motion(key)), supplierCopy.row.status.checking, key);
+    assert.equal(rowStatusWord(motion(key)), '검토 중', key);
+  }
+  assert.equal(rowStatusWord(motion('cancelled')), supplierCopy.row.status.cancelled);
+  assert.equal(rowStatusWord(motion('cancelled')), '요청 취소됨');
+});
+
+test('pa2 — canCancel: queued · review 만 (결정 4)', () => {
+  assert.equal(canCancel(motion('queued')), true);
+  assert.equal(canCancel(motion('review')), true);
+  const never = [
+    'registering',
+    'processing',
+    'activeOk',
+    'activePending',
+    'failedLowConfidence',
+    'expired',
+    'cancelled',
+  ] as const;
+  for (const key of never) {
+    assert.equal(canCancel(motion(key)), false, key);
+  }
+});
+
+test('pa2 — cancelFailureMessage: 409 not_cancellable · 404 · 세션 · 오프라인 · 그 밖은 일반 문구', () => {
+  const byKey: Record<string, string> = {
+    notCancellable: supplierCopy.row.cancelError.notCancellable,
+    notFound: supplierCopy.row.cancelError.notFound,
+    sessionExpired: supplierCopy.form.sessionExpired,
+    offline: supplierCopy.common.offline,
+    presignFail: supplierCopy.form.presignFail,
+  };
+  for (const f of supplierFixtures.cancelFailures) {
+    assert.equal(cancelFailureMessage(f), byKey[f.expect], `${f.status}/${f.code}`);
+  }
+});
+
+test('pa2 — pendingCopy · cancelledCopy 는 row.pending · row.cancelled 의 제목·본문', () => {
+  assert.deepEqual(pendingCopy(), {
+    title: supplierCopy.row.pending.title,
+    body: supplierCopy.row.pending.body,
+  });
+  assert.deepEqual(cancelledCopy(), {
+    title: supplierCopy.row.cancelled.title,
+    body: supplierCopy.row.cancelled.body,
+  });
 });
 
 test('bigCodeFontSize — min(72, max(32, floor(maxWidth / (len * 0.78))))', () => {

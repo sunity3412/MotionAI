@@ -25,6 +25,11 @@
 //   · 2026-09-30 quick-260930-w9l — belle 폰 확인 뒤 수정(필수 표시·동의 2·학습 계약 안내·5초~2분·
 //     1GB·소리 서버 제거·선언 3 삭제·선수 이름 고정·초급). form.sec3 · sec2.combo · sec5.silent/
 //     training/trainingNote/withdraw/tagOptional · row.done.info.split/hold/stand 는 지웠다.
+//   · 2026-10-02 quick-261002-pa2(belle 결정 1~6, 토스 앱인토스 콘솔 '검토 요청 → 검토 완료 · 요청 취소됨'
+//     벤치) — 승인 전 문구를 검토 요청 말로(row.status.checking · row.pending · form.uploaded.toast), 요청 취소
+//     (row.cancelConfirm · row.cancelError · row.cancelled · row.status.cancelled). 메일 · 기한('N일 이내')
+//     약속은 어디에도 두지 않는다(메일 인프라 없음, 실제 검토는 반나절 안). 승인 = 즉시 공개라 '출시하기' 단계
+//     문구도 없다. 반려(row.fail.rejected)는 그대로(결정 5).
 
 export const supplierCopy = {
   common: {
@@ -100,7 +105,9 @@ export const supplierCopy = {
     status: {
       // quick-261001-thx(belle 2026-10-01 "아주 심플하게") — 승인 전 상태(registering · queued · processing ·
       // review)는 공급자에게 한 문구로만 보인다. 실패·만료·승인 뒤 문구는 따로.
-      checking: '확인 중 · 끝나면 수강생에게 보여요',
+      // quick-261002-pa2(belle 2026-10-02 결정 3) — 그 문구 = 앱인토스 콘솔 상태어 '검토 중'. 무엇이 언제
+      // 일어나는지는 눌러서 여는 검토 중 패널(row.pending)이 말한다(행 부제는 짧게).
+      checking: '검토 중',
       newlyAdded: '새로 추가됨',
       self: '재현성 {score}점',
       selfLow: '재현성 {score}점 · 다시 찍어 주세요',
@@ -108,6 +115,31 @@ export const supplierCopy = {
       expired: '업로드가 끝나지 않았어요 · 다시 올리기', // 리뷰 R4
       // quick-261002-pa2(belle 2026-10-02 결정 4) — 공급자가 거둔 검토 요청(앱인토스 '요청 취소됨').
       cancelled: '요청 취소됨',
+    },
+    // 검토 중 패널(quick-261002-pa2, 결정 3·4) — 승인 전 네 상태의 상세. 예상 시간은 '보통 하루 안'(실제
+    // 반나절 안 — 넉넉히), 메일 약속 없음. cancel = queued · review 일 때만 보이는 틸 텍스트 링크.
+    pending: {
+      title: '검토 중이에요',
+      body: '검토는 보통 하루 안에 끝나요. 끝나면 바로 수강생에게 공개되고, 결과는 이 화면에서 볼 수 있어요.',
+      cancel: '검토 요청 취소',
+    },
+    // 요청 취소 확인창(결정 4, Figma 1:499 알림창 문법) — 브라우저 confirm 금지, 화면 안 창. 닫기 = common.close.
+    cancelConfirm: {
+      title: '검토 요청을 취소할까요?',
+      lines: ['취소하면 이 동작은 수강생에게 공개되지 않아요.', '다시 올리려면 새로 올려야 해요.'],
+      confirm: '검토 요청 취소',
+      busy: '취소하는 중...',
+    },
+    // 취소 실패(409 not_cancellable · 404 not_found) — models.py REFERENCE_NOT_CANCELLABLE_MESSAGE ·
+    // REFERENCE_CANCEL_NOT_FOUND_MESSAGE 와 같은 글자(supplierCopy.test 가 대조). 앱은 code 로만 분기한다.
+    cancelError: {
+      notCancellable: '지금은 취소할 수 없어요. 영상을 처리하는 중이거나 검토가 이미 끝났어요.',
+      notFound: '이 동작을 찾지 못했어요. 목록에서 다시 확인해 주세요.',
+    },
+    // 취소됨 패널(결정 4) — 짧은 한 줄 + 다시 올리기(failed/expired 와 같은 프리필).
+    cancelled: {
+      title: '검토 요청을 취소했어요',
+      body: '다시 올리려면 새로 올려 주세요.',
     },
     // 만료 패널(리뷰 R4) — 코드 칩·TIP 없이 제목·본문 + 다시 올리기
     expired: {
@@ -283,7 +315,8 @@ export const supplierCopy = {
       summaryTitle: '{name} · {level}',
       summaryMeta: '{file} · {meta}',
     },
-    uploaded: { toast: '동작을 올렸어요. 운영팀 확인이 끝나면 앱에 보여요.' },
+    // quick-261002-pa2(결정 1·3) — 올린 순간 = 검토 요청. 메일 약속 없이 예상 시간만.
+    uploaded: { toast: '검토를 요청했어요. 보통 하루 안에 끝나요.' },
     uploadFail: {
       title: '올리지 못했어요',
       body: '인터넷 연결이 끊겼거나 올리는 시간이 너무 오래 걸렸어요. 다시 올려 주세요.',

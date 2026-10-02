@@ -14,6 +14,8 @@
 // CodeRow · BigCodeModal.
 // 2026-09-30 quick-260930-w9l(belle 폰 확인): RequiredMark · FieldLabel(필수 표시) · ReadOnlyField
 // (선수 이름 고정) · CheckboxRow 링크 글자('보기 >') · ListRow 썸네일 · WithdrawNote 삭제.
+// 2026-10-02 quick-261002-pa2(belle 결정 3·4): PendingPanel(검토 중 패널 + 검토 요청 취소 링크) ·
+// ConfirmDialog(화면 안 확인창 — Figma 1:499 알림창 문법, 브라우저 confirm/alert 금지).
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -703,7 +705,13 @@ export function BigCodeModal({
 // 원형은 AI분석 계열 다크 화면이라 색은 라이트 토큰으로 옮긴다(UI-SPEC Figma 참조 표 서두).
 // 원형 X = 링 brand · 원형 체크 = 링 progressGreen. 문구는 전부 호출부가 supplierCopy/supplierRules 로.
 
-function RingIcon({ name, color }: { name: 'close' | 'checkmark'; color: string }) {
+function RingIcon({
+  name,
+  color,
+}: {
+  name: 'close' | 'checkmark' | 'time-outline';
+  color: string;
+}) {
   return (
     <View style={[s.ring, { borderColor: color }]}>
       <Ionicons name={name} size={36} color={color} />
@@ -757,6 +765,143 @@ export function FailurePanel({
         <TextLink label={backLabel} onPress={onBack} tone="cancel" center />
       </View>
     </View>
+  );
+}
+
+// quick-261002-pa2 검토 중 패널(결정 3·4) — 승인 전 네 상태의 상세. FailurePanel 레이아웃 문법:
+// 시계 링 72(brand) → 24 → 제목 18/700 가운데 → 8 → 본문 17 textMid 가운데 → (오류면 16 → 틸 한국어 문장) →
+// (취소 가능하면 24 → `검토 요청 취소` 틸 밑줄 — design.md §0 결정 트리 2 "위험 액션 → 텍스트만 틸",
+// 같은 페이지 '다른 계정으로 로그인' 과 같은 문법) → 16 → `목록으로` 가운데.
+export function PendingPanel({
+  title,
+  body,
+  cancelLabel,
+  onCancel,
+  error,
+  backLabel,
+  onBack,
+}: {
+  title: string;
+  body: string;
+  cancelLabel?: string;
+  onCancel?: () => void;
+  error?: string | null;
+  backLabel: string;
+  onBack: () => void;
+}) {
+  return (
+    <View style={[s.panel, s.panelFail]}>
+      <RingIcon name="time-outline" color={colors.brand} />
+      <Text style={[text.title, text.center, s.mt24]} accessibilityRole="header">
+        {title}
+      </Text>
+      <Text style={[text.label, text.mid, text.center, s.mt8]}>{body}</Text>
+      {error ? (
+        <Text
+          style={[text.label, text.center, s.errorText, s.mt16]}
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+        >
+          {error}
+        </Text>
+      ) : null}
+      {cancelLabel && onCancel ? (
+        <View style={s.mt24}>
+          <TextLink label={cancelLabel} onPress={onCancel} tone="signOut" center />
+        </View>
+      ) : null}
+      <View style={cancelLabel && onCancel ? s.mt16 : s.mt24}>
+        <TextLink label={backLabel} onPress={onBack} tone="cancel" center />
+      </View>
+    </View>
+  );
+}
+
+// quick-261002-pa2 화면 안 확인창(결정 4) — 공급자 업로드 화면이 쓰는 알림창(PickErrorDialog, Figma 1:499)과
+// 같은 문법을 이 파일 토큰으로 그린다: 투명 Modal fade · brandOverlay 배경 · dialogBg 카드(반경 dialog) ·
+// AlertIcon · 제목 · 두 줄 · [닫기] 좁게 + 주액션 넓게. PickErrorDialog 는 수강생 앱 공용이라 손대지 않는다.
+// busy 동안 두 버튼 모두 누를 수 없고 주액션 글자가 busyLabel 로 바뀐다. 백드롭 탭 · 웹 ESC/뒤로
+// (onRequestClose)는 busy 가 아닐 때만 onClose — 요청이 날아가는 중에 창이 사라지지 않게.
+export function ConfirmDialog({
+  visible,
+  title,
+  lines,
+  closeLabel,
+  confirmLabel,
+  busyLabel,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  title: string;
+  lines: readonly string[];
+  closeLabel: string;
+  confirmLabel: string;
+  busyLabel: string;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const dismiss = () => {
+    if (!busy) onClose();
+  };
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
+      <View style={s.dialogBackdrop}>
+        <Pressable
+          style={s.dialogBackdropFill}
+          onPress={dismiss}
+          accessibilityRole="button"
+          accessibilityLabel={closeLabel}
+        />
+        <View style={s.dialogCard} accessibilityViewIsModal>
+          <AlertIcon />
+          <Text style={[s.dialogTitle, s.mt12]} accessibilityRole="header">
+            {title}
+          </Text>
+          <View style={s.dialogLines}>
+            {lines.map((line) => (
+              <Text key={line} style={s.dialogBody}>
+                {line}
+              </Text>
+            ))}
+          </View>
+          <View style={s.dialogButtons}>
+            <Pressable
+              onPress={onClose}
+              disabled={busy}
+              hitSlop={space.s6}
+              style={({ pressed }) => [
+                s.dialogClose,
+                pressed && !busy && s.pressed,
+                busy && s.busy,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={closeLabel}
+              accessibilityState={{ disabled: busy }}
+            >
+              <Text style={s.dialogCloseLabel}>{closeLabel}</Text>
+            </Pressable>
+            <Pressable
+              onPress={onConfirm}
+              disabled={busy}
+              hitSlop={space.s6}
+              style={({ pressed }) => [
+                s.dialogPrimary,
+                pressed && !busy && s.pressed,
+                busy && s.busy,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={busy ? busyLabel : confirmLabel}
+              accessibilityState={{ disabled: busy, busy }}
+            >
+              <Text style={s.dialogPrimaryLabel}>{busy ? busyLabel : confirmLabel}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -1121,6 +1266,56 @@ const s = StyleSheet.create({
     paddingVertical: space.s10,
   },
   infoValue: { flexShrink: 1, textAlign: 'right' },
+
+  // quick-261002-pa2 — 검토 중 패널 오류 문장(틸) · 확인창(PickErrorDialog 문법, 토큰만).
+  errorText: { color: colors.infoTeal },
+  dialogBackdrop: {
+    flex: 1,
+    backgroundColor: colors.brandOverlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.screen,
+  },
+  dialogBackdropFill: { ...StyleSheet.absoluteFillObject },
+  dialogCard: {
+    width: '100%',
+    maxWidth: layout.dialogMaxWidth,
+    backgroundColor: colors.dialogBg,
+    borderRadius: radius.dialog,
+    paddingHorizontal: spacing.cardPadding,
+    paddingTop: spacing.cardPadding + space.sm,
+    paddingBottom: spacing.cardPadding,
+    alignItems: 'center',
+  },
+  dialogTitle: { ...typography.dialogTitle, color: colors.textPrimary, textAlign: 'center' },
+  dialogLines: { marginTop: space.s6, alignSelf: 'stretch' },
+  dialogBody: { ...typography.dialogBody, color: colors.textPrimary, textAlign: 'center' },
+  dialogButtons: {
+    flexDirection: 'row',
+    gap: space.sm,
+    alignSelf: 'stretch',
+    marginTop: space.md,
+  },
+  dialogClose: {
+    flex: layout.dialogCloseFlex,
+    height: layout.dialogButtonHeight,
+    borderRadius: radius.dialogButton,
+    backgroundColor: colors.cardBg,
+    borderWidth: BORDER,
+    borderColor: colors.divider,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogCloseLabel: { ...typography.dialogButton, color: colors.dialogMutedText },
+  dialogPrimary: {
+    flex: layout.dialogPrimaryFlex,
+    height: layout.dialogButtonHeight,
+    borderRadius: radius.dialogButton,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogPrimaryLabel: { ...typography.dialogButton, color: colors.textWhite },
 });
 
 // ── 올리기 폼 프리미티브 (Phase 38-11 · UI-SPEC A-4 · A-5 · Component Inventory) ──────────

@@ -9,6 +9,10 @@
 //
 // 문자열은 전부 supplierCopy 참조 + String.replace(`{score}` `{joints}` `{reason}`) — HTML/JSX 로 해석하지
 // 않는다(위협 T-38-03-2). 소비처(38-10/38-12)는 textContent / <Text> 로만 그린다.
+//
+// quick-261002-pa2(belle 2026-10-02 결정 3·4): 승인 전 행에도 상세(검토 중 패널)가 생겼다 — detailKind 가
+// 상세 종류를 한 곳에서 정하고 hasDetail 은 그 결과로 계산한다. 취소 가능 판정(canCancel) · 취소 실패
+// 문구(cancelFailureMessage) · 취소됨/검토 중 패널 문구도 여기.
 
 import type {
   ReferenceRegistrationError,
@@ -178,6 +182,8 @@ function assertNever(x: never): never {
 // quick-261001-thx(belle "아주 심플하게"): 승인 전 네 상태(registering · queued · processing · review)는
 // 한 문구 `checking`. 운영자가 승인 뒤 내린(isActive false) doc 은 registrationStatus 가 active 그대로라
 // 승인 뒤 문구를 그대로 쓴다(새 공급자 문구를 만들지 않는다 — 운영 예외 경로).
+// quick-261002-pa2(belle 2026-10-02 결정 3·4): `checking` = '검토 중'(앱인토스 콘솔 상태어), 공급자가 거둔
+// 등록(cancelled) = '요청 취소됨'.
 export function rowStatusWord(m: SupplierMotion): string {
   const s = supplierCopy.row.status;
   switch (m.registrationStatus) {
@@ -260,20 +266,70 @@ export function expiredCopy(): { title: string; body: string } {
 }
 
 // 행 오른쪽 진행 점(38-DESIGN A-3) — 아직 끝나지 않은 상태. review(검수 중, quick-261001-thx)도
-// 공급자에게는 기다리는 중이라 같은 점을 쓴다(상세 패널 없음).
+// 공급자에게는 기다리는 중이라 같은 점을 쓴다. cancelled(pa2)는 끝난 상태라 점이 아니다(쉐브론).
 export function isInProgress(m: SupplierMotion): boolean {
   const st = m.registrationStatus;
   return st === 'registering' || st === 'processing' || st === 'queued' || st === 'review';
 }
 
-// chevron → 상세 패널이 있는 상태(A-3 표): active(A-3c) · failed(A-3b) · expired(만료 패널).
-// review 는 상세가 없다(검수 결과가 나면 active 또는 failed 로 바뀐다).
+// 상세 패널 종류(quick-261002-pa2) — 행을 눌렀을 때 무엇을 여는가. 화면 파일은 이 값으로만 분기한다.
+//   pending   = 승인 전 넷(registering · queued · processing · review) — 검토 중 패널(결정 3 안내 + 결정 4 취소)
+//   failed    = A-3b 실패 패널 · expired = 만료 패널(R4) · cancelled = 취소됨 패널(결정 4)
+//   done      = A-3c 완료 패널(active — 운영자가 내린 isActive false 도 같은 패널)
+export type DetailKind = 'pending' | 'failed' | 'expired' | 'cancelled' | 'done';
+
+export function detailKind(m: SupplierMotion): DetailKind {
+  switch (m.registrationStatus) {
+    case 'registering':
+    case 'queued':
+    case 'processing':
+    case 'review':
+      return 'pending';
+    case 'failed':
+      return 'failed';
+    case 'expired':
+      return 'expired';
+    case 'cancelled':
+      return 'cancelled';
+    case 'active':
+      return 'done';
+    default:
+      return assertNever(m.registrationStatus);
+  }
+}
+
+// 행이 눌리는가 — 이제 모든 상태가 상세를 가진다(pa2: 승인 전 행에 결정 3 안내 문구와 결정 4 취소 버튼을
+// 담을 검토 중 패널이 생겼다). detailKind 가 모든 상태를 덮으므로 항상 true 지만, 화면은 이 함수를 계속
+// 부른다 — 상세 없는 상태가 다시 생기면 여기 한 곳만 바뀐다.
 export function hasDetail(m: SupplierMotion): boolean {
-  return (
-    m.registrationStatus === 'active' ||
-    m.registrationStatus === 'failed' ||
-    m.registrationStatus === 'expired'
-  );
+  return detailKind(m) != null;
+}
+
+// 공급자가 검토 요청을 거둘 수 있는가(결정 4) — queued(분석 서버 대기) · review(사람 검토 대기)만.
+// registering(업로드 중) · processing(Pod 처리 중)은 서버가 409 로 막는 상태라 링크를 보이지 않는다.
+export function canCancel(m: SupplierMotion): boolean {
+  return m.registrationStatus === 'queued' || m.registrationStatus === 'review';
+}
+
+// 검토 중 패널 문구(결정 3) — 예상 시간 · 공개 시점 · 결과 위치. 메일 약속 없음.
+export function pendingCopy(): { title: string; body: string } {
+  return { title: supplierCopy.row.pending.title, body: supplierCopy.row.pending.body };
+}
+
+// 취소됨 패널 문구(결정 4) — 짧은 한 줄. 다시 올리기는 failed/expired 와 같은 프리필.
+export function cancelledCopy(): { title: string; body: string } {
+  return { title: supplierCopy.row.cancelled.title, body: supplierCopy.row.cancelled.body };
+}
+
+// 취소 요청 실패 → 한국어 문구(결정 4). 입력은 api.ts ApiError 의 {status, code}. 409 는 code 가
+// not_cancellable 일 때만 취소 문구로 단정한다(다른 409 는 일반 문구). 그 밖은 presign 실패와 같은 표 —
+// 401 · 0+unauthenticated = 세션 만료, 0 = 오프라인, 403(명단 회수 — 드물다)과 나머지 = 일반 문구.
+export function cancelFailureMessage(failure: { status: number; code?: string | null }): string {
+  if (failure.status === 409 && failure.code === 'not_cancellable') {
+    return supplierCopy.row.cancelError.notCancellable;
+  }
+  if (failure.status === 404) return supplierCopy.row.cancelError.notFound;
+  return presignFailureMessage(mapPresignFailure(failure)) ?? supplierCopy.form.presignFail;
 }
 
 // 목록 정렬 — 최신 등록 먼저(createdAt desc). 입력은 건드리지 않는다.

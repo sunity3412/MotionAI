@@ -14,6 +14,8 @@
 // (quick-260930-lfw — 코드 카드·빌드 라벨 삭제).
 // 2026-09-30 quick-260930-w9l — 다시 올리기 프리필 = name · level · techniqueRefId, A-3c 정보 표의
 // 스플릿·유지·서 있는 시작 행 삭제, 목록 행 썸네일(thumbnailS3Key → referenceThumbs.ts).
+// 2026-10-02 quick-261002-pa2(belle 결정 3·4) — 승인 전 행도 눌러서 검토 중 패널(하루 안 안내), queued ·
+// review 만 '검토 요청 취소' → 화면 안 확인창(ConfirmDialog) → POST {cancel, refId}, cancelled 행 = 취소됨 패널.
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
@@ -28,6 +30,7 @@ import {
   Card,
   Chip,
   CodeRow,
+  ConfirmDialog,
   ContactRow,
   DonePanel,
   FailurePanel,
@@ -38,6 +41,7 @@ import {
   NoticePill,
   OutlineButton,
   PageFrame,
+  PendingPanel,
   PillCta,
   PrimaryCta,
   SectionHeader,
@@ -51,7 +55,7 @@ import {
   type RowTrailing,
 } from '../../components/SupplierUi';
 import { supplierCopy } from '../../constants/supplierCopy';
-import { ApiError, probeSupplier } from '../../lib/api';
+import { ApiError, cancelReferenceRegistration, probeSupplier } from '../../lib/api';
 import { displayNameOf, useAuthUser } from '../../lib/authUser';
 import { auth } from '../../lib/firebase';
 import { useReferenceThumbUri } from '../../lib/referenceThumbs';
@@ -59,12 +63,17 @@ import { toPrefillParams } from '../../lib/supplierForm';
 import { signInWithGoogle } from '../../lib/socialAuth';
 import { useSupplierMotions, useSupplierRegistrationPrivate } from '../../lib/supplierMotions';
 import {
+  canCancel,
+  cancelFailureMessage,
+  cancelledCopy,
+  detailKind,
   expiredCopy,
   failCopy,
   hasDetail,
   isInProgress,
   LEVEL_LABEL_KO,
   mapPresignFailure,
+  pendingCopy,
   presignFailureMessage,
   rowSubtitle,
   SELF_SCORE_OK_MIN,
@@ -117,7 +126,8 @@ function formatDate(epochMs: number): string {
 const EMPTY_VALUE = '–';
 
 // 38-DESIGN A-3 행 오른쪽 — 진행 중(registering/processing/queued/review)은 8px 점, 상세가 있으면 쉐브론.
-// 진행 판정은 supplierRules.isInProgress 한 곳(quick-261001-thx 가 review 를 더했다).
+// 진행 판정은 supplierRules.isInProgress 한 곳(quick-261001-thx 가 review 를 더했다). pa2 뒤 진행 중 행도
+// 눌린다(검토 중 패널) — 점은 그대로 두고, cancelled 는 끝난 상태라 쉐브론.
 function rowTrailing(m: SupplierMotion): RowTrailing {
   if (isInProgress(m)) return 'progress';
   return hasDetail(m) ? 'chevron' : null;
@@ -277,14 +287,41 @@ export default function SupplierHome() {
   const detailMotion =
     probe.kind === 'ok' && detailId ? sorted.find((m) => m.motionId === detailId) ?? null : null;
   const detailOpen = detailMotion != null && hasDetail(detailMotion);
-  // 비공개 doc 은 상세가 열렸을 때만 1건 구독(R13) — 목록에서는 읽지 않는다.
+  // 비공개 doc 은 상세가 열렸을 때만 1건 구독(R13) — 목록에서는 읽지 않는다. 검토 중 패널(pa2)은 비공개
+  // doc 을 쓰지 않으므로 구독하지 않는다(읽기 1건 절약). 취소되면 detailKind 가 cancelled 로 바뀌어 그때
+  // 구독이 시작된다(다시 올리기 프리필의 techniqueRefId).
   const { priv, loading: privLoading, error: privError } = useSupplierRegistrationPrivate(
-    detailOpen ? detailMotion.motionId : null,
+    detailOpen && detailKind(detailMotion) !== 'pending' ? detailMotion.motionId : null,
   );
   // 남의 doc(permission-denied)이면 목록으로 — 실패 문구로 강등하지 않는다.
   useEffect(() => {
     if (privError === 'permission-denied') router.replace('/supplier');
   }, [privError, router]);
+
+  // ── 검토 요청 취소(quick-261002-pa2, 결정 4) — 확인창 → 서버 → 행·패널은 onSnapshot 이 바꾼다 ──
+  const [cancelAsk, setCancelAsk] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  // 다른 행의 상세로 넘어가면 앞 행의 확인창 · 실패 문구를 남기지 않는다.
+  useEffect(() => {
+    setCancelAsk(false);
+    setCancelError(null);
+  }, [detailId]);
+
+  // 성공이면 창만 닫는다 — cancelled 로의 전환은 Firestore 구독이 그린다(낙관적 상태 쓰기 없음).
+  // 실패면 창을 닫고 검토 중 패널에 한국어 문구(409 not_cancellable · 404 · 세션 · 오프라인).
+  const confirmCancel = async (motionId: string) => {
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      await cancelReferenceRegistration(motionId);
+    } catch (e) {
+      setCancelError(cancelFailureMessage(errorStatus(e)));
+    } finally {
+      setCancelBusy(false);
+      setCancelAsk(false);
+    }
+  };
 
   // 방금 올린 행(?justUploaded=refId) — 토스트 form.uploaded.toast + 테두리 brand 3초 + 스크롤
   // (UI-SPEC A-3 · A-5). 38-11: 홈이 보인 뒤(probe ok)에 띄운다 — 확인 중 화면에는 Toast 가 없어
@@ -466,12 +503,56 @@ export default function SupplierHome() {
     );
   }
 
-  // ── A-3b · 만료 · A-3c 상세 ──
+  // ── A-3b · 만료 · A-3c · 검토 중 · 취소됨 상세 (종류 = supplierRules.detailKind 한 곳) ──
   if (detailOpen) {
     const m = detailMotion;
     const tip = { head: supplierCopy.row.tipHead, lines: supplierCopy.row.tip };
+    const kind = detailKind(m);
     let panel: React.ReactNode;
-    if (m.registrationStatus === 'failed') {
+    let dialog: React.ReactNode = null;
+    if (kind === 'pending') {
+      // pa2 결정 3·4 — 하루 안 안내 + (queued · review 일 때만) 검토 요청 취소 링크 → 화면 안 확인창.
+      const copy = pendingCopy();
+      const cancellable = canCancel(m);
+      panel = (
+        <PendingPanel
+          title={copy.title}
+          body={copy.body}
+          cancelLabel={cancellable ? supplierCopy.row.pending.cancel : undefined}
+          onCancel={cancellable ? () => setCancelAsk(true) : undefined}
+          error={cancelError}
+          backLabel={supplierCopy.common.toList}
+          onBack={closeDetail}
+        />
+      );
+      const ask = supplierCopy.row.cancelConfirm;
+      dialog = (
+        <ConfirmDialog
+          visible={cancelAsk}
+          title={ask.title}
+          lines={ask.lines}
+          closeLabel={supplierCopy.common.close}
+          confirmLabel={ask.confirm}
+          busyLabel={ask.busy}
+          busy={cancelBusy}
+          onClose={() => setCancelAsk(false)}
+          onConfirm={() => void confirmCancel(m.motionId)}
+        />
+      );
+    } else if (kind === 'cancelled') {
+      // pa2 결정 4 — 만료 패널 문법(코드 칩·TIP 없이) + 다시 올리기(같은 프리필).
+      const copy = cancelledCopy();
+      panel = (
+        <FailurePanel
+          title={copy.title}
+          body={copy.body}
+          reuploadLabel={supplierCopy.row.reupload}
+          onReupload={() => reupload(m, priv)}
+          backLabel={supplierCopy.common.toList}
+          onBack={closeDetail}
+        />
+      );
+    } else if (kind === 'failed') {
       if (privLoading) {
         panel = <View style={styles.skeleton} accessibilityLabel={supplierCopy.noAccess.checking} />;
       } else {
@@ -490,7 +571,7 @@ export default function SupplierHome() {
           />
         );
       }
-    } else if (m.registrationStatus === 'expired') {
+    } else if (kind === 'expired') {
       // 리뷰 R4 — 코드 칩·TIP 없이 제목·본문 + 다시 올리기(같은 프리필).
       const copy = expiredCopy();
       panel = (
@@ -504,6 +585,7 @@ export default function SupplierHome() {
         />
       );
     } else {
+      // kind === 'done'.
       // 표시와 분기가 같은 숫자 — 카드의 `{score}점` 과 낮음 분기(TIP + 다시 올리기) 모두 view.score.
       const view = selfCheckView(m);
       const info = supplierCopy.row.done.info;
@@ -544,6 +626,7 @@ export default function SupplierHome() {
             {panel}
           </ScrollView>
         </PageFrame>
+        {dialog}
       </SafeAreaView>
     );
   }

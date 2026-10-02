@@ -98,31 +98,35 @@ rows_after=$(grep -c '"s3_key"' backend/training/data/manifest.json 2>/dev/null 
 TRAIN_DUE_VIDEOS=400
 TRAIN_DUE_REPORT_ADMIT=60
 DUE_FILE="$ROOT/.planning/TRAINING-DUE.md"
+# 2026-10-02 수리: 종전엔 매주 `cat >` 로 파일 전체를 옛 템플릿으로 덮었다 — 손으로 채운
+# 게이트 7개 표가 사라지고, 정정했던 "5090 이상 Pod"(5090 OOM 실측)·"직전 판 v29"
+# (직전은 v38)가 되살아났다(09-28 실측). 이제 파일 본문은 사람·세션 몫이고, 플라이휠은
+# 마커 줄 하나(건수)만 갈아 끼운다. 건수 도달은 "학습 가능"이 아니다 — 판정은 게이트 표.
+FW_COUNTS_MARK='<!-- flywheel:counts -->'
+FW_COUNTS_LINE="$FW_COUNTS_MARK 플라이휠 최신 판정 $STAMP — 수집 $rows_after / 임계 $TRAIN_DUE_VIDEOS · admit $report_admit / 임계 $TRAIN_DUE_REPORT_ADMIT (건수만. 학습 가능 여부는 게이트 표)"
 if [ "${rows_after:-0}" -ge "$TRAIN_DUE_VIDEOS" ] || [ "${report_admit:-0}" -ge "$TRAIN_DUE_REPORT_ADMIT" ]; then
-  cat > "$DUE_FILE" <<DUEEOF
-# 재학습 시점 도달 — $STAMP
+  if [ -f "$DUE_FILE" ] && grep -qF "$FW_COUNTS_MARK" "$DUE_FILE"; then
+    FW_LINE="$FW_COUNTS_LINE" perl -i -pe 'if (index($_, "<!-- flywheel:counts -->") >= 0) { $_ = "$ENV{FW_LINE}\n" }' "$DUE_FILE"
+    note "[flywheel] 재학습 건수 줄 갱신 — $DUE_FILE (영상 $rows_after / 분석 admit $report_admit)"
+  elif [ -f "$DUE_FILE" ]; then
+    # 마커 없는 손판 — 건드리지 않는다. 건수는 사이클 로그에 남는다.
+    note "[flywheel] $DUE_FILE 에 건수 마커 없음 — 본문 보존, 갱신 생략"
+  else
+    cat > "$DUE_FILE" <<DUEEOF
+# 재학습 — 건수 도달 ($STAMP). 학습 가능 판정은 아직 아님
 
-플라이휠이 자동 판정했다. **다음 세션에서 belle 에게 알릴 것.**
+$FW_COUNTS_LINE
 
-| 축 | 현재 | 임계 |
-|---|---|---|
-| 수집 영상 | $rows_after | $TRAIN_DUE_VIDEOS |
-| 분석 원장 admit | $report_admit | $TRAIN_DUE_REPORT_ADMIT |
-
-## 돌리는 법
-1. belle 이 5090 이상 Pod 추가 (EU-RO-1, 기존 볼륨)
-2. \`bash backend/scripts/pod_doctor.sh\` — 결손 복구
-3. train_venv312 없으면: \`TRAIN_VENV_ISOLATED=1 bash backend/training/sft/setup_train_venv.sh\`
-4. 전 사이클: preflight → label → assemble → train → gates → promote
-   (래퍼 예시 = .planning/CONTINUE-2026-08-16.md)
-
-## 직전 판(v29) 성적 — 이번에 넘어야 할 선
-빈 골격 9/29 · faults 2 · 4동작 중 1동작만 짚음 · 게이트 FAIL
+**건수만으로는 시작하지 않는다**(2026-09-23 외부리뷰). 게이트 7개(수집 건수 · 실패 원인 실측 ·
+개선 가설 · 인물·세션 분리 평가셋 · 비학습 기준선 E1·E2 · 예산 · GPU)를 채워서 belle 에게 보고할 것.
+게이트 표 원본 = \`git log -- .planning/TRAINING-DUE.md\` 의 마지막 손판.
 DUEEOF
-  note "[flywheel] ★재학습 시점 도달 — $DUE_FILE 생성 (영상 $rows_after / 분석 admit $report_admit)"
-  osascript -e 'display notification "재학습 시점 도달 — 다음 세션에서 확인" with title "Sunity 플라이휠"' 2>/dev/null || true
-else
-  # 아직이면 마커를 지운다 — 낡은 마커가 남아 잘못 알리는 것을 막는다.
+    note "[flywheel] ★재학습 건수 도달 — $DUE_FILE 생성 (영상 $rows_after / 분석 admit $report_admit)"
+  fi
+  osascript -e 'display notification "재학습 건수 도달 — 다음 세션에서 게이트 확인" with title "Sunity 플라이휠"' 2>/dev/null || true
+elif [ "${rows_after:-0}" -gt 0 ]; then
+  # 건수가 실제로 재졌는데 임계 아래일 때만 지운다 — manifest 를 못 읽어 0 이 나온 주에
+  # 손판을 지우지 않도록.
   rm -f "$DUE_FILE" 2>/dev/null || true
 fi
 

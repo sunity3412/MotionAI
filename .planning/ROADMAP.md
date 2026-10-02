@@ -1541,7 +1541,7 @@ Plans:
 
 **Not in scope:** 앱 안 공급자 모드 화면 · 학원 콘솔 · 정산 · 증명 1·3층(§10 단계 4) · 기술 사전/기준 분리 코드(§7-2 — 단 폼의 "동작 이름"은 사전 선택형으로 미리) · **앱 실기기 반영(OTA `eas update`/EAS 빌드)** — 38-02 의 앱 변경(REQ-38-5/6)은 시뮬레이터 확인까지, 배포는 phase 뒤 belle 결정(선언된 이월, 2026-09-26 리비전 1).
 
-**Plans:** 12/14 plans executed (실행 11 + 38-12 skipped-by-decision — 38-04 belle option-1; 다음 = 웨이브 6 38-13)
+**Plans:** 14/14 plans executed (실행 13 + 38-12 skipped-by-decision). 38-14(10-02) = 대역 구조 검증 ○ · 독립 사용자(정은지 직접 완주) [미확인]
 Plans:
 **Wave 1**
 
@@ -1572,11 +1572,11 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 38-13-PLAN.md — 페이지 배포(정적 버킷 + CloudFront OAC; 재사용 리소스는 복원 롤백, 과금은 관측값만 — 리뷰 R12) → belle Authorized domain → belle 실기기 검증 + Figma 대조 [W6, 체크포인트]
+- [x] 38-13-PLAN.md — 페이지 배포(정적 버킷 + CloudFront OAC; 재사용 리소스는 복원 롤백, 과금은 관측값만 — 리뷰 R12) → belle Authorized domain → belle 실기기 검증 + Figma 대조 [W6, 체크포인트]
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 38-14-PLAN.md — Pod E2E: 정은지 uid → SSM · Pod 기동(GPU 한 종류) · requeue(claim) · 등록 1건 → picker → mode1 완주(Success ① = belle 아닌 사람 완주 때만, 대역은 구조 검증 — 리뷰 R15e) · selfScore(③, 재분석 일관성 의미 — R11) · legacy 11 재diff 2회(④, 38-09 baseline 대비 — R10) · 재PUT 불변 실물(R5) · teardown [W7, 체크포인트]
+- [x] 38-14-PLAN.md — Pod E2E: 정은지 uid → SSM · Pod 기동(GPU 한 종류) · requeue(claim) · 등록 1건 → picker → mode1 완주(Success ① = belle 아닌 사람 완주 때만, 대역은 구조 검증 — 리뷰 R15e) · selfScore(③, 재분석 일관성 의미 — R11) · legacy 11 재diff 2회(④, 38-09 baseline 대비 — R10) · 재PUT 불변 실물(R5) · teardown [W7, 체크포인트]
 
 ---
 *Roadmap updated: 2026-09-22 (Phase 37 신설 — 시간이 갈수록 나아지는 분석 모델. belle 지시: "1년이든 몇 년이든 계속 똑똑해지는 모델", "다른 분석 종목에서도 쓸 수 있게 사람 동작에 대해 학습". 층 4분할(몸/종목/채점=모델아님/말) + 재학습은 데이터 누적형 B 확정(A 는 베이스 교체 때 다 날아감). 천장 = 교사가 Gemini 라 증류만으로는 못 넘음 → 강사 판정이 유일한 돌파 재료. 근거 = 2026-09-22 Mode1 실측(quick-260922-gnj) + belle 사진 판독. 금지 = 채점 모델화·사람 점수 라벨·각도 기준값 재보정.)*

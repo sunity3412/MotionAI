@@ -6,16 +6,22 @@ R5(upload 키만 서명).
 
   요청  ReferenceUploadUrlRequest { name, level, techniqueRefId?, clipRange?,
         consent: {portrait, usage}, format, fileSizeBytes, durationSec? }
-        또는 { probe: true }. 옛 웹 번들의 athleteName·isCombo·isSplit·hasHold·standingStart·
+        또는 { probe: true } 또는 ReferenceCancelRequest { cancel: true, refId }(quick-261002-pa2).
+        옛 웹 번들의 athleteName·isCombo·isSplit·hasHold·standingStart·
         consent.silent·consent.training 은 검증 없이 무시한다(quick-260930-w9l).
   응답  ReferenceUploadUrlResponse { refId, uploadUrl, s3Key, expiresInSec }
         probe → SupplierProbeResponse { probe: true, uid, supplierCode, displayName }
+        cancel → ReferenceCancelResponse { refId, registrationStatus: 'cancelled', alreadyCancelled }
   403   { error: { code: 'not_invited', message, email } } — email = 토큰 메일(없으면 null)
   409   { error: { code: 'supplier_name_missing', message } } — 공급자 displayName 없음
         (SSM·BELLE_UID 경로 또는 빈 이름 doc). presign·doc 0. 운영 해결 = revoke 후
         `supplier_invite.py create --name <실명>` 로 다시 초대.
+  취소 오류(quick-261002-pa2, belle 2026-10-02 결정 4 — 새 라우트 없이 이 함수의 세 번째 변형):
+        400 bad_request(refId 형식 밖) · 404 not_found(없는 doc 또는 남의 doc — 같은 응답) ·
+        409 not_cancellable(queued · review 가 아님) · 500 server_error. 명단 판정(403)은 취소에도
+        먼저 돈다 — 회수된 공급자는 취소도 403.
 
-흐름: 인증(uid·email·email_verified) → 명단 판정 → (probe | 폼 검증 → 선수 이름 확인(409)
+흐름: 인증(uid·email·email_verified) → 명단 판정 → (probe | 취소 | 폼 검증 → 선수 이름 확인(409)
 → 서버 refId → presign `reference/{uid}/{refId}/upload.{ext}` → 공개 `reference/{refId}`
 (athleteName = 공급자 displayName, 본문 값 아님) + 비공개
 `reference/{refId}/private/registration` batch create → 응답). 이후 S3 PUT 은 브라우저가
@@ -35,6 +41,8 @@ R5(upload 키만 서명).
   기다리는 이유).
 
 본문의 uid/refId 는 절대 읽지 않는다(V4) — 키·doc 은 토큰 uid 와 서버 uuid4 hex 로만.
+취소의 refId 는 validation.validate_reference_cancel_request 가 형식만 해석하고(키·doc 생성 입력이
+아니다), 권한은 writer 트랜잭션의 doc.supplierUid == 토큰 uid 로만 준다.
 서명 → create 순서인 이유: 서명은 순수 함수(네트워크 0)라 실패가 드물고, create 실패 시
 URL 을 안 주면 객체가 생길 수 없다(고아 객체 없음). 반대 순서면 registering doc 만 남는데
 그것도 uploadExpiresAt 스윕이 expired 로 닫는다(R4) — 그래도 남기지 않는 쪽을 고른다.
@@ -61,7 +69,11 @@ import boto3  # Lambda 런타임 제공
 from sunity_shared import firestore_admin, models, responses, supplier_invites
 from sunity_shared.auth import AuthError, verify_request_claims
 from sunity_shared.s3keys import build_reference_upload_key
-from sunity_shared.validation import ValidationError, validate_reference_upload_request
+from sunity_shared.validation import (
+    ValidationError,
+    validate_reference_cancel_request,
+    validate_reference_upload_request,
+)
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -133,6 +145,42 @@ def _authorize(claims: dict, supplier_map: dict[str, str | None]):
     return entry
 
 
+def _cancel(uid: str, body: dict) -> dict:
+    """검토 요청 취소(quick-261002-pa2, belle 2026-10-02 결정 4) — 얇게: 형식 검증 → writer → 응답 매핑.
+
+    supplier_uid 는 토큰 uid 만(본문 uid 무시). 소유·상태 판정은 writer 트랜잭션 하나가 한다.
+    """
+    try:
+        ref_id = validate_reference_cancel_request(body)
+    except ValidationError as e:
+        return responses.error(e.code, e.message, status=e.http_status)
+    try:
+        result, status = firestore_admin.cancel_reference_registration(ref_id, supplier_uid=uid)
+    except Exception:  # noqa: BLE001 - Firestore 실패 = server_error 통일
+        log.exception("reference-cancel 실패 uid=%s ref_id=%s", uid, ref_id)
+        return responses.error("server_error", "취소 요청을 처리하지 못했어요.", status=500)
+    log.info("reference-cancel %s uid=%s ref_id=%s status=%s", result, uid, ref_id, status)
+    if result in ("cancelled", "already_cancelled"):
+        return responses.ok(
+            {
+                "refId": ref_id,
+                "registrationStatus": models.REGISTRATION_STATUS_CANCELLED,
+                "alreadyCancelled": result == "already_cancelled",
+            }
+        )
+    if result == "not_found":
+        return responses.error(
+            models.REFERENCE_CANCEL_ERR_NOT_FOUND,
+            models.REFERENCE_CANCEL_NOT_FOUND_MESSAGE,
+            status=404,
+        )
+    return responses.error(
+        models.REFERENCE_CANCEL_ERR_NOT_CANCELLABLE,
+        models.REFERENCE_NOT_CANCELLABLE_MESSAGE,
+        status=409,
+    )
+
+
 def lambda_handler(event: dict, _context) -> dict:
     # 1. 인증 (Firebase Auth UID + email·email_verified). 익명도 토큰은 통과하지만 명단에 없고
     #    메일도 없어 2 에서 막힌다.
@@ -180,6 +228,11 @@ def lambda_handler(event: dict, _context) -> dict:
                 "displayName": entry.display_name,
             }
         )
+
+    # 3b. 검토 요청 취소(quick-261002-pa2) — bool True 만 취소로 본다(probe 어법). 명단 판정 뒤라
+    #     초대된 공급자만, 이름 확인 앞이라 이름 없는 공급자도 자기 등록은 거둘 수 있다.
+    if body.get("cancel") is True:
+        return _cancel(uid, body)
 
     # 4. 폼 검증 (contract ReferenceUploadUrlRequest — 38-01 순수 검증, 첫 위반 하나만 답한다).
     try:

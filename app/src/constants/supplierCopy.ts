@@ -106,6 +106,8 @@ export const supplierCopy = {
       selfLow: '재현성 {score}점 · 다시 찍어 주세요',
       failed: '등록 안 됨 · 눌러서 이유 보기',
       expired: '업로드가 끝나지 않았어요 · 다시 올리기', // 리뷰 R4
+      // quick-261002-pa2(belle 2026-10-02 결정 4) — 공급자가 거둔 검토 요청(앱인토스 '요청 취소됨').
+      cancelled: '요청 취소됨',
     },
     // 만료 패널(리뷰 R4) — 코드 칩·TIP 없이 제목·본문 + 다시 올리기
     expired: {

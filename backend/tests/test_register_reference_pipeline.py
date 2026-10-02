@@ -692,9 +692,12 @@ def test_missing_doc_raises(h):
     assert h.s3.calls == []
 
 
-@pytest.mark.parametrize("status", ["review", "active"])
+@pytest.mark.parametrize("status", ["review", "active", "cancelled"])
 def test_reput_after_registration_is_skipped_and_v1_immutable(h, app, monkeypatch, status):
-    """R5 — 등록(review, 승인 뒤 active) 뒤 같은 URL 로 두 번째 PUT: 입구가 스킵하고 v1 ETag·angles 호출 수 불변."""
+    """R5 — 등록(review, 승인 뒤 active) 뒤 같은 URL 로 두 번째 PUT: 입구가 스킵하고 v1 ETag·angles 호출 수 불변.
+
+    quick-261002-pa2 — 공급자가 취소한(cancelled) doc 도 같은 registering 검사로 스킵된다(코드 변경 0).
+    """
     from sunity_shared.s3keys import parse_reference_key
 
     h.run()

@@ -20,6 +20,9 @@ commit 시 존재하면 AlreadyExists) 를 이 파일에 두고 `_db` seam 을 �
     가드가 아니라 상태 검사만, 누가/언제는 비공개 doc 에만, 반복 실행은 already_* 로 쓰기 0.
   · 자기 재현성은 기준 doc 이 권위 — `self_check_authorized` 3중 일치(위조 표식 · 다른 공급자
     refId · stale analysis id · pending 전 완료 훅 전부 False).
+  · quick-261002-pa2(belle 2026-10-02 결정 4): 공급자 검토 요청 취소 — queued · review ∧ 소유자만
+    cancelled + isActive False, 남의 doc = 없는 doc 과 같은 not_found, claim 과 경합하면 하나만 이긴다,
+    운영 승인 · 반려 · 내리기는 cancelled 를 거부한다.
 """
 
 from __future__ import annotations
@@ -290,6 +293,7 @@ _WRITERS = {
         rid, reason="화면이 어두워요", by="ops:t",
     ),
     "deactivate_reference_registration": lambda rid: fa.deactivate_reference_registration(rid, by="ops:t"),
+    "cancel_reference_registration": lambda rid: fa.cancel_reference_registration(rid, supplier_uid="u1"),
     "set_registration_failed": lambda rid: fa.set_registration_failed(
         rid, "A", error={"code": "low_confidence", "message": "m", "joints": ["왼쪽 발목"]},
     ),
@@ -333,13 +337,13 @@ def test_writers_reject_legacy_ref_id(firestore_call_log, writer, bad_id):
     assert firestore_call_log == []
 
 
-def test_exactly_twelve_writers_are_guarded_and_readers_are_not():
+def test_exactly_thirteen_writers_are_guarded_and_readers_are_not():
     assert set(_WRITERS) == {
         "create_reference_registration", "claim_registration", "set_registration_queued",
         "set_registration_expired", "set_registration_review", "set_registration_failed",
         "set_reference_angles", "begin_self_check", "set_reference_self_check",
         "approve_reference_registration", "reject_reference_registration",
-        "deactivate_reference_registration",
+        "deactivate_reference_registration", "cancel_reference_registration",
     }
     assert not hasattr(fa, "set_registration_active")  # 운영 호출자(파이프라인) 하나뿐이라 대체
     for name in _WRITERS:
@@ -432,7 +436,7 @@ def test_requeue_twice_claims_once(reg_db):
     assert reg_db.store[PUBLIC]["jobId"] == "R1"
 
 
-@pytest.mark.parametrize("status", ["active", "failed", "expired"])
+@pytest.mark.parametrize("status", ["active", "failed", "expired", "cancelled"])
 def test_claim_from_terminal_states_false(reg_db, status):
     before = _seed(reg_db, status, job_id="OLD")
     assert fa.claim_registration(REF, "NEW", now_ms=T0 + LEASE_MS * 10) is False
@@ -691,8 +695,8 @@ def test_begin_self_check_review_or_active_and_job_match(reg_db, status):
 
 @pytest.mark.parametrize(
     "status,job_id",
-    [("processing", "A"), ("active", "B"), ("failed", "A")],
-    ids=["processing", "stale-job", "failed"],
+    [("processing", "A"), ("active", "B"), ("failed", "A"), ("cancelled", "A")],
+    ids=["processing", "stale-job", "failed", "cancelled"],
 )
 def test_begin_self_check_false_unless_review_or_active_with_job(reg_db, status, job_id):
     before = _seed(reg_db, status, job_id=job_id)
@@ -919,6 +923,141 @@ def test_deactivate_missing_doc_and_long_reason_raise(reg_db):
     with pytest.raises(ValueError):
         fa.deactivate_reference_registration(REF, by="")
     assert reg_db.store[PUBLIC] == before
+
+
+# ─────────────────────── cancel (quick-261002-pa2 — 공급자 검토 요청 취소) ───────────────────────
+#
+# belle 2026-10-02 결정 4: queued · review 에서만, 소유자(supplierUid == 토큰 uid)만. 남의 doc 과 없는 doc 은
+# 같은 not_found(존재 오라클 없음). 비공개 doc 은 읽지도 쓰지도 않는다.
+
+
+def test_cancel_queued_by_owner_sets_cancelled_and_inactive(reg_db):
+    _seed(reg_db, "queued", queuedReason="pod_down", uploadKey=UPLOAD_KEY)
+    assert fa.cancel_reference_registration(REF, supplier_uid="u1") == ("cancelled", "queued")
+    pub = reg_db.store[PUBLIC]
+    assert pub["registrationStatus"] == "cancelled" and pub["isActive"] is False
+    assert pub["registrationUpdatedAt"] == T0 and pub["updatedAt"] == T0
+    # update 어법 — 다른 필드 보존.
+    assert pub["queuedReason"] == "pod_down" and pub["uploadKey"] == UPLOAD_KEY
+    assert pub["supplierUid"] == "u1" and pub["motionId"] == REF
+    assert PRIVATE not in reg_db.store  # 비공개 doc 은 읽지도 쓰지도 않는다
+    assert reg_db.read_after_write_seen is False
+
+
+def test_cancel_review_forces_inactive_and_keeps_job_score_thumb(reg_db):
+    thumb = f"reference/u1/{REF}/thumb.jpg"
+    _seed(reg_db, "review", job_id="A", isActive=True, selfScore=94.0, thumbnailS3Key=thumb)
+    assert fa.cancel_reference_registration(REF, supplier_uid="u1", now_ms=T0 + 5) == ("cancelled", "review")
+    pub = reg_db.store[PUBLIC]
+    assert pub["registrationStatus"] == "cancelled"
+    assert pub["isActive"] is False  # doc 이 True 였어도 명시적으로 False
+    assert pub["registrationUpdatedAt"] == T0 + 5 and pub["updatedAt"] == T0 + 5
+    assert pub["jobId"] == "A" and pub["selfScore"] == 94.0 and pub["thumbnailS3Key"] == thumb
+
+
+def test_cancel_twice_is_already_cancelled_and_writes_nothing(reg_db):
+    _seed(reg_db, "queued")
+    assert fa.cancel_reference_registration(REF, supplier_uid="u1") == ("cancelled", "queued")
+    before = copy.deepcopy(reg_db.store[PUBLIC])
+    version = reg_db.version[PUBLIC]
+    assert fa.cancel_reference_registration(REF, supplier_uid="u1", now_ms=T0 + 99) == (
+        "already_cancelled",
+        "cancelled",
+    )
+    assert reg_db.store[PUBLIC] == before
+    assert reg_db.version[PUBLIC] == version  # 쓰기 0
+
+
+@pytest.mark.parametrize("status", ["registering", "processing", "active", "failed", "expired"])
+def test_cancel_from_other_states_is_bad_state_no_change(reg_db, status):
+    before = _seed(reg_db, status, job_id="A")
+    assert fa.cancel_reference_registration(REF, supplier_uid="u1") == ("bad_state", status)
+    assert reg_db.store[PUBLIC] == before
+
+
+@pytest.mark.parametrize("status", ["queued", "review"])
+def test_cancel_by_other_uid_is_not_found_no_change(reg_db, caplog, status):
+    """남의 doc = 없는 doc 과 같은 not_found. 로그에는 요청 uid 만 — doc 주인 uid 는 남기지 않는다."""
+    before = _seed(reg_db, status, supplierUid="owner-x")
+    with caplog.at_level(logging.INFO, logger=LOGGER):
+        assert fa.cancel_reference_registration(REF, supplier_uid="u2") == ("not_found", status)
+    assert reg_db.store[PUBLIC] == before
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "u2" in text and REF in text
+    assert "owner-x" not in text
+
+
+def test_cancel_missing_doc_is_not_found(reg_db):
+    assert fa.cancel_reference_registration(REF, supplier_uid="u1") == ("not_found", None)
+    assert PUBLIC not in reg_db.store
+
+
+@pytest.mark.parametrize("bad", ["", None, 7], ids=["empty", "none", "int"])
+def test_cancel_requires_supplier_uid_before_firestore(firestore_call_log, bad):
+    with pytest.raises(ValueError):
+        fa.cancel_reference_registration(REF, supplier_uid=bad)
+    assert firestore_call_log == []
+
+
+def _capture_transactions(monkeypatch) -> list:
+    """`_run_in_transaction` 을 잡아 tx 함수만 모은다. 취소 writer 는 (result, status) 를 언패킹하므로
+    스텁도 2-튜플을 돌려준다(claim 은 truthy 를 로그로만 쓴다 — 무해)."""
+    captured: list = []
+
+    def _cap(fn):
+        captured.append(fn)
+        return ("captured", None)
+
+    monkeypatch.setattr(fa, "_run_in_transaction", _cap)
+    return captured
+
+
+def test_cancel_vs_claim_cancel_first_claim_loses(reg_db, monkeypatch):
+    """같은 queued 를 읽은 취소와 claim — 취소가 먼저 commit 되면 claim 은 재시도에서 cancelled 를 보고 False."""
+    _seed(reg_db, "queued", queuedReason="pod_down")
+    captured = _capture_transactions(monkeypatch)
+    fa.cancel_reference_registration(REF, supplier_uid="u1")
+    fa.claim_registration(REF, "A", now_ms=T0)
+    tx_cancel, tx_claim = captured
+    res_cancel, res_claim = reg_db.run_contended(tx_cancel, tx_claim)
+    assert res_cancel == ("cancelled", "queued")
+    assert res_claim is False  # Pod 등록이 시작되지 않는다
+    doc = reg_db.store[PUBLIC]
+    assert doc["registrationStatus"] == "cancelled" and doc["isActive"] is False
+    assert doc.get("jobId") is None and doc.get("leaseUntil") is None
+    assert reg_db.conflict_count == 1
+    assert reg_db.read_after_write_seen is False
+
+
+def test_cancel_vs_claim_claim_first_cancel_is_bad_state(reg_db, monkeypatch):
+    """claim 이 먼저 commit 되면 취소는 재시도에서 processing 을 보고 bad_state(→ 409)."""
+    _seed(reg_db, "queued", queuedReason="pod_down")
+    captured = _capture_transactions(monkeypatch)
+    fa.claim_registration(REF, "A", now_ms=T0)
+    fa.cancel_reference_registration(REF, supplier_uid="u1")
+    tx_claim, tx_cancel = captured
+    res_claim, res_cancel = reg_db.run_contended(tx_claim, tx_cancel)
+    assert res_claim is True
+    assert res_cancel == ("bad_state", "processing")
+    doc = reg_db.store[PUBLIC]
+    assert doc["registrationStatus"] == "processing" and doc["jobId"] == "A"
+    assert reg_db.conflict_count == 1
+    assert reg_db.read_after_write_seen is False
+
+
+@pytest.mark.parametrize("fn", ["approve", "reject", "deactivate"])
+def test_ops_writers_refuse_cancelled(reg_db, fn):
+    """운영 CLI 의 승인 · 반려 · 내리기는 이 writer 들을 그대로 부른다 — 취소된 등록은 셋 다 거부."""
+    before = _seed(reg_db, "cancelled", job_id="A")
+    with pytest.raises(ValueError):
+        if fn == "approve":
+            fa.approve_reference_registration(REF, by="ops:belle")
+        elif fn == "reject":
+            fa.reject_reference_registration(REF, reason="사유", by="ops:belle")
+        else:
+            fa.deactivate_reference_registration(REF, by="ops:belle")
+    assert reg_db.store[PUBLIC] == before
+    assert PRIVATE not in reg_db.store
 
 
 # ─────────────────────── set_reference_self_check (R2 · R8) ───────────────────────

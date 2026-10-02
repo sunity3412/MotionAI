@@ -124,10 +124,14 @@ def test_registration_states_do_not_leak_into_analysis_status_machine():
         "active",
         "expired",
         "review",
+        "cancelled",
     )
     assert models.REGISTRATION_STATUS_EXPIRED in models.REGISTRATION_STATUSES
     assert models.REGISTRATION_STATUS_REVIEW == "review"
     assert "review" not in models.PIPELINE_SEQUENCE
+    # quick-261002-pa2 — 공급자 검토 요청 취소. 분석 status 머신에 새지 않는다.
+    assert models.REGISTRATION_STATUS_CANCELLED == "cancelled"
+    assert "cancelled" not in models.PIPELINE_SEQUENCE
     assert models.SELF_CHECK_STATUSES == ("pending", "queued", "done", "failed")
 
     # TS 쪽 AnalysisStatus 유니온에도 새지 않았다.
@@ -136,6 +140,7 @@ def test_registration_states_do_not_leak_into_analysis_status_machine():
     assert "'active'" not in ts_status
     assert "'expired'" not in ts_status
     assert "'review'" not in ts_status
+    assert "'cancelled'" not in ts_status
 
 
 # ── (4) SUPPLIER_UIDS 파서 (D-12) ─────────────────────────────────────────
@@ -182,7 +187,12 @@ def test_ts_mirror_has_codes_statuses_and_messages():
         assert f"'{status}'" in status_body, status
     assert "'expired'" in status_body
     assert "'review'" in status_body
+    assert "'cancelled'" in status_body
     assert "'rejected'" in code_body
+    # quick-261002-pa2 — 취소 오류 코드 2개가 TS 유니온에 같은 문자열로.
+    cancel_body = _ts_type_body(text, "ReferenceCancelErrorCode")
+    for code in (models.REFERENCE_CANCEL_ERR_NOT_CANCELLABLE, models.REFERENCE_CANCEL_ERR_NOT_FOUND):
+        assert f"'{code}'" in cancel_body, code
     # 반려 사유 · 비공개 진단 · 검수 기록 (quick-261001-thx)
     err_block = _ts_interface_body(text, "ReferenceRegistrationError")
     assert "reason?: string;" in err_block
@@ -210,8 +220,14 @@ def test_ts_mirror_has_codes_statuses_and_messages():
         "ReferenceUploadUrlResponse",
         "SupplierProbeResponse",
         "ReferenceRegistrationPrivate",
+        "ReferenceCancelRequest",
+        "ReferenceCancelResponse",
     ):
         assert f"export interface {name} " in text, name
+    req = _ts_interface_body(text, "ReferenceCancelRequest")
+    assert "cancel: true;" in req and "refId: string;" in req
+    res = _ts_interface_body(text, "ReferenceCancelResponse")
+    assert "registrationStatus: 'cancelled';" in res and "alreadyCancelled: boolean;" in res
 
 
 def test_contract_md_has_endpoint_messages_and_private_doc():
@@ -233,6 +249,13 @@ def test_contract_md_has_endpoint_messages_and_private_doc():
     assert "registrationDiagnostics" in text
     assert "deactivation?" in text
     assert "review_reference_registrations.py" in text
+    # quick-261002-pa2 — §2 취소 변형 · §3 cancelled 상태 · 오류 코드 2개.
+    assert "'cancelled'" in text
+    assert '{"cancel": true, "refId"' in text
+    for code in (models.REFERENCE_CANCEL_ERR_NOT_CANCELLABLE, models.REFERENCE_CANCEL_ERR_NOT_FOUND):
+        assert code in text, code
+    assert models.REFERENCE_NOT_CANCELLABLE_MESSAGE in text
+    assert models.REFERENCE_CANCEL_NOT_FOUND_MESSAGE in text
 
 
 def test_reference_motions_md_marks_register_fields():
@@ -289,3 +312,22 @@ def test_private_path_and_constants():
         == "선수 이름이 등록되지 않았어요. 운영팀에 알려주세요."
     )
     assert models.SUPPLIER_UIDS_PARAM_DEFAULT == "/sunity/motion/supplier-uids"
+
+
+# ── (8) quick-261002-pa2 — 검토 요청 취소 상수 (belle 2026-10-02 결정 4) ──────────
+
+
+def test_cancel_constants():
+    assert models.REFERENCE_CANCEL_ERR_NOT_CANCELLABLE == "not_cancellable"
+    assert models.REFERENCE_CANCEL_ERR_NOT_FOUND == "not_found"
+    assert (
+        models.REFERENCE_NOT_CANCELLABLE_MESSAGE
+        == "지금은 취소할 수 없어요. 영상을 처리하는 중이거나 검토가 이미 끝났어요."
+    )
+    assert (
+        models.REFERENCE_CANCEL_NOT_FOUND_MESSAGE
+        == "이 동작을 찾지 못했어요. 목록에서 다시 확인해 주세요."
+    )
+    # 취소 오류 코드는 등록 실패 코드(REGISTRATION_ERROR_CODES)가 아니다 — 실패 doc 에 쓰지 않는다.
+    assert "not_cancellable" not in models.REGISTRATION_ERROR_CODES
+    assert "not_found" not in models.REGISTRATION_ERROR_CODES

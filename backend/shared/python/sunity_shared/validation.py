@@ -252,3 +252,23 @@ def validate_reference_upload_request(body: dict) -> ReferenceUploadRequest:
         file_size_bytes=size,
         duration_sec=duration_sec,
     )
+
+
+# ── quick-261002-pa2 (belle 2026-10-02 결정 4) — 검토 요청 취소 `{cancel: true, refId}` ──
+# 서버가 만드는 refId(reference-upload-url `uuid.uuid4().hex`)와 같은 모양 — 운영 CLI
+# review_reference_registrations.py `_REF_ID_RE` 와 같은 규칙. legacy `ref-*` · 대문자 · 길이 밖은 전부 거부.
+_REGISTRATION_REF_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def validate_reference_cancel_request(body: dict) -> str:
+    """취소 요청 본문 → refId(32 소문자 hex). 아니면 ValidationError('bad_request', 400).
+
+    형식만 본다 — 존재·소유는 firestore_admin.cancel_reference_registration 트랜잭션 몫이다.
+    V4: 이 값은 S3 키나 doc 생성의 입력이 아니다(업로드 경로의 refId 는 여전히 서버 uuid4 만).
+    문구는 없는 doc 과 같은 '찾지 못했어요' — 형식이 틀린 id 도 공급자에게는 없는 동작이다.
+    """
+    ref_id = body.get("refId") if isinstance(body, dict) else None
+    # fullmatch — `$` 는 끝 줄바꿈 앞에서도 맞으므로 match 로는 'hex32\n' 이 통과한다.
+    if not isinstance(ref_id, str) or not _REGISTRATION_REF_ID_RE.fullmatch(ref_id):
+        raise ValidationError("bad_request", models.REFERENCE_CANCEL_NOT_FOUND_MESSAGE)
+    return ref_id

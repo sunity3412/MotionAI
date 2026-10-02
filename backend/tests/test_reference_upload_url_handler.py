@@ -14,6 +14,10 @@ firestore_admin._db 를 막아 둔다 — 셸에 SA 경로가 있어도 실 Fire
 
 quick-260930-lfw(38-DESIGN-v2 §W1): 403 은 `not_invited`(error.email = 토큰 메일) 하나.
 명단 판정 = suppliers/{uid} doc 우선 → SSM ∪ BELLE_UID → 검증 메일이면 초대 수락.
+
+quick-261002-pa2(belle 2026-10-02 결정 4): `{cancel: true, refId}` = 검토 요청 취소. 본문 refId 는
+validation.validate_reference_cancel_request 가 형식(32 소문자 hex)만 보고, 권한은 writer 트랜잭션의
+doc.supplierUid == 토큰 uid 로만 준다(본문 uid 무시). 200 · 404 not_found · 409 not_cancellable · 400.
 """
 
 from __future__ import annotations
@@ -122,14 +126,16 @@ def _claims(uid, email=None, verified=False):
 
 
 class _Recorder:
-    """호출 인자를 기록하고 정해 둔 값을 돌려준다(예외면 던진다)."""
+    """호출 인자를 기록하고 정해 둔 값을 돌려준다(예외면 던진다). 키워드 인자는 kwcalls 에."""
 
     def __init__(self, result=None) -> None:
         self.result = result
         self.calls: list[tuple] = []
+        self.kwcalls: list[dict] = []
 
     def __call__(self, *args, **kwargs):
         self.calls.append(args)
+        self.kwcalls.append(kwargs)
         if isinstance(self.result, Exception):
             raise self.result
         return self.result
@@ -676,4 +682,187 @@ def test_deactivate_reactivate_end_to_end_on_fake_firestore(handler_module, monk
     fa.set_supplier_active("u9", True)
     status, body = _probe(handler_module)
     assert status == 200 and body["supplierCode"] == "QZTEST"
+    assert fake_firestore.read_after_write_seen is False
+
+
+# ─────────────────── quick-261002-pa2 — 검토 요청 취소 {cancel: true, refId} ───────────────────
+
+CANCEL_REF = "0123456789abcdef0123456789abcdef"
+
+
+def _wire_cancel(app, monkeypatch, result=("cancelled", "queued"), **kw):
+    """_wire + 취소 writer 를 _Recorder 로. 반환 (events, s3, create, cancel)."""
+    events, s3, create = _wire(app, monkeypatch, **kw)
+    cancel = _Recorder(result)
+    monkeypatch.setattr(app.firestore_admin, "cancel_reference_registration", cancel)
+    return events, s3, create, cancel
+
+
+def _cancel_event(ref_id=CANCEL_REF, **extra) -> dict:
+    return _bearer_event({"cancel": True, "refId": ref_id, **extra})
+
+
+def test_cancel_ok_200_passes_token_uid_and_no_upload_side_effects(handler_module, monkeypatch, caplog):
+    # 이름 없는(SSM 경로) 공급자도 취소는 된다 — 이름 확인은 업로드 분기에만 있다.
+    events, s3, create, cancel = _wire_cancel(handler_module, monkeypatch, uid="u1")
+    with caplog.at_level(logging.INFO):
+        resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 200
+    assert json.loads(resp["body"]) == {
+        "refId": CANCEL_REF,
+        "registrationStatus": "cancelled",
+        "alreadyCancelled": False,
+    }
+    assert cancel.calls == [(CANCEL_REF,)]
+    assert cancel.kwcalls == [{"supplier_uid": "u1"}]
+    assert events == [] and s3.calls == [] and create.calls == []
+    assert any(
+        "reference-cancel" in r.getMessage() and "u1" in r.getMessage() and CANCEL_REF in r.getMessage()
+        for r in caplog.records
+    )
+
+
+def test_cancel_already_cancelled_200_flag_true(handler_module, monkeypatch):
+    _wire_cancel(handler_module, monkeypatch, result=("already_cancelled", "cancelled"))
+    resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 200
+    assert json.loads(resp["body"]) == {
+        "refId": CANCEL_REF,
+        "registrationStatus": "cancelled",
+        "alreadyCancelled": True,
+    }
+
+
+@pytest.mark.parametrize("status", [None, "queued"], ids=["missing", "other-owner"])
+def test_cancel_not_found_404(handler_module, monkeypatch, status):
+    _wire_cancel(handler_module, monkeypatch, result=("not_found", status))
+    resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 404
+    assert json.loads(resp["body"])["error"] == {
+        "code": models.REFERENCE_CANCEL_ERR_NOT_FOUND,
+        "message": models.REFERENCE_CANCEL_NOT_FOUND_MESSAGE,
+    }
+
+
+@pytest.mark.parametrize("status", ["registering", "processing", "active", "failed", "expired"])
+def test_cancel_bad_state_409_not_cancellable(handler_module, monkeypatch, status):
+    _wire_cancel(handler_module, monkeypatch, result=("bad_state", status))
+    resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 409
+    assert json.loads(resp["body"])["error"] == {
+        "code": models.REFERENCE_CANCEL_ERR_NOT_CANCELLABLE,
+        "message": models.REFERENCE_NOT_CANCELLABLE_MESSAGE,
+    }
+
+
+def test_cancel_writer_exception_500(handler_module, monkeypatch):
+    _wire_cancel(handler_module, monkeypatch, result=RuntimeError("firestore down"))
+    resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 500
+    assert json.loads(resp["body"])["error"] == {
+        "code": "server_error",
+        "message": "취소 요청을 처리하지 못했어요.",
+    }
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"cancel": True, "refId": "ref-kip-up"},
+        {"cancel": True, "refId": "abc"},
+        {"cancel": True, "refId": CANCEL_REF.upper()},
+        {"cancel": True, "refId": CANCEL_REF[:-1]},
+        {"cancel": True, "refId": CANCEL_REF + "\n"},
+        {"cancel": True, "refId": 12345},
+        {"cancel": True, "refId": None},
+        {"cancel": True},
+    ],
+    ids=["legacy", "short", "upper-hex", "31-hex", "trailing-newline", "number", "null", "missing"],
+)
+def test_cancel_bad_ref_id_400_before_writer(handler_module, monkeypatch, body):
+    _events, _s3, _create, cancel = _wire_cancel(handler_module, monkeypatch)
+    resp = handler_module.lambda_handler(_bearer_event(body), None)
+    assert resp["statusCode"] == 400
+    assert json.loads(resp["body"])["error"] == {
+        "code": "bad_request",
+        "message": models.REFERENCE_CANCEL_NOT_FOUND_MESSAGE,
+    }
+    assert cancel.calls == []
+
+
+def test_cancel_body_uid_is_ignored(handler_module, monkeypatch):
+    _events, _s3, _create, cancel = _wire_cancel(handler_module, monkeypatch, uid="u1")
+    resp = handler_module.lambda_handler(_cancel_event(uid="evil", supplierUid="evil"), None)
+    assert resp["statusCode"] == 200
+    assert cancel.kwcalls == [{"supplier_uid": "u1"}]
+    assert "evil" not in repr(cancel.calls) + repr(cancel.kwcalls)
+
+
+@pytest.mark.parametrize("value", ["true", 1, "yes"])
+def test_cancel_must_be_boolean_true(handler_module, monkeypatch, value):
+    """probe 어법 — bool True 가 아니면 취소 분기가 아니다(폼 검증 400), writer 호출 0."""
+    events, _s3, _create, cancel = _wire_cancel(handler_module, monkeypatch)
+    resp = handler_module.lambda_handler(_bearer_event({"cancel": value, "refId": CANCEL_REF}), None)
+    assert resp["statusCode"] == 400
+    assert json.loads(resp["body"])["error"]["code"] == "bad_request"
+    assert cancel.calls == [] and events == []
+
+
+def test_cancel_not_invited_403_before_writer(handler_module, monkeypatch):
+    events, _s3, _create, cancel = _wire_cancel(handler_module, monkeypatch, uid="u9")
+    resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 403
+    assert json.loads(resp["body"])["error"]["code"] == "not_invited"
+    assert cancel.calls == [] and events == []
+
+
+def test_cancel_without_token_401(handler_module, monkeypatch):
+    from sunity_shared.auth import AuthError
+
+    _events, _s3, _create, cancel = _wire_cancel(handler_module, monkeypatch)
+
+    def _raise(_evt):
+        raise AuthError("인증이 필요합니다.")
+
+    monkeypatch.setattr(handler_module, "verify_request_claims", _raise)
+    event = {"headers": {}, "body": json.dumps({"cancel": True, "refId": CANCEL_REF})}
+    resp = handler_module.lambda_handler(event, None)
+    assert resp["statusCode"] == 401
+    assert cancel.calls == []
+
+
+def test_cancel_end_to_end_on_fake_firestore(handler_module, monkeypatch, fake_firestore):
+    """진짜 writer 로: queued doc 취소 200 → 두 번째 200 alreadyCancelled → 다른 공급자 404, doc 그대로."""
+    path = models.reference_motion_path(CANCEL_REF)
+    fake_firestore._apply(
+        "set",
+        path,
+        {
+            "motionId": CANCEL_REF,
+            "supplierUid": "u1",
+            "registrationStatus": "queued",
+            "queuedReason": "pod_down",
+            "isActive": False,
+        },
+        False,
+    )
+    _wire(handler_module, monkeypatch, uid="u1")
+
+    resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 200, resp
+    assert json.loads(resp["body"])["alreadyCancelled"] is False
+    doc = fake_firestore.store[path]
+    assert doc["registrationStatus"] == "cancelled" and doc["isActive"] is False
+    assert doc["queuedReason"] == "pod_down"
+
+    resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 200
+    assert json.loads(resp["body"])["alreadyCancelled"] is True
+
+    after = dict(fake_firestore.store[path])
+    monkeypatch.setattr(handler_module, "verify_request_claims", lambda evt: _claims("u2"))
+    resp = handler_module.lambda_handler(_cancel_event(), None)
+    assert resp["statusCode"] == 404
+    assert json.loads(resp["body"])["error"]["code"] == "not_found"
+    assert fake_firestore.store[path] == after
     assert fake_firestore.read_after_write_seen is False

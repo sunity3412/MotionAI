@@ -1311,11 +1311,14 @@ export interface Checkpoint {
 // 공급자(정은지·강사)가 링크 페이지로 기준 영상을 올리면 `reference/{refId}` doc 이
 // 아래 상태를 거쳐 picker 에 뜬다. AnalysisStatus/AnalysisErrorCode 와 **별개 enum** —
 // 분석 doc 의 status 머신에 절대 섞지 않는다(models.py COACH_STATUSES 선례).
-// 전이: registering → queued|processing|expired · queued → processing ·
-//       processing → review|failed|processing(lease 재claim) · review → active(승인)|failed(반려) ·
-//       active/failed/expired 종결 (failed 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(리뷰 R4).
+// 전이: registering → queued|processing|expired · queued → processing|cancelled ·
+//       processing → review|failed|processing(lease 재claim) · review → active(승인)|failed(반려)|cancelled ·
+//       active/failed/expired/cancelled 종결 (failed · cancelled 는 다시 올리면 새 refId).
+//       expired = presign 만료 뒤 객체 없음(리뷰 R4).
 // review(quick-261001-thx, belle 2026-10-01) = 기계 판정(분석 불가만 막음) 통과 뒤 사람 검수 대기 —
 //       isActive false 라 수강생 picker 에 안 뜬다. 승인/반려 = 운영 CLI(review_reference_registrations.py).
+// cancelled(quick-261002-pa2, belle 2026-10-02 결정 4) = 공급자가 queued · review 에서 스스로 거둔 검토 요청.
+//       isActive false 유지 · claim/requeue/운영 승인 대상 아님. 입구 = POST /reference/upload-url {cancel, refId}.
 export type ReferenceRegistrationStatus =
   | 'registering'
   | 'queued'
@@ -1323,7 +1326,8 @@ export type ReferenceRegistrationStatus =
   | 'failed'
   | 'active'
   | 'expired'
-  | 'review';
+  | 'review'
+  | 'cancelled';
 
 // 자기 재현성 분석(D-10) 진행 — 기준 doc `selfCheckStatus`. 등록 상태와 독립.
 export type SelfCheckStatus = 'pending' | 'queued' | 'done' | 'failed';
@@ -1424,6 +1428,25 @@ export interface SupplierProbeResponse {
   // suppliers/{uid}.displayName. 옛 서버 응답엔 없을 수 있어 소비처가 `?? null`.
   displayName: string | null;
 }
+
+// `{"cancel": true, "refId"}` 변형 — 공급자 검토 요청 취소(quick-261002-pa2, belle 2026-10-02 결정 4).
+// queued · review 인 **자기** 등록만(서버 writer 가 doc.supplierUid == 토큰 uid 로 판정 — 본문 uid 없음).
+// refId 는 서버가 만든 32 소문자 hex 형식만 받는다(validation.validate_reference_cancel_request).
+export interface ReferenceCancelRequest {
+  cancel: true;
+  refId: string;
+}
+
+// 200 응답. alreadyCancelled = 이미 취소된 등록에 다시 보냈다(쓰기 0).
+export interface ReferenceCancelResponse {
+  refId: string;
+  registrationStatus: 'cancelled';
+  alreadyCancelled: boolean;
+}
+
+// 취소 오류 코드(models.py REFERENCE_CANCEL_ERR_*) — 409 not_cancellable = queued · review 가 아님,
+// 404 not_found = 없는 doc 또는 남의 doc(같은 응답). 등록 실패 코드(ReferenceRegistrationErrorCode)가 아니다.
+export type ReferenceCancelErrorCode = 'not_cancellable' | 'not_found';
 
 // 403 not_invited 의 error 객체(contract.md §2) — 명단 밖·초대 없음/만료/취소/메일 미인증·회수됨을
 // 나누지 않는다. email = 토큰 메일(없으면 null). 옛 `forbidden` 을 대체한다.
@@ -1540,7 +1563,7 @@ export interface ReferenceMotion {
   // 공개 doc 은 인증자 전체가 읽는다(firestore.rules) — picker·상태·점수·작업 필드만.
   // 동의·실패 상세·선언·techniqueRefId 는 **여기 두지 않고** 비공개 서브문서
   // `ReferenceRegistrationPrivate` 로(리뷰 R13). AnalysisStatus/ERROR_MESSAGE 무접촉.
-  isActive?: boolean; // seed · register — 등록 중·검수 대기(review) false, 승인(active) 때 true (picker 가 거른다)
+  isActive?: boolean; // seed · register — 등록 중·검수 대기(review)·취소(cancelled) false, 승인(active) 때 true (picker 가 거른다)
   supplierUid?: string; // register — 올린 공급자 uid (페이지 목록 조회 조건)
   supplierCode?: string; // register — SUPPLIER_UIDS 의 강사 코드(D-12), 없으면 필드 없음
   source?: 'supplier-link'; // register — 손 등록 11개(seed)와 구분

@@ -4455,11 +4455,11 @@ def update_analysis_visual(
 
 # ── Phase 38 (D-04·D-05·D-08·D-10·D-19 + 리뷰 R2·R3·R4·R8·R13) — 공급자 링크 등록 writer ──
 #
-# 공급자 링크(38-06 T1)가 만드는 기준 doc 의 생명주기 writer 13 + 순수 가드 1. 이 블록의
+# 공급자 링크(38-06 T1)가 만드는 기준 doc 의 생명주기 writer 14 + 순수 가드 1. 이 블록의
 # `set_reference_angles` 는 :2252-2261 "angles 절대 금지" 규칙의 **유일한 예외**이며 legacy
 # `ref-*` id 를 거부한다 — 손 등록 11개(D-19, Success ④)는 구조적으로 못 건드린다(선작성은
-# `create()` 라 존재하면 실패, `reference/{refId}` 를 쓰는 12함수는 `_require_registration_ref_id`
-# 가드가 첫 줄).
+# `create()` 라 존재하면 실패, `reference/{refId}` 를 쓰는 13함수는 `_require_registration_ref_id`
+# 가드가 첫 줄 — quick-261002-pa2 가 cancel_reference_registration 을 더했다).
 #
 # 핵심 불변식 3개(visual job 어법 :2898-2907 미러):
 #   1. 상태 전이는 트랜잭션 안에서 현재 상태·jobId 를 검증한 뒤에만 쓴다.
@@ -4477,21 +4477,24 @@ def update_analysis_visual(
 #   registering → queued | processing | expired · queued → processing
 #   processing  → review | failed | processing(lease 만료 재claim)
 #   review      → active(approve) | failed(reject, code rejected)   ← quick-261001-thx, 사람 결정
+#   queued | review → cancelled(공급자 취소)                          ← quick-261002-pa2, 사람 결정
 
 _REGISTRATION_SOURCE = "supplier-link"
 # review 는 엄밀히 종결이 아니지만(사람이 active/failed 로 옮긴다) 기계 경로(claim · requeue · 파이프라인
-# writer)에게는 종결처럼 보인다 — 문서 일관성용 목록(소비처 0, quick-261001-thx).
+# writer)에게는 종결처럼 보인다 — 문서 일관성용 목록(소비처 0, quick-261001-thx). cancelled 는 진짜 종결
+# (quick-261002-pa2, belle 2026-10-02 결정 4).
 _REGISTRATION_TERMINAL = (
     models.REGISTRATION_STATUS_ACTIVE,
     models.REGISTRATION_STATUS_FAILED,
     models.REGISTRATION_STATUS_EXPIRED,
     models.REGISTRATION_STATUS_REVIEW,
+    models.REGISTRATION_STATUS_CANCELLED,
 )
 _reg_log = logging.getLogger(__name__)
 
 
 def _require_registration_ref_id(ref_id) -> None:
-    """`reference/{refId}` 를 **쓰는** 12함수의 첫 줄 가드(D-19, Success ④).
+    """`reference/{refId}` 를 **쓰는** 13함수의 첫 줄 가드(D-19, Success ④).
 
     빈 값 또는 legacy `ref-*`(손 등록 11개) 면 ValueError — 어떤 Firestore 호출보다 먼저.
     읽기 함수에는 두지 않는다(38-09 baseline · 38-14 재diff 가 legacy 를 raw 로 읽는다).
@@ -4631,7 +4634,9 @@ def claim_registration(
       · registering | queued → 성공: processing · jobId · leaseUntil = now + lease
       · processing 이고 lease 가 남았으면 → False (다른 전달자가 실행 중 — 두 번 실행 없음)
       · processing 이고 lease 만료 → 성공(재claim, 옛 jobId 를 warning 으로)
-      · active · failed · expired · doc 없음 → False
+      · active · failed · expired · review · cancelled · doc 없음 → False
+        (cancelled = 공급자 취소, quick-261002-pa2 — 화이트리스트 밖이라 코드 변경 없이 False.
+         취소와 claim 이 같은 queued 를 읽어도 트랜잭션 CAS 로 하나만 commit 된다)
     만료 비교는 호출측이 넘긴 now_ms 하나만 쓴다(phase31 H10-03 — 테스트 결정론). 트랜잭션
     CAS 라 같은 pre-state 를 읽은 두 호출 중 하나만 commit 되고 다른 하나는 재시도 뒤 False.
     """
@@ -5269,6 +5274,65 @@ def deactivate_reference_registration(
         raise ValueError(f"deactivate needs registrationStatus 'active' (got {status!r})")
     _reg_log.info("deactivate_reference_registration %s ref_id=%s by=%s", result, ref_id, who)
     return result
+
+
+# ── quick-261002-pa2 — 공급자 검토 요청 취소: queued | review → cancelled ──
+#
+# belle 2026-10-02 결정 4(토스 앱인토스 콘솔 '요청 취소됨' 벤치): 공급자가 잘못 올린 등록을 운영팀에 연락하지
+# 않고 스스로 거둔다. 호출자 = reference-upload-url Lambda `{cancel: true, refId}` 하나(토큰 uid 를 supplier_uid
+# 로 넘긴다 — 본문 uid 는 읽지 않는다). Admin SDK 라 보안 규칙을 거치지 않는다 → 소유·상태 검사는 이 트랜잭션이
+# 유일한 관문이다(T-pa2-01). 공개 doc 하나만 읽고 쓴다 — 누가 = supplierUid, 언제 = registrationUpdatedAt 로
+# 충분해서 비공개 doc 은 건드리지 않는다.
+
+
+def cancel_reference_registration(
+    ref_id: str, *, supplier_uid: str, now_ms: int | None = None
+) -> tuple[str, str | None]:
+    """공급자 본인의 queued · review 등록을 cancelled + isActive False 로(수강생에게 끝까지 안 보인다).
+
+    반환 (result, 읽은 registrationStatus):
+      · ('cancelled', 'queued'|'review')   쓰기 1 — registrationStatus · isActive · registrationUpdatedAt · updatedAt
+      · ('already_cancelled', 'cancelled') 쓰기 0 — 같은 요청 반복(앱 두 번 누름 · 재시도)
+      · ('not_found', None | status)       doc 없음 또는 supplierUid 불일치 — 둘을 같은 결과로(존재 오라클 없음,
+                                           playback-url `_visible_to` 선례). 로그에는 ref_id 와 요청 uid 만
+      · ('bad_state', status)              registering · processing · active · failed · expired — 처리 중이거나
+                                           결과가 이미 나왔다. claim 이 먼저 commit 되면 재시도에서 이 결과
+    claim_registration 과 같은 doc 을 트랜잭션 CAS 로 다투므로 동시에 와도 하나만 이긴다(T-pa2-04).
+    빈 · legacy ref_id 와 빈 supplier_uid 는 Firestore 호출 전에 ValueError.
+    """
+    _require_registration_ref_id(ref_id)
+    if not isinstance(supplier_uid, str) or not supplier_uid:
+        raise ValueError("supplier_uid required")
+    ref = _registration_ref(ref_id)
+
+    def _tx(transaction):
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None:
+            return "not_found", None
+        status = data.get("registrationStatus")
+        if data.get("supplierUid") != supplier_uid:
+            return "not_found", status
+        if status == models.REGISTRATION_STATUS_CANCELLED:
+            return "already_cancelled", status
+        if status not in (models.REGISTRATION_STATUS_QUEUED, models.REGISTRATION_STATUS_REVIEW):
+            return "bad_state", status
+        at = now_ms if now_ms is not None else _now_ms()
+        transaction.update(
+            ref,
+            {
+                "registrationStatus": models.REGISTRATION_STATUS_CANCELLED,
+                "isActive": False,
+                "registrationUpdatedAt": at,
+                "updatedAt": at,
+            },
+        )
+        return "cancelled", status
+
+    result, status = _run_in_transaction(_tx)
+    _reg_log.info(
+        "cancel_reference_registration %s ref_id=%s uid=%s status=%s", result, ref_id, supplier_uid, status
+    )
+    return result, status
 
 
 def create_analysis_doc(uid: str, analysis_id: str, payload: dict) -> None:

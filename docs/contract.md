@@ -302,6 +302,33 @@ displayName    string | null   suppliers/{uid}.displayName(초대의 선수 이�
                                — 옛 서버 응답엔 필드가 없을 수 있어 소비처가 `?? null`
 ```
 
+`{"cancel": true, "refId": "<32 hex>"}` 변형 — 공급자 검토 요청 취소(quick-261002-pa2, belle 2026-10-02 결정 4 —
+토스 앱인토스 콘솔 '요청 취소됨' 벤치). 새 라우트 없이 이 함수의 세 번째 변형이다. 인증·명단 판정은 위와 같다
+(회수된 공급자는 취소도 403). `cancel` 이 bool `true` 일 때만 취소로 본다(`"true"` · `1` 은 폼 검증으로 떨어진다).
+`refId` 형식 = 서버가 만든 32 소문자 hex(`validation.validate_reference_cancel_request` — 형식만 본다).
+권한 = `firestore_admin.cancel_reference_registration` 트랜잭션이 공개 doc `supplierUid == 토큰 uid` 로만 준다
+(본문 uid 는 읽지 않는다). **소유자가 아니면 없는 doc 과 같은 404**(존재 오라클 없음 — playback-url 선례).
+`registrationStatus` 가 `queued` · `review` 일 때만 → `cancelled` + `isActive: false` + `registrationUpdatedAt`.
+`claim_registration` 과 같은 doc 을 트랜잭션 CAS 로 다툰다 — 취소가 먼저면 Pod 등록이 시작되지 않고, claim 이
+먼저면 취소가 409 다.
+응답 `ReferenceCancelResponse`
+```
+refId              string        요청한 refId
+registrationStatus 'cancelled'
+alreadyCancelled   boolean       이미 cancelled 였다(쓰기 0 — 두 번 누름 · 재시도)
+```
+취소 오류
+```
+400  bad_request      refId 형식 밖(legacy ref-* · 대문자 · 길이 밖 · 없음) — message = REFERENCE_CANCEL_NOT_FOUND_MESSAGE
+403  not_invited      명단 밖(위와 같음)
+404  not_found        없는 doc 또는 남의 doc — '이 동작을 찾지 못했어요. 목록에서 다시 확인해 주세요.'
+409  not_cancellable  registering · processing · active · failed · expired —
+                      '지금은 취소할 수 없어요. 영상을 처리하는 중이거나 검토가 이미 끝났어요.'
+500  server_error     Firestore 실패
+```
+코드·문구 = models.py `REFERENCE_CANCEL_ERR_*` · `REFERENCE_NOT_CANCELLABLE_MESSAGE` · `REFERENCE_CANCEL_NOT_FOUND_MESSAGE`
+= analysis.ts `ReferenceCancelErrorCode` = 공급자 웹 `supplierCopy.row.cancelError`(앱은 code 로만 분기한다).
+
 응답 `ReferenceUploadUrlResponse`
 ```
 refId          string   기준 doc ID = Firestore reference/{refId} (서버 생성, 32 hex)
@@ -431,21 +458,26 @@ captureViews?      number                 단일시점 v1 = 1 (D-03/SC#4). 다�
 updatedAt?         number (epoch ms)
 
 # ── Phase 38 공급자 링크 등록 필드 (공개 doc — 인증자 전체 읽기; picker·상태·점수·작업 필드만) ──
-isActive?          boolean                등록 중·검수 대기(review) false, 승인(active) 때 true — picker normalize 가 false 를 거른다
+isActive?          boolean                등록 중·검수 대기(review)·취소(cancelled) false, 승인(active) 때 true — picker normalize 가 false 를 거른다
 supplierUid?       string                 올린 공급자 uid (페이지 목록 조회 조건 — 접근 제어 아님)
 supplierCode?      string                 SUPPLIER_UIDS 의 강사 코드(D-12). 없으면 필드 없음
 source?            'supplier-link'        손 등록 11개(seed)와 구분
-registrationStatus? 'registering'|'queued'|'processing'|'failed'|'active'|'expired'|'review'
+registrationStatus? 'registering'|'queued'|'processing'|'failed'|'active'|'expired'|'review'|'cancelled'
                                           **AnalysisStatus 와 별개 enum** (models.py REGISTRATION_STATUSES,
                                           analysis.ts ReferenceRegistrationStatus). 전이: registering →
-                                          queued|processing|expired · queued → processing · processing →
+                                          queued|processing|expired · queued → processing|cancelled · processing →
                                           review|failed|processing(lease 재claim) · review → active(승인)|
-                                          failed(반려, code rejected) · active/failed/expired 종결
-                                          (failed 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(R4).
+                                          failed(반려, code rejected)|cancelled · active/failed/expired/cancelled 종결
+                                          (failed · cancelled 는 다시 올리면 새 refId). expired = presign 만료 뒤 객체 없음(R4).
                                           review(quick-261001-thx, belle 2026-10-01) = 기계 판정은 분석 불가
                                           (no_human · too_* · server_error)만 막고, 통과한 등록은 사람 검수 대기.
                                           isActive false(수강생 비노출) · 자기 재현성은 이 상태에서도 돈다 ·
                                           claim/requeue 대상 아님. 승인/반려 = backend/scripts/review_reference_registrations.py
+                                          cancelled(quick-261002-pa2, belle 2026-10-02 결정 4) = 공급자가 queued · review
+                                          에서 스스로 거둔 검토 요청(§2 `{"cancel": true, refId}`). isActive false 유지 —
+                                          수강생에게 끝까지 안 보인다. claim · requeue · 파이프라인 S3 이벤트(registering
+                                          검사) · 운영 approve/reject/deactivate 모두 대기 아님으로 본다(거부·스킵).
+                                          비공개 doc 은 바뀌지 않는다(누가 = supplierUid, 언제 = registrationUpdatedAt)
 queuedReason?      string | null          queued 사유(Pod 부재 등) — 페이지 안내 알약
 registrationUpdatedAt? number (epoch ms)  상태 전이 시각
 uploadKey?         string                 reference/{uid}/{refId}/upload.{ext} — 재개 스크립트 전용, 재생 금지

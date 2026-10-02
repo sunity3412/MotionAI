@@ -806,10 +806,10 @@ COACH_STATUSES = (
 #
 #   전이 규칙(38-06 claim/writer · 38-07 파이프라인 · 38-08 requeue 가 이 표를 따른다):
 #     registering → queued | processing | expired
-#     queued      → processing
+#     queued      → processing | cancelled(공급자 취소)
 #     processing  → review | failed | processing(lease 만료 뒤 재claim, 리뷰 R3)
-#     review      → active(사람 승인) | failed(사람 반려, 코드 rejected)
-#     active · failed · expired = 종결 (단 `failed` 는 사람이 다시 올리면 **새 refId** —
+#     review      → active(사람 승인) | failed(사람 반려, 코드 rejected) | cancelled(공급자 취소)
+#     active · failed · expired · cancelled = 종결 (단 `failed` 는 사람이 다시 올리면 **새 refId** —
 #                                    같은 doc 재사용 없음)
 #   expired(리뷰 R4) = presign 만료(`uploadExpiresAt`) 뒤에도 객체가 없는 `registering`
 #   을 requeue 스윕이 닫는 종결 상태. 페이지 문구 `row.status.expired`.
@@ -817,6 +817,10 @@ COACH_STATUSES = (
 #   통과했지만 사람이 아직 안 본 등록. isActive False 라 수강생 picker 에 안 뜨고, 자기 재현성은
 #   이 상태에서도 돈다. 승인/반려 = backend/scripts/review_reference_registrations.py.
 #   claim·requeue 대상이 아니다(중복 S3 이벤트가 review doc 을 다시 돌리지 않는다).
+#   cancelled(quick-261002-pa2, belle 2026-10-02 결정 4) = 공급자가 queued · review 에서 스스로 거둔
+#   검토 요청. 종결 — isActive false 유지, 다시 올리면 새 refId. claim · requeue · 파이프라인 S3 이벤트 ·
+#   운영 승인/반려/내리기 모두 대기 아님으로 본다. writer = firestore_admin.cancel_reference_registration
+#   (소유자 검사 · 트랜잭션), 입구 = POST /reference/upload-url `{cancel: true, refId}`.
 REGISTRATION_STATUS_REGISTERING = "registering"
 REGISTRATION_STATUS_QUEUED = "queued"
 REGISTRATION_STATUS_PROCESSING = "processing"
@@ -824,6 +828,7 @@ REGISTRATION_STATUS_FAILED = "failed"
 REGISTRATION_STATUS_ACTIVE = "active"
 REGISTRATION_STATUS_EXPIRED = "expired"
 REGISTRATION_STATUS_REVIEW = "review"
+REGISTRATION_STATUS_CANCELLED = "cancelled"
 REGISTRATION_STATUSES = (
     REGISTRATION_STATUS_REGISTERING,
     REGISTRATION_STATUS_QUEUED,
@@ -832,6 +837,7 @@ REGISTRATION_STATUSES = (
     REGISTRATION_STATUS_ACTIVE,
     REGISTRATION_STATUS_EXPIRED,
     REGISTRATION_STATUS_REVIEW,
+    REGISTRATION_STATUS_CANCELLED,
 )
 
 # 자기 재현성 분석(D-10) 진행 상태 — 기준 doc 의 `selfCheckStatus`. 등록 상태와 독립.
@@ -1003,6 +1009,14 @@ CONSENT_TRAINING_BASIS_CONTRACT = "supplier_contract"
 # 또는 displayName 빈 doc)는 업로드 409(w9l 항목 10) — presign·doc 선작성 전에 막는다.
 SUPPLIER_ERR_NAME_MISSING = "supplier_name_missing"
 SUPPLIER_NAME_MISSING_MESSAGE = "선수 이름이 등록되지 않았어요. 운영팀에 알려주세요."
+# quick-261002-pa2 (belle 2026-10-02 결정 4) — 공급자 검토 요청 취소 `{cancel: true, refId}` 오류.
+# 409 = queued · review 가 아닌 등록(처리 중 · 결과 나옴), 404 = 없는 doc 또는 남의 doc(같은 응답 —
+# 존재 오라클 없음, playback-url `_visible_to` 선례). 문구는 공급자 웹 supplierCopy.row.cancelError 와
+# 같은 글자(앱은 code 로만 분기한다). 등록 실패 코드(REGISTRATION_ERROR_CODES)가 아니다.
+REFERENCE_CANCEL_ERR_NOT_CANCELLABLE = "not_cancellable"
+REFERENCE_CANCEL_ERR_NOT_FOUND = "not_found"
+REFERENCE_NOT_CANCELLABLE_MESSAGE = "지금은 취소할 수 없어요. 영상을 처리하는 중이거나 검토가 이미 끝났어요."
+REFERENCE_CANCEL_NOT_FOUND_MESSAGE = "이 동작을 찾지 못했어요. 목록에서 다시 확인해 주세요."
 # 강사 코드(D-12) — `SUPPLIER_UIDS` 의 `uid:CODE` 항목. 대문자 영숫자 3~8자.
 SUPPLIER_CODE_RE = re.compile(r"^[A-Z0-9]{3,8}$")
 SUPPLIER_UIDS_PARAM_DEFAULT = "/sunity/motion/supplier-uids"

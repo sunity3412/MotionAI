@@ -36,6 +36,7 @@ const REGISTRATION_STATUSES: readonly ReferenceRegistrationStatus[] = [
   'active',
   'expired',
   'review',
+  'cancelled', // quick-261002-pa2 — 없으면 normalizeRegistration 이 registering 으로 떨궈 '검토 중'으로 보인다
 ];
 const SELF_CHECK_STATUSES: readonly SelfCheckStatus[] = ['pending', 'queued', 'done', 'failed'];
 const FAIL_CODES = Object.keys(supplierCopy.row.fail) as ReferenceRegistrationErrorCode[];
@@ -189,6 +190,8 @@ export function rowStatusWord(m: SupplierMotion): string {
       return s.failed;
     case 'expired':
       return s.expired;
+    case 'cancelled':
+      return s.cancelled;
     case 'active': {
       const score = doneScore(m);
       if (score == null) return s.newlyAdded;

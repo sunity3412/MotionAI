@@ -169,3 +169,30 @@ Rule 1~3 자동 수정 없음. Rule 4 사유 없음.
 
 - 파일: frame_extractor.py · app.py · test_spot_check.py · contract.md 수정, test_frame_extractor_resize_skip.py · test_post_stage_parallel.py 존재 — `git diff --stat a21edc48..HEAD` 6 files.
 - 커밋: 2e42d98b · 95b644a8 · cac6e2ca · 1b69baf8 · 8395606c · cff6cfcc — `git log --oneline a21edc48..HEAD` 6줄.
+
+## Pod 실측 (2026-10-03 밤, belle "끝나면 Pod 켜서 실측까지" — 오케스트레이터 실행)
+
+### 관측 [확인]
+
+- Pod `70k9sodi33enon` RTX 4090(qmg 와 같은 종류) · 생성 12:22Z → `pod_teardown.py` 로 종료 · 잔액 $14.54 → $14.18 · Lambda `RUNPOD_ANALYZE_URL` = `pod-down.invalid` · 계정 Pod 0대 [확인 조회]. 볼륨 리포는 종료 전 `main`(15b90db1)으로 되돌림.
+- 한 Pod 에서 서버만 재시작해 판을 바꿈: 전 = `a21edc48`(qmg 포함, svg 직전) · 후 = `15b90db1`(svg, `POST_STAGE_PARALLEL` 기본 ON). 순서 전1 → 후1 → 후2 → 전2, 각 런은 사후 단계 끝(`INFO runpod_inference: 분석 완료`) 뒤 다음. 입력 = qmg 와 같은 38-14 쌍, 같은 익명 계정.
+- 로그 = `evidence/svg_{before1,after1,after2,before2}_runpod_server.log`. Traceback · RESOURCE_EXHAUSTED · 429 · `사후 곁가지 실패` = 0 [확인 grep].
+
+| 런 | 점수까지 | 점수 → 사후 끝 | 전체 | frame_extract | coach_dual | fault_zoom | post_parallel | coach B 504 재시도 |
+|---|---|---|---|---|---|---|---|---|
+| 전1 | 120.5초 | 222.8초 | 343.3초 | 22.7 | 56.0 | 80.0 | — | 0 |
+| 후1 | 101.7초 | 195.8초 | 297.5초 | **13.4** | 86.4 | 109.4 | 119.7 | 1 |
+| 후2 | 108.8초 | 167.1초 | 275.9초 | **13.5** | 91.4 | 61.1 | 91.7 | 1 |
+| 전2 | 116.5초 | 260.7초 | 377.2초 | 22.7 | 85.9 | 89.5 | — | 1 |
+
+- 평균: 점수까지 118.5 → 105.3초(**−13초**) · 점수 뒤 241.8 → 181.5초(**−60초**) · 전체 360.3 → 286.7초(**−74초**).
+- frame_extract 22.7초 → 13.4~13.5초(−9.2초) — 양쪽 2회씩 값이 거의 같다 [확인].
+- spot_check 9.6~10.3초 · compare_render 71.7~73.7초 — 양쪽 같다(판과 무관).
+- 점수 불변: 4건 모두 `overallScore 100` · `deductionBreakdown.final 100` · `faultZoomStatus done` · coachAudio done [확인]. result 잎 필드 155개 중 다른 16개 = timingsMs · 영상/결과 키·URL · commitSha · faultZoomComparisons[0] 의 imageKey/imageKeyPlain/imageUrl/imageUrlPlain(분석 ID·서명이 든 경로) — 그 밖의 확대 사진 데이터는 4건 동일 [확인 비교 스크립트].
+- coach B(`gemini-3.1-pro-preview`) 504 → 1회 재시도가 4건 중 3건(전2 · 후1 · 후2)에 있다. 오전 qmg 런에도 있었다 — 판과 무관한 Gemini 쪽 현상 [확인 로그].
+
+### 진단 — 재검증 대상 [미확인]
+
+- 병렬 구간(`post_parallel`)은 max(코칭 문장, 곁가지) 이다. 코칭 문장이 504 재시도로 86~91초가 되면 그쪽이 사후 구간의 바닥이 된다(후2: 코칭 91 vs 곁가지 ≈71 → 92초).
+- veto_collect 가 후 쪽에서 23 → 14초로 줄었지만 이번 변경은 veto 를 건드리지 않는다 — Gemini 편차 또는 VisionVetoCache 로 보이고 효과로 세지 않는다.
+- 다음 레버 후보: coach B 504(≈60초 타임아웃 후 재시도) · compare_render 72초(혼자 남은 가장 긴 단계).

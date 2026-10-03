@@ -1,0 +1,135 @@
+INFO:     Started server process [7143]
+INFO:     Waiting for application startup.
+2026-10-03 12:44:00,472 INFO runpod_inference: RunPod 분석 서버 startup — auth=ON
+2026-10-03 12:44:00,922 INFO botocore.credentials: Found credentials in environment variables.
+2026-10-03 12:44:01,037 INFO runpod_inference: pipeline 모듈 로드 + NLF 어댑터 워밍업 완료
+2026-10-03 12:44:01,313 INFO sunity_shared.analysis.pose_engines.rtmw.rtmw_engine: RTMWPoseEngine weight selected name=rtmw-x-384x288 license_status=commercial_ok
+2026-10-03 12:44:01,313 INFO sunity_shared.analysis.pose_engines.rtmw.rtmw_engine: RTMWPoseEngine init weight=rtmw-x-384x288 input_size=[384, 288]
+2026-10-03 12:44:01,435 INFO sunity_shared.analysis.pose_engines.rtmw.ort_determinism: RTMW deterministic mode ON — CUDA EP options={'cudnn_conv_algo_search': 'DEFAULT', 'do_copy_in_default_stream': '1', 'cudnn_conv_use_max_workspace': '1'}, threads=1, session.use_deterministic_compute=1, CUBLAS_WORKSPACE_CONFIG=:4096:8
+[0;93m2026-10-03 12:44:02.042069255 [W:onnxruntime:, session_state.cc:1166 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.[m
+[0;93m2026-10-03 12:44:02.042101845 [W:onnxruntime:, session_state.cc:1168 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+2026-10-03 12:44:02,190 INFO sunity_shared.analysis.pose_engines.rtmw.rtmw_engine: RTMWPoseEngine deterministic mode ON (RTMW_DETERMINISTIC=1, eval 전용)
+2026-10-03 12:44:03,591 INFO httpx: HTTP Request: GET https://api.cerebras.ai/v1/tcp_warming "HTTP/2 200 OK"
+2026-10-03 12:44:03,671 INFO runpod_inference: 어댑터 워밍업 완료 (NLF/ffmpeg/coach)
+2026-10-03 12:44:03,989 INFO root: Recognizer = GeminiTechniqueRecognizer (env switch ON)
+2026-10-03 12:44:03,989 INFO runpod_inference: Recognizer 워밍업 완료 — type=GeminiTechniqueRecognizer
+2026-10-03 12:44:03,989 INFO runpod_inference: Gemini API 키 검증 완료
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+INFO:     127.0.0.1:38630 - "GET /health HTTP/1.1" 200 OK
+INFO:     100.64.1.5:11208 - "GET /health HTTP/1.1" 200 OK
+2026-10-03 12:44:30,712 INFO runpod_inference: /analyze accepted bucket=sunity-motion-pilot-videos uid=GCjT0wXOlWNtd9RHiBdIBbto6ut1 analysisId=9ef88600cc8c4fedbb02def3d9ea1b3a
+INFO:     100.64.1.1:24524 - "POST /analyze HTTP/1.1" 202 Accepted
+2026-10-03 12:44:38,646 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=s3_download elapsed_ms=4888
+2026-10-03 12:44:38,674 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=gemini_upload_prefetch_submit elapsed_ms=0
+I1003 12:44:38.773161    7191 fork_posix.cc:71] Other threads are currently calling into gRPC, skipping fork() handlers
+2026-10-03 12:44:38,964 WARNING sunity_shared.eval.phoenix_setup: Phase 17 telemetry extras 미설치: No module named 'phoenix' — bootstrap_tracing noop (분석 흐름 차단 0).
+2026-10-03 12:44:39,557 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files "HTTP/1.1 200 OK"
+2026-10-03 12:44:39,882 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:40,101 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:40,330 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:40,566 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:40,766 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:41,021 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:41,281 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:41,506 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:41,809 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:41,990 WARNING sunity_shared.firestore_admin: reference d8e849f70ee4430ab8a4aeb75cf673e4: resolved version=rot180_v1 (source=release_pointer) 문서 부재 → top-level 폴백
+2026-10-03 12:44:42,016 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:42,242 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:42,480 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:43,914 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81Vn6gjhYzn0A5hbrXuhdPUAC-fpjpJP5jEixHP3ow9PtxdoIKj9mEbNhhVHA4aYfSiH7g4mXke8GileKytvscjKR2_4XoUTF0y31q2C9I&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:45,831 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files "HTTP/1.1 200 OK"
+2026-10-03 12:44:46,078 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:46,150 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:44:46,278 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:46,509 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:46,737 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:46,939 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:47,243 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:47,457 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:47,657 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:47,918 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:48,133 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:48,348 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:44:48,374 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:49,895 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AP6rU81pvcoq-ha1OI4VoUCmBqapEImbi355O4yab5aGnxwk6Y9ekRluITT6Ljp9sbQHWRVSiIAzVFo9Fbxw2zlISj0gfK6XmUmzJnszqr-kM8s&upload_protocol=resumable "HTTP/1.1 200 OK"
+2026-10-03 12:44:50,532 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:44:52,078 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:44:52,714 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:44:54,240 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:44:54,900 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:44:56,434 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:44:57,091 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:44:58,619 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:44:59,274 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:45:00,746 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:45:01,376 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=frame_extract elapsed_ms=22701
+2026-10-03 12:45:01,474 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:45:02,938 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:45:03,660 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:45:05,110 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:45:05,830 WARNING sunity_shared.analysis.pose_engines.rtmw.rtmw_engine: rot180_inversion both_flags_on pr_warp_skipped=true
+2026-10-03 12:45:05,847 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:45:05,873 INFO sunity_shared.analysis.pose_engines.rtmw.rtmw_engine: rot180_inversion detect is_inverted=False ratio=0.000 run=0 valid=185/199
+2026-10-03 12:45:05,874 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=rtmw elapsed_ms=4497
+2026-10-03 12:45:07,291 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:45:08,061 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:45:08,062 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=student_upload_wait elapsed_ms=1543
+2026-10-03 12:45:08,161 INFO google_genai.models: AFC is enabled with max remote calls: 10.
+2026-10-03 12:45:08,161 WARNING google_genai.models: Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+2026-10-03 12:45:08,766 INFO google_genai.models: AFC is enabled with max remote calls: 10.
+2026-10-03 12:45:09,475 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:45:11,660 INFO httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:45:42,659 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent "HTTP/1.1 200 OK"
+2026-10-03 12:45:57,944 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent "HTTP/1.1 200 OK"
+2026-10-03 12:45:57,946 INFO sunity_shared.analysis.gemini_technique_recognizer: Gemini motion 미등록='d8e849f70ee4430ab8a4aeb75cf673e4' — Page 9 단독 + 자동 수집 trigger
+2026-10-03 12:45:58,330 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=recognizer elapsed_ms=49952
+2026-10-03 12:45:59,996 WARNING sunity_shared.firestore_admin: reference d8e849f70ee4430ab8a4aeb75cf673e4: resolved version=rot180_v1 (source=release_pointer) 문서 부재 → top-level 폴백
+2026-10-03 12:45:59,996 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=ref_fetch_download elapsed_ms=1660
+2026-10-03 12:46:00,613 INFO root: constant window reference=d8e849f70ee4430ab8a4aeb75cf673e4 fps=9.986666666666666 window=None
+2026-10-03 12:46:00,633 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=dtw_scoring elapsed_ms=20
+2026-10-03 12:46:00,633 INFO root: 기준 영상 prefetch 사용 analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a key=reference/UmH3ZHVYKXeanc01JzB6T4QhUuu1/d8e849f70ee4430ab8a4aeb75cf673e4/v1.mp4
+2026-10-03 12:46:00,633 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=ref_video_download elapsed_ms=0
+2026-10-03 12:46:00,633 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=ref_upload elapsed_ms=0
+2026-10-03 12:46:23,536 INFO sunity_shared.analysis.gemini_vision_scorer: Gemini 키: env GEMINI_API_KEY (len=53)
+2026-10-03 12:46:23,981 INFO sunity_shared.analysis.gemini_vision_scorer: VisionVetoCache rich hit (video): 8e39c59a
+2026-10-03 12:46:23,983 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=veto_collect elapsed_ms=23349
+2026-10-03 12:46:23,983 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=scene_finder elapsed_ms=0
+2026-10-03 12:46:23,987 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=assemble_misc elapsed_ms=3
+2026-10-03 12:46:24,081 INFO root: angle_vs_reference seed pointed=0 window=0 constant=0 fallback=8 ref_exec_window=None
+2026-10-03 12:46:24,199 INFO root: GEMINI_D_ENABLED OFF — wave 2 skip
+2026-10-03 12:46:27,234 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=firestore_complete elapsed_ms=2941
+2026-10-03 12:46:27,234 INFO root: 분석 완료 uid=GCjT0wXOlWNtd9RHiBdIBbto6ut1 analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a mode=mode1
+2026-10-03 12:46:27,524 INFO google_genai.models: AFC is enabled with max remote calls: 10.
+2026-10-03 12:46:29,476 INFO httpx: HTTP Request: POST https://api.cerebras.ai/v1/chat/completions "HTTP/2 200 OK"
+2026-10-03 12:47:26,290 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent "HTTP/1.1 504 Gateway Timeout"
+2026-10-03 12:47:26,291 WARNING sunity_shared.gemini.client: Gemini APIError code=504 — retry 1회 (model=gemini-3.1-pro-preview).
+2026-10-03 12:47:27,291 INFO google_genai.models: AFC is enabled with max remote calls: 10.
+INFO:     100.64.1.3:25046 - "GET /health HTTP/1.1" 200 OK
+2026-10-03 12:47:53,089 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent "HTTP/1.1 200 OK"
+2026-10-03 12:47:53,093 INFO root: coach dual-track 섹션 조립 — gemini_ok=True cerebras_ok=True joints=3 cross_filled=[] audit={'right_elbow': {'causes': 'gemini', 'fix': 'cerebras', 'coachNote': 'gemini', 'injuryRisk': 'cerebras', 'crossFilled': []}, 'left_hip': {'causes': 'gemini', 'fix': 'cerebras', 'coachNote': 'gemini', 'injuryRisk': 'cerebras', 'crossFilled': []}, 'left_knee': {'causes': 'gemini', 'fix': 'cerebras', 'coachNote': 'gemini', 'injuryRisk': 'cerebras', 'crossFilled': []}}
+2026-10-03 12:47:53,093 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=coach_dual elapsed_ms=85859
+2026-10-03 12:47:53,805 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=coach_audio elapsed_ms=347
+2026-10-03 12:49:02,723 INFO root: fault_zoom_anchor_check analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a path=stage1 side=user joint=left_elbow criterion=none expected=elbow|hand|shoulder action=pass trail=hand/ok eye_calls=2
+2026-10-03 12:49:19,630 INFO root: fault_zoom_anchor_check analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a path=stage1 side=ref joint=left_elbow criterion=none expected=elbow|hand|shoulder action=pass trail=hand/ok eye_calls=2
+2026-10-03 12:49:19,630 INFO sunity_shared.analysis.fault_zoom: fault_zoom_crop analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a region=arms criterion=none user_kind=valid user_side_px=907 ref_kind=valid ref_side_px=907 user_frame=99 ref_rep_idx=89 ref_video_idx=99 vertex_centered=False shared_side_px=none shared_frac=none
+2026-10-03 12:49:19,630 INFO sunity_shared.analysis.fault_zoom: fault_zoom_angle_bake analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a criterion=none angle_bake=omitted:no_criterion
+2026-10-03 12:49:20,053 INFO root: fault_zoom_anchor_check_summary analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a scope=render sides=2 eye_calls=4 pass=2 suppressed=0 unbound=0
+2026-10-03 12:49:20,053 INFO root: pair_time_deviation attached cards=1 emitted=1 tier=warped anchor_fps=9.0000 label_fps=9.9867/9.9867
+2026-10-03 12:49:23,296 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=fault_zoom elapsed_ms=89490
+2026-10-03 12:49:23,387 INFO sunity_shared.analysis.gemini_vision_scorer: Gemini 키: env GEMINI_API_KEY (len=53)
+2026-10-03 12:49:23,418 INFO google_genai.models: AFC is enabled with max remote calls: 10.
+2026-10-03 12:49:33,214 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent "HTTP/1.1 200 OK"
+2026-10-03 12:49:33,587 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=spot_check elapsed_ms=10290
+2026-10-03 12:49:51,822 INFO sunity_shared.analysis.pose_engines.rtmw.ort_determinism: RTMW deterministic mode ON — CUDA EP options={'cudnn_conv_algo_search': 'DEFAULT', 'do_copy_in_default_stream': '1', 'cudnn_conv_use_max_workspace': '1'}, threads=1, session.use_deterministic_compute=1, CUBLAS_WORKSPACE_CONFIG=:4096:8
+[0;93m2026-10-03 12:49:52.626128528 [W:onnxruntime:, session_state.cc:1166 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.[m
+[0;93m2026-10-03 12:49:52.626158623 [W:onnxruntime:, session_state.cc:1168 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+2026-10-03 12:50:45,237 INFO root: compare_render done uid=GCjT0wXOlWNtd9RHiBdIBbto6ut1 analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a key=results/GCjT0wXOlWNtd9RHiBdIBbto6ut1/9ef88600cc8c4fedbb02def3d9ea1b3a/compare_v1.mp4 freezes=0
+2026-10-03 12:50:45,237 INFO root: card_gates 스킵 (records/freezes/report 부재 — 기존 카드 유지) analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a
+2026-10-03 12:50:45,317 INFO root: stage_timing analysis_id=9ef88600cc8c4fedbb02def3d9ea1b3a stage=compare_render elapsed_ms=71730
+2026-10-03 12:50:46,671 INFO httpx: HTTP Request: DELETE https://generativelanguage.googleapis.com/v1beta/files/fg8hgca4zuww "HTTP/1.1 200 OK"
+2026-10-03 12:50:47,914 INFO httpx: HTTP Request: DELETE https://generativelanguage.googleapis.com/v1beta/files/bn0kfbwvbvhv "HTTP/1.1 200 OK"
+2026-10-03 12:50:47,921 INFO runpod_inference: 분석 완료 uid=GCjT0wXOlWNtd9RHiBdIBbto6ut1 analysisId=9ef88600cc8c4fedbb02def3d9ea1b3a

@@ -162,7 +162,15 @@ class FfmpegFrameExtractor:
             # 12-deferred §12-B — 마지막 frame 강제 포함 추적.
             # step 모듈로 떨어지지 않은 영상 끝의 잔여 frame 이 무시되면 결과 영상의
             # 마지막 ~step/src_fps 초가 keypoint 정지 표시되는 finding (belle UAT 2차).
-            last_resized: np.ndarray | None = None
+            #
+            # quick-261003-svg — 버리는 프레임까지 축소하던 비용(로컬 25.7초 중 ≈10초,
+            # 4K HEVC 593프레임)을 없앤다. 마지막 강제 포함은 원본 참조만 들고 있다가
+            # 필요할 때 한 장만 축소 — 출력 바이트 동일(test_frame_extractor_resize_skip.py).
+            # imageio ffmpeg 리더는 프레임마다 새 배열을 준다(`_read_frame` 의 `.copy()`) —
+            # 원본 참조를 들고 있어도 다음 디코딩이 덮지 않는다.
+            # ffmpeg `select` 필터로 디코딩 단계에서 솎는 안은 기각 — 로컬 15.3초로 이득이
+            # 없고 픽셀이 달라진다(오케스트레이터 실측).
+            last_raw: np.ndarray | None = None
             last_idx_seen = -1
             last_idx_appended = -1
             for i, frame in enumerate(reader):
@@ -171,24 +179,25 @@ class FfmpegFrameExtractor:
                 if end_idx is not None and i >= end_idx:
                     break
                 last_idx_seen = i
-                if (i - start_idx) % step != 0:
-                    rgb = np.asarray(frame)[:, :, :3]  # RGBA 입력 대비
-                    last_resized = self._resize(rgb)
-                    continue
                 rgb = np.asarray(frame)[:, :, :3]  # RGBA 입력 대비
-                last_resized = self._resize(rgb)
-                frames.append(last_resized)
+                if (i - start_idx) % step != 0:
+                    last_raw = rgb  # 축소 안 함 — 마지막 강제 포함 때만 쓴다
+                    continue
+                frames.append(self._resize(rgb))
                 last_idx_appended = i
+                last_raw = None  # 4K 원본 한 장을 일찍 놓는다
         finally:
             reader.close()
 
         # 12-deferred §12-B — loop 종료 후 마지막 frame 이 step 모듈로 미달이라
         # 미포함된 경우 강제 추가. 영상 끝 keypoint 정지 finding 해소.
+        # 마지막으로 본 프레임이 버리는 프레임이면 last_raw 가 바로 그 프레임 —
+        # 옛 last_resized 와 같은 입력이라 같은 바이트가 나온다(quick-261003-svg).
         if (
-            last_resized is not None
+            last_raw is not None
             and last_idx_seen > last_idx_appended
         ):
-            frames.append(last_resized)
+            frames.append(self._resize(last_raw))
 
         if not frames:
             raise ValueError(f"프레임을 추출하지 못했습니다: {local_video_path}")

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-10-03 — quick 261003-qmg(분석 시간 단축: 기준 영상 Gemini 업로드 prefetch + scene_finder join 을 코칭 직전으로) 코드·테스트 완료, **배포 안 함**(pytest 5943/20 · 새 테스트 33). 효과(3분 40초 → 2분대)는 [미확인] — 다음 = Pod 에 올려 38-14 의 19.9초 mode1 영상 전후 stage_timing + 점수 불변 + 429 0 확인(배포 단위 = Pod `_process` 재적재인지 그때 확인). pa2 배포 완료 · belle 폰 렌더 확인 보류 [미확인](재개 = pa2 DEPLOY.md 선택 확인 1번). 인계서 = `.planning/quick/261003-qmg-ref-gemini-prefetch-and-scene-join-move/261003-qmg-SUMMARY.md`"
-last_updated: "2026-10-03T11:30:00.000Z"
+stopped_at: "2026-10-03 — quick 261003-qmg(기준 영상 Gemini prefetch + scene join 이동) 코드·테스트 완료 + **Pod 실측 완료**: 같은 RTX 4090 Pod 에서 전(367d676a) 155초 → 후(8d3f78cb) 112초(n=2, 점수 4건 모두 100·감점 동일), 단계 밖 공백 33초 → 0. scene join 이동은 recognizer 가 5→41~52초로 늘어 순효과 ≈0 [미확인 원인]. 코드는 origin/main 에 있어 다음 Pod 기동 때부터 운영에 들어간다. Pod 종료·주소 자리표시자 [확인]. 다음 후보 = recognizer∥scene 겹침 대기 원인 측정(≈40초) · 사후 단계 병렬(fault_zoom∥compare_render). pa2 belle 폰 렌더 확인 보류 [미확인](재개 = pa2 DEPLOY.md 선택 확인 1번). 인계서 = `.planning/quick/261003-qmg-ref-gemini-prefetch-and-scene-join-move/261003-qmg-SUMMARY.md` Pod 실측 절"
+last_updated: "2026-10-03T11:40:00.000Z"
 last_activity: 2026-10-03
 progress:
   total_phases: 21

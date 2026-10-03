@@ -754,9 +754,18 @@ timingsMs   { [stage: string]: number }   optional  ← 단계별 소요(ms), fl
   - flat `dict[str, int]` (nested list/dict 금지 — [[firestore-nested-array-flat]] 보존).
     값은 정수 ms.
   - 단계 키는 **예시**(비고정 — 키 추가는 비파괴): `s3_download`, `frame_extract`, `rtmw`,
-    `scene_finder`, `recognizer`, `ref_fetch_download`, `dtw_scoring`, `veto_collect`,
-    `coach_dual`, `assemble_misc`, `fault_zoom`. `firestore_complete` 는 저장 dict 에는
+    `student_upload_wait`, `scene_finder`, `recognizer`, `ref_fetch_download`,
+    `ref_video_download`, `dtw_scoring`, `ref_upload`, `veto_collect`, `coach_dual`,
+    `assemble_misc`, `fault_zoom`. `firestore_complete` 는 저장 dict 에는
     미포함(complete_analysis 호출 자체를 감싸 직렬화 이후 기록 — 로그 라인으로만 방출).
+    quick-261003-qmg 신설 3개: `student_upload_wait` = 포즈 뒤 학생 영상 Gemini 업로드 대기
+    (prefetch 면 잔여 대기, OFF 면 동기 업로드 전체), `ref_video_download` = mode1 · veto ON
+    기준 영상 로컬 확보(prefetch 면 잔여 대기, 불일치·실패·OFF 면 동기 S3 다운로드),
+    `ref_upload` = veto 직전 기준 영상 Gemini 업로드(prefetch 면 캐시 hit/진행 중 업로드
+    대기, 아니면 동기 업로드+ACTIVE 폴링 — 기준 영상이 없는 mode3 · veto OFF 는 키 없음).
+  - quick-261003-qmg 부터 `scene_finder` 는 prefetch ON 이면 첫 소비처(코칭 컨텍스트) 직전의
+    잔여 대기, OFF 면 동기 호출 전체를 잰다 — 이 변경 전후 doc 의 `scene_finder` 값은 같은
+    물건이 아니다(전: recognizer 앞 join 대기).
   - **부재 = 계측 이전(legacy) doc** — optional, migration 없음.
   - Python 정본: pipeline `app.py` `_stage` contextmanager 주석 (자유 키 dict — status
     enum 아님, models.py 상수 불필요). lockstep: `app/src/types/analysis.ts

@@ -8962,9 +8962,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # env 게이트 하에, 학생 영상 File API 업로드 + scene_finder 를 백그라운드 스레드로
     # 시작해 frame_extract/RTMW(포즈) 그늘에 숨긴다 (27-RESEARCH Pattern 2). executor 는
     # 분석-로컬(분석 간 SERIAL 불변 — 모듈 전역 금지, 27-PATTERNS No Analog: 이 파일이
-    # 향후 analog). 포즈 산출물 미의존 태스크만 prefetch (업로드 / scene_finder). recognizer
-    # moment extractor·기준 영상 prefetch 는 27-05 범위 밖(SUMMARY 근거): recognize 는
-    # angles 의존이고 moment 주입은 recognizer 모듈 수정 필요(채점 코어·선언 파일 밖).
+    # 향후 analog). 포즈 산출물 미의존 태스크만 prefetch (업로드 / scene_finder / 기준 영상).
+    # recognizer moment extractor 는 27-05 범위 밖(SUMMARY 근거): recognize 는 angles 의존이고
+    # moment 주입은 recognizer 모듈 수정 필요(채점 코어·선언 파일 밖). 기준 영상(mode1 + veto
+    # ON) 다운로드+Gemini 업로드는 quick-261003-qmg 부터 여기서 prefetch 한다 — 38-14 Pod 로그
+    # 에서 veto 직전 동기 업로드가 ≈42초였고 어느 stage 에도 안 잡혔다.
     prefetch_active = keep_local_video and _gemini_upload_prefetch_enabled()
     executor = (
         ThreadPoolExecutor(max_workers=4, thread_name_prefix="gemini")
@@ -8973,6 +8975,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     )
     student_handle_future = None
     scene_future = None
+    # quick-261003-qmg — 기준 영상 prefetch 다운로드 future 와 scene 결과. scene_result 는
+    # prefetch 경로에서 첫 소비처(_build_coach_context) 직전에 대입되므로 여기서 None 으로
+    # 묶어 둔다(조기 실패 경로에서도 이름이 존재).
+    ref_prefetch_future = None
+    scene_result: dict | None = None
     try:
         if executor is not None:
             # keep_local_video=True 이므로 다운로드 파일이 아직 존재 (from_local 미실행).
@@ -8994,6 +9001,22 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 )
 
             scene_future = executor.submit(_scene_prefetch)
+            # quick-261003-qmg — 기준 영상 다운로드 → Gemini 업로드를 포즈 그늘로. 제출 순서 =
+            # (1)학생 업로드 (2)scene((1) 대기) (3)기준 다운로드 (4)기준 업로드((3) 대기).
+            # 기다리는 작업은 언제나 자기보다 먼저 제출된 future 만 기다리고 작업 큐는 FIFO 라,
+            # 기다리는 쪽이 돌고 있으면 기다림을 받는 쪽은 이미 돌고 있거나 끝났다 → 교착 0.
+            # max_workers=4 = 작업 4개라 넷이 동시에 돈다 — 워커 수는 그대로 둔다.
+            # 채점 경로는 이 결과를 쓰지 않는다. 기준 영상 확보 자리에서 채점 경로가 읽은
+            # ref doc 의 videoS3Key 와 대조해 같을 때만 쓰고, 다르거나 실패면 기존 동기 경로.
+            if _reference_prefetch_wanted(mode, ref_motion_id):
+                ref_prefetch_future = executor.submit(
+                    _prefetch_reference_video, bucket, ref_motion_id
+                )
+                # 업로드 future 는 붙잡지 않는다 — 결과(핸들)는 세션 캐시를 거쳐 ref_upload
+                # 자리의 get_or_upload 에 닿고, join 은 outer finally 의 executor.shutdown.
+                executor.submit(
+                    _upload_prefetched_reference, session, ref_prefetch_future
+                )
             # submit 시점 마커 — submit-before-rtmw 로그 순서 검증(HIGH-1). dict 미기록,
             # 마커 전용 (27-01 stage_timing 포맷 정합). 이 라인이 아래 frame_extract/RTMW
             # 보다 앞이라 로그 순서상 prefetch_submit < rtmw 가 보장된다.
@@ -9032,20 +9055,26 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
 
         # 학생 핸들 join (prefetch) 또는 동기 폴백. 업로드 실패(None)는 각 모듈이 자체
         # 업로드로 graceful 폴백 (분석 비차단 — moment extractor 폴백도 27-04 fix 로 누수 0).
-        if student_handle_future is not None:
-            student_video_handle = student_handle_future.result()
-        else:
-            student_video_handle = (
-                session.get_or_upload(local_video_path) if local_video_path else None
-            )
+        # quick-261003-qmg — 이 대기를 student_upload_wait 로 잰다(동작 무변경 계측). 기준
+        # 영상(≈100MB) 다운로드+업로드가 학생 업로드와 대역을 나눠 쓰게 되므로, 학생 업로드가
+        # 느려지면 그 시간이 또 어느 stage 에도 안 잡히는 일을 막는다.
+        with _stage(timings_ms, analysis_id, "student_upload_wait"):
+            if student_handle_future is not None:
+                student_video_handle = student_handle_future.result()
+            else:
+                student_video_handle = (
+                    session.get_or_upload(local_video_path) if local_video_path else None
+                )
 
         # ── Plan 17-02 Wave 1 — 영역 C Finding join/호출 (RTMW estimate 직후 / KISMAM 직전) ──
         # B4 hard gate — local_video_path 만 사용 (S3 재다운로드 / RTMW 재실행 0). graceful —
         # find_scene_flags 예외 / GEMINI_FINDING_ENABLED OFF / local path 없음 시 None 반환.
-        with _stage(timings_ms, analysis_id, "scene_finder"):  # Phase 27 SPD-01
-            if scene_future is not None:
-                scene_result = scene_future.result()  # prefetch join
-            else:
+        # quick-261003-qmg — prefetch 경로(scene_future 있음)는 여기서 join 하지 않는다.
+        # 38-14 Pod 로그에서 여기 join 대기가 37~45초였는데 scene_result 의 소비처는 전부
+        # 코칭 컨텍스트 이후다 → join 을 _build_coach_context 직전으로 옮겼다(그 자리 주석).
+        # 동기 경로(prefetch OFF)는 겹칠 것이 없어 위치를 그대로 둔다.
+        if scene_future is None:
+            with _stage(timings_ms, analysis_id, "scene_finder"):  # Phase 27 SPD-01
                 scene_result = _call_wave1_scene_finder(
                     local_video_path=local_video_path,
                     is_reference=is_reference_local,
@@ -9054,27 +9083,29 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     except Exception:
         # 조기 실패 (outer try 밖) — future join 먼저(Pitfall 3), 그 다음 세션 즉시 정리
         # (veto/coach 미도달 → outer finally session.close() 미실행이라 여기서 leak 0).
+        # quick-261003-qmg — 순서 = join → session.close → temp unlink (outer finally 와 같다).
+        # join 이 close 보다 앞이어야 늦게 끝난 기준 업로드 핸들도 close 가 지운다(close 는
+        # 그 시점 핸들만 지운다, file_session.py close()).
         if executor is not None:
             executor.shutdown(wait=True)
-        # WR-02 fix (27-REVIEW): 학생 temp unlink 는 future join **후** 여기서 수행 —
-        # 추출-실패 즉시-unlink(unlink_on_error=False 로 봉인)의 이관분. missing_ok:
-        # 추출 성공 후 keep_local_video=False 경로가 이미 지웠어도 안전 (이중 unlink 0).
-        Path(local_video_path_dl).unlink(missing_ok=True)
         try:
             session.close()
         except Exception:  # noqa: BLE001 - 조기 실패 세션 정리 실패는 분석 흐름 무관
             log.warning(
                 "prefetch 조기 실패 세션 정리 실패 (graceful) analysis_id=%s", analysis_id
             )
+        # WR-02 fix (27-REVIEW): 학생 temp unlink 는 future join **후** 여기서 수행 —
+        # 추출-실패 즉시-unlink(unlink_on_error=False 로 봉인)의 이관분. missing_ok:
+        # 추출 성공 후 keep_local_video=False 경로가 이미 지웠어도 안전 (이중 unlink 0).
+        Path(local_video_path_dl).unlink(missing_ok=True)
+        # quick-261003-qmg — 기준 영상 prefetch temp(join 뒤라 안전). 실패한 prefetch 는
+        # 헬퍼가 이미 지웠고, 미시작이면 None(no-op).
+        _safe_unlink_local_video(_prefetched_reference_temp_path(ref_prefetch_future))
         raise
-    finally:
-        # Pitfall 3 — 모든 prefetch future join(shutdown wait=True) 후 진행. executor 는
-        # 분석-로컬이라 여기서 폐기. temp unlink 는 outer finally 또는 위 except(join 후)
-        # — future 생존 중 unlink 0 (WR-02 fix 로 추출-실패 즉시-unlink 도 봉인됨).
-        # 성공 경로에서는 위 .result() 로 이미 join 됨 (shutdown 은 no-op). 실패 경로는 위
-        # except 가 join 후 raise (여기 shutdown 은 idempotent no-op).
-        if executor is not None:
-            executor.shutdown(wait=True)
+    # quick-261003-qmg — 성공 경로의 executor.shutdown 은 여기서 outer finally 로 옮겼다.
+    # 여기서 기다리면 scene_finder · 기준 업로드를 포즈 직후에 다 기다려 이동 효과가 0 이
+    # 된다. executor 수명은 이제 outer finally 까지이고, 이 사이 구간에는 raise 할 문장이
+    # 없다(아래 status write · 서명 URL · torso 산출을 outer try 안으로 옮겼다).
 
     # WR-03 (2026-06-08 review) — unregistered_hook 의 uid 를 실제 caller uid 로 교체.
     # _ensure_recognizer 의 hook 은 cache 생성 시점에 uid 미상이라 "anonymous-pipeline"
@@ -9092,10 +9123,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             keyword, uid=_uid, video_hash=video_hash
         )
 
-    firestore_admin.update_analysis_status(
-        uid, analysis_id, models.STATUS_COMPARISON
-    )
-    my_video_url = _signed_get(bucket, key)
+    # quick-261003-qmg — STATUS_COMPARISON write · 학생 서명 URL · target torso 산출은 아래
+    # outer try 맨 앞으로 옮겼다(같은 상대 순서). 여기 남은 것은 순수 정의/대입뿐이라 관측
+    # 가능한 순서 변화 0 — 그 세 문장 실패도 outer finally(executor join → session.close →
+    # temp unlink)를 탄다. 옮기기 전에는 이 구간 실패에서 session.close · 학생 temp unlink
+    # 가 안 불렸다(기존 결함).
     reference_video_url = None
 
     # Phase 20 — Mode1 reference-anchored vision veto (belle 2026-06-20).
@@ -9148,10 +9180,15 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # None 유지. 점수 경로 진입 금지 — coach context 전달만 (bodyProfile D-05 규율).
     posture_axes: dict | None = None
 
-    # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
-    target_torso = _extract_target_torso_px(pose_frames)
-
     try:
+        # quick-261003-qmg — 포즈 블록과 outer try 사이에서 옮겨 온 세 문장(같은 순서).
+        firestore_admin.update_analysis_status(
+            uid, analysis_id, models.STATUS_COMPARISON
+        )
+        my_video_url = _signed_get(bucket, key)
+        # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
+        target_torso = _extract_target_torso_px(pose_frames)
+
         # 기술 인식(swappable) → 절대 차원(라인/안정성)은 기준 영상 없이 항상 산출.
         # Plan 5-03 박제 — recognize(angles, frames=local_video_path) 호출. Gemini
         # 어댑터는 frames 인자 (video path) 를 File API 입력으로 사용. Fallback 은
@@ -9493,27 +9530,42 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # (B4 — _apply_vision_veto 가 어댑터에 path 전달, 어댑터 재다운로드 0).
                 # delete=False 임시 파일 → veto 호출 후 finally 에서 _safe_unlink.
                 if _gemini_vision_veto_enabled():
-                    ref_tmp = None
-                    try:
-                        ref_ext = os.path.splitext(ref["videoS3Key"])[1] or ".mp4"
-                        ref_tmp = tempfile.NamedTemporaryFile(
-                            suffix=ref_ext, delete=False
+                    # quick-261003-qmg — 포즈 전에 시작한 prefetch 파일을 먼저 본다. 채점 경로가
+                    # 읽은 이 ref doc 의 videoS3Key 와 prefetch 키가 같을 때만 쓴다(다른 기준
+                    # 영상으로 veto 하는 것 차단). 없음 · 불일치 · 실패 = 아래 기존 동기 다운로드.
+                    # stage 는 prefetch 면 잔여 대기, 동기면 다운로드 전체를 잰다.
+                    with _stage(timings_ms, analysis_id, "ref_video_download"):
+                        prefetched_ref_path = _take_prefetched_reference_path(
+                            ref_prefetch_future, ref["videoS3Key"]
                         )
-                        ref_tmp.close()
-                        _s3_download(bucket, ref["videoS3Key"], ref_tmp.name)
-                        reference_local_video_path = ref_tmp.name
-                    except Exception:  # noqa: BLE001 - 기준 영상 다운로드 실패 graceful
-                        log.warning(
-                            "기준 영상 다운로드 실패 — veto missing_reference 로 graceful "
-                            "(분석 흐름 유지) uid=%s analysis_id=%s",
-                            uid, analysis_id,
-                        )
-                        # WR-03 fix (27-REVIEW): 생성된 temp 자체(ref_tmp.name)를 지운다.
-                        # reference_local_video_path 는 성공 시에만 대입돼 이 시점엔 항상
-                        # None(no-op) — 빈/부분 파일이 /tmp 에 적체되던 결함 (장수명 Pod).
-                        if ref_tmp is not None:
-                            _safe_unlink_local_video(ref_tmp.name)
-                        reference_local_video_path = None
+                        if prefetched_ref_path is not None:
+                            reference_local_video_path = prefetched_ref_path
+                            log.info(
+                                "기준 영상 prefetch 사용 analysis_id=%s key=%s",
+                                analysis_id, ref["videoS3Key"],
+                            )
+                        else:
+                            ref_tmp = None
+                            try:
+                                ref_ext = os.path.splitext(ref["videoS3Key"])[1] or ".mp4"
+                                ref_tmp = tempfile.NamedTemporaryFile(
+                                    suffix=ref_ext, delete=False
+                                )
+                                ref_tmp.close()
+                                _s3_download(bucket, ref["videoS3Key"], ref_tmp.name)
+                                reference_local_video_path = ref_tmp.name
+                            except Exception:  # noqa: BLE001 - 기준 영상 다운로드 실패 graceful
+                                log.warning(
+                                    "기준 영상 다운로드 실패 — veto missing_reference 로 graceful "
+                                    "(분석 흐름 유지) uid=%s analysis_id=%s",
+                                    uid, analysis_id,
+                                )
+                                # WR-03 fix (27-REVIEW): 생성된 temp 자체(ref_tmp.name)를 지운다.
+                                # reference_local_video_path 는 성공 시에만 대입돼 이 시점엔 항상
+                                # None(no-op) — 빈/부분 파일이 /tmp 에 적체되던 결함 (장수명 Pod).
+                                if ref_tmp is not None:
+                                    _safe_unlink_local_video(ref_tmp.name)
+                                reference_local_video_path = None
         else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
             # quick-260920-m3r — mode3 채점에 기준 선수 각도 축을 건다 (기본 OFF).
             mode3_ref_dtw_match, mode3_ref_angles, mode3_ref_fps = (
@@ -9637,11 +9689,15 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # cap_would_apply, D-13 MED-2). valid-but-not-cap-lowering(minor/88) 은 무주입(D-11 HIGH-1).
         # Phase 27 D-04 — 기준 영상도 세션 1회 업로드 후 핸들 공유 (veto 학생+기준 = 세션 핸들).
         # None(업로드 실패/Mode3 미다운로드) 시 assess_fault_context_video 가 자체 업로드 폴백.
-        reference_video_handle = (
-            session.get_or_upload(reference_local_video_path)
-            if reference_local_video_path
-            else None
-        )
+        # quick-261003-qmg — ref_upload stage. 호출 자체는 그대로다: prefetch 를 썼으면 같은
+        # 경로라 세션 캐시 hit 또는 진행 중 업로드(inflight) 대기로 끝나고, 아니면 종전과 같은
+        # 동기 업로드다 — 이 stage 가 지금까지 어느 stage 에도 안 잡히던 ≈42초(38-14 Pod 로그)를
+        # 처음으로 보이게 한다. 기준 영상이 없으면(mode3 · veto OFF) stage 키를 만들지 않는다.
+        if reference_local_video_path:
+            with _stage(timings_ms, analysis_id, "ref_upload"):
+                reference_video_handle = session.get_or_upload(reference_local_video_path)
+        else:
+            reference_video_handle = None
         with _stage(timings_ms, analysis_id, "veto_collect"):  # Phase 27 SPD-01
             vision_fault_context = _collect_vision_fault_context(
                 overall_score=overall,
@@ -9668,6 +9724,13 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             if vision_fault_context is not None and vision_fault_context.eligible_for_coach
             else None
         )
+        # quick-261003-qmg — prefetch 경로의 scene_finder join 은 여기, 첫 소비처 직전이다.
+        # scene_result 소비처는 전부 이 아래(코칭 컨텍스트 · wave2 · synthesis · complete)라
+        # recognizer · DTW · veto 가 scene_finder 를 기다릴 이유가 없다(38-14 Pod 로그: 옛
+        # 자리 join 대기 37~45초). 이 경로의 scene_finder stage 는 잔여 대기만 잰다.
+        if scene_future is not None:
+            with _stage(timings_ms, analysis_id, "scene_finder"):  # Phase 27 SPD-01
+                scene_result = scene_future.result()
         coach_context = _build_coach_context(
             mode=mode,
             assessments=assessments,
@@ -10560,6 +10623,13 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 fault_zoom_items=fault_zoom_items,
             )
     finally:
+        # quick-261003-qmg — executor join 이 session.close 보다 반드시 앞. close 는 그 시점
+        # 세션이 가진 핸들만 지운다(file_session.py close()) — 늦게 끝난 기준 업로드 핸들이
+        # close 뒤에 생기면 Gemini 저장소에 남는다. 성공 경로는 scene · 기준 업로드가 위에서
+        # join/세션 inflight 대기로 대개 끝나 있다. 키 불일치로 안 쓴 기준 업로드나 실패 경로의
+        # 남은 future 는 여기서 기다린다.
+        if executor is not None:
+            executor.shutdown(wait=True)
         # Phase 27 D-04 — 세션 File API 핸들 일괄 delete = 분석당 1회 (unlink 보다 앞).
         # NoHuman/NotPole 조기 raise 경로 포함 도달 보장 (Pitfall 2) — 20GB 적체 재발 방지.
         # best-effort (delete 예외는 나머지 정리/분석을 막지 않음, close() 내부 규율).
@@ -10578,6 +10648,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 내부 finally 가 이미 unlink+None 처리 (idempotent — None 이면 no-op). 다운로드~
         # veto 사이 예외 시에도 누수 0 (outer 초기화 → 항상 bound).
         _safe_unlink_local_video(reference_local_video_path)
+        # quick-261003-qmg — 기준 영상 prefetch temp. 위 join 뒤라 안전하다. 사용했으면 위와
+        # 같은 경로(missing_ok 라 무해), 키 불일치로 안 썼으면 여기서 처음 지운다.
+        _safe_unlink_local_video(_prefetched_reference_temp_path(ref_prefetch_future))
 
 
 # ── Phase 38 (38-07 T2) — 공급자 링크 등록 서비스: reference/{uid}/{refId}/upload.{ext} → angles + review ──

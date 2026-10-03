@@ -245,3 +245,45 @@ belle 이 화면을 보는 자리다(로그인 뒤 화면은 fixture 로 그리�
 8. 정리: 그 doc · S3 upload 객체 처리(belle 판단) → TESTB `deactivate`.
 
 ## 배포 기록
+
+### 2026-10-03 배포 (belle "pa2 배포부터")
+
+**롤백 보존 (08:23Z, 읽기)** — `/Users/Shared/sunity-motion-rollback/pa2/`(700) [확인 ls]
+- 함수 zip sha `N4cyKXyz…` = AWS CodeSha256 · layer-23 `tZDzyZl1…` = AWS · layer-24 `kZJQWDFy…` = 기록값 [확인 openssl]
+- 웹 버킷 60 파일, 라이브 entry `entry-394e74ae…` 포함 · `before-config-reference-upload-url.json` [확인]
+
+**조립 검사 (scratchpad, 보존본 위)** — layer 1105→1105 · :24 대비 바뀐 파일 3개(models · firestore_admin · validation) ·
+sunity_shared/*.py 119/119 = HEAD · 함수 2266→2266 · 바뀐 파일 `app.py` 하나 = HEAD [확인 diff -rq · cmp]
+
+**Docker 스모크 (arm64 컨테이너)** [확인]
+- 새 layer + 새 함수 → `SMOKE_OK unauth=401 probe_unauth=401 cancelled=ok writer=ok validator=bad_request(ref-kip-up)`
+- 라이브 함수 + 새 layer → `SMOKE_OK_OLD_CODE_NEW_LAYER`
+- 새 함수 + `:24` → ImportError · 새 함수 + **`:23`** → ImportError (위 (2) 절의 `:23` [추정]이 이번에 [확인])
+
+**웹 빌드** — `entry-c8639132d39774951dfd1606aef76533.js`(10-02 빌드와 같은 해시) · `BUNDLE_COPY_OK` [확인]
+
+| 단계 | 시각(Z) | 결과 |
+|---|---|---|
+| (1) layer 게시 | 08:25:16 | **`:25`** · CodeSha256 `ky2+xIvB9UkcZiNfH3nncWt15r5sGSE9lVqUbSwM5lg=` = 로컬 zip · 16,646,773 B [확인] |
+| (2a) 함수 layer → `:25` | 08:25:29 | Successful · 코드 sha 아직 `N4cyKXyz…` [확인] |
+| (2b) 함수 코드 | 08:25:52 | CodeSha256 `N+3DnoINzqoba527206ayv533pkuZGCm6qHQvfYUl2c=` = 로컬 zip · layer `:25` · Successful [확인] |
+| P0 (웹 올리기 전) | 08:26 | 무토큰 cancel 401 · 무토큰 probe 401 — 핸들러 실행(import 성공) [확인 curl] |
+| (3) 웹 | 08:2x | s3 sync --delete · 무효화 `IB4MGFP3A71UQROZE6AEZVCTX6` 완료 · `/supplier` 200 · 라이브 entry `c8639132…` · 라이브 URL 로 `BUNDLE_COPY_OK` [확인] |
+
+**배포 뒤 확인**
+- P6 `review_reference_registrations.py list` → `검수 대기 0건`, exit 0 [확인]
+- belle 선택(10-03) = **(a) TESTB 잠깐 되살림**. `reactivate` 09:01:35Z → active True [확인 list]
+- `pa2_livecheck.py --uid UmH3… --p4-ref d8e849f7…` (09:01:54Z) [확인]:
+
+| # | 결과 | 기대(TESTB active) |
+|---|---|---|
+| P0 | 401 unauthorized | 401 ○ |
+| P1 | 200 probe | 200 ○ |
+| P2 | 404 not_found | 404 ○ |
+| P3 | 400 bad_request | 400 ○ |
+| P4 | 409 not_cancellable · doc 전후 동일 True (status active) | 409 ○ |
+
+- belle 폰 확인(선택 확인 2~8) = **보류** — belle 10-03 *"실증이 얼마 안 남았다 일단 다른거 부터 개발"*. 렌더(토스트 · 검토 중 패널 · 확인창 · 요청 취소됨 행)는 **[미확인]**.
+- TESTB 회수 `deactivate` 10:06:55Z → active False [확인 list]. 폰 확인 재개 때 `reactivate` 부터 다시.
+- 이번 확인으로 생긴 Firestore · S3 쓰기 = 공급자 doc active 두 번 토글뿐(취소 쓰기 0 — P2~P4 전부 거절 응답) [확인 응답 코드].
+- 배포 중 Pod 꺼짐 상태 무접촉: SSM `pod-expected = down`, pipeline `RUNPOD_ANALYZE_URL` = `pod-down.invalid` 자리표시자 [확인 읽기].

@@ -10593,129 +10593,163 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 request_id=uuid.uuid4().hex,
             )
 
+        # ── 사후 단계 (complete 뒤 표현물) — quick-261003-svg 두 가지로 겹친다 ──────
+        # 승인 사후 순서(coach_text → coach_audio → fault_zoom → spot_check →
+        # compare_render)는 POST_STAGE_PARALLEL=0 의 실행 순서다. 기본 ON 에서는
+        # coach_text(메인) ∥ coach_audio → fault_zoom → spot_check(곁가지 "post_side"
+        # 스레드, 안 순서 그대로), compare_render 는 두 가지가 끝난 뒤 메인 — 근거
+        # quick-261003-svg. 의존 확인(코드): coach_audio 는 문구집 cueLine 만 읽어
+        # coach_text 무의존 · 곁가지는 result 에 쓰지 않고 coach_text 가 쓰는 키(tips ·
+        # coachStatus · hook)를 읽지 않음 · Firestore field-path 단계마다 다름 · 곁가지
+        # Gemini 는 인라인 JPEG 뿐(학생 File API 파일은 coach B 하나) · RTMW 는
+        # compare_render 만. 오케스트레이터 = _run_post_stages.
+        # 메인은 join 전에 cached_user_frames · local_video_path ·
+        # reference_local_video_path · result 를 다시 묶지 않는다 — 곁가지 람다가 늦게 읽는다.
+
         # ── quick-260901-wbo — 코칭 작성 사후 스테이지 (coach_text) ────────────
-        # 승인 사후 순서: coach_text → coach_audio → fault_zoom → spot_check →
-        # compare_render. coach_audio 는 records[].cueLine(문구집)을 TTS 하므로
-        # coach_dual 무의존 — 순서 유지 비용 0, 승인 원문 존중 (PLAN 전제 정정 1건).
+        # coach_audio 는 records[].cueLine(문구집)을 TTS 하므로 coach_dual 무의존 —
+        # 순서 유지 비용 0, 승인 원문 존중 (PLAN 전제 정정 1건).
         # coach_context 의 preuploadedHandle 은 session.close() 가 outer finally 라
         # 이 시점 유효 (fault_zoom 주석 선례). 실패 전부 graceful — 재raise 0.
-        _run_deferred_coach_text(
-            result=result,
-            assessments=assessments,
-            coach_context=coach_context,
-            force_findings=_force_findings,
-            body_findings=_body_findings,
-            force_pattern_inference_dict=force_pattern_inference_dict,
-            body_comparison_report_dict=body_comparison_report_dict,
-            uid=uid,
-            analysis_id=analysis_id,
-            timings_ms=timings_ms,
-        )
-
-        # ── Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오 사후 합성 ────────
-        # complete(status='done') 이후 표현물 스테이지 (fault_zoom 사후 분리 선례).
-        # zoom(ffmpeg 재디코딩 수십 초)보다 **앞**에 두어 오디오가 먼저 도착 — 32-12
-        # audioCue prefetch 성립 시점 단축. 합성은 문장 N개 Polly 호출(수 초)이라
-        # zoom 지연 미미. timings_ms 는 이미 저장됨 → 사후 소요는 stage 로그
-        # 라인으로만 (fault_zoom 관례). 실패 전부 graceful — 분석 무훼손 (SP-3).
-        with _stage(timings_ms, analysis_id, "coach_audio"):
-            # quick-260808-jix — items 수령 (compare_render 스테이지 mp3 회수용.
-            # 반환 additive — 실패 경로는 빈 리스트, 기존 동작 불변).
-            coach_audio_items = _run_deferred_coach_audio(
-                result=result, uid=uid, analysis_id=analysis_id, bucket=bucket
+        def _post_coach_text(stage_timings: dict) -> None:
+            _run_deferred_coach_text(
+                result=result,
+                assessments=assessments,
+                coach_context=coach_context,
+                force_findings=_force_findings,
+                body_findings=_body_findings,
+                force_pattern_inference_dict=force_pattern_inference_dict,
+                body_comparison_report_dict=body_comparison_report_dict,
+                uid=uid,
+                analysis_id=analysis_id,
+                timings_ms=stage_timings,
             )
 
-        # Phase 27 SPD-04 (D-06) — fault_zoom 사후 렌더. complete_analysis 로 점수/verdict/
-        # 감점 내역이 확정된 뒤(status='done'), zoom PNG 를 여기서 렌더해
-        # update_analysis_fault_zoom(done/failed) 부분 업데이트로 도착시킨다. **분석 간
-        # SERIAL 불변** — 다음 분석은 이 BackgroundTask 종료(finally) 후에만 시작하므로
-        # 별도 태스크 불필요(27-RESEARCH Pattern 5). local_video_path/
-        # reference_local_video_path 는 아래 outer finally unlink **前**이라 여기서 유효
-        # (조기 raise 경로는 complete 미도달 → 이 블록/ pending 마커 모두 미실행 →
-        # zoom 이 살아있는 temp 파일을 참조하지 못하는 경우 없음, Pitfall 3). fault_zoom
-        # stage 로그는 계속 방출하되 timings_ms 는 이미 저장됨 → 사후 zoom 소요는 로그
-        # 라인으로만(= MEDIUM-3 두-지표 분리의 데이터 소스: complete 까지 timingsMs 합 =
-        # time-to-first-result, + 사후 fault_zoom 로그 = server task 총 시간).
-        fault_zoom_items: list[dict] = []  # quick-260811-kpo — 스테이지 스킵 시 빈 리스트
-        if fault_zoom_kind is not None:
-            with _stage(timings_ms, analysis_id, "fault_zoom"):
-                if fault_zoom_kind == "mode1":
-                    _zoom_render = lambda: _build_fault_zoom_comparisons(
-                        result,
-                        local_video_path,
-                        reference_local_video_path,
-                        keypoint_report_dict,
-                        reference_keypoint_report_dict,
-                        profile,
-                        uid,
-                        analysis_id,
-                        bucket,
-                        dtw_match=reference_dtw_match,
-                        cached_user_frames=cached_user_frames,  # Task 3 — 재추출 소멸
-                    )
-                else:  # mode3 — 현재 vs 지난 영상 변화 부위 확대 비교 (mode3=progress)
-                    _zoom_render = lambda: _build_mode3_fault_zoom_comparisons(
-                        result,
-                        local_video_path,
-                        keypoint_report_dict,
-                        mode3_prev,
-                        profile,
-                        uid,
-                        analysis_id,
-                        bucket,
-                        cached_user_frames=cached_user_frames,  # Task 3 — 재추출 소멸
-                        dtw_match=prev_dtw_match,  # 28-04 — mode3 DTW 대응 프레임 정렬
-                    )
-                # quick-260811-kpo — 부착 카드 수령 (compare_render 스테이지의
-                # 게이트-상속 대체 부착이 advisory 를 보존하는 in-memory 근거.
+        def _post_side(stage_timings: dict) -> tuple[list[dict], list[dict]]:
+            # 프레임 캐시 해제(아래 `= None`)는 곁가지 안에서만 — 지금 순서 그대로.
+            nonlocal cached_user_frames
+
+            # ── Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오 사후 합성 ────────
+            # complete(status='done') 이후 표현물 스테이지 (fault_zoom 사후 분리 선례).
+            # zoom(ffmpeg 재디코딩 수십 초)보다 **앞**에 두어 오디오가 먼저 도착 — 32-12
+            # audioCue prefetch 성립 시점 단축. 합성은 문장 N개 Polly 호출(수 초)이라
+            # zoom 지연 미미. timings_ms 는 이미 저장됨 → 사후 소요는 stage 로그
+            # 라인으로만 (fault_zoom 관례). 실패 전부 graceful — 분석 무훼손 (SP-3).
+            with _stage(stage_timings, analysis_id, "coach_audio"):
+                # quick-260808-jix — items 수령 (compare_render 스테이지 mp3 회수용.
                 # 반환 additive — 실패 경로는 빈 리스트, 기존 동작 불변).
-                fault_zoom_items = _run_deferred_fault_zoom(
-                    render=_zoom_render, uid=uid, analysis_id=analysis_id
+                coach_audio_items = _run_deferred_coach_audio(
+                    result=result, uid=uid, analysis_id=analysis_id, bucket=bucket
                 )
-            # Phase 27 Task 3 — zoom 렌더 완료 후 프레임 캐시 명시 해제(메모리 반환).
-            # (inputs.frames 참조도 함수 종료 시 GC — cached 로컬만 즉시 끊는다.)
-            cached_user_frames = None
 
-        # ── Phase 32 (Plan 32-13, D-22/D-23) — 문장↔영상 스팟체크 사후 스테이지 ──
-        # firestore_complete **이후** (사후 표현물 검수 — fault_zoom/coach_audio
-        # 사후 분리 선례, 셋 중 마지막). 동기 채점 경로에 호출 금지 — 구조로 속도
-        # 예산 보호 (phase 27 1분대 회귀 0). timings_ms 는 이미 저장됨 → 사후
-        # 소요는 stage 로그 라인으로만 (fault_zoom 관례). 프레임은 inputs.frames
-        # 재사용 (cached_user_frames 해제 후에도 유효 — 재추출/재디코딩 0).
-        # 실패 전부 graceful — 분석 무훼손 (SP-3, T-32-31).
-        with _stage(timings_ms, analysis_id, "spot_check"):
-            _run_deferred_spot_check(
-                result=result,
-                angles=angles,
-                profile=profile,
-                frames=inputs.frames,
-                uid=uid,
-                analysis_id=analysis_id,
-            )
+            # Phase 27 SPD-04 (D-06) — fault_zoom 사후 렌더. complete_analysis 로 점수/verdict/
+            # 감점 내역이 확정된 뒤(status='done'), zoom PNG 를 여기서 렌더해
+            # update_analysis_fault_zoom(done/failed) 부분 업데이트로 도착시킨다. **분석 간
+            # SERIAL 불변** — 다음 분석은 이 BackgroundTask 종료(finally) 후에만 시작하므로
+            # 별도 태스크 불필요(27-RESEARCH Pattern 5). local_video_path/
+            # reference_local_video_path 는 아래 outer finally unlink **前**이라 여기서 유효
+            # (조기 raise 경로는 complete 미도달 → 이 블록/ pending 마커 모두 미실행 →
+            # zoom 이 살아있는 temp 파일을 참조하지 못하는 경우 없음, Pitfall 3). fault_zoom
+            # stage 로그는 계속 방출하되 timings_ms 는 이미 저장됨 → 사후 zoom 소요는 로그
+            # 라인으로만(= MEDIUM-3 두-지표 분리의 데이터 소스: complete 까지 timingsMs 합 =
+            # time-to-first-result, + 사후 fault_zoom 로그 = server task 총 시간).
+            # quick-261003-svg — 곁가지는 _run_post_stages 의 with 종료에서 join 되므로
+            # outer finally 의 unlink 보다 반드시 먼저 끝난다.
+            fault_zoom_items: list[dict] = []  # quick-260811-kpo — 스테이지 스킵 시 빈 리스트
+            if fault_zoom_kind is not None:
+                with _stage(stage_timings, analysis_id, "fault_zoom"):
+                    if fault_zoom_kind == "mode1":
+                        _zoom_render = lambda: _build_fault_zoom_comparisons(
+                            result,
+                            local_video_path,
+                            reference_local_video_path,
+                            keypoint_report_dict,
+                            reference_keypoint_report_dict,
+                            profile,
+                            uid,
+                            analysis_id,
+                            bucket,
+                            dtw_match=reference_dtw_match,
+                            cached_user_frames=cached_user_frames,  # Task 3 — 재추출 소멸
+                        )
+                    else:  # mode3 — 현재 vs 지난 영상 변화 부위 확대 비교 (mode3=progress)
+                        _zoom_render = lambda: _build_mode3_fault_zoom_comparisons(
+                            result,
+                            local_video_path,
+                            keypoint_report_dict,
+                            mode3_prev,
+                            profile,
+                            uid,
+                            analysis_id,
+                            bucket,
+                            cached_user_frames=cached_user_frames,  # Task 3 — 재추출 소멸
+                            dtw_match=prev_dtw_match,  # 28-04 — mode3 DTW 대응 프레임 정렬
+                        )
+                    # quick-260811-kpo — 부착 카드 수령 (compare_render 스테이지의
+                    # 게이트-상속 대체 부착이 advisory 를 보존하는 in-memory 근거.
+                    # 반환 additive — 실패 경로는 빈 리스트, 기존 동작 불변).
+                    fault_zoom_items = _run_deferred_fault_zoom(
+                        render=_zoom_render, uid=uid, analysis_id=analysis_id
+                    )
+                # Phase 27 Task 3 — zoom 렌더 완료 후 프레임 캐시 명시 해제(메모리 반환).
+                # (inputs.frames 참조도 함수 종료 시 GC — cached 로컬만 즉시 끊는다.)
+                cached_user_frames = None
 
-        # ── Phase 35 (quick-260808-jix) — 합성 비교 영상 사후 렌더 ──────────
-        # spot_check **뒤** = 사후 표현물 스테이지 중 마지막 (가장 무거운 표현물
-        # — 15fps GPU 재추출 + DTW + 30fps 합성 렌더 + 리그). local_video_path /
-        # reference_local_video_path 는 아래 outer finally unlink **前**이라 여기서
-        # 두 로컬 영상이 유효 (fault_zoom 주석 선례). 게이트 미충족 = doc 필드
-        # 무접촉 스킵. 실패 전부 graceful — 분석 무훼손 (재raise 0).
-        with _stage(timings_ms, analysis_id, "compare_render"):
-            _run_deferred_compare_render(
-                result=result,
-                keypoint_report_dict=keypoint_report_dict,
-                coach_audio_items=coach_audio_items,
-                mode=mode,
-                uid=uid,
-                analysis_id=analysis_id,
-                bucket=bucket,
-                local_video_path=local_video_path,
-                reference_local_video_path=reference_local_video_path,
-                # quick-260811-kpo — 게이트-상속 카드 대체 부착 재료 (성립 게이트
-                # 판정 후 기존 카드를 영상 정지 상속 카드로 교체, advisory 보존).
-                reference_keypoint_report_dict=reference_keypoint_report_dict,
-                profile=profile,
-                fault_zoom_items=fault_zoom_items,
-            )
+            # ── Phase 32 (Plan 32-13, D-22/D-23) — 문장↔영상 스팟체크 사후 스테이지 ──
+            # firestore_complete **이후** (사후 표현물 검수 — fault_zoom/coach_audio
+            # 사후 분리 선례, 셋 중 마지막). 동기 채점 경로에 호출 금지 — 구조로 속도
+            # 예산 보호 (phase 27 1분대 회귀 0). timings_ms 는 이미 저장됨 → 사후
+            # 소요는 stage 로그 라인으로만 (fault_zoom 관례). 프레임은 inputs.frames
+            # 재사용 (cached_user_frames 해제 후에도 유효 — 재추출/재디코딩 0).
+            # 실패 전부 graceful — 분석 무훼손 (SP-3, T-32-31).
+            with _stage(stage_timings, analysis_id, "spot_check"):
+                _run_deferred_spot_check(
+                    result=result,
+                    angles=angles,
+                    profile=profile,
+                    frames=inputs.frames,
+                    uid=uid,
+                    analysis_id=analysis_id,
+                )
+            return coach_audio_items, fault_zoom_items
+
+        def _post_compare_render(
+            coach_audio_items: list[dict], fault_zoom_items: list[dict]
+        ) -> None:
+            # ── Phase 35 (quick-260808-jix) — 합성 비교 영상 사후 렌더 ──────────
+            # spot_check **뒤** = 사후 표현물 스테이지 중 마지막 (가장 무거운 표현물
+            # — 15fps GPU 재추출 + DTW + 30fps 합성 렌더 + 리그). local_video_path /
+            # reference_local_video_path 는 아래 outer finally unlink **前**이라 여기서
+            # 두 로컬 영상이 유효 (fault_zoom 주석 선례). 게이트 미충족 = doc 필드
+            # 무접촉 스킵. 실패 전부 graceful — 분석 무훼손 (재raise 0).
+            # quick-261003-svg — 병렬 ON 이어도 두 가지가 끝난 뒤 메인에서 혼자 돈다
+            # (오디오 · 확대 사진 결과를 받고 RTMW GPU 를 쓴다).
+            with _stage(timings_ms, analysis_id, "compare_render"):
+                _run_deferred_compare_render(
+                    result=result,
+                    keypoint_report_dict=keypoint_report_dict,
+                    coach_audio_items=coach_audio_items,
+                    mode=mode,
+                    uid=uid,
+                    analysis_id=analysis_id,
+                    bucket=bucket,
+                    local_video_path=local_video_path,
+                    reference_local_video_path=reference_local_video_path,
+                    # quick-260811-kpo — 게이트-상속 카드 대체 부착 재료 (성립 게이트
+                    # 판정 후 기존 카드를 영상 정지 상속 카드로 교체, advisory 보존).
+                    reference_keypoint_report_dict=reference_keypoint_report_dict,
+                    profile=profile,
+                    fault_zoom_items=fault_zoom_items,
+                )
+
+        _run_post_stages(
+            coach_text_stage=_post_coach_text,
+            side_stage=_post_side,
+            compare_render_stage=_post_compare_render,
+            timings_ms=timings_ms,
+            analysis_id=analysis_id,
+            parallel=_post_stage_parallel_enabled(),
+        )
     finally:
         # quick-261003-qmg — executor join 이 session.close 보다 반드시 앞. close 는 그 시점
         # 세션이 가진 핸들만 지운다(file_session.py close()) — 늦게 끝난 기준 업로드 핸들이

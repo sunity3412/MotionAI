@@ -715,16 +715,18 @@ def test_spot_check_stage_after_complete_and_fault_zoom():
 
     동기 채점 경로(complete 이전) 신규 외부 호출 0 을 소스 순서로 고정한다
     (플랜 acceptance — 속도 예산 구조 보호).
+
+    소스 순서 = POST_STAGE_PARALLEL=0 의 실행 순서. 병렬 실행 순서는
+    test_post_stage_parallel.py 가 잠근다(quick-261003-svg). 앵커는 들여쓰기 ·
+    timings 변수 이름에 묶이지 않게 공백 무관 정규식으로 찾는다.
     """
     source = (_BACKEND / "functions" / "pipeline" / "app.py").read_text(
         encoding="utf-8"
     )
     complete_pos = source.index('"firestore_complete"')
-    fault_zoom_pos = source.index(
-        "_run_deferred_fault_zoom(\n                    render="
-    )
-    stage_pos = source.index('_stage(timings_ms, analysis_id, "spot_check")')
-    deferred_pos = source.index("_run_deferred_spot_check(\n                result=")
+    fault_zoom_pos = re.search(r"_run_deferred_fault_zoom\(\s*render=", source).start()
+    stage_pos = re.search(r'_stage\(\w+, analysis_id, "spot_check"\)', source).start()
+    deferred_pos = re.search(r"_run_deferred_spot_check\(\s*result=", source).start()
     assert complete_pos < stage_pos
     assert fault_zoom_pos < stage_pos
     assert stage_pos < deferred_pos

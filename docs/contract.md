@@ -766,6 +766,11 @@ timingsMs   { [stage: string]: number }   optional  ← 단계별 소요(ms), fl
   - quick-261003-qmg 부터 `scene_finder` 는 prefetch ON 이면 첫 소비처(코칭 컨텍스트) 직전의
     잔여 대기, OFF 면 동기 호출 전체를 잰다 — 이 변경 전후 doc 의 `scene_finder` 값은 같은
     물건이 아니다(전: recognizer 앞 join 대기).
+  - `post_parallel` (quick-261003-svg) = 사후 병렬 구간(코칭 문장 ∥ 코칭 오디오 → 확대 사진 →
+    스팟체크) 벽시계. `POST_STAGE_PARALLEL` 이 켜졌을 때만(기본 ON, "0" 이면 직렬 · 키 없음).
+    complete 뒤 단계라 저장 doc 의 timingsMs 에는 없고 stage_timing 로그로만 나온다
+    (`coach_dual` · `fault_zoom` 등 다른 사후 키와 같다). 병렬 ON 이면 사후 키들의 합은 사후
+    대기 시간이 아니다 — 겹친 구간은 `post_parallel` 이 잰다.
   - **부재 = 계측 이전(legacy) doc** — optional, migration 없음.
   - Python 정본: pipeline `app.py` `_stage` contextmanager 주석 (자유 키 dict — status
     enum 아님, models.py 상수 불필요). lockstep: `app/src/types/analysis.ts

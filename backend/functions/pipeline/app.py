@@ -46,10 +46,10 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from concurrent.futures import ThreadPoolExecutor  # Phase 27 D-03 — 분석-로컬 prefetch
+from concurrent.futures import Future, ThreadPoolExecutor  # Phase 27 D-03 — 분석-로컬 prefetch
 from enum import Enum
 from pathlib import Path
-from typing import Iterator, NamedTuple
+from typing import Any, Iterator, NamedTuple
 
 import boto3  # Lambda 런타임 제공
 from botocore.config import Config as BotoConfig  # 다운로드 가속 엔드포인트(_s3_dl)
@@ -538,6 +538,140 @@ def _safe_unlink_local_video(local_video_path: str | None) -> None:
             local_video_path,
             exc,
         )
+
+
+# ── quick-261003-qmg — 기준 영상 prefetch (S3 다운로드 + Gemini 업로드) ──────────
+#
+# 왜: mode1 + veto ON 분석은 veto 직전에 기준 영상(v1 ≈100MB)을 S3 에서 받고 Gemini
+# File API 에 **매 분석 새로** 올렸다. 38-14 Pod 로그(.planning/phases/38-supplier-link/
+# evidence/runpod_server_38_14_1002.log)에서 이 업로드+ACTIVE 폴링이 ≈42초였고 어느
+# stage_timing 에도 잡히지 않았다(메모리 analysis-time-reference-gemini-reupload-42s).
+# 아래 헬퍼는 그 일을 학생 영상 다운로드 직후 분석-로컬 executor 에 올려 포즈(RTMW)
+# 그늘에 숨기는 장치다.
+#
+# 규율:
+#   · 분석-로컬 executor 에서만 부른다. 분석 간 핸들 재사용(모듈 전역 캐시)은 하지
+#     않는다 — 세션은 분석마다 close 로 지운다(Phase 27 D-04 · 20GB 적체 규율).
+#   · 실패는 전부 None. 소비처(_process 의 기준 영상 확보 자리 · veto 직전 업로드)는
+#     None 이면 기존 동기 경로로 폴백한다 — 분석 흐름 차단 0.
+#   · 채점 경로가 읽은 ref doc 의 videoS3Key 와 prefetch 키가 다르면 쓰지 않는다
+#     (다른 기준 영상으로 veto 하는 것 차단). 그 temp 를 바로 지우지 않는 이유 = 업로드
+#     future 가 아직 그 파일을 읽고 있을 수 있다(WR-02 선례 — future 생존 중 unlink 0).
+#     정리는 executor join 뒤 outer finally 에서 `_prefetched_reference_temp_path` 로.
+
+
+def _reference_prefetch_wanted(mode: str | None, ref_motion_id: object) -> bool:
+    """기준 영상 prefetch 대상인가 — mode1 + 기준 id 있음 + veto ON.
+
+    veto 가 꺼져 있으면 기준 영상을 받을 소비처 자체가 없다(:기준 영상 확보 자리가
+    `_gemini_vision_veto_enabled()` 게이트 안). mode3 · id 없음도 마찬가지 — 이때는
+    추가 Firestore 읽기 0 · 추가 S3 다운로드 0 이어야 한다.
+    """
+    return (
+        mode == models.MODE_EXPERT
+        and bool(ref_motion_id)
+        and _gemini_vision_veto_enabled()
+    )
+
+
+def _prefetch_reference_video(
+    bucket: str, motion_id: object
+) -> tuple[str, str] | None:
+    """기준 doc 의 videoS3Key 를 temp 로 받아 (key, path) 반환 — executor 스레드 전용.
+
+    temp 접미사·생성 방식은 `_process` 의 동기 기준 다운로드 블록과 같다. 어떤 예외든
+    log.warning + 만든 temp 정리 + None — 절대 raise 하지 않는다.
+    """
+    tmp_name: str | None = None
+    try:
+        ref = firestore_admin.get_reference_motion(motion_id)
+        key = (ref or {}).get("videoS3Key")
+        if not key:
+            return None
+        ext = os.path.splitext(key)[1] or ".mp4"
+        tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+        tmp_name = tmp.name
+        tmp.close()
+        _s3_download(bucket, key, tmp_name)
+        return key, tmp_name
+    except Exception as exc:  # noqa: BLE001 - prefetch 실패는 동기 폴백으로 흡수
+        log.warning(
+            "reference prefetch 다운로드 실패 — 동기 폴백 motion_id=%s err=%s",
+            motion_id,
+            type(exc).__name__,
+        )
+        if tmp_name is not None:
+            _safe_unlink_local_video(tmp_name)
+        return None
+
+
+def _upload_prefetched_reference(
+    session: Any, download_future: Future | None
+) -> Any | None:
+    """prefetch 다운로드가 끝나면 그 파일을 세션에 올린다 — executor 스레드 전용.
+
+    `session.get_or_upload` 는 같은 경로 동시 호출을 inflight 로 묶으므로, veto 직전
+    소비처의 같은 호출은 캐시 hit 또는 진행 중 업로드 대기로 끝난다(이중 업로드 0).
+    다운로드 실패/None 이면 None — 절대 raise 하지 않는다.
+    """
+    if download_future is None:
+        return None
+    try:
+        downloaded = download_future.result()
+        if downloaded is None:
+            return None
+        return session.get_or_upload(downloaded[1])
+    except Exception as exc:  # noqa: BLE001 - prefetch 실패는 동기 폴백으로 흡수
+        log.warning(
+            "reference prefetch 업로드 실패 — 동기 폴백 err=%s", type(exc).__name__
+        )
+        return None
+
+
+def _take_prefetched_reference_path(
+    download_future: Future | None, expected_key: str
+) -> str | None:
+    """메인 스레드 — prefetch 결과를 기다려 채점 경로의 키와 같을 때만 path 반환.
+
+    불일치여도 파일을 지우지 않는다 — 업로드 future 가 아직 읽고 있을 수 있다(WR-02).
+    정리는 executor join 뒤 finally 가 `_prefetched_reference_temp_path` 로 한다.
+    """
+    if download_future is None:
+        return None
+    try:
+        downloaded = download_future.result()
+    except Exception as exc:  # noqa: BLE001 - 헬퍼는 raise 하지 않는다(계약)
+        log.warning(
+            "reference prefetch 결과 수령 실패 — 동기 폴백 err=%s", type(exc).__name__
+        )
+        return None
+    if downloaded is None:
+        return None
+    key, path = downloaded
+    if key != expected_key:
+        log.warning(
+            "reference prefetch 키 불일치 — 동기 폴백 prefetch_key=%s scoring_key=%s",
+            key,
+            expected_key,
+        )
+        return None
+    return path
+
+
+def _prefetched_reference_temp_path(download_future: Future | None) -> str | None:
+    """정리 전용 — executor join 뒤에만 부른다. 기다리지 않고 raise 하지 않는다.
+
+    미완료 future 는 None(그 경우 join 이 안 된 것이므로 지울 자격이 없다).
+    """
+    if download_future is None or not download_future.done():
+        return None
+    try:
+        downloaded = download_future.result(timeout=0)
+    except Exception:  # noqa: BLE001 - 실패한 prefetch 는 헬퍼가 이미 temp 를 지웠다
+        return None
+    if downloaded is None:
+        return None
+    return downloaded[1]
 
 
 # ── Plan 17-02 Wave 1 — 영역 C Finding 장면 인식 wiring ─────────────────────

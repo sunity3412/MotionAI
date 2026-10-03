@@ -188,3 +188,40 @@ pipeline 묶음을 그 순서로 돌릴 때만 실패하고, 단독(`tests/gemin
 - 파일: backend/functions/pipeline/app.py · backend/tests/test_ref_prefetch_scene_join.py · docs/contract.md 존재 확인.
 - 커밋: 5c5cfef · 14a06b1 · ab794ab · 9214303 · 47c5505 — `git log` 에 존재.
 - `grep -c "ref_upload" docs/contract.md` = 2.
+
+## Pod 실측 (2026-10-03, belle "1번" — 오케스트레이터 실행)
+
+### 관측 [확인]
+
+- Pod `mwuyu9gpf4p0ks` RTX 4090(38-14 와 같은 종류, securePrice $0.74/h) · 생성 10:56Z → 종료 11:33Z · 잔액 $15.03 → $14.57.
+  종료 = `pod_teardown.py mwuyu9gpf4p0ks` → Lambda `RUNPOD_ANALYZE_URL` = `https://pod-down.invalid/analyze` · SSM `pod-expected=down` · 계정 Pod 0대 [확인 조회].
+- 한 Pod 안에서 서버만 재시작해 코드를 바꿨다: 전 = `367d676a`(qmg 직전) · 후 = `8d3f78cb`(origin/main). `/health` commitSha 로 각 판 확인.
+  순서 = 전1 → 후1 → 후2 → 전2. 각 분석의 사후 단계가 끝난 뒤 다음을 보냈다(겹침 0).
+- 입력 = 38-14 와 같은 쌍: 학생 `uploads/zVJP…/2a7495bb….mp4`(101,449,272 B, ref-sideway-spin) · 기준 `d8e849f7…` v1(100,563,855 B).
+  경로 = `backend/scripts/e2e_app_path.py`(upload-url → Firestore doc → S3 PUT → SQS → Lambda → Pod), 익명 계정 1개(`GCjT…`)에 4건.
+- 로그 = `evidence/qmg_before_runpod_server.log`(전1) · `evidence/qmg_after_runpod_server.log`(후1·후2) · `evidence/qmg_before2_runpod_server.log`(전2). Traceback · RESOURCE_EXHAUSTED · 429 = 0 [확인 grep].
+
+**점수 도착 시간** (Pod `/analyze accepted` → `분석 완료 … mode=mode1`):
+
+| 판 | 런 | 시간 | dtw 끝 → veto 시작 공백 | scene_finder | recognizer | veto_collect | 기타(ref_upload 등) |
+|---|---|---|---|---|---|---|---|
+| 전 | 1 | **149.9초** | 34.3초 | 32.2초 | 5.2초 | 27.8초 | — |
+| 전 | 2 | **160.8초** | 33.0초 | 47.8초 | 4.7초 | 26.5초 | — |
+| 후 | 1 | **121.3초** | 0 | 0(새 자리) | **52.3초** | 23.1초 | student_upload_wait 0 · ref_video_download 0 · ref_upload 0 · `기준 영상 prefetch 사용` 로그 1 |
+| 후 | 2 | **103.6초** | 0 | 0(새 자리) | **40.8초** | 23.4초 | 같음 |
+
+- 평균: 전 155.3초 → 후 112.4초 = **−42.9초**(n=2 씩).
+- 단계 밖 공백(기준 영상 업로드) ≈33~34초 → 0 [확인]. scene_finder 대기 32~48초 → 0 이지만 **recognizer 가 5초 → 41~52초** 로 늘었다 [확인].
+  scene + recognizer 합: 전 37.3 / 52.6초 · 후 52.3 / 40.8초.
+- 점수 불변: 4건 모두 `overallScore 100` · `deductionBreakdown.final 100` · `dimensionScores {angle 100, stability 98}` [확인].
+  result 잎 필드 155개 중 136개 4건 동일. 다른 19개 = 분석 ID 가 든 키·URL(6) · timingsMs(11, 새 키 3 포함) · `analysisVersion.commitSha` · `faultZoomComparisons`/`faultZoomStatus`(아래) [확인 비교 스크립트].
+- 전2(옛 코드)에서 `faultZoomStatus failed` · `faultZoomComparisons []` — 로그 `fault-zoom 사후 렌더 실패 — failed 마킹 시도` WARNING 1줄, traceback 없음, fault_zoom 460ms [확인]. 나머지 3건 done.
+- 38-14 기준선(10-02, 같은 쌍, 옛 코드)은 3분 40초였고 그날 veto 72.2초 · scene 44.8초. 오늘 옛 코드는 2분 30~41초(veto 26~28초) — 날마다 Gemini 응답 시간이 다르다 [확인 두 날 timingsMs].
+
+### 진단 — 재검증 대상 [미확인]
+
+- recognizer 증가는 scene_finder 의 Gemini 호출과 겹쳐서 생긴 대기로 보인다 — 전에는 scene 이 끝난 뒤 recognizer 가 돌았다.
+  겹치는 호출이 서버(같은 키·같은 파일) 또는 클라이언트 쪽에서 직렬화되는지는 안 쟀다. 그래서 **(2) scene join 이동의 순효과는 이 측정에서 0 근처**이고,
+  −43초는 거의 (1) 기준 영상 prefetch(≈33초) + Gemini 편차다.
+- 다음 후보: recognizer 와 scene_finder 가 정말 같이 돌 수 있으면 ≈40초가 더 줄 수 있다 — 원인부터 재야 한다(같은 영상으로 두 호출 동시/순차 타이밍).
+- fault-zoom 사후 실패 1/4 는 옛 코드 쪽이고 이번 변경 밖이다. 원인 로그가 없어 원인 미상.

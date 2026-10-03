@@ -518,6 +518,23 @@ def _gemini_upload_prefetch_enabled() -> bool:
     return raw.strip().lower() not in _VISION_FALSY
 
 
+def _post_stage_parallel_enabled() -> bool:
+    """POST_STAGE_PARALLEL 토글 (quick-261003-svg, pipeline 단독 소유).
+
+    점수 뒤 사후 단계를 두 가지로 겹칠지 — 메인 = 코칭 문장(coach_text), 곁가지 =
+    코칭 오디오 → 확대 사진 → 스팟체크. compare_render 는 어느 쪽이든 맨 뒤.
+
+      · default ON ("1"). "0"/"false"/"" 면 지금 직렬 그대로 — 롤백 · 같은 Pod 전후
+        대조 레버(재배포 없이 env 만 바꿔 서버 재시작).
+      · 매 호출 env 를 읽는다(모듈 적재 시 고정 금지) — 위 대조가 재적재 없이 된다.
+
+    Returns:
+        True = 사후 병렬. False = 직렬.
+    """
+    raw = os.environ.get("POST_STAGE_PARALLEL", "1")
+    return raw.strip().lower() not in _VISION_FALSY
+
+
 def _safe_unlink_local_video(local_video_path: str | None) -> None:
     """local_video_path 안전 unlink — 실패 시 log.warning + graceful return.
 
@@ -5092,6 +5109,83 @@ def _build_mode3_fault_zoom_comparisons(
         )
     finally:
         _safe_unlink_local_video(prev_video_path)
+
+
+# ═══════ quick-261003-svg — 사후 단계 오케스트레이터 (코칭 문장 ∥ 곁가지) ═══════
+#
+# complete_analysis(status='done') 뒤 사후 단계 다섯 개가 한 줄로 돌았다 — 38-14 쌍 Pod
+# 증거 로그(quick-261003-qmg)에서 coach_dual 58~87초 · fault_zoom 66~112초 ·
+# spot_check 7.5~9.5초 · compare_render 73~77초. 화면이 다 채워지는 시간은 이 합이다.
+#
+# 왜 이렇게 나눴나 (코드로 확인한 것):
+#   · 코칭 오디오는 감점 records 의 cueLine(문구집 문장)만 읽는다 — 코칭 문장 결과 무의존.
+#   · 곁가지(오디오 · 확대 사진 · 스팟체크)는 in-memory result 에 쓰지 않는다(읽기만).
+#     코칭 문장이 쓰는 키(tips · coachStatus · 리포트 hook)를 곁가지는 읽지 않는다.
+#   · Firestore 부분 갱신 field-path 가 단계마다 다르다(공유는 updatedAt 하나).
+#   · 곁가지의 Gemini 호출은 인라인 JPEG 뿐 — 학생 File API 파일을 쓰는 사후 호출은
+#     코칭 문장(coach B) 하나라 같은 파일 동시 호출 쌍이 없다.
+#   · 곁가지 안 순서(오디오 → 확대 사진 → 스팟체크)는 직렬 때와 같다.
+# 왜 compare_render 는 뒤인가: 오디오 · 확대 사진 결과를 받고 RTMW(GPU)를 쓴다 — 어떤
+#   단계와도 겹치지 않게 두 가지가 끝난 뒤 메인에서 혼자 돈다.
+# 곁가지 타이밍은 전용 dict 에 잰다 — 두 스레드가 같은 dict 에 키를 더하지 않게 하고,
+#   join 뒤 메인이 timings_ms 에 합친다(저장은 complete 에서 끝났고 로그로만 나간다).
+
+
+def _run_post_stages(
+    *,
+    coach_text_stage,
+    side_stage,
+    compare_render_stage,
+    timings_ms: dict,
+    analysis_id: str,
+    parallel: bool,
+) -> None:
+    """사후 단계 실행 — 코칭 문장(메인) · 곁가지 · compare_render(맨 뒤).
+
+    Args:
+      coach_text_stage: (stage_timings) -> None — 코칭 문장 단계.
+      side_stage: (stage_timings) -> (coach_audio_items, fault_zoom_items) —
+        코칭 오디오 → 확대 사진 → 스팟체크를 같은 스레드 안에서 차례로.
+      compare_render_stage: (coach_audio_items, fault_zoom_items) -> None.
+      parallel: False = 직렬(코칭 문장 → 곁가지 → compare_render, 전부 메인,
+        두 단계 모두 timings_ms 를 그대로 받는다). True = 곁가지를 분석-로컬
+        스레드("post_side")에 띄우고 메인에서 코칭 문장을 돌린 뒤 둘 다 끝나면
+        compare_render.
+
+    병렬일 때:
+      · pool 은 이 함수 지역(분석-로컬, Phase 27 D-03 규율 — 모듈 전역 금지).
+      · 곁가지에서 예외가 새면(각 단계는 원래 재raise 0 — 계약 밖 경로) 경고 한 줄
+        (예외 타입 이름만 — 본문 · URL · 키 미기록) 뒤 빈 목록으로 compare_render 를 계속.
+      · 메인 가지 예외는 잡지 않는다. with 종료(shutdown wait=True)가 곁가지를 기다린
+        뒤에 전파된다 — 곁가지가 _process outer finally 의 executor.shutdown →
+        session.close → 임시 파일 unlink 보다 반드시 먼저 끝나는 근거.
+      · BaseException 은 잡지 않는다.
+    """
+    if not parallel:
+        coach_text_stage(timings_ms)
+        audio_items, zoom_items = side_stage(timings_ms)
+        compare_render_stage(audio_items, zoom_items)
+        return
+
+    side_timings: dict[str, int] = {}
+    audio_items: list[dict] = []
+    zoom_items: list[dict] = []
+    with _stage(timings_ms, analysis_id, "post_parallel"):
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="post_side") as pool:
+            future = pool.submit(side_stage, side_timings)
+            coach_text_stage(timings_ms)
+            try:
+                audio_items, zoom_items = future.result()
+            except Exception as exc:  # noqa: BLE001 - 곁가지 실패는 compare_render 비차단
+                log.warning(
+                    "사후 곁가지 실패 — compare_render 는 빈 목록으로 계속 "
+                    "analysis_id=%s err=%s",
+                    analysis_id,
+                    type(exc).__name__,
+                )
+                audio_items, zoom_items = [], []
+    timings_ms.update(side_timings)
+    compare_render_stage(audio_items, zoom_items)
 
 
 def _run_deferred_fault_zoom(
